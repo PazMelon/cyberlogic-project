@@ -3,9 +3,18 @@
 // All data is hardcoded for frontend mockup
 // ============================================
 
+export interface BlogSection {
+  id: string;
+  heading?: string;
+  body?: string;
+  layout: "single" | "carousel" | "bento" | "masonry" | "split" | "showcase" | "none";
+  images?: string[];
+}
+
 export interface Announcement {
   id: number;
   title: string;
+  subtitle?: string;
   excerpt: string;
   content: string;
   category: "General" | "Academic" | "Events";
@@ -13,6 +22,7 @@ export interface Announcement {
   authorAvatar: string;
   date: string;
   pinned: boolean;
+  sections?: BlogSection[];
 }
 
 export interface Event {
@@ -61,75 +71,179 @@ export const announcements: Announcement[] = [
   {
     id: 1,
     title: "Cyberlogic Club Recruitment — Now Open!",
+    subtitle: "Join the premier student cyber security force and secure your digital future.",
     excerpt:
       "We're looking for passionate students who want to explore cybersecurity, programming, and tech innovation. Apply before July 15!",
-    content: "",
+    content: "Our organization is gearing up for a brand new semester. Whether you are an experienced script kiddie or just getting started with network commands, we have a place for you.",
     category: "General",
     author: "Admin",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=admin",
     date: "2026-07-01",
     pinned: true,
+    sections: [
+      {
+        id: "section-1-1",
+        heading: "Who We Are",
+        body: "Cyberlogic Club is more than just a tech organization. We are a cohort of security researchers, software developers, and system administrators dedicated to mastering the digital domain. We run weekly sessions on ethical hacking, defensive security, reverse engineering, and cloud configurations.",
+        layout: "none"
+      },
+      {
+        id: "section-1-2",
+        heading: "Interactive Hands-on Training Labs",
+        body: "Get ready to dive into actual Capture the Flag (CTF) environments, network penetration rigs, and coding bootcamps. Our labs are loaded with premium toolsets to help you train in real-world scenarios.",
+        layout: "bento",
+        images: [
+          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=600&auto=format&fit=crop&q=60"
+        ]
+      },
+      {
+        id: "section-1-3",
+        heading: "Membership Benefits",
+        body: "As a member of Cyberlogic, you will gain access to exclusive study guides, vouchers for industry certifications, premium networking events with cyber security leaders, and team representation in national hacking competitions.",
+        layout: "none"
+      }
+    ]
   },
   {
     id: 2,
     title: "CTF Competition Results — Congratulations Team Alpha!",
+    subtitle: "How Cyberlogic's elite hackers secured 2nd place in the National capture-the-flag final.",
     excerpt:
       "Our very own Team Alpha secured 2nd place at the National CTF Challenge. Read about their journey and strategies.",
-    content: "",
+    content: "The final scoreboard was locked in after 24 hours of non-stop vulnerability hunting. Team Alpha showcased incredible resilience in cryptography, web exploitation, and buffer overflow challenges.",
     category: "Events",
     author: "Coach Rivera",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=rivera",
     date: "2026-06-28",
     pinned: false,
+    sections: [
+      {
+        id: "section-2-1",
+        heading: "A Hard-Fought Digital Battle",
+        body: "The competition gathered over 100 universities nationwide. From the first hour, Team Alpha took an aggressive stance, scoring first blood on a challenging reverse engineering binary payload. We are incredibly proud of their teamwork and technical agility.",
+        layout: "split",
+        images: ["https://images.unsplash.com/photo-1607799279861-4dd421887fb3?w=600&auto=format&fit=crop&q=60"]
+      },
+      {
+        id: "section-2-2",
+        heading: "Snapshots from the Flag Hunt",
+        body: "Check out the snapshots of our operations command room during the final sprint of the CTF challenge.",
+        layout: "masonry",
+        images: [
+          "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60"
+        ]
+      },
+      {
+        id: "section-2-3",
+        heading: "Strategic Highlights & Post-Mortem",
+        body: "The team focused heavily on scripting automation to brute-force crypto tokens, freeing up critical analyst time for web vulnerabilities. You can check the code walk-throughs in the upcoming academic assembly.",
+        layout: "carousel",
+        images: [
+          "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=60"
+        ]
+      }
+    ]
   },
   {
     id: 3,
     title: "New Learning Path: Introduction to Ethical Hacking",
+    subtitle: "A structured, self-paced syllabus to transition from terminal beginner to penetration tester.",
     excerpt:
       "A curated 6-week learning path covering network scanning, vulnerability assessment, and penetration testing basics.",
-    content: "",
+    content: "We are releasing a comprehensive learning deck compiled by club leaders and academic advisors to help members prepare for security roles.",
     category: "Academic",
     author: "Prof. Santos",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=santos",
     date: "2026-06-25",
     pinned: false,
+    sections: [
+      {
+        id: "section-3-1",
+        heading: "Curriculum Syllabus Overview",
+        body: "The learning path is structured into 6 modules: 1) Linux & Networking Basics, 2) Reconnaissance & OSINT, 3) Vulnerability Scanning, 4) Web Exploitation, 5) Privilege Escalation, and 6) Reporting. Each module includes practice labs.",
+        layout: "showcase",
+        images: [
+          "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80",
+          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=200&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=200&auto=format&fit=crop&q=60"
+        ]
+      }
+    ]
   },
   {
     id: 4,
     title: "Server Maintenance Scheduled — July 5",
+    subtitle: "Essential core cluster migrations to optimize portal response and latency.",
     excerpt:
       "The club portal will be undergoing maintenance from 10 PM to 2 AM. Please save your work beforehand.",
-    content: "",
+    content: "We will be transitioning our core backend virtual machines to an upgraded hypervisor nodes array to scale for the recruitment intake.",
     category: "General",
     author: "Admin",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=admin",
     date: "2026-06-22",
     pinned: false,
+    sections: [
+      {
+        id: "section-4-1",
+        heading: "What to Expect",
+        body: "During the 4-hour window, the member portal, active chat servers, and CTF practice labs will experience brief downtime intervals. Static resources will remain accessible.",
+        layout: "single",
+        images: ["https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=60"]
+      }
+    ]
   },
   {
     id: 5,
     title: "Workshop Materials Now Available",
+    subtitle: "Access files and cheat sheets from the Python Automation assembly.",
     excerpt:
       "Slides, code samples, and recordings from the Python Automation Workshop are now uploaded to the Resources section.",
-    content: "",
+    content: "If you missed our live coding workshop last week, all recordings and repository links are now live for student retrieval.",
     category: "Academic",
     author: "Maria Cruz",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=maria",
     date: "2026-06-20",
     pinned: false,
+    sections: [
+      {
+        id: "section-5-1",
+        heading: "Topics Covered",
+        body: "The files contain scripts demonstrating simple socket scanners, request-based web parsers, and auto-bruteforcers using standard libraries.",
+        layout: "none"
+      }
+    ]
   },
   {
     id: 6,
     title: "End-of-Semester Social — Save the Date!",
+    subtitle: "Unwind, game, and celebrate our accomplishments with free pizza.",
     excerpt:
       "Join us for our end-of-semester celebration on July 20. Games, food, and awards await!",
-    content: "",
+    content: "We are wrapping up a highly successful semester with an in-person social event. Drop by to play board games, participate in split-screen gaming, and meet your teammates.",
     category: "Events",
     author: "Events Committee",
     authorAvatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=events",
     date: "2026-06-18",
     pinned: false,
-  },
+    sections: [
+      {
+        id: "section-6-1",
+        heading: "Pizza, Games, and Awards",
+        body: "We will be presenting awards to the top CTF contributors of the semester, followed by gaming tournaments. RSVP via the portal before July 18.",
+        layout: "carousel",
+        images: [
+          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=600&auto=format&fit=crop&q=60",
+          "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=60"
+        ]
+      }
+    ]
+  }
 ];
 
 // ============================================

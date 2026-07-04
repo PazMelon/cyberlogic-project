@@ -84,46 +84,53 @@ export default function Announcements() {
         {/* Announcements List */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filtered.map((item) => (
-            <article
+            <Link
               key={item.id}
-              className="glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group"
+              to={isPortal ? `/app/announcements/${item.id}` : `/announcements/${item.id}`}
+              className="block group"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    item.category === "General"
-                      ? "bg-info/10 text-info"
-                      : item.category === "Events"
-                      ? "bg-accent/10 text-accent"
-                      : "bg-success/10 text-success"
-                  }`}
-                >
-                  {item.category}
-                </span>
-                {item.pinned && (
-                  <span className="inline-flex items-center gap-1 text-xs text-warning">
-                    <Pin className="w-3 h-3" /> Pinned
+              <article
+                className="glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 h-full flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        item.category === "General"
+                          ? "bg-info/10 text-info border border-info/20"
+                          : item.category === "Events"
+                          ? "bg-accent/10 text-accent border border-accent/20"
+                          : "bg-success/10 text-success border border-success/20"
+                      }`}
+                    >
+                      {item.category}
+                    </span>
+                    {item.pinned && (
+                      <span className="inline-flex items-center gap-1 text-xs text-warning">
+                        <Pin className="w-3 h-3" /> Pinned
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 line-clamp-2">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm text-text-muted mb-4 line-clamp-3">
+                    {item.excerpt}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 pt-4 border-t border-border mt-auto">
+                  <img
+                    src={item.authorAvatar}
+                    alt={item.author}
+                    className="w-7 h-7 rounded-full bg-surface-700 object-cover"
+                  />
+                  <span className="text-xs font-medium text-text-secondary flex-1">
+                    {item.author}
                   </span>
-                )}
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2">
-                {item.title}
-              </h3>
-              <p className="text-sm text-text-muted mb-4 line-clamp-3">
-                {item.excerpt}
-              </p>
-              <div className="flex items-center gap-3 pt-4 border-t border-border">
-                <img
-                  src={item.authorAvatar}
-                  alt={item.author}
-                  className="w-7 h-7 rounded-full bg-surface-700"
-                />
-                <span className="text-xs font-medium text-text-secondary flex-1">
-                  {item.author}
-                </span>
-                <time className="text-xs text-text-muted">{item.date}</time>
-              </div>
-            </article>
+                  <time className="text-xs text-text-muted">{item.date}</time>
+                </div>
+              </article>
+            </Link>
           ))}
         </div>
 

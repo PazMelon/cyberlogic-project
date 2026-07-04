@@ -16,9 +16,11 @@ import ForumThread from "./pages/ForumThread";
 import Chat from "./pages/Chat";
 import Directory from "./pages/Directory";
 import Profile from "./pages/Profile";
+import AnnouncementDetail from "./pages/AnnouncementDetail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
+import CreateAnnouncement from "./pages/admin/CreateAnnouncement";
 import EventManagement from "./pages/admin/EventManagement";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
@@ -106,6 +108,7 @@ function AppRoutes() {
       <Route element={<PublicLayout />}>
         <Route index element={<Landing />} />
         <Route path="announcements" element={<Announcements />} />
+        <Route path="announcements/:id" element={<AnnouncementDetail />} />
         <Route path="events" element={<Events />} />
         <Route path="resources" element={<Resources />} />
         <Route path="about" element={<About />} />
@@ -144,6 +147,7 @@ function AppRoutes() {
         <Route path="chat" element={<Chat />} />
         <Route path="directory" element={<Directory />} />
         <Route path="announcements" element={<Announcements />} />
+        <Route path="announcements/:id" element={<AnnouncementDetail />} />
         <Route path="events" element={<Events />} />
         <Route path="resources" element={<Resources />} />
         <Route path="profile" element={<Profile />} />
@@ -162,6 +166,7 @@ function AppRoutes() {
         <Route index element={<AdminDashboard />} />
         <Route path="members" element={<MemberManagement />} />
         <Route path="announcements" element={<AnnouncementManagement />} />
+        <Route path="announcements/create" element={<CreateAnnouncement />} />
         <Route path="events" element={<EventManagement />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />

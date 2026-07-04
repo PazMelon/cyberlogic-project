@@ -1,4 +1,5 @@
 import { Megaphone, Pin } from "lucide-react";
+import { Link, useLocation } from "react-router";
 import { Badge } from "./Badge";
 import { Card } from "./Card";
 
@@ -25,6 +26,10 @@ export function AnnouncementCard({
   layout = "default",
   index = 0,
 }: AnnouncementCardProps) {
+  const location = useLocation();
+  const isPortal = location.pathname.startsWith("/app");
+  const detailUrl = isPortal ? `/app/announcements/${announcement.id}` : `/announcements/${announcement.id}`;
+
   const categoryVariants: Record<string, "primary" | "accent" | "success" | "warning" | "error" | "info" | "neutral"> = {
     General: "info",
     Events: "accent",
@@ -35,13 +40,15 @@ export function AnnouncementCard({
 
   if (layout === "compact") {
     return (
-      <div className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-        <div className="flex items-center gap-2 mb-1">
-          <Megaphone className="w-3 h-3 text-primary" />
-          <h3 className="text-sm font-medium text-text-primary truncate flex-1">{announcement.title}</h3>
+      <Link to={detailUrl} className="block group">
+        <div className="p-2 rounded-lg hover:bg-white/5 transition-colors">
+          <div className="flex items-center gap-2 mb-1">
+            <Megaphone className="w-3 h-3 text-primary group-hover:scale-110 transition-transform" />
+            <h3 className="text-sm font-medium text-text-primary group-hover:text-primary truncate flex-1 transition-colors">{announcement.title}</h3>
+          </div>
+          <p className="text-xs text-text-muted line-clamp-1 ml-5">{announcement.excerpt}</p>
         </div>
-        <p className="text-xs text-text-muted line-clamp-1 ml-5">{announcement.excerpt}</p>
-      </div>
+      </Link>
     );
   }
 
@@ -49,43 +56,45 @@ export function AnnouncementCard({
   const delayClasses = index === 0 ? "animate-fade-in-up" : index === 1 ? "animate-fade-in-up delay-100" : "animate-fade-in-up delay-200";
 
   return (
-    <Card
-      hoverEffect
-      glowColor="primary"
-      className={`p-6 flex flex-col justify-between h-full group ${delayClasses}`}
-    >
-      <div>
-        {/* Category + Pinned Badge */}
-        <div className="flex items-center gap-2 mb-4">
-          <Badge variant={selectedVariant}>{announcement.category}</Badge>
-          {announcement.pinned && (
-            <span className="inline-flex items-center gap-1 text-xs text-warning">
-              <Pin className="w-3 h-3" /> Pinned
-            </span>
-          )}
+    <Link to={detailUrl} className="block h-full group">
+      <Card
+        hoverEffect
+        glowColor="primary"
+        className={`p-6 flex flex-col justify-between h-full group ${delayClasses}`}
+      >
+        <div>
+          {/* Category + Pinned Badge */}
+          <div className="flex items-center gap-2 mb-4">
+            <Badge variant={selectedVariant}>{announcement.category}</Badge>
+            {announcement.pinned && (
+              <span className="inline-flex items-center gap-1 text-xs text-warning">
+                <Pin className="w-3 h-3" /> Pinned
+              </span>
+            )}
+          </div>
+
+          {/* Title */}
+          <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 line-clamp-2">
+            {announcement.title}
+          </h3>
+          
+          {/* Snippet */}
+          <p className="text-sm text-text-muted mb-4 line-clamp-2">{announcement.excerpt}</p>
         </div>
 
-        {/* Title */}
-        <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 line-clamp-2">
-          {announcement.title}
-        </h3>
-        
-        {/* Snippet */}
-        <p className="text-sm text-text-muted mb-4 line-clamp-2">{announcement.excerpt}</p>
-      </div>
-
-      {/* Author + Date footer */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-        <div className="flex items-center gap-3">
-          <img
-            src={announcement.authorAvatar}
-            alt={announcement.author}
-            className="w-7 h-7 rounded-full bg-surface-700 object-cover"
-          />
-          <span className="text-xs font-medium text-text-secondary">{announcement.author}</span>
+        {/* Author + Date footer */}
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+          <div className="flex items-center gap-3">
+            <img
+              src={announcement.authorAvatar}
+              alt={announcement.author}
+              className="w-7 h-7 rounded-full bg-surface-700 object-cover"
+            />
+            <span className="text-xs font-medium text-text-secondary">{announcement.author}</span>
+          </div>
+          <time className="text-xs text-text-muted">{announcement.date}</time>
         </div>
-        <time className="text-xs text-text-muted">{announcement.date}</time>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }
