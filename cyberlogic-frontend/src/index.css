@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+/* ============================================
+   CYBERLOGIC THEME — CSS Custom Properties
+   
+   All colors are defined as CSS variables so they
+   can be dynamically overridden by an admin panel
+   in the future. Just swap these values at runtime.
+   ============================================ */
+
+@theme {
+  /* Primary Brand Colors */
+  --color-primary: var(--cl-primary, #06b6d4);
+  --color-primary-light: var(--cl-primary-light, #22d3ee);
+  --color-primary-dark: var(--cl-primary-dark, #0891b2);
+  --color-primary-glow: var(--cl-primary-glow, rgba(6, 182, 212, 0.3));
+
+  /* Secondary / Accent Colors */
+  --color-accent: var(--cl-accent, #a855f7);
+  --color-accent-light: var(--cl-accent-light, #c084fc);
+  --color-accent-dark: var(--cl-accent-dark, #9333ea);
+  --color-accent-glow: var(--cl-accent-glow, rgba(168, 85, 247, 0.3));
+
+  /* Surfaces */
+  --color-surface-950: var(--cl-surface-950, #0a0e1a);
+  --color-surface-900: var(--cl-surface-900, #0f1729);
+  --color-surface-800: var(--cl-surface-800, #151d33);
+  --color-surface-700: var(--cl-surface-700, #1e2a45);
+  --color-surface-600: var(--cl-surface-600, #2a3a5c);
+
+  /* Text Colors */
+  --color-text-primary: var(--cl-text-primary, #f1f5f9);
+  --color-text-secondary: var(--cl-text-secondary, #94a3b8);
+  --color-text-muted: var(--cl-text-muted, #64748b);
+
+  /* Status Colors */
+  --color-success: var(--cl-success, #22c55e);
+  --color-warning: var(--cl-warning, #f59e0b);
+  --color-error: var(--cl-error, #ef4444);
+  --color-info: var(--cl-info, #3b82f6);
+
+  /* Border */
+  --color-border: var(--cl-border, rgba(148, 163, 184, 0.12));
+  --color-border-light: var(--cl-border-light, rgba(148, 163, 184, 0.06));
+
+  /* Glass effect */
+  --color-glass: var(--cl-glass, rgba(15, 23, 41, 0.7));
+  --color-glass-light: var(--cl-glass-light, rgba(15, 23, 41, 0.4));
+
+  /* Fonts */
+  --font-heading: "Outfit", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--color-surface-950);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Glass card effect */
+.glass {
+  background: var(--color-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border);
+}
+
+.glass-light {
+  background: var(--color-glass-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border-light);
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: 0 0 20px var(--color-primary-glow), 0 0 60px var(--color-primary-glow);
+}
+
+.glow-accent {
+  box-shadow: 0 0 20px var(--color-accent-glow), 0 0 60px var(--color-accent-glow);
+}
+
+/* Text gradient */
+.text-gradient {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gradient border */
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  pointer-events: none;
+}
+
+/* Animated background grid */
+.cyber-grid {
+  background-image:
+    linear-gradient(var(--color-border-light) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-light) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-600);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Animation keyframes */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.5s ease-out forwards;
+}
+
+/* Staggered animation delays */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
