@@ -21,6 +21,8 @@ return new class extends Migration
             $table->string('department')->nullable();
             $table->text('address')->nullable();
             $table->date('birthday')->nullable();
+            $table->text('bio')->nullable();
+            $table->string('expertise')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');

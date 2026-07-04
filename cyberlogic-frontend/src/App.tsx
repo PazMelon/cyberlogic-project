@@ -16,6 +16,7 @@ import ForumThread from "./pages/ForumThread";
 import Chat from "./pages/Chat";
 import Directory from "./pages/Directory";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import AnnouncementDetail from "./pages/AnnouncementDetail";
 import EventDetail from "./pages/EventDetail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -156,6 +157,7 @@ function AppRoutes() {
         <Route path="resources" element={<Resources />} />
         <Route path="profile" element={<Profile />} />
         <Route path="profile/:userId" element={<Profile />} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       {/* Admin Routes */}

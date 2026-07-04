@@ -97,7 +97,7 @@ export default function Sidebar() {
           </Link>
         )}
         <Link
-          to="#"
+          to="/app/settings"
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-text-muted hover:text-text-primary hover:bg-white/5 transition-all"
           title={collapsed ? "Settings" : undefined}
         >

@@ -25,6 +25,8 @@ Route::get('/api/events/{id}', [EventController::class, 'show']);
 Route::middleware('auth')->group(function () {
     Route::post('/api/logout', [AuthController::class, 'logout']);
     Route::get('/api/user', [AuthController::class, 'user']);
+    Route::put('/api/user/profile', [AuthController::class, 'updateProfile']);
+    Route::put('/api/user/password', [AuthController::class, 'updatePassword']);
     
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);

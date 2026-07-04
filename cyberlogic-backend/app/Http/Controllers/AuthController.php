@@ -149,4 +149,68 @@ class AuthController extends Controller
             'user' => $user
         ]);
     }
+
+    /**
+     * PUT /api/user/profile
+     * Update current user's profile details.
+     */
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'year_level' => ['nullable', 'string', 'max:255'],
+            'department' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'birthday' => ['nullable', 'date'],
+            'bio' => ['nullable', 'string', 'max:2000'],
+            'expertise' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully.',
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * PUT /api/user/password
+     * Update current user's password securely.
+     */
+    public function updatePassword(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password' => ['required', 'string', 'min:8'],
+        ]);
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['The provided current password does not match our records.'],
+            ]);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->new_password)
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password changed successfully.'
+        ]);
+    }
 }

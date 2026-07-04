@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useLocation } from "react-router";
 import {
   Calendar,
   Award,
@@ -10,6 +10,11 @@ import {
   ArrowLeft,
   MessageSquare,
   Bookmark,
+  User as UserIcon,
+  Lock,
+  MapPin,
+  Cake,
+  GraduationCap
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { forumThreads, directoryMembers } from "../data/mockData";
@@ -17,8 +22,9 @@ import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, updateProfile, updatePassword } = useAuth();
   const { userId } = useParams();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
 
   // Find targeted member if userId is passed
@@ -29,43 +35,96 @@ export default function Profile() {
   // Decide if this is the logged-in user's profile
   const isOwnProfile = !userId || (targetedMember ? targetedMember.name === user?.name : false);
 
-  const initialName = isOwnProfile ? (user?.name || "John Doe") : (targetedMember?.name || "");
-  const initialBio = isOwnProfile
-    ? "Cybersecurity student and CTF enthusiast. Interested in Reverse Engineering, Web Exploitation, and Linux Administration."
-    : (targetedMember?.bio || "No biography provided.");
-  const initialExpertise = isOwnProfile
-    ? "Reverse Engineering, Web Exploitation, Network Analysis"
-    : (targetedMember?.expertise.join(", ") || "");
-
   // Form states for Settings tab
-  const [name, setName] = useState(initialName);
-  const [bio, setBio] = useState(initialBio);
-  const [expertise, setExpertise] = useState(initialExpertise);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [yearLevel, setYearLevel] = useState("");
+  const [department, setDepartment] = useState("");
+  const [address, setAddress] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [bio, setBio] = useState("");
+  const [expertise, setExpertise] = useState("");
 
-  // Sync state if userId changes
+  // Edit details status
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Change password status
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Sync state if userId or user changes
   useEffect(() => {
-    setName(initialName);
-    setBio(initialBio);
-    setExpertise(initialExpertise);
-  }, [userId, user]);
+    if (isOwnProfile && user) {
+      setFirstName(user.first_name || "");
+      setMiddleName(user.middle_name || "");
+      setLastName(user.last_name || "");
+      setYearLevel(user.year_level || "");
+      setDepartment(user.department || "");
+      setAddress(user.address || "");
+      setBirthday(user.birthday ? user.birthday.split("T")[0] : "");
+      setBio(user.bio || "");
+      setExpertise(user.expertise || "");
+    } else if (targetedMember) {
+      const parts = targetedMember.name.split(" ");
+      setFirstName(parts[0] || "");
+      setLastName(parts.slice(1).join(" ") || "");
+      setBio(targetedMember.bio || "No biography provided.");
+      setExpertise(targetedMember.expertise.join(", ") || "");
+      setYearLevel(targetedMember.yearLevel || "");
+      setDepartment(targetedMember.department || "");
+      setAddress("");
+      setBirthday("");
+    }
+  }, [userId, user, isOwnProfile, targetedMember]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1000);
+    }, 800);
     return () => clearTimeout(timer);
   }, [userId]);
 
   const activeUser = {
-    name: isOwnProfile ? name : (targetedMember?.name || "Unknown User"),
+    name: isOwnProfile 
+      ? trimFullName(firstName, middleName, lastName) 
+      : (targetedMember?.name || "Unknown User"),
     avatar: isOwnProfile ? (user?.avatar || "") : (targetedMember?.avatar || ""),
     role: isOwnProfile ? (user?.role || "Member") : (targetedMember?.role || "Member"),
     email: isOwnProfile ? (user?.email || "") : (targetedMember?.email || ""),
     joinedDate: isOwnProfile ? (user?.joinedDate || "2025-09-01") : (targetedMember?.joinedDate || "2025-09-01"),
+    yearLevel: isOwnProfile ? yearLevel : (targetedMember?.yearLevel || ""),
+    department: isOwnProfile ? department : (targetedMember?.department || ""),
+    address: isOwnProfile ? address : "",
+    birthday: isOwnProfile ? birthday : "",
   };
 
+  function trimFullName(f: string, m: string, l: string) {
+    return `${f} ${m ? m + " " : ""}${l}`.trim() || "John Doe";
+  }
+
   const [activeTab, setActiveTab] = useState<"overview" | "posts" | "saved" | "settings">("overview");
+
+  // Sync tab status with URL query parameter
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    const tabParam = query.get("tab");
+    if (tabParam === "settings" && isOwnProfile) {
+      setActiveTab("settings");
+    } else if (tabParam === "saved" && isOwnProfile) {
+      setActiveTab("saved");
+    } else if (tabParam === "posts") {
+      setActiveTab("posts");
+    } else {
+      setActiveTab("overview");
+    }
+  }, [location.search, isOwnProfile]);
 
   // Get forum activity posts by the user
   const userPosts = forumThreads.filter((t) => t.author === activeUser.name);
@@ -73,18 +132,79 @@ export default function Profile() {
   // Get saved threads
   const savedThreads = forumThreads.slice(1, 3); // mock saved
 
-  const handleSaveDetails = (e: React.FormEvent) => {
+  const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-    }, 3000);
+    if (!firstName.trim() || !lastName.trim()) {
+      setSaveError("First Name and Last Name are required.");
+      return;
+    }
+
+    setIsSavingDetails(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      await updateProfile({
+        first_name: firstName,
+        middle_name: middleName || null,
+        last_name: lastName,
+        year_level: yearLevel || null,
+        department: department || null,
+        address: address || null,
+        birthday: birthday || null,
+        bio: bio || null,
+        expertise: expertise || null,
+      });
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+      }, 4000);
+    } catch (err: any) {
+      console.error("Failed to update profile details:", err);
+      setSaveError(err.message || "Failed to update profile details.");
+    } finally {
+      setIsSavingDetails(false);
+    }
   };
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("All password fields are required.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters long.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
 
+    setIsChangingPassword(true);
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    try {
+      await updatePassword(currentPassword, newPassword);
+      setPasswordSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(() => {
+        setPasswordSuccess(false);
+      }, 4000);
+    } catch (err: any) {
+      console.error("Failed to change password:", err);
+      setPasswordError(err.message || "Failed to change password. Double check current password.");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto space-y-6">
       
       {/* Navigation Link for directory member detail profile */}
       {userId && (
@@ -96,11 +216,11 @@ export default function Profile() {
         </Link>
       )}
 
-      {/* 2-Column Reddit Layout */}
+      {/* 2-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Navigation Tabs & Tab contents */}
-        <div className="lg:col-span-8 space-y-6 order-2 lg:order-1">
+        <div className="lg:col-span-8 space-y-6 order-2 lg:order-1 animate-fadeIn">
           
           {/* Tabs header */}
           <div className="flex bg-surface-900/30 p-1.5 rounded-xl border border-border">
@@ -208,7 +328,7 @@ export default function Profile() {
                       {expertise.split(",").map((exp) => exp.trim()).filter(Boolean).map((exp) => (
                         <span
                           key={exp}
-                          className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary font-medium"
+                          className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary font-medium animate-fadeIn"
                         >
                           {exp}
                         </span>
@@ -256,81 +376,262 @@ export default function Profile() {
 
               {/* SETTINGS TAB */}
               {activeTab === "settings" && isOwnProfile && (
-                <div className="glass rounded-2xl p-5 sm:p-6 space-y-6">
-                  <div>
-                    <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] mb-1">Profile Details</h2>
-                    <p className="text-xs text-text-muted">Update your display information and biography fields.</p>
+                <div className="space-y-6">
+                  
+                  {/* Profile Details Form */}
+                  <div className="glass rounded-2xl p-5 sm:p-6 space-y-6">
+                    <div>
+                      <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] mb-1 flex items-center gap-1.5">
+                        <UserIcon className="w-4 h-4 text-primary" /> Profile Details
+                      </h2>
+                      <p className="text-xs text-text-muted">Update your display information, course details, and biography fields.</p>
+                    </div>
+
+                    {saveSuccess && (
+                      <div className="p-3.5 rounded-xl bg-success/15 border border-success/35 text-xs text-success font-medium animate-fadeIn">
+                        ✓ Profile details updated successfully!
+                      </div>
+                    )}
+                    
+                    {saveError && (
+                      <div className="p-3.5 rounded-xl bg-error/15 border border-error/35 text-xs text-error font-medium animate-fadeIn">
+                        ✗ {saveError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleSaveDetails} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-first-name" className="text-xs font-semibold text-text-secondary">First Name</label>
+                          <input
+                            id="p-first-name"
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-middle-name" className="text-xs font-semibold text-text-secondary">Middle Name</label>
+                          <input
+                            id="p-middle-name"
+                            type="text"
+                            value={middleName}
+                            onChange={(e) => setMiddleName(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-last-name" className="text-xs font-semibold text-text-secondary">Last Name</label>
+                          <input
+                            id="p-last-name"
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-email" className="text-xs font-semibold text-text-secondary">Email Address</label>
+                          <input
+                            id="p-email"
+                            type="email"
+                            value={user?.email || ""}
+                            disabled
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800/40 border border-border text-sm text-text-muted cursor-not-allowed focus:outline-none text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-school-id" className="text-xs font-semibold text-text-secondary">School Student ID</label>
+                          <input
+                            id="p-school-id"
+                            type="text"
+                            value={user?.school_id || ""}
+                            disabled
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800/40 border border-border text-sm text-text-muted cursor-not-allowed focus:outline-none text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-year-level" className="text-xs font-semibold text-text-secondary">Year Level</label>
+                          <select
+                            id="p-year-level"
+                            value={yearLevel}
+                            onChange={(e) => setYearLevel(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                          >
+                            <option value="">Select Year Level</option>
+                            <option value="1st Year">1st Year</option>
+                            <option value="2nd Year">2nd Year</option>
+                            <option value="3rd Year">3rd Year</option>
+                            <option value="4th Year">4th Year</option>
+                            <option value="5th Year">5th Year</option>
+                            <option value="Graduate">Graduate</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-dept" className="text-xs font-semibold text-text-secondary">Course / Department</label>
+                          <select
+                            id="p-dept"
+                            value={department}
+                            onChange={(e) => setDepartment(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                          >
+                            <option value="">Select Department</option>
+                            <option value="Computer Science">Computer Science</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Computer Engineering">Computer Engineering</option>
+                            <option value="Information Systems">Information Systems</option>
+                            <option value="Other">Other Major</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="p-birthday" className="text-xs font-semibold text-text-secondary">Birthday</label>
+                          <input
+                            id="p-birthday"
+                            type="date"
+                            value={birthday}
+                            onChange={(e) => setBirthday(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="p-address" className="text-xs font-semibold text-text-secondary">Address Details</label>
+                        <input
+                          id="p-address"
+                          type="text"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder="House No, Street, City, Province"
+                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="p-expertise" className="text-xs font-semibold text-text-secondary">Skills & Expertises (comma separated)</label>
+                        <input
+                          id="p-expertise"
+                          type="text"
+                          value={expertise}
+                          onChange={(e) => setExpertise(e.target.value)}
+                          placeholder="e.g. Penetration Testing, Python, Crypto"
+                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="p-bio" className="text-xs font-semibold text-text-secondary">About Info</label>
+                        <textarea
+                          id="p-bio"
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          rows={4}
+                          placeholder="Tell members about yourself..."
+                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all resize-none text-xs"
+                        />
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={isSavingDetails}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Save className="w-4 h-4" /> 
+                          {isSavingDetails ? "Saving..." : "Save Details"}
+                        </button>
+                      </div>
+                    </form>
                   </div>
 
-                  {saveSuccess && (
-                    <div className="p-3.5 rounded-xl bg-success/15 border border-success/35 text-xs text-success font-medium">
-                      ✓ Profile details updated successfully!
+                  {/* Account Security Change Password Form */}
+                  <div className="glass rounded-2xl p-5 sm:p-6 space-y-6">
+                    <div>
+                      <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] mb-1 flex items-center gap-1.5">
+                        <Lock className="w-4 h-4 text-accent" /> Change Password
+                      </h2>
+                      <p className="text-xs text-text-muted">Ensure your account is protected by updating your security key credentials.</p>
                     </div>
-                  )}
 
-                  <form onSubmit={handleSaveDetails} className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {passwordSuccess && (
+                      <div className="p-3.5 rounded-xl bg-success/15 border border-success/35 text-xs text-success font-medium animate-fadeIn">
+                        ✓ Password updated successfully!
+                      </div>
+                    )}
+
+                    {passwordError && (
+                      <div className="p-3.5 rounded-xl bg-error/15 border border-error/35 text-xs text-error font-medium animate-fadeIn">
+                        ✗ {passwordError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handlePasswordChange} className="space-y-4">
                       <div className="space-y-1.5">
-                        <label htmlFor="p-name" className="text-xs font-semibold text-text-secondary">Display Name</label>
+                        <label htmlFor="sec-curr" className="text-xs font-semibold text-text-secondary">Current Password</label>
                         <input
-                          id="p-name"
-                          type="text"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                          id="sec-curr"
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
                           required
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <label htmlFor="p-email" className="text-xs font-semibold text-text-secondary">Email Address</label>
-                        <input
-                          id="p-email"
-                          type="email"
-                          value={user?.email || ""}
-                          disabled
-                          className="w-full px-4 py-2 rounded-xl bg-surface-800/40 border border-border text-sm text-text-muted cursor-not-allowed focus:outline-none"
-                        />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label htmlFor="sec-new" className="text-xs font-semibold text-text-secondary">New Password</label>
+                          <input
+                            id="sec-new"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label htmlFor="sec-conf" className="text-xs font-semibold text-text-secondary">Confirm New Password</label>
+                          <input
+                            id="sec-conf"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                            required
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <label htmlFor="p-expertise" className="text-xs font-semibold text-text-secondary">Skills & Expertises (comma separated)</label>
-                      <input
-                        id="p-expertise"
-                        type="text"
-                        value={expertise}
-                        onChange={(e) => setExpertise(e.target.value)}
-                        className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all"
-                      />
-                    </div>
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          disabled={isChangingPassword}
+                          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary border border-border text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Lock className="w-4 h-4 text-accent" />
+                          {isChangingPassword ? "Updating..." : "Update Password"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
 
-                    <div className="space-y-1.5">
-                      <label htmlFor="p-bio" className="text-xs font-semibold text-text-secondary">About Info</label>
-                      <textarea
-                        id="p-bio"
-                        value={bio}
-                        onChange={(e) => setBio(e.target.value)}
-                        rows={4}
-                        className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all resize-none text-xs"
-                      />
-                    </div>
-
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="submit"
-                        className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all"
-                      >
-                        <Save className="w-4 h-4" /> Save Details
-                      </button>
-                    </div>
-                  </form>
                 </div>
               )}
             </>
           )}
         </div>
 
-        {/* Right Column: Reddit-style Profile Card */}
+        {/* Right Column: Profile Card */}
         <div className="lg:col-span-4 space-y-6 order-1 lg:order-2">
           <div className="glass rounded-2xl overflow-hidden border border-border sticky top-20">
             {/* Banner Background */}
@@ -355,9 +656,9 @@ export default function Profile() {
                   {/* Avatar position overlapping banner */}
                   <div className="relative -mt-12 mb-3 inline-block">
                     <img
-                      src={activeUser.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
+                      src={activeUser.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${activeUser.name}`}
                       alt={activeUser.name}
-                      className="w-20 h-20 rounded-full border-4 border-surface-950 bg-surface-800 shadow-lg"
+                      className="w-20 h-20 rounded-full border-4 border-surface-950 bg-surface-800 shadow-lg object-cover"
                     />
                     <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success border-2 border-surface-950" />
                   </div>
@@ -375,22 +676,45 @@ export default function Profile() {
                   {/* Status roles and details */}
                   <div className="mt-3.5 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-primary" />
-                      <span className="text-xs font-semibold text-text-secondary">{activeUser.role}</span>
+                      <Shield className="w-4 h-4 text-primary flex-shrink-0" />
+                      <span className="text-xs font-semibold text-text-secondary capitalize">{activeUser.role}</span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-accent" />
+                      <Mail className="w-4 h-4 text-accent flex-shrink-0" />
                       <span className="text-xs text-text-muted truncate">{activeUser.email || "No email listed"}</span>
                     </div>
 
+                    {activeUser.department && (
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4 text-warning flex-shrink-0" />
+                        <span className="text-xs text-text-muted truncate">
+                          {activeUser.yearLevel ? `${activeUser.yearLevel} — ` : ""}{activeUser.department}
+                        </span>
+                      </div>
+                    )}
+
+                    {activeUser.address && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-error flex-shrink-0" />
+                        <span className="text-xs text-text-muted truncate">{activeUser.address}</span>
+                      </div>
+                    )}
+
+                    {activeUser.birthday && (
+                      <div className="flex items-center gap-2">
+                        <Cake className="w-4 h-4 text-info flex-shrink-0" />
+                        <span className="text-xs text-text-muted">Born: {activeUser.birthday}</span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-success" />
-                      <span className="text-xs text-text-muted">Cake Day: {activeUser.joinedDate}</span>
+                      <Calendar className="w-4 h-4 text-success flex-shrink-0" />
+                      <span className="text-xs text-text-muted">Joined: {activeUser.joinedDate}</span>
                     </div>
                   </div>
 
-                  {/* Reddit-style Karma metrics */}
+                  {/* Karma metrics */}
                   <div className="grid grid-cols-2 gap-4 py-3 my-4 border-y border-border">
                     <div>
                       <span className="text-[10px] text-text-muted block font-semibold uppercase">Reputation</span>
@@ -405,7 +729,7 @@ export default function Profile() {
                   {/* About Bio snippet on card */}
                   <div className="space-y-1.5 pt-1.5 text-xs text-text-secondary">
                     <p className="font-semibold text-text-primary uppercase text-[9px] tracking-wide">Bio</p>
-                    <p className="leading-relaxed bg-surface-900/30 p-2.5 rounded-lg border border-border/40">
+                    <p className="leading-relaxed bg-surface-900/30 p-2.5 rounded-lg border border-border/40 whitespace-pre-wrap">
                       {bio || "No biography details added yet."}
                     </p>
                   </div>
@@ -415,7 +739,7 @@ export default function Profile() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("settings")}
-                      className="w-full mt-4 py-2 text-center text-xs font-bold bg-surface-800 hover:bg-surface-700 text-text-primary border border-border rounded-xl transition-all"
+                      className="w-full mt-4 py-2 text-center text-xs font-bold bg-surface-800 hover:bg-surface-700 text-text-primary border border-border rounded-xl transition-all cursor-pointer"
                     >
                       Edit Profile Info
                     </button>
