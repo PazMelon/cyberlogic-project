@@ -83,6 +83,7 @@ class AnnouncementController extends Controller
             'author' => 'nullable|string|max:255',
             'pinned' => 'nullable|boolean',
             'sections' => 'nullable|array',
+            'image' => 'nullable|string|max:2048',
         ]);
 
         // Process sections: sanitize html nodes for XSS protection
@@ -107,6 +108,7 @@ class AnnouncementController extends Controller
             'date' => now()->format('M j, Y'),
             'pinned' => $validated['pinned'] ?? false,
             'sections' => $sections,
+            'image' => $validated['image'] ?? null,
         ]);
 
         return response()->json($announcement, 210); // Created
@@ -131,6 +133,7 @@ class AnnouncementController extends Controller
             'author' => 'nullable|string|max:255',
             'pinned' => 'nullable|boolean',
             'sections' => 'nullable|array',
+            'image' => 'nullable|string|max:2048',
         ]);
 
         // Process sections: sanitize html nodes for XSS protection
@@ -152,6 +155,7 @@ class AnnouncementController extends Controller
             'author' => $validated['author'] ?? $announcement->author,
             'pinned' => $validated['pinned'] ?? false,
             'sections' => $sections,
+            'image' => $validated['image'] ?? null,
         ]);
 
         return response()->json($announcement);

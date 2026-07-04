@@ -9,9 +9,9 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { events, forumThreads } from "../data/mockData";
-import { fetchAnnouncements } from "../utils/api";
-import type { Announcement } from "../data/mockData";
+import { forumThreads } from "../data/mockData";
+import { fetchAnnouncements, fetchEvents } from "../utils/api";
+import type { Announcement, Event } from "../data/mockData";
 import { SkeletonBox, SkeletonLine, SkeletonCircle } from "../components/Skeleton";
 import { ForumThreadCard, EventCard, AnnouncementCard } from "../components/ui";
 
@@ -19,14 +19,19 @@ export default function Home() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [latestAnnouncements, setLatestAnnouncements] = useState<Announcement[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await fetchAnnouncements();
-        setLatestAnnouncements(data.slice(0, 3));
+        const [annData, evData] = await Promise.all([
+          fetchAnnouncements(),
+          fetchEvents()
+        ]);
+        setLatestAnnouncements(annData.slice(0, 3));
+        setUpcomingEvents(evData.slice(0, 3));
       } catch (err) {
-        console.error("Failed to load dashboard announcements:", err);
+        console.error("Failed to load dashboard data:", err);
       } finally {
         setIsLoading(false);
       }
@@ -34,7 +39,6 @@ export default function Home() {
     loadData();
   }, []);
 
-  const upcomingEvents = events.slice(0, 3);
   const recentThreads = forumThreads.slice(0, 4);
 
   const quickStats = [

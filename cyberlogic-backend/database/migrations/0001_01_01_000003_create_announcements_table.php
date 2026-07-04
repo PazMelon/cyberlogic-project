@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('date');
             $table->boolean('pinned')->default(false);
             $table->json('sections')->nullable();
+            $table->string('image')->nullable();
             $table->timestamps();
         });
     }

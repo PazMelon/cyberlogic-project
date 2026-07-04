@@ -25,6 +25,7 @@ class Announcement extends Model
         'date',
         'pinned',
         'sections',
+        'image',
     ];
 
     /**

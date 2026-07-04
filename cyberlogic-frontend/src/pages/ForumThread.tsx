@@ -130,7 +130,7 @@ export default function ForumThread() {
       : "bg-warning/10 border-warning/20 text-warning";
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto space-y-6">
       
       {/* Back Button */}
       <Link
@@ -150,49 +150,72 @@ export default function ForumThread() {
           <div className="glass rounded-xl overflow-hidden border border-border flex">
             
             {/* Reddit Vote Panel */}
-            <div className="hidden sm:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => handleThreadVote("up")}
-                className={`p-1 rounded hover:bg-white/5 transition-colors ${
-                  threadVote === "up" ? "text-primary" : "text-text-muted hover:text-text-primary"
-                }`}
-                aria-label="Upvote"
-              >
-                <ChevronUp className="w-5 h-5" />
-              </button>
-              <span className={`text-xs font-bold font-mono ${
-                threadVote === "up" ? "text-primary" : threadVote === "down" ? "text-error" : "text-text-primary"
-              }`}>
-                {threadLikes}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleThreadVote("down")}
-                className={`p-1 rounded hover:bg-white/5 transition-colors ${
-                  threadVote === "down" ? "text-error" : "text-text-muted hover:text-text-primary"
-                }`}
-                aria-label="Downvote"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </button>
-            </div>
+            {isLoading ? (
+              <div className="hidden sm:flex flex-col items-center gap-2 py-4 px-3 bg-surface-900/30 border-r border-border/50 w-12 flex-shrink-0 animate-pulse">
+                <div className="w-5 h-5 rounded bg-surface-800/60" />
+                <div className="w-6 h-4 rounded bg-surface-800/60" />
+                <div className="w-5 h-5 rounded bg-surface-800/60" />
+              </div>
+            ) : (
+              <div className="hidden sm:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleThreadVote("up")}
+                  className={`p-1 rounded hover:bg-white/5 transition-colors ${
+                    threadVote === "up" ? "text-primary" : "text-text-muted hover:text-text-primary"
+                  }`}
+                  aria-label="Upvote"
+                >
+                  <ChevronUp className="w-5 h-5" />
+                </button>
+                <span className={`text-xs font-bold font-mono ${
+                  threadVote === "up" ? "text-primary" : threadVote === "down" ? "text-error" : "text-text-primary"
+                }`}>
+                  {threadLikes}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleThreadVote("down")}
+                  className={`p-1 rounded hover:bg-white/5 transition-colors ${
+                    threadVote === "down" ? "text-error" : "text-text-muted hover:text-text-primary"
+                  }`}
+                  aria-label="Downvote"
+                >
+                  <ChevronDown className="w-5 h-5" />
+                </button>
+              </div>
+            )}
 
             {/* Post Detail Body */}
-            <div className="flex-1 p-5 sm:p-6 space-y-4">
+            <div className={`flex-1 p-5 sm:p-6 space-y-4 ${isLoading ? "animate-pulse" : ""}`}>
               {isLoading ? (
-                <div className="space-y-4 animate-pulse">
-                  <div className="flex items-center gap-2">
-                    <SkeletonLine widthClass="w-16" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-32" heightClass="h-3" />
+                <>
+                  {/* Header Info Skeleton */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <SkeletonLine widthClass="w-24" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-48" heightClass="h-3" />
                   </div>
-                  <SkeletonLine widthClass="w-5/6" heightClass="h-7" />
-                  <div className="space-y-2 pt-2">
+                  {/* Title Skeleton */}
+                  <SkeletonLine widthClass="w-11/12" heightClass="h-7" />
+                  {/* Content Skeleton (More lines to match actual text load) */}
+                  <div className="space-y-2.5 pt-2">
                     <SkeletonLine widthClass="w-full" heightClass="h-4" />
                     <SkeletonLine widthClass="w-full" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-2/3" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-11/12" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-3/4" heightClass="h-4" />
                   </div>
-                </div>
+                  {/* Footer Action Toolbar Skeleton (Prevents card height and width shift) */}
+                  <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
+                    <SkeletonLine widthClass="w-28" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-20" heightClass="h-4" />
+                    <div className="flex items-center gap-4 ml-auto">
+                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                    </div>
+                  </div>
+                </>
               ) : (
                 <>
                   {/* Header Info */}
@@ -259,12 +282,28 @@ export default function ForumThread() {
 
           {/* Comments/Replies Section */}
           <div className="glass rounded-xl p-5 sm:p-6 space-y-6">
-            <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)] border-b border-border pb-3">
-              Comments ({replies.length})
-            </h2>
+            {isLoading ? (
+              <div className="border-b border-border pb-3 animate-pulse">
+                <SkeletonLine widthClass="w-32" heightClass="h-5" />
+              </div>
+            ) : (
+              <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)] border-b border-border pb-3">
+                Comments ({replies.length})
+              </h2>
+            )}
 
-            {/* Comment Form */}
-            {user && (
+            {/* Comment Form / Skeleton */}
+            {isLoading ? (
+              <div className="flex gap-3 animate-pulse">
+                <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0 mt-1" />
+                <div className="flex-1 space-y-2">
+                  <div className="w-full h-[88px] rounded-xl bg-surface-800/60 border border-border/10" />
+                  <div className="flex justify-end">
+                    <div className="w-28 h-8 rounded-lg bg-surface-800/60" />
+                  </div>
+                </div>
+              </div>
+            ) : user && (
               <form onSubmit={handlePostReply} className="flex gap-3">
                 <img
                   src={user.avatar}
@@ -298,10 +337,10 @@ export default function ForumThread() {
             <div className="space-y-4 pt-2">
               {isLoading ? (
                 <>
-                  {[1, 2, 3].map((i) => (
+                  {Array.from({ length: Math.min(initialReplies.length || 3, 8) }).map((_, i) => (
                     <div key={i} className="flex gap-3 animate-pulse">
-                      <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0" />
-                      <div className="flex-1 space-y-2">
+                      <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0 bg-surface-900/20 rounded-xl p-3.5 border border-border/40 space-y-2.5">
                         <SkeletonLine widthClass="w-1/4" heightClass="h-3" />
                         <SkeletonLine widthClass="w-full" heightClass="h-4" />
                         <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
@@ -382,67 +421,109 @@ export default function ForumThread() {
           <div className="space-y-6 sticky top-20">
             
             {/* About Category/Community Card */}
-            <div className="glass rounded-xl overflow-hidden border border-border">
+            <div className={`glass rounded-xl overflow-hidden border border-border ${isLoading ? "animate-pulse" : ""}`}>
               <div className="h-4 bg-gradient-to-r from-primary/35 to-accent/35" />
               <div className="p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Info className="w-4 h-4 text-primary" />
-                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                    Category details
-                  </h3>
-                </div>
                 {isLoading ? (
-                  <div className="space-y-2 animate-pulse">
-                    <SkeletonLine widthClass="w-1/2" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-full" heightClass="h-3" />
-                    <SkeletonLine widthClass="w-5/6" heightClass="h-3" />
-                  </div>
+                  <>
+                    {/* Header Skeleton */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-surface-800/60" />
+                      <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
+                    </div>
+                    {/* Description Paragraph Skeletons */}
+                    <div className="space-y-2">
+                      <SkeletonLine widthClass="w-1/2" heightClass="h-4" />
+                      <SkeletonLine widthClass="w-full" heightClass="h-3" />
+                      <SkeletonLine widthClass="w-5/6" heightClass="h-3" />
+                    </div>
+                    {/* Stats Grid Skeletons */}
+                    <div className="grid grid-cols-2 gap-4 py-2 border-y border-border/40">
+                      <div className="space-y-1">
+                        <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
+                        <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
+                      </div>
+                      <div className="space-y-1">
+                        <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
+                        <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
+                      </div>
+                    </div>
+                    {/* Rules Skeletons */}
+                    <div className="space-y-1.5 pt-1">
+                      <SkeletonLine widthClass="w-1/4" heightClass="h-3" />
+                      <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
+                      <SkeletonLine widthClass="w-3/4" heightClass="h-2.5" />
+                    </div>
+                  </>
                 ) : (
-                  <div>
-                    <h4 className="text-sm font-bold text-text-primary leading-tight">
-                      {category?.name || "Forums"}
-                    </h4>
-                    <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                      {category?.description || "Exchange cyber knowledge with members."}
-                    </p>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4 text-primary" />
+                      <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                        Category details
+                      </h3>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-text-primary leading-tight">
+                        {category?.name || "Forums"}
+                      </h4>
+                      <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                        {category?.description || "Exchange cyber knowledge with members."}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 py-2 border-y border-border">
+                      <div>
+                        <span className="text-[10px] text-text-muted block">Total Threads</span>
+                        <span className="text-xs font-bold text-text-primary">
+                          {category?.threadCount || 10}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-text-muted block">Members Online</span>
+                        <span className="text-xs font-bold text-success">🟢 14</span>
+                      </div>
+                    </div>
+                    <div className="text-[10px] text-text-muted space-y-1">
+                      <p className="font-semibold text-text-secondary uppercase">Community Rules:</p>
+                      <p>1. Respect each other.</p>
+                      <p>2. Do not share illegal exploits/cracks.</p>
+                      <p>3. Use appropriate category tags.</p>
+                    </div>
+                  </>
                 )}
-                <div className="grid grid-cols-2 gap-4 py-2 border-y border-border">
-                  <div>
-                    <span className="text-[10px] text-text-muted block">Total Threads</span>
-                    <span className="text-xs font-bold text-text-primary">
-                      {isLoading ? <SkeletonLine widthClass="w-6" heightClass="h-3.5" /> : (category?.threadCount || 10)}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-text-muted block">Members Online</span>
-                    <span className="text-xs font-bold text-success">🟢 14</span>
-                  </div>
-                </div>
-                <div className="text-[10px] text-text-muted space-y-1">
-                  <p className="font-semibold text-text-secondary uppercase">Community Rules:</p>
-                  <p>1. Respect each other.</p>
-                  <p>2. Do not share illegal exploits/cracks.</p>
-                  <p>3. Use appropriate category tags.</p>
-                </div>
               </div>
             </div>
 
             {/* Original Poster Card */}
-            <div className="glass rounded-xl p-4 border border-border space-y-3">
-              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-primary" /> About Author
-              </h3>
+            <div className={`glass rounded-xl p-4 border border-border space-y-3 ${isLoading ? "animate-pulse" : ""}`}>
               {isLoading ? (
-                <div className="flex items-center gap-3 animate-pulse">
-                  <SkeletonCircle className="w-10 h-10 bg-surface-800" />
-                  <div className="space-y-2 flex-1">
-                    <SkeletonLine widthClass="w-1/2" heightClass="h-3.5" />
+                <>
+                  {/* Header Skeleton */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-surface-800/60" />
+                    <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
+                  </div>
+                  {/* Avatar & Name Skeletons */}
+                  <div className="flex items-center gap-3">
+                    <SkeletonCircle className="w-10 h-10 bg-surface-800" />
+                    <div className="space-y-1.5 flex-1">
+                      <SkeletonLine widthClass="w-1/2" heightClass="h-3.5" />
+                      <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
+                    </div>
+                  </div>
+                  {/* Join Date Skeleton */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3.5 h-3.5 rounded bg-surface-800/60" />
                     <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
                   </div>
-                </div>
+                  {/* Profile Button Skeleton */}
+                  <div className="w-full h-8 rounded-xl bg-surface-800/60 border border-border/10" />
+                </>
               ) : (
                 <>
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-primary" /> About Author
+                  </h3>
                   <div className="flex items-center gap-3">
                     <img
                       src={thread.authorAvatar}

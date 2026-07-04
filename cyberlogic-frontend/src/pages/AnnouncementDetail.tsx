@@ -60,13 +60,140 @@ export default function AnnouncementDetail() {
     Events: "bg-accent/10 text-accent border border-accent/20",
   };
 
-  return (
-    <div className={isPortal ? "pb-12" : "pt-24 pb-16"}>
-      <div className={isPortal ? "max-w-4xl" : "max-w-4xl mx-auto px-4 sm:px-6"}>
+  if (isPortal) {
+    return (
+      <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
         
         {/* Back navigation */}
         <Link
-          to={isPortal ? "/app/announcements" : "/announcements"}
+          to="/app/announcements"
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors bg-surface-900/40 px-3 py-1.5 rounded-lg border border-border"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Announcements
+        </Link>
+
+        {/* 2-Column Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
+          
+          {/* Left Column: Title, cover image, and body content */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* Header / Title block */}
+            <div className="glass rounded-2xl p-6 border border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${categoryColors[item.category]}`}>
+                  {item.category}
+                </span>
+                {item.pinned && (
+                  <span className="inline-flex items-center gap-1 text-xs text-warning font-semibold animate-pulse">
+                    <Pin className="w-3 h-3" /> Pinned
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
+                {item.title}
+              </h1>
+              {item.subtitle && (
+                <p className="text-base sm:text-lg text-text-muted leading-relaxed font-light">
+                  {item.subtitle}
+                </p>
+              )}
+            </div>
+
+            {/* Cover Image banner */}
+            {item.image && (
+              <div className="relative aspect-video rounded-2xl overflow-hidden border border-border max-h-[400px]">
+                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Blog Post Content Body */}
+            <div className="glass rounded-2xl p-6 border border-border space-y-6">
+              {/* Main intro content */}
+              {item.content && (
+                <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/20 pl-4">
+                  {item.content}
+                </p>
+              )}
+
+              {/* Dynamically Render CMS Blog Sections */}
+              {item.sections && item.sections.length > 0 ? (
+                <div className="pt-6 border-t border-border/30">
+                  <BlogContentRenderer content={item.sections} />
+                </div>
+              ) : (
+                <div className="text-xs text-text-muted py-2 italic">
+                  No further sections provided.
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Right Column: Sticky Metadata & Author Panel */}
+          <div className="lg:col-span-4">
+            <div className="space-y-6 sticky top-20">
+              
+              {/* Metadata Panel */}
+              <div className="glass rounded-2xl border border-border overflow-hidden">
+                <div className="h-2 bg-gradient-to-r from-info/40 to-primary/40" />
+                <div className="p-5 space-y-4">
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                    Post Information
+                  </h3>
+                  
+                  <div className="flex items-center gap-3 py-3 border-b border-border/50">
+                    <img
+                      src={item.authorAvatar}
+                      alt={item.author}
+                      className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+                    />
+                    <div>
+                      <p className="text-xs text-text-muted">Author</p>
+                      <p className="text-sm font-bold text-text-primary">{item.author}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <span>Published: {item.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <span className="w-4 h-4 rounded-full bg-surface-800 flex items-center justify-center text-[9px] font-bold text-accent">5</span>
+                      <span>5 min read</span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Announcements info card */}
+              <div className="glass rounded-xl p-4 border border-border space-y-3">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                  Important Note
+                </h3>
+                <p className="text-[11px] text-text-muted leading-relaxed">
+                  All announcements are official notifications from the Cyberlogic executive board. For questions or details, please contact officers in the respective chat channels.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-24 pb-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        
+        {/* Back navigation */}
+        <Link
+          to="/announcements"
           className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors mb-6"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Announcements
@@ -112,6 +239,13 @@ export default function AnnouncementDetail() {
             </div>
           </div>
         </div>
+
+        {/* Cover Image banner */}
+        {item.image && (
+          <div className="relative aspect-video rounded-2xl overflow-hidden border border-border mb-8 max-h-[400px]">
+            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+          </div>
+        )}
 
         {/* Blog Post Content Body */}
         <div className="space-y-8 animate-fadeIn">

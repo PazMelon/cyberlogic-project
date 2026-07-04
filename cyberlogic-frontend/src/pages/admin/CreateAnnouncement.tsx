@@ -43,7 +43,7 @@ export default function CreateAnnouncement() {
           content: match.content || "",
           author: match.author || "System Admin",
           category: match.category || "General",
-          image: "", // Cover Image can be left empty or mapped
+          image: match.image || "",
           readTime: "5 min",
           featured: match.pinned || false,
           sections: match.sections || [{ type: "text", id: generateId(), html: "" }]
@@ -74,7 +74,8 @@ export default function CreateAnnouncement() {
         category: editorState.category as "General" | "Academic" | "Events",
         author: editorState.author || "System Admin",
         pinned: editorState.featured || false,
-        sections: editorState.sections
+        sections: editorState.sections,
+        image: editorState.image || undefined
       };
 
       if (editId) {

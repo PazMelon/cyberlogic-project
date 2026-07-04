@@ -23,7 +23,8 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
     authorAvatar: a.author_avatar,
     date: a.date,
     pinned: !!a.pinned,
-    sections: a.sections || []
+    sections: a.sections || [],
+    image: a.image
   }));
 }
 
@@ -48,7 +49,8 @@ export async function fetchAnnouncementById(id: number): Promise<Announcement> {
     authorAvatar: a.author_avatar,
     date: a.date,
     pinned: !!a.pinned,
-    sections: a.sections || []
+    sections: a.sections || [],
+    image: a.image
   };
 }
 
@@ -67,7 +69,8 @@ export async function createAnnouncement(data: Partial<Announcement>): Promise<A
       category: data.category,
       author: data.author,
       pinned: data.pinned,
-      sections: data.sections
+      sections: data.sections,
+      image: data.image
     })
   });
 
@@ -94,7 +97,8 @@ export async function updateAnnouncement(id: number, data: Partial<Announcement>
       category: data.category,
       author: data.author,
       pinned: data.pinned,
-      sections: data.sections
+      sections: data.sections,
+      image: data.image
     })
   });
 

@@ -96,13 +96,166 @@ export default function EventDetail() {
 
   const isFull = item.capacity ? item.attendees >= item.capacity : false;
 
-  return (
-    <div className={isPortal ? "pb-12" : "pt-24 pb-16"}>
-      <div className={isPortal ? "max-w-4xl" : "max-w-4xl mx-auto px-4 sm:px-6"}>
+  if (isPortal) {
+    return (
+      <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
         
         {/* Back navigation */}
         <Link
-          to={isPortal ? "/app/events" : "/events"}
+          to="/app/events"
+          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors bg-surface-900/40 px-3 py-1.5 rounded-lg border border-border"
+        >
+          <ChevronLeft className="w-4 h-4" /> Back to Events
+        </Link>
+
+        {/* 2-Column Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
+          
+          {/* Left Column: Event Title, Cover Image, Content */}
+          <div className="lg:col-span-8 space-y-6">
+            
+            {/* Header info */}
+            <div className="glass rounded-2xl p-6 border border-border space-y-4">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${typeColors[item.type] || "bg-surface-700 text-text-secondary"}`}>
+                  {item.type}
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
+                {item.title}
+              </h1>
+            </div>
+
+            {/* Cover Image banner */}
+            {item.image && (
+              <div className="relative aspect-video rounded-2xl overflow-hidden border border-border max-h-[400px]">
+                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Event Content Body */}
+            <div className="glass rounded-2xl p-6 border border-border space-y-6">
+              {/* Main description */}
+              {item.description && (
+                <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/20 pl-4">
+                  {item.description}
+                </p>
+              )}
+
+              {/* Dynamically Render CMS Blog Sections */}
+              {item.sections && item.sections.length > 0 ? (
+                <div className="pt-6 border-t border-border/30">
+                  <BlogContentRenderer content={item.sections} />
+                </div>
+              ) : (
+                <div className="text-xs text-text-muted py-2 italic">
+                  No further sections provided.
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* Right Column: Sticky RSVP & Info Panels */}
+          <div className="lg:col-span-4">
+            <div className="space-y-6 sticky top-20">
+              
+              {/* RSVP & Ticket Status Card */}
+              <div className="glass rounded-2xl border border-border overflow-hidden">
+                <div className="h-2 bg-gradient-to-r from-primary/45 to-accent/45" />
+                <div className="p-5 space-y-5">
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                    Registration Desk
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Calendar className="w-4 h-4 text-primary" />
+                      <span>{item.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Clock className="w-4 h-4 text-accent" />
+                      <span>{formatEventTime(item.startTime, item.endTime)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <MapPin className="w-4 h-4 text-warning" />
+                      <span className="truncate">{item.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-text-secondary">
+                      <Users className="w-4 h-4 text-success" />
+                      <span>{item.attendees} / {item.capacity || 50} Attending</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border/60 space-y-3">
+                    <button
+                      type="button"
+                      disabled={rsvpLoading || (!item.isRegistered && isFull)}
+                      onClick={handleRsvp}
+                      className={`w-full px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                        item.isRegistered
+                          ? "bg-accent/15 border-accent/40 text-accent hover:bg-accent/25"
+                          : isFull
+                          ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
+                          : "bg-primary text-white hover:bg-primary-hover border-transparent"
+                      }`}
+                    >
+                      {rsvpLoading ? (
+                        <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                      ) : item.isRegistered ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Registered
+                        </>
+                      ) : isFull ? (
+                        "Fully Booked"
+                      ) : (
+                        <>
+                          <CalendarCheck className="w-4 h-4" />
+                          RSVP to Event
+                        </>
+                      )}
+                    </button>
+                    
+                    <p className="text-[10px] text-text-muted text-center leading-normal">
+                      {item.isRegistered
+                        ? "You have a reserved slot. Click button to cancel RSVP."
+                        : isFull
+                        ? "All slots are taken. Stay tuned for future slots."
+                        : `Hurry! Only ${item.capacity - item.attendees} spots remaining.`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Event Guidelines Card */}
+              <div className="glass rounded-xl p-4 border border-border space-y-3">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                  Event Guidelines
+                </h3>
+                <ul className="text-[11px] text-text-muted space-y-1.5 list-disc pl-4">
+                  <li>Present your student ID card or portal RSVP upon entry.</li>
+                  <li>Arrive at least 10 minutes prior to session launch.</li>
+                  <li>Bring your own laptop for hands-on activities.</li>
+                </ul>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-24 pb-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        
+        {/* Back navigation */}
+        <Link
+          to="/events"
           className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors mb-6"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Events
@@ -174,7 +327,7 @@ export default function EventDetail() {
                   </>
                 )}
               </button>
-              <p className="text-[11px] text-text-muted mt-1">
+              <p className="text-xs text-text-muted mt-1">
                 {item.isRegistered
                   ? "You have a reserved slot. Click button to cancel RSVP."
                   : isFull
