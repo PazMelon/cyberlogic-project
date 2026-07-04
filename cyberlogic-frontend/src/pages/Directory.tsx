@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import {
   Search,
   Mail,
@@ -161,6 +162,14 @@ export default function Directory() {
                   </div>
                   <div className="text-xs text-text-muted">
                     Member since {new Date(member.joinedDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                  </div>
+                  <div className="pt-2">
+                    <Link
+                      to={`/app/profile/${member.id}`}
+                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:border-primary/40 text-xs font-semibold text-primary hover:text-primary-light transition-all"
+                    >
+                      View Full Profile
+                    </Link>
                   </div>
                 </div>
               )}

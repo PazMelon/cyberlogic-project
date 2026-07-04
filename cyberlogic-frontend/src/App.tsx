@@ -82,6 +82,7 @@ function AppRoutes() {
         <Route path="events" element={<Events />} />
         <Route path="resources" element={<Resources />} />
         <Route path="profile" element={<Profile />} />
+        <Route path="profile/:userId" element={<Profile />} />
       </Route>
 
       {/* Admin Routes */}

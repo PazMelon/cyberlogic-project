@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router";
 import {
   Calendar,
   Award,
@@ -7,30 +8,73 @@ import {
   Save,
   Shield,
   Compass,
+  Mail,
+  ArrowLeft,
   Bookmark,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads, forumCategories } from "../data/mockData";
+import { forumThreads, forumCategories, directoryMembers } from "../data/mockData";
 
 export default function Profile() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "posts" | "saved" | "settings">("overview");
+  const { userId } = useParams();
+
+  // Find targeted member if userId is passed
+  const targetedMember = userId
+    ? directoryMembers.find((m) => m.id === parseInt(userId, 10))
+    : null;
+
+  // Decide if this is the logged-in user's profile
+  // If no userId is in path, it's own profile.
+  // If userId is in path, check if name matches current logged-in user's name.
+  const isOwnProfile = !userId || (targetedMember ? targetedMember.name === user?.name : false);
+
+  const initialName = isOwnProfile ? (user?.name || "John Doe") : (targetedMember?.name || "");
+  const initialBio = isOwnProfile
+    ? "Cybersecurity student and CTF enthusiast. Interested in Reverse Engineering, Web Exploitation, and Linux Administration."
+    : (targetedMember?.bio || "No biography provided.");
+  const initialExpertise = isOwnProfile
+    ? "Reverse Engineering, Web Exploitation, Network Analysis"
+    : (targetedMember?.expertise.join(", ") || "");
 
   // Form states for Settings tab
-  const [name, setName] = useState(user?.name || "John Doe");
-  const [bio, setBio] = useState(
-    "Cybersecurity student and CTF enthusiast. Interested in Reverse Engineering, Web Exploitation, and Linux Administration."
-  );
-  const [expertise, setExpertise] = useState<string>("Reverse Engineering, Web Exploitation, Network Analysis");
+  const [name, setName] = useState(initialName);
+  const [bio, setBio] = useState(initialBio);
+  const [expertise, setExpertise] = useState(initialExpertise);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Sync state if userId changes
+  useEffect(() => {
+    setName(initialName);
+    setBio(initialBio);
+    setExpertise(initialExpertise);
+  }, [userId, user]);
+
+  const activeUser = {
+    name: isOwnProfile ? name : (targetedMember?.name || "Unknown User"),
+    avatar: isOwnProfile ? (user?.avatar || "") : (targetedMember?.avatar || ""),
+    role: isOwnProfile ? (user?.role || "Member") : (targetedMember?.role || "Member"),
+    email: isOwnProfile ? (user?.email || "") : (targetedMember?.email || ""),
+    joinedDate: isOwnProfile ? (user?.joinedDate || "2025-09-01") : (targetedMember?.joinedDate || "2025-09-01"),
+  };
+
   // Reddit u/ handle generation
-  const username = `u/${name.toLowerCase().replace(/\s+/g, "_")}`;
+  const username = `u/${activeUser.name.toLowerCase().replace(/\s+/g, "_")}`;
+
+  // Tabs list: Hide Saved and Settings if not own profile
+  const [activeTab, setActiveTab] = useState<"overview" | "posts" | "saved" | "settings">("overview");
+
+  useEffect(() => {
+    // If we navigate to another person's profile, default active tab to overview
+    if (!isOwnProfile && (activeTab === "saved" || activeTab === "settings")) {
+      setActiveTab("overview");
+    }
+  }, [isOwnProfile]);
 
   // Mock user posts
-  const userPosts = forumThreads.filter((t) => t.author === user?.name || t.id === 1 || t.id === 3);
+  const userPosts = forumThreads.filter((t) => t.author === activeUser.name || (isOwnProfile && (t.id === 1 || t.id === 3)));
 
-  // Mock saved posts
+  // Mock saved posts (only for own profile)
   const savedPosts = forumThreads.filter((t) => t.id === 2 || t.id === 4);
 
   const getCategoryColor = (categoryId: string): string => {
@@ -57,14 +101,24 @@ export default function Profile() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+      {/* Back button if visiting someone else's profile */}
+      {!isOwnProfile && (
+        <Link
+          to="/app/directory"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-text-muted hover:text-text-primary transition-colors bg-surface-900/40 px-3 py-1.5 rounded-lg border border-border"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Directory
+        </Link>
+      )}
+
       {/* 2-Column Reddit Profile Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Column: Feed, Posts, Saved & Settings */}
         <div className="lg:col-span-8 space-y-6 order-2 lg:order-1">
           {/* Navigation Tabs */}
           <div className="flex border-b border-border bg-surface-900/40 rounded-xl p-1">
-            {(["overview", "posts", "saved", "settings"] as const).map((tab) => (
+            {(["overview", "posts"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -78,12 +132,38 @@ export default function Profile() {
                 {tab}
               </button>
             ))}
+            {isOwnProfile && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("saved")}
+                  className={`flex-1 py-2 text-xs font-semibold capitalize rounded-lg transition-all ${
+                    activeTab === "saved"
+                      ? "bg-surface-800 border border-border text-primary"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  saved
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("settings")}
+                  className={`flex-1 py-2 text-xs font-semibold capitalize rounded-lg transition-all ${
+                    activeTab === "settings"
+                      ? "bg-surface-800 border border-border text-primary"
+                      : "text-text-muted hover:text-text-primary"
+                  }`}
+                >
+                  settings
+                </button>
+              </>
+            )}
           </div>
 
           {/* Tab Content Areas */}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              {/* Profile Bio summary for mobile/tablet where sidebar is at the bottom */}
+              {/* Profile Bio summary for mobile/tablet */}
               <div className="lg:hidden glass rounded-2xl p-5 space-y-3">
                 <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">About</h2>
                 <p className="text-xs text-text-secondary leading-relaxed">{bio}</p>
@@ -125,6 +205,11 @@ export default function Profile() {
                       </div>
                     </div>
                   ))}
+                  {userPosts.length === 0 && (
+                    <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
+                      No forum activities posted by this member.
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -142,6 +227,9 @@ export default function Profile() {
                       {skill}
                     </span>
                   ))}
+                  {expertise.trim() === "" && (
+                    <span className="text-xs text-text-muted">No specific expertises listed.</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -178,11 +266,16 @@ export default function Profile() {
                     </div>
                   </div>
                 ))}
+                {userPosts.length === 0 && (
+                  <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
+                    No threads started yet.
+                  </div>
+                )}
               </div>
             </div>
           )}
 
-          {activeTab === "saved" && (
+          {activeTab === "saved" && isOwnProfile && (
             <div className="space-y-4">
               <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
                 <Bookmark className="w-4 h-4 text-primary" /> Saved Threads
@@ -219,7 +312,7 @@ export default function Profile() {
             </div>
           )}
 
-          {activeTab === "settings" && (
+          {activeTab === "settings" && isOwnProfile && (
             <div className="glass rounded-2xl p-6">
               <form onSubmit={handleSave} className="space-y-5">
                 <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider mb-4">
@@ -304,8 +397,8 @@ export default function Profile() {
               {/* Avatar position overlapping banner */}
               <div className="relative -mt-12 mb-3 inline-block">
                 <img
-                  src={user?.avatar}
-                  alt={name}
+                  src={activeUser.avatar}
+                  alt={activeUser.name}
                   className="w-20 h-20 rounded-full border-4 border-surface-950 bg-surface-800 shadow-lg"
                 />
                 <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success border-2 border-surface-950" />
@@ -314,7 +407,7 @@ export default function Profile() {
               {/* Identity */}
               <div>
                 <h3 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] leading-tight">
-                  {name}
+                  {activeUser.name}
                 </h3>
                 <p className="text-xs text-text-muted font-mono mt-0.5">{username}</p>
               </div>
@@ -323,7 +416,7 @@ export default function Profile() {
               <div className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 border border-border text-xs font-medium text-text-secondary">
                 <Shield className="w-3.5 h-3.5 text-primary" />
                 <span className="text-[10px] uppercase tracking-wider font-semibold">
-                  {user?.role === "admin" || user?.role === "superadmin" ? "Officer / Admin" : "Member Portal"}
+                  {activeUser.role}
                 </span>
               </div>
 
@@ -350,20 +443,37 @@ export default function Profile() {
                 <div className="flex flex-col">
                   <span className="text-[10px] text-text-muted">Cake Day</span>
                   <span className="text-xs font-semibold">
-                    {user?.joinedDate ? new Date(user.joinedDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "July 4, 2025"}
+                    {new Date(activeUser.joinedDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                   </span>
                 </div>
               </div>
 
               {/* Quick Actions */}
               <div className="space-y-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("settings")}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
-                >
-                  Edit Profile Card
-                </button>
+                {isOwnProfile ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("settings")}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
+                  >
+                    Edit Profile Card
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      to="/app/chat"
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg transition-all"
+                    >
+                      Chat with Member
+                    </Link>
+                    <a
+                      href={`mailto:${activeUser.email}`}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
+                    >
+                      <Mail className="w-3.5 h-3.5" /> Contact via Email
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           </div>
