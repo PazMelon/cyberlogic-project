@@ -58,52 +58,44 @@ export default function Forums() {
       </div>
 
       {/* Search + Categories */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
+        <div className="relative w-full lg:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search threads..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
           />
         </div>
-      </div>
-
-      {/* Category Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <button
-          type="button"
-          onClick={() => setActiveCategory("all")}
-          className={`p-3 rounded-xl border text-center text-xs font-medium transition-all ${
-            activeCategory === "all"
-              ? "border-primary/30 bg-primary/10 text-primary"
-              : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
-          }`}
-        >
-          <div className="text-lg font-bold font-[family-name:var(--font-heading)]">
-            {forumThreads.length}
-          </div>
-          All Threads
-        </button>
-        {forumCategories.map((cat) => (
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={`p-3 rounded-xl border text-center text-xs font-medium transition-all ${
-              activeCategory === cat.id
+            onClick={() => setActiveCategory("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              activeCategory === "all"
                 ? "border-primary/30 bg-primary/10 text-primary"
                 : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
             }`}
           >
-            <div className="text-lg font-bold font-[family-name:var(--font-heading)]">
-              {cat.threadCount}
-            </div>
-            {cat.name}
+            All ({forumThreads.length})
           </button>
-        ))}
+          {forumCategories.map((cat) => (
+            <button
+              type="button"
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                activeCategory === cat.id
+                  ? "border-primary/30 bg-primary/10 text-primary"
+                  : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
+              }`}
+            >
+              {cat.name} ({cat.threadCount})
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Thread List */}

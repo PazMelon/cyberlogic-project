@@ -15,6 +15,7 @@ import Forums from "./pages/Forums";
 import ForumThread from "./pages/ForumThread";
 import Chat from "./pages/Chat";
 import Directory from "./pages/Directory";
+import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
@@ -80,6 +81,7 @@ function AppRoutes() {
         <Route path="announcements" element={<Announcements />} />
         <Route path="events" element={<Events />} />
         <Route path="resources" element={<Resources />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       {/* Admin Routes */}

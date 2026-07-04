@@ -105,7 +105,7 @@ export default function Topbar() {
                   <p className="text-xs text-text-muted">{user?.email}</p>
                 </div>
                 <Link
-                  to="#"
+                  to="/app/profile"
                   onClick={() => setShowDropdown(false)}
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
                 >
