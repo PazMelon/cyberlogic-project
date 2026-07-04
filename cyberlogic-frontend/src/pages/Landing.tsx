@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -20,6 +21,7 @@ import {
   clubStats,
 } from "../data/mockData";
 import Terminal from "../components/Terminal";
+import { SkeletonCard, SkeletonLine, SkeletonCircle, SkeletonBox } from "../components/Skeleton";
 
 /* ============================================
    HERO SECTION
@@ -115,7 +117,7 @@ function HeroSection() {
 /* ============================================
    ANNOUNCEMENTS PREVIEW
    ============================================ */
-function AnnouncementsPreview() {
+function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
   const latest = announcements.slice(0, 3);
 
   return (
@@ -141,7 +143,14 @@ function AnnouncementsPreview() {
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {latest.map((item, idx) => (
+          {isLoading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : (
+            latest.map((item, idx) => (
             <article
               key={item.id}
               className={`glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group ${
@@ -192,7 +201,7 @@ function AnnouncementsPreview() {
                 <time className="text-xs text-text-muted">{item.date}</time>
               </div>
             </article>
-          ))}
+          )))}
         </div>
 
         {/* Mobile "View All" */}
@@ -212,7 +221,7 @@ function AnnouncementsPreview() {
 /* ============================================
    UPCOMING EVENTS
    ============================================ */
-function UpcomingEvents() {
+function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
   const upcoming = events.slice(0, 4);
 
   const typeColors: Record<string, string> = {
@@ -246,7 +255,21 @@ function UpcomingEvents() {
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {upcoming.map((event) => {
+          {isLoading ? (
+            <>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="glass rounded-2xl p-6 flex gap-5 animate-pulse">
+                  <SkeletonBox className="w-16 h-16 rounded-xl flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <SkeletonLine widthClass="w-1/4" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-3/4" heightClass="h-5" />
+                    <SkeletonLine widthClass="w-full" heightClass="h-4" />
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            upcoming.map((event) => {
             const eventDate = new Date(event.date);
             const month = eventDate.toLocaleString("default", {
               month: "short",
@@ -299,7 +322,7 @@ function UpcomingEvents() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
     </section>
@@ -309,7 +332,7 @@ function UpcomingEvents() {
 /* ============================================
    RESOURCES HIGHLIGHT
    ============================================ */
-function ResourcesHighlight() {
+function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
   const featured = resources.slice(0, 4);
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -344,7 +367,20 @@ function ResourcesHighlight() {
 
         {/* Resource Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {featured.map((resource) => (
+          {isLoading ? (
+            <>
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="glass rounded-2xl p-5 space-y-4 animate-pulse">
+                  <SkeletonBox className="w-10 h-10 rounded-lg" />
+                  <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
+                  <SkeletonLine widthClass="w-3/4" heightClass="h-5" />
+                  <SkeletonLine widthClass="w-full" heightClass="h-4" />
+                  <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
+                </div>
+              ))}
+            </>
+          ) : (
+            featured.map((resource) => (
             <div
               key={resource.id}
               className="glass rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group"
@@ -373,7 +409,7 @@ function ResourcesHighlight() {
                 </a>
               </div>
             </div>
-          ))}
+          )))}
         </div>
       </div>
     </section>
@@ -383,7 +419,7 @@ function ResourcesHighlight() {
 /* ============================================
    ABOUT / TEAM PREVIEW
    ============================================ */
-function AboutPreview() {
+function AboutPreview({ isLoading }: { isLoading: boolean }) {
   const officers = teamMembers.slice(0, 4);
 
   return (
@@ -420,24 +456,36 @@ function AboutPreview() {
 
           {/* Team Grid */}
           <div className="grid grid-cols-2 gap-4">
-            {officers.map((member) => (
-              <div
-                key={member.id}
-                className="glass rounded-2xl p-5 text-center hover:border-primary/20 transition-all duration-300 group"
-              >
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-16 h-16 rounded-full mx-auto mb-3 bg-surface-700 group-hover:ring-2 group-hover:ring-primary/30 transition-all"
-                />
-                <h4 className="text-sm font-semibold text-text-primary">
-                  {member.name}
-                </h4>
-                <span className="text-xs text-primary font-medium">
-                  {member.role}
-                </span>
-              </div>
-            ))}
+            {isLoading ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="glass rounded-2xl p-5 text-center space-y-3 animate-pulse">
+                    <SkeletonCircle className="w-16 h-16 mx-auto bg-surface-800" />
+                    <SkeletonLine widthClass="w-2/3" heightClass="h-4" className="mx-auto" />
+                    <SkeletonLine widthClass="w-1/2" heightClass="h-3" className="mx-auto" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              officers.map((member) => (
+                <div
+                  key={member.id}
+                  className="glass rounded-2xl p-5 text-center hover:border-primary/20 transition-all duration-300 group"
+                >
+                  <img
+                    src={member.avatar}
+                    alt={member.name}
+                    className="w-16 h-16 rounded-full mx-auto mb-3 bg-surface-700 group-hover:ring-2 group-hover:ring-primary/30 transition-all"
+                  />
+                  <h4 className="text-sm font-semibold text-text-primary">
+                    {member.name}
+                  </h4>
+                  <span className="text-xs text-primary font-medium">
+                    {member.role}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -488,13 +536,22 @@ function CTABanner() {
    LANDING PAGE
    ============================================ */
 export default function Landing() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <>
       <HeroSection />
-      <AnnouncementsPreview />
-      <UpcomingEvents />
-      <ResourcesHighlight />
-      <AboutPreview />
+      <AnnouncementsPreview isLoading={isLoading} />
+      <UpcomingEvents isLoading={isLoading} />
+      <ResourcesHighlight isLoading={isLoading} />
+      <AboutPreview isLoading={isLoading} />
       <CTABanner />
     </>
   );

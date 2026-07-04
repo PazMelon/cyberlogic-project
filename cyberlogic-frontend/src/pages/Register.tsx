@@ -1,30 +1,55 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Shield, Eye, EyeOff, Mail, Lock, User, CreditCard, ArrowLeft, Users, Trophy, BookOpen } from "lucide-react";
+import { Shield, Eye, EyeOff, Mail, Lock, User, CreditCard, ArrowLeft, Users, Trophy, BookOpen, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { clubStats } from "../data/mockData";
 
 export default function Register() {
   const [form, setForm] = useState({
-    name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     email: "",
-    studentId: "",
+    school_id: "",
     password: "",
     confirmPassword: "",
     agreedToTerms: false,
   });
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const { login } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { register } = useAuth();
   const navigate = useNavigate();
 
   const updateField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login();
-    navigate("/app");
+    setError(null);
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (!form.agreedToTerms) {
+      setError("You must agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { confirmPassword, agreedToTerms, ...registrationData } = form;
+      await register(registrationData);
+      navigate("/app");
+    } catch (err: any) {
+      setError(err.message || "Registration failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -93,17 +118,17 @@ export default function Register() {
         <div className="absolute inset-0 cyber-grid opacity-10 lg:hidden" />
         <div className="absolute bottom-1/3 -left-32 w-64 h-64 bg-accent/8 rounded-full blur-[100px] lg:hidden" />
 
-        <div className="relative z-10 w-full max-w-sm">
+        <div className="relative z-10 w-full max-w-md">
           {/* Back to Home */}
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-8"
+            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-5"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
 
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-6">
+          <div className="lg:hidden flex items-center gap-2 mb-4">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -115,79 +140,136 @@ export default function Register() {
           <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary mb-1">
             Create your account
           </h1>
-          <p className="text-sm text-text-muted mb-8">
+          <p className="text-sm text-text-muted mb-4">
             Join the Cyberlogic community today
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-4 p-4 rounded-xl bg-error/10 border border-error/25 flex items-start gap-2.5 text-xs text-error font-medium animate-fadeIn">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            
+            {/* First Name */}
             <div>
-              <label htmlFor="register-name" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Full Name
+              <label htmlFor="reg-first-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                First Name
               </label>
               <div className="relative">
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
-                  id="register-name"
+                  id="reg-first-name"
                   type="text"
-                  value={form.name}
-                  onChange={(e) => updateField("name", e.target.value)}
-                  placeholder="Juan Dela Cruz"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  required
+                  disabled={isSubmitting}
+                  value={form.first_name}
+                  onChange={(e) => updateField("first_name", e.target.value)}
+                  placeholder="John"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
               </div>
             </div>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="register-email" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Email address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                <input
-                  id="register-email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => updateField("email", e.target.value)}
-                  placeholder="you@university.edu"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
-                />
+            {/* Middle Name and Last Name in the same row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="reg-middle-name" className="block text-sm font-medium text-text-secondary mb-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                  Middle Name <span className="text-text-muted text-xs font-normal">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input
+                    id="reg-middle-name"
+                    type="text"
+                    disabled={isSubmitting}
+                    value={form.middle_name}
+                    onChange={(e) => updateField("middle_name", e.target.value)}
+                    placeholder="A."
+                    className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="reg-last-name" className="block text-sm font-medium text-text-secondary mb-1.5">
+                  Last Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <input
+                    id="reg-last-name"
+                    type="text"
+                    required
+                    disabled={isSubmitting}
+                    value={form.last_name}
+                    onChange={(e) => updateField("last_name", e.target.value)}
+                    placeholder="Doe"
+                    className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Student ID */}
+            {/* School ID */}
             <div>
-              <label htmlFor="register-student-id" className="block text-sm font-medium text-text-secondary mb-1.5">
-                Student ID
+              <label htmlFor="reg-school-id" className="block text-sm font-medium text-text-secondary mb-1.5">
+                School ID / Student ID
               </label>
               <div className="relative">
                 <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
-                  id="register-student-id"
+                  id="reg-school-id"
                   type="text"
-                  value={form.studentId}
-                  onChange={(e) => updateField("studentId", e.target.value)}
-                  placeholder="2024-00123"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  required
+                  disabled={isSubmitting}
+                  value={form.school_id}
+                  onChange={(e) => updateField("school_id", e.target.value)}
+                  placeholder="2025-00123"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
+                />
+              </div>
+            </div>
+
+            {/* School Email */}
+            <div>
+              <label htmlFor="reg-email" className="block text-sm font-medium text-text-secondary mb-1.5">
+                School Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input
+                  id="reg-email"
+                  type="email"
+                  required
+                  disabled={isSubmitting}
+                  value={form.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  placeholder="you@university.edu"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div>
-              <label htmlFor="register-password" className="block text-sm font-medium text-text-secondary mb-1.5">
+              <label htmlFor="reg-password" className="block text-sm font-medium text-text-secondary mb-1.5">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
-                  id="register-password"
+                  id="reg-password"
                   type={showPassword ? "text" : "password"}
+                  required
+                  disabled={isSubmitting}
                   value={form.password}
                   onChange={(e) => updateField("password", e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-12 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="w-full pl-11 pr-12 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
                 <button
                   type="button"
@@ -201,18 +283,20 @@ export default function Register() {
 
             {/* Confirm Password */}
             <div>
-              <label htmlFor="register-confirm-password" className="block text-sm font-medium text-text-secondary mb-1.5">
+              <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-text-secondary mb-1.5">
                 Confirm Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                 <input
-                  id="register-confirm-password"
+                  id="reg-confirm-password"
                   type={showConfirm ? "text" : "password"}
+                  required
+                  disabled={isSubmitting}
                   value={form.confirmPassword}
                   onChange={(e) => updateField("confirmPassword", e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-12 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="w-full pl-11 pr-12 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
                 <button
                   type="button"
@@ -230,6 +314,7 @@ export default function Register() {
                 <input
                   type="checkbox"
                   checked={form.agreedToTerms}
+                  disabled={isSubmitting}
                   onChange={(e) => updateField("agreedToTerms", e.target.checked)}
                   className="w-4 h-4 mt-0.5 rounded border-border bg-surface-800 text-primary focus:ring-primary/20 focus:ring-offset-0"
                 />
@@ -244,14 +329,15 @@ export default function Register() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 mt-2"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 mt-2 disabled:opacity-50 disabled:transform-none"
             >
-              Create Account
+              {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
           </form>
 
           {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
+          <div className="flex items-center gap-4 my-4">
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-text-muted">or sign up with</span>
             <div className="flex-1 h-px bg-border" />
@@ -282,7 +368,7 @@ export default function Register() {
             </button>
           </div>
 
-          <p className="text-center text-sm text-text-muted mt-8">
+          <p className="text-center text-sm text-text-muted mt-6">
             Already have an account?{" "}
             <Link to="/login" className="text-primary hover:text-primary-light font-medium transition-colors">
               Log in

@@ -1,17 +1,18 @@
-import { useState } from "react";
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  Clock,
-  MapPin,
-  Users,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Search, Pencil, Trash2, Clock, MapPin, Users } from "lucide-react";
 import { events } from "../../data/mockData";
+import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 
 export default function EventManagement() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filtered = events.filter((e) =>
     e.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -67,47 +68,83 @@ export default function EventManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((event) => (
-                <tr key={event.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3.5">
-                    <p className="text-sm font-medium text-text-primary">{event.title}</p>
-                    <p className="text-xs text-text-muted truncate max-w-xs mt-0.5">{event.description}</p>
-                  </td>
-                  <td className="px-5 py-3.5 hidden sm:table-cell">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeColors[event.type] || "bg-surface-700 text-text-muted"}`}>
-                      {event.type}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 hidden md:table-cell">
-                    <div className="text-xs text-text-secondary">
-                      <span>{event.date}</span>
-                      <span className="flex items-center gap-1 text-text-muted mt-0.5">
-                        <Clock className="w-3 h-3" /> {event.time}
+              {isLoading ? (
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-3.5">
+                        <div className="space-y-1.5">
+                          <SkeletonLine widthClass="w-32" heightClass="h-4" />
+                          <SkeletonLine widthClass="w-48" heightClass="h-3" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                      </td>
+                      <td className="px-5 py-3.5 hidden md:table-cell">
+                        <div className="space-y-1">
+                          <SkeletonLine widthClass="w-20" heightClass="h-3.5" />
+                          <SkeletonLine widthClass="w-14" heightClass="h-3" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 hidden lg:table-cell">
+                        <SkeletonLine widthClass="w-24" heightClass="h-3.5" />
+                      </td>
+                      <td className="px-5 py-3.5 hidden lg:table-cell">
+                        <SkeletonLine widthClass="w-8" heightClass="h-3.5" />
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <SkeletonCircle className="w-7 h-7 bg-surface-800" />
+                          <SkeletonCircle className="w-7 h-7 bg-surface-800" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                filtered.map((event) => (
+                  <tr key={event.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3.5">
+                      <p className="text-sm font-medium text-text-primary">{event.title}</p>
+                      <p className="text-xs text-text-muted truncate max-w-xs mt-0.5">{event.description}</p>
+                    </td>
+                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${typeColors[event.type] || "bg-surface-700 text-text-muted"}`}>
+                        {event.type}
                       </span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 hidden lg:table-cell">
-                    <span className="text-xs text-text-muted flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {event.location}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 hidden lg:table-cell">
-                    <span className="text-xs text-text-muted flex items-center gap-1">
-                      <Users className="w-3 h-3" /> {event.attendees}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors" title="Edit">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-5 py-3.5 hidden md:table-cell">
+                      <div className="text-xs text-text-secondary">
+                        <span>{event.date}</span>
+                        <span className="flex items-center gap-1 text-text-muted mt-0.5">
+                          <Clock className="w-3 h-3" /> {event.time}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 hidden lg:table-cell">
+                      <span className="text-xs text-text-muted flex items-center gap-1">
+                        <MapPin className="w-3 h-3" /> {event.location}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 hidden lg:table-cell">
+                      <span className="text-xs text-text-muted flex items-center gap-1">
+                        <Users className="w-3 h-3" /> {event.attendees}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors" title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

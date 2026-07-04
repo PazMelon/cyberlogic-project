@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -13,9 +13,12 @@ import {
   Bookmark,
   Info,
   Calendar,
+  MessageSquare,
+  Heart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { forumThreads, forumReplies, forumCategories } from "../data/mockData";
+import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 
 export default function ForumThread() {
   const { threadId } = useParams();
@@ -23,15 +26,13 @@ export default function ForumThread() {
   const thread = forumThreads.find((t) => t.id === Number(threadId));
   const initialReplies = forumReplies.filter((r) => r.threadId === Number(threadId));
 
-  // State to manage mock replies (allows typing and posting a reply live!)
+  const [isLoading, setIsLoading] = useState(true);
   const [replies, setReplies] = useState(initialReplies);
   const [replyText, setReplyText] = useState("");
 
-  // Upvote/Downvote states for main thread
   const [threadVote, setThreadVote] = useState<"up" | "down" | null>(null);
   const [threadLikes, setThreadLikes] = useState(thread?.likes || 0);
 
-  // Upvote/Downvote states for replies
   const [replyVotes, setReplyVotes] = useState<Record<number, "up" | "down" | null>>({});
   const [replyLikes, setReplyLikes] = useState<Record<number, number>>(() => {
     const initial: Record<number, number> = {};
@@ -42,6 +43,13 @@ export default function ForumThread() {
   });
 
   const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!thread) {
     return (
@@ -59,14 +67,11 @@ export default function ForumThread() {
 
   const handleThreadVote = (type: "up" | "down") => {
     if (threadVote === type) {
-      // Undo vote
       setThreadVote(null);
       setThreadLikes(threadLikes + (type === "up" ? -1 : 1));
     } else {
-      // Calculate delta
       let delta = type === "up" ? 1 : -1;
       if (threadVote !== null) {
-        // If switching votes, delta is doubled
         delta *= 2;
       }
       setThreadVote(type);
@@ -76,51 +81,52 @@ export default function ForumThread() {
 
   const handleReplyVote = (replyId: number, type: "up" | "down") => {
     const currentVote = replyVotes[replyId] || null;
-    const currentLikes = replyLikes[replyId] !== undefined ? replyLikes[replyId] : 0;
+    const currentLikesVal = replyLikes[replyId] ?? 0;
 
     if (currentVote === type) {
-      setReplyVotes((prev) => ({ ...prev, [replyId]: null }));
-      setReplyLikes((prev) => ({ ...prev, [replyId]: currentLikes + (type === "up" ? -1 : 1) }));
+      setReplyVotes({ ...replyVotes, [replyId]: null });
+      setReplyLikes({ ...replyLikes, [replyId]: currentLikesVal + (type === "up" ? -1 : 1) });
     } else {
       let delta = type === "up" ? 1 : -1;
       if (currentVote !== null) {
         delta *= 2;
       }
-      setReplyVotes((prev) => ({ ...prev, [replyId]: type }));
-      setReplyLikes((prev) => ({ ...prev, [replyId]: currentLikes + delta }));
+      setReplyVotes({ ...replyVotes, [replyId]: type });
+      setReplyLikes({ ...replyLikes, [replyId]: currentLikesVal + delta });
     }
   };
 
-  const handleAddReply = (e: React.FormEvent) => {
+  const handlePostReply = (e: React.FormEvent) => {
     e.preventDefault();
-    if (replyText.trim() === "") return;
+    if (!replyText.trim() || !user) return;
 
     const newReply = {
       id: Date.now(),
       threadId: thread.id,
-      author: user?.name || "John Doe",
-      authorAvatar: user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=john",
-      authorRole: user?.role === "admin" || user?.role === "superadmin" ? "Officer" : "Member",
+      author: user.name,
+      authorAvatar: user.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
+      authorRole: user.role || "Member",
       content: replyText,
       likes: 0,
       createdAt: "Just now",
       isBestAnswer: false,
     };
 
-    setReplies((prev) => [...prev, newReply]);
-    setReplyLikes((prev) => ({ ...prev, [newReply.id]: 0 }));
+    setReplies([...replies, newReply]);
+    setReplyLikes({ ...replyLikes, [newReply.id]: 0 });
     setReplyText("");
   };
 
-  const categoryColors: Record<string, string> = {
-    primary: "bg-primary/10 text-primary border-primary/20",
-    accent: "bg-accent/10 text-accent border-accent/20",
-    success: "bg-success/10 text-success border-success/20",
-    error: "bg-error/10 text-error border-error/20",
-    warning: "bg-warning/10 text-warning border-warning/20",
-  };
-
-  const selectedColorClass = categoryColors[category?.color || "primary"] || "bg-surface-700 text-text-secondary border-border";
+  const selectedColorClass =
+    category?.color === "primary"
+      ? "bg-primary/10 border-primary/20 text-primary"
+      : category?.color === "accent"
+      ? "bg-accent/10 border-accent/20 text-accent"
+      : category?.color === "success"
+      ? "bg-success/10 border-success/20 text-success"
+      : category?.color === "error"
+      ? "bg-error/10 border-error/20 text-error"
+      : "bg-warning/10 border-warning/20 text-warning";
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -173,167 +179,157 @@ export default function ForumThread() {
 
             {/* Post Detail Body */}
             <div className="flex-1 p-5 sm:p-6 space-y-4">
-              
-              {/* Header Info */}
-              <div className="flex flex-wrap items-center gap-2">
-                {category && (
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}>
-                    {category.name}
-                  </span>
-                )}
-                {thread.solved && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
-                    <CheckCircle className="w-2.5 h-2.5" /> Solved
-                  </span>
-                )}
-                <span className="text-[10px] text-text-muted">
-                  Posted by <span className="font-medium text-text-secondary">u/{thread.author.toLowerCase().replace(/\s+/g, "")}</span>
-                </span>
-                <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
-              </div>
-
-              {/* Title */}
-              <h1 className="text-lg sm:text-xl font-extrabold text-text-primary font-[family-name:var(--font-heading)] leading-tight">
-                {thread.title}
-              </h1>
-
-              {/* Content body */}
-              <div className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
-                {thread.content}
-              </div>
-
-              {/* Action Footer */}
-              <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
-                {/* Mobile upvote/downvote bar */}
-                <div className="flex sm:hidden items-center gap-1.5 bg-surface-850 px-2 py-1 rounded-lg border border-border">
-                  <button
-                    type="button"
-                    onClick={() => handleThreadVote("up")}
-                    className={threadVote === "up" ? "text-primary" : ""}
-                  >
-                    <ChevronUp className="w-4 h-4" />
-                  </button>
-                  <span className="font-bold font-mono text-[10px]">{threadLikes}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleThreadVote("down")}
-                    className={threadVote === "down" ? "text-error" : ""}
-                  >
-                    <ChevronDown className="w-4 h-4" />
-                  </button>
+              {isLoading ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-32" heightClass="h-3" />
+                  </div>
+                  <SkeletonLine widthClass="w-5/6" heightClass="h-7" />
+                  <div className="space-y-2 pt-2">
+                    <SkeletonLine widthClass="w-full" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-full" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-2/3" heightClass="h-4" />
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {/* Header Info */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {category && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}>
+                        {category.name}
+                      </span>
+                    )}
+                    {thread.solved && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
+                        <CheckCircle className="w-2.5 h-2.5" /> Solved
+                      </span>
+                    )}
+                    <span className="text-[10px] text-text-muted">
+                      Posted by <span className="font-medium text-text-secondary">u/{thread.author.toLowerCase().replace(/\s+/g, "")}</span>
+                    </span>
+                    <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
+                  </div>
 
-                <span className="hidden sm:inline-flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" /> {thread.views} views
-                </span>
+                  {/* Title */}
+                  <h1 className="text-xl sm:text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary leading-tight">
+                    {thread.title}
+                  </h1>
 
-                <button
-                  type="button"
-                  onClick={() => setIsSaved(!isSaved)}
-                  className={`flex items-center gap-1.5 hover:text-primary transition-colors ${
-                    isSaved ? "text-primary" : ""
-                  }`}
-                >
-                  <Bookmark className="w-3.5 h-3.5" /> {isSaved ? "Saved" : "Save"}
-                </button>
-                
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 hover:text-primary transition-colors"
-                >
-                  <Share2 className="w-3.5 h-3.5" /> Share
-                </button>
-                
-                <button
-                  type="button"
-                  className="flex items-center gap-1.5 hover:text-error transition-colors"
-                >
-                  <Flag className="w-3.5 h-3.5" /> Report
-                </button>
-              </div>
+                  {/* Post Content HTML */}
+                  <div className="text-sm text-text-secondary leading-relaxed space-y-3 whitespace-pre-wrap pt-2">
+                    {thread.content}
+                  </div>
 
+                  {/* Post Footer Action Toolbar */}
+                  <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
+                    <span className="inline-flex items-center gap-1">
+                      <MessageSquare className="w-3.5 h-3.5" /> {replies.length} comments
+                    </span>
+                    <span className="inline-flex items-center gap-1 sm:hidden">
+                      <Heart className="w-3.5 h-3.5" /> {threadLikes} likes
+                    </span>
+                    <span className="hidden sm:inline-flex items-center gap-1">
+                      <Eye className="w-3.5 h-3.5" /> {thread.views} views
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsSaved(!isSaved)}
+                      className={`inline-flex items-center gap-1 hover:text-primary transition-colors ml-auto ${
+                        isSaved ? "text-primary font-medium" : ""
+                      }`}
+                    >
+                      <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-primary/20" : ""}`} />
+                      <span>{isSaved ? "Saved" : "Save"}</span>
+                    </button>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-accent transition-colors">
+                      <Share2 className="w-3.5 h-3.5" /> Share
+                    </button>
+                    <button type="button" className="inline-flex items-center gap-1 hover:text-error transition-colors">
+                      <Flag className="w-3.5 h-3.5" /> Report
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Comment input card */}
-          <div className="glass rounded-xl p-5 border border-border space-y-3">
-            <div className="text-xs text-text-muted">
-              Comment as <span className="font-semibold text-text-secondary">{user?.name}</span>
-            </div>
-            <form onSubmit={handleAddReply} className="space-y-3">
-              <textarea
-                rows={3}
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                placeholder="What are your thoughts?"
-                className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none text-xs"
-                required
-              />
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg transition-all"
-                >
-                  <Send className="w-3.5 h-3.5" /> Comment
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Comments List */}
-          <div className="space-y-4">
-            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">
+          {/* Comments/Replies Section */}
+          <div className="glass rounded-xl p-5 sm:p-6 space-y-6">
+            <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)] border-b border-border pb-3">
               Comments ({replies.length})
             </h2>
 
-            <div className="space-y-4">
-              {replies.map((reply) => {
-                const currentLikes = replyLikes[reply.id] !== undefined ? replyLikes[reply.id] : reply.likes;
-                const currentVote = replyVotes[reply.id] || null;
+            {/* Comment Form */}
+            {user && (
+              <form onSubmit={handlePostReply} className="flex gap-3">
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full bg-surface-700 mt-1 flex-shrink-0"
+                />
+                <div className="flex-1 space-y-2">
+                  <textarea
+                    rows={3}
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="What are your thoughts?"
+                    className="w-full p-3 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!replyText.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50"
+                    >
+                      <Send className="w-3 h-3" /> Post Comment
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
 
-                return (
-                  <div
-                    key={reply.id}
-                    className={`glass rounded-xl p-4 border border-border transition-colors ${
-                      reply.isBestAnswer ? "border-success/30 bg-success/5" : ""
-                    }`}
-                  >
-                    {reply.isBestAnswer && (
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-success mb-3 uppercase tracking-wider">
-                        <Award className="w-3.5 h-3.5" /> Solution
+            {/* Replies List */}
+            <div className="space-y-4 pt-2">
+              {isLoading ? (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3 animate-pulse">
+                      <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0" />
+                      <div className="flex-1 space-y-2">
+                        <SkeletonLine widthClass="w-1/4" heightClass="h-3" />
+                        <SkeletonLine widthClass="w-full" heightClass="h-4" />
+                        <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
                       </div>
-                    )}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                replies.map((reply) => {
+                  const currentVote = replyVotes[reply.id] || null;
+                  const currentLikes = replyLikes[reply.id] ?? reply.likes;
 
-                    <div className="flex gap-3">
-                      {/* Left: Avatar + Nesting line indicator */}
-                      <div className="flex flex-col items-center flex-shrink-0">
-                        <img
-                          src={reply.authorAvatar}
-                          alt={reply.author}
-                          className="w-8 h-8 rounded-full bg-surface-700"
-                        />
-                        <div className="w-0.5 flex-1 bg-border/40 my-2 rounded" />
-                      </div>
-
-                      {/* Right: Comment details */}
-                      <div className="flex-1 min-w-0">
-                        
-                        {/* Meta */}
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <span className="text-xs font-bold text-text-primary">{reply.author}</span>
-                          <span className="text-[9px] font-semibold text-accent bg-accent/10 px-1.5 py-0.25 rounded">
-                            {reply.authorRole}
+                  return (
+                    <div key={reply.id} className="flex items-start gap-3 text-sm group">
+                      <img
+                        src={reply.authorAvatar}
+                        alt={reply.author}
+                        className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 mt-0.5"
+                      />
+                      <div className="flex-1 min-w-0 bg-surface-900/20 rounded-xl p-3.5 border border-border/40">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-semibold text-text-secondary">
+                            u/{reply.author.toLowerCase().replace(/\s+/g, "")}
                           </span>
                           <span className="text-[10px] text-text-muted">{reply.createdAt}</span>
                         </div>
+                        <p className="text-text-primary leading-relaxed whitespace-pre-wrap">{reply.content}</p>
 
-                        {/* Content */}
-                        <p className="text-xs text-text-secondary leading-relaxed">{reply.content}</p>
-
-                        {/* Vote and reply toolbar */}
-                        <div className="flex items-center gap-3 mt-3 text-xs text-text-muted">
-                          {/* Inline vote buttons */}
-                          <div className="flex items-center gap-1.5 bg-surface-850 px-2 py-0.5 rounded border border-border">
+                        {/* Reply Action Toolbar */}
+                        <div className="flex items-center gap-4 mt-3 text-xs text-text-muted border-t border-border/10 pt-2.5">
+                          <div className="flex items-center gap-1.5 bg-surface-850 px-2 py-0.5 rounded-lg border border-border/45">
                             <button
                               type="button"
                               onClick={() => handleReplyVote(reply.id, "up")}
@@ -345,7 +341,7 @@ export default function ForumThread() {
                               <ChevronUp className="w-3.5 h-3.5" />
                             </button>
                             <span className={`text-[10px] font-bold font-mono ${
-                              currentVote === "up" ? "text-primary" : currentVote === "down" ? "text-error" : ""
+                              currentVote === "up" ? "text-primary" : currentVote === "down" ? "text-error" : "text-text-muted"
                             }`}>
                               {currentLikes}
                             </span>
@@ -369,15 +365,13 @@ export default function ForumThread() {
                             Report
                           </button>
                         </div>
-
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
-
         </div>
 
         {/* Right Column: Sidebar Panels */}
@@ -394,18 +388,28 @@ export default function ForumThread() {
                     Category details
                   </h3>
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-text-primary leading-tight">
-                    {category?.name || "Forums"}
-                  </h4>
-                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                    {category?.description || "Exchange cyber knowledge with members."}
-                  </p>
-                </div>
+                {isLoading ? (
+                  <div className="space-y-2 animate-pulse">
+                    <SkeletonLine widthClass="w-1/2" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-full" heightClass="h-3" />
+                    <SkeletonLine widthClass="w-5/6" heightClass="h-3" />
+                  </div>
+                ) : (
+                  <div>
+                    <h4 className="text-sm font-bold text-text-primary leading-tight">
+                      {category?.name || "Forums"}
+                    </h4>
+                    <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                      {category?.description || "Exchange cyber knowledge with members."}
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4 py-2 border-y border-border">
                   <div>
                     <span className="text-[10px] text-text-muted block">Total Threads</span>
-                    <span className="text-xs font-bold text-text-primary">{category?.threadCount || 10}</span>
+                    <span className="text-xs font-bold text-text-primary">
+                      {isLoading ? <SkeletonLine widthClass="w-6" heightClass="h-3.5" /> : (category?.threadCount || 10)}
+                    </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-text-muted block">Members Online</span>
@@ -426,29 +430,41 @@ export default function ForumThread() {
               <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
                 <Award className="w-4 h-4 text-primary" /> About Author
               </h3>
-              <div className="flex items-center gap-3">
-                <img
-                  src={thread.authorAvatar}
-                  alt={thread.author}
-                  className="w-10 h-10 rounded-full bg-surface-700"
-                />
-                <div>
-                  <p className="text-xs font-bold text-text-primary">{thread.author}</p>
-                  <span className="inline-flex items-center text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.25 rounded mt-0.5 uppercase tracking-wide">
-                    Original Poster
-                  </span>
+              {isLoading ? (
+                <div className="flex items-center gap-3 animate-pulse">
+                  <SkeletonCircle className="w-10 h-10 bg-surface-800" />
+                  <div className="space-y-2 flex-1">
+                    <SkeletonLine widthClass="w-1/2" heightClass="h-3.5" />
+                    <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>Joined July 2025</span>
-              </div>
-              <Link
-                to={`/app/profile?name=${encodeURIComponent(thread.author)}`}
-                className="w-full flex items-center justify-center py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
-              >
-                View Author Profile
-              </Link>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={thread.authorAvatar}
+                      alt={thread.author}
+                      className="w-10 h-10 rounded-full bg-surface-700"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-text-primary">{thread.author}</p>
+                      <span className="inline-flex items-center text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.25 rounded mt-0.5 uppercase tracking-wide">
+                        Original Poster
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Joined July 2025</span>
+                  </div>
+                  <Link
+                    to={`/app/profile?name=${encodeURIComponent(thread.author)}`}
+                    className="w-full flex items-center justify-center py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
+                  >
+                    View Author Profile
+                  </Link>
+                </>
+              )}
             </div>
 
           </div>

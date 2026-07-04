@@ -1,19 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import {
-  Hash,
-  Send,
-  Smile,
-  Paperclip,
-  Users,
-  Info,
-  ChevronRight,
-} from "lucide-react";
+import { Hash, Send, Smile, Paperclip, Users, Info } from "lucide-react";
 import { chatChannels, chatMessages, directoryMembers } from "../data/mockData";
+import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 
 export default function Chat() {
   const [activeChannel, setActiveChannel] = useState("general");
   const [message, setMessage] = useState("");
   const [showMembers, setShowMembers] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -22,10 +16,18 @@ export default function Chat() {
   const onlineMembers = directoryMembers.filter((m) => m.status === "online");
 
   useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [activeChannel]);
+
+  useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [activeChannel]);
+  }, [activeChannel, isLoading]);
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-surface-950">
@@ -124,50 +126,78 @@ export default function Chat() {
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
           >
-            {channelMessages.map((msg) => {
-              if (msg.isSystem) {
+            {isLoading ? (
+              <div className="space-y-5 animate-pulse">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <SkeletonCircle className="w-9 h-9 bg-surface-800 flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <SkeletonLine widthClass="w-24" heightClass="h-3.5" />
+                        <SkeletonLine widthClass="w-12" heightClass="h-3" />
+                      </div>
+                      <SkeletonLine widthClass={i % 2 === 0 ? "w-3/4" : "w-1/2"} heightClass="h-4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              channelMessages.map((msg) => {
+                if (msg.isSystem) {
+                  return (
+                    <div key={msg.id} className="flex items-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50">
+                      <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                      <span>{msg.content}</span>
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={msg.id} className="flex items-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50">
-                    <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                    <span>{msg.content}</span>
+                  <div key={msg.id} className="flex items-start gap-3 group hover:bg-white/[0.02] p-2 rounded-lg -mx-2 transition-colors">
+                    <img
+                      src={msg.authorAvatar}
+                      alt={msg.author}
+                      className="w-9 h-9 rounded-full bg-surface-700 object-cover flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className="text-sm font-semibold text-text-primary">{msg.author}</span>
+                        <span className="text-[10px] text-text-muted">{msg.timestamp}</span>
+                      </div>
+                      <p className="text-sm text-text-secondary leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   </div>
                 );
-              }
-
-              return (
-                <div key={msg.id} className="flex items-start gap-3 group hover:bg-white/[0.02] p-2 rounded-lg -mx-2 transition-colors">
-                  <img
-                    src={msg.authorAvatar}
-                    alt={msg.author}
-                    className="w-9 h-9 rounded-full bg-surface-700 flex-shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-semibold text-text-primary">{msg.author}</span>
-                      <span className="text-[10px] text-text-muted">{msg.timestamp}</span>
-                    </div>
-                    <p className="text-sm text-text-secondary mt-0.5 break-words">{msg.content}</p>
-                  </div>
-                </div>
-              );
-            })}
+              })
+            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Members Panel */}
+          {/* Sidebar Panel for Online Members */}
           {showMembers && (
-            <div className="w-56 border-l border-border bg-surface-900/30 p-3 overflow-y-auto hidden md:block flex-shrink-0">
-              <h4 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">
-                Online — {onlineMembers.length}
-              </h4>
-              <div className="space-y-1">
-                {onlineMembers.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 transition-colors">
-                    <div className="relative flex-shrink-0">
-                      <img src={m.avatar} alt={m.name} className="w-7 h-7 rounded-full bg-surface-700" />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success border-2 border-surface-900" />
+            <div className="w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex flex-col animate-slideLeft">
+              <div className="p-4 border-b border-border flex items-center justify-between">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                  Channel Members
+                </h3>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {directoryMembers.map((m) => (
+                  <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                    <div className="relative">
+                      <img
+                        src={m.avatar}
+                        alt={m.name}
+                        className="w-8 h-8 rounded-full bg-surface-700 object-cover"
+                      />
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 ${
+                        m.status === "online" ? "bg-success" : m.status === "away" ? "bg-warning" : "bg-text-muted"
+                      }`} />
                     </div>
-                    <span className="text-xs text-text-secondary truncate">{m.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
+                      <p className="text-[9px] text-text-muted truncate">{m.role}</p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -175,37 +205,45 @@ export default function Chat() {
           )}
         </div>
 
-        {/* Message Input */}
-        <div className="p-3 sm:p-4 border-t border-border flex-shrink-0">
-          <div className="flex items-center gap-2 bg-surface-800 rounded-xl px-4 py-2.5 border border-border focus-within:border-primary/50 transition-all">
-            <button type="button" className="text-text-muted hover:text-text-secondary transition-colors flex-shrink-0">
+        {/* Input Bar */}
+        <div className="p-4 border-t border-border bg-surface-900/30 flex-shrink-0">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (message.trim()) setMessage("");
+            }}
+            className="flex items-center gap-2 p-2 rounded-xl bg-surface-800 border border-border focus-within:border-primary/50 transition-all"
+          >
+            <button
+              type="button"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Upload file"
+            >
               <Paperclip className="w-4 h-4" />
             </button>
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Message #${channel?.name || "general"}...`}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-muted"
+              placeholder={`Message #${channel?.name}`}
+              className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1"
             />
-            <button type="button" className="text-text-muted hover:text-text-secondary transition-colors flex-shrink-0">
+            <button
+              type="button"
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Add emoji"
+            >
               <Smile className="w-4 h-4" />
             </button>
             <button
-              type="button"
-              className="w-8 h-8 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors flex items-center justify-center flex-shrink-0"
+              type="submit"
+              disabled={!message.trim()}
+              className="p-2 rounded-xl bg-primary hover:bg-primary-light disabled:opacity-50 text-white transition-colors"
+              aria-label="Send message"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-3.5 h-3.5" />
             </button>
-          </div>
-          <div className="flex items-center gap-1 mt-2 text-[10px] text-text-muted">
-            <span>Press</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-surface-700 text-text-secondary font-mono">Enter</kbd>
-            <span>to send</span>
-            <ChevronRight className="w-2.5 h-2.5 mx-0.5" />
-            <kbd className="px-1.5 py-0.5 rounded bg-surface-700 text-text-secondary font-mono">Shift+Enter</kbd>
-            <span>for new line</span>
-          </div>
+          </form>
         </div>
       </div>
     </div>

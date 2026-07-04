@@ -1,15 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import {
-  Search,
-  Mail,
-  MapPin,
-  Award,
-  ChevronDown,
-  ChevronUp,
-  X,
-} from "lucide-react";
+import { Search, Mail, MapPin, Award, ChevronDown, ChevronUp } from "lucide-react";
 import { directoryMembers } from "../data/mockData";
+import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 
 const roleFilters = ["All", "President", "Vice President", "Secretary", "Treasurer", "Tech Lead", "Events Coordinator", "Member", "Alumni"] as const;
 const statusColors: Record<string, string> = {
@@ -22,6 +15,14 @@ export default function Directory() {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filtered = directoryMembers.filter((m) => {
     const matchesSearch =
@@ -48,149 +49,160 @@ export default function Directory() {
 
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, department, or expertise..."
+            placeholder="Search by name, department, expertise..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {roleFilters.map((role) => (
-            <button
-              key={role}
-              type="button"
-              onClick={() => setRoleFilter(role)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                roleFilter === role
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
-              }`}
-            >
-              {role}
-            </button>
-          ))}
+        <div className="relative">
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            className="px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all appearance-none pr-10 cursor-pointer"
+          >
+            {roleFilters.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
         </div>
       </div>
 
-      {/* Member Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((member) => {
-          const isExpanded = expandedId === member.id;
-
-          return (
-            <div
-              key={member.id}
-              className={`glass rounded-2xl p-5 transition-all duration-300 group ${
-                isExpanded ? "border-primary/30 ring-1 ring-primary/10" : "hover:border-primary/20"
-              }`}
-            >
-              {/* Top */}
-              <div className="flex items-start gap-3 mb-3">
-                <div className="relative flex-shrink-0">
-                  <img
-                    src={member.avatar}
-                    alt={member.name}
-                    className="w-12 h-12 rounded-full bg-surface-700"
-                  />
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-surface-800 ${statusColors[member.status]}`} />
+      {/* Members Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {isLoading ? (
+          <>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="glass rounded-2xl p-5 space-y-4 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <SkeletonCircle className="w-14 h-14 bg-surface-800" />
+                  <div className="space-y-2 flex-1">
+                    <SkeletonLine widthClass="w-3/4" heightClass="h-4.5" />
+                    <SkeletonLine widthClass="w-1/2" heightClass="h-3" />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-text-primary truncate">{member.name}</h3>
-                  <p className="text-xs text-primary font-medium">{member.role}</p>
-                  <p className="text-xs text-text-muted">
-                    {member.department} · {member.yearLevel}
-                  </p>
+                <div className="space-y-2 pt-2">
+                  <SkeletonLine widthClass="w-full" heightClass="h-3.5" />
+                  <div className="flex gap-2">
+                    <SkeletonLine widthClass="w-12" heightClass="h-4" />
+                    <SkeletonLine widthClass="w-14" heightClass="h-4" />
+                  </div>
                 </div>
               </div>
+            ))}
+          </>
+        ) : (
+          filtered.map((member) => {
+            const isExpanded = expandedId === member.id;
 
-              {/* Badges */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {member.badges.map((badge) => (
-                  <span
-                    key={badge}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent/10 text-accent"
-                  >
-                    <Award className="w-2.5 h-2.5" /> {badge}
-                  </span>
-                ))}
-              </div>
-
-              {/* Expertise Tags */}
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {member.expertise.map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-2 py-0.5 rounded-lg text-[10px] font-medium bg-surface-700 text-text-muted"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-
-              {/* Expand Toggle */}
-              <button
-                type="button"
-                onClick={() => setExpandedId(isExpanded ? null : member.id)}
-                className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs text-text-muted hover:text-primary hover:bg-white/5 transition-colors"
+            return (
+              <div
+                key={member.id}
+                className="glass rounded-2xl p-5 hover:border-primary/20 transition-all duration-300 group flex flex-col justify-between"
               >
-                {isExpanded ? (
-                  <>
-                    Less <ChevronUp className="w-3 h-3" />
-                  </>
-                ) : (
-                  <>
-                    More <ChevronDown className="w-3 h-3" />
-                  </>
-                )}
-              </button>
+                <div>
+                  {/* Top Bar: Avatar & Role */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="relative">
+                      <img
+                        src={member.avatar}
+                        alt={member.name}
+                        className="w-14 h-14 rounded-full bg-surface-700 object-cover"
+                      />
+                      <span
+                        className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-950 ${
+                          statusColors[member.status] || "bg-text-muted"
+                        }`}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold text-text-primary truncate">
+                        {member.name}
+                      </h3>
+                      <p className="text-xs text-primary font-medium mt-0.5">
+                        {member.role}
+                      </p>
+                      <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
+                        {member.department}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* Expanded Detail */}
-              {isExpanded && (
-                <div className="mt-3 pt-3 border-t border-border space-y-2.5 animate-fade-in">
-                  <p className="text-xs text-text-secondary leading-relaxed">{member.bio}</p>
-                  <div className="flex items-center gap-2 text-xs text-text-muted">
-                    <Mail className="w-3.5 h-3.5" />
-                    <span>{member.email}</span>
+                  {/* Badges */}
+                  {member.badges.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {member.badges.map((badge) => (
+                        <span
+                          key={badge}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-accent/10 border border-accent/20 text-accent uppercase tracking-wider"
+                        >
+                          <Award className="w-2.5 h-2.5" /> {badge}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Skills/Expertise */}
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    {member.expertise.map((skill) => (
+                      <span
+                        key={skill}
+                        className="px-2 py-0.5 rounded bg-surface-800 border border-border/50 text-[10px] text-text-secondary"
+                      >
+                        {skill}
+                      </span>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-text-muted">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{member.department}</span>
-                  </div>
-                  <div className="text-xs text-text-muted">
-                    Member since {new Date(member.joinedDate).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                  </div>
-                  <div className="pt-2">
-                    <Link
-                      to={`/app/profile/${member.id}`}
-                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 hover:border-primary/40 text-xs font-semibold text-primary hover:text-primary-light transition-all"
-                    >
-                      View Full Profile
-                    </Link>
-                  </div>
+
+                  {/* Expanded Bio Info */}
+                  {isExpanded && (
+                    <div className="pt-3 border-t border-border/50 text-xs text-text-secondary space-y-2 mt-2 animate-fadeIn">
+                      <p className="leading-relaxed">{member.bio}</p>
+                      <div className="flex items-center gap-1.5 text-text-muted">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Year: {member.yearLevel}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-text-muted">
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>{member.email}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+
+                {/* Footer Toolbar: Action Buttons */}
+                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : member.id)}
+                    className="flex-1 py-1.5 text-center text-xs font-semibold rounded-lg bg-surface-850 hover:bg-surface-800 text-text-primary border border-border transition-all flex items-center justify-center gap-1"
+                  >
+                    <span>{isExpanded ? "Collapse" : "View Bio"}</span>
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                  <Link
+                    to={`/app/profile/${member.id}`}
+                    className="px-3 py-1.5 text-center text-xs font-semibold rounded-lg bg-gradient-to-r from-primary to-accent hover:shadow-md hover:shadow-primary/10 text-white transition-all"
+                  >
+                    Profile
+                  </Link>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
 
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-text-muted">No members found matching your search.</p>
-          <button
-            type="button"
-            onClick={() => {
-              setSearchQuery("");
-              setRoleFilter("All");
-            }}
-            className="mt-2 text-sm text-primary hover:text-primary-light flex items-center gap-1 mx-auto"
-          >
-            <X className="w-3.5 h-3.5" /> Clear filters
-          </button>
+      {!isLoading && filtered.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-text-muted">No members found matching the criteria.</p>
         </div>
       )}
     </div>

@@ -1,16 +1,18 @@
-import { useState } from "react";
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  Download,
-  ExternalLink,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Search, Pencil, Trash2, Download, ExternalLink } from "lucide-react";
 import { resources } from "../../data/mockData";
+import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 
 export default function ResourceManagement() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filtered = resources.filter((r) =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -63,37 +65,65 @@ export default function ResourceManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((r) => (
-                <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                  <td className="px-5 py-3.5">
-                    <p className="text-sm font-medium text-text-primary">{r.title}</p>
-                    <p className="text-xs text-text-muted truncate max-w-sm mt-0.5">{r.description}</p>
-                  </td>
-                  <td className="px-5 py-3.5 hidden sm:table-cell">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${categoryColors[r.category] || "bg-surface-700 text-text-muted"}`}>
-                      {r.category}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5 hidden md:table-cell">
-                    <span className="text-xs text-text-muted flex items-center gap-1">
-                      <Download className="w-3 h-3" /> {r.downloadCount}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <a href={r.link} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg text-text-muted hover:text-info hover:bg-white/5 transition-colors" title="Open">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors" title="Edit">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors" title="Delete">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {isLoading ? (
+                <>
+                  {[1, 2, 3, 4].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-3.5">
+                        <div className="space-y-1.5">
+                          <SkeletonLine widthClass="w-32" heightClass="h-4" />
+                          <SkeletonLine widthClass="w-48" heightClass="h-3" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <SkeletonLine widthClass="w-16" heightClass="h-4" />
+                      </td>
+                      <td className="px-5 py-3.5 hidden md:table-cell">
+                        <SkeletonLine widthClass="w-10" heightClass="h-3.5" />
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <SkeletonCircle className="w-7 h-7 bg-surface-800" />
+                          <SkeletonCircle className="w-7 h-7 bg-surface-800" />
+                          <SkeletonCircle className="w-7 h-7 bg-surface-800" />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
+              ) : (
+                filtered.map((r) => (
+                  <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-5 py-3.5">
+                      <p className="text-sm font-medium text-text-primary">{r.title}</p>
+                      <p className="text-xs text-text-muted truncate max-w-sm mt-0.5">{r.description}</p>
+                    </td>
+                    <td className="px-5 py-3.5 hidden sm:table-cell">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${categoryColors[r.category] || "bg-surface-700 text-text-muted"}`}>
+                        {r.category}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 hidden md:table-cell">
+                      <span className="text-xs text-text-muted flex items-center gap-1">
+                        <Download className="w-3 h-3" /> {r.downloadCount}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center justify-end gap-1">
+                        <a href={r.link} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg text-text-muted hover:text-info hover:bg-white/5 transition-colors" title="Open">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors" title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button type="button" className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

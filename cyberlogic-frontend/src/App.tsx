@@ -23,28 +23,79 @@ import EventManagement from "./pages/admin/EventManagement";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
 import SiteSettings from "./pages/admin/SiteSettings";
+import { Shield } from "lucide-react";
 
 /**
- * Wrapper that auto-logs the user in for the /app routes
- * since we have no real authentication yet (mockup only).
+ * Cybernetic Loader for initial session check
  */
-function MockAuthGate({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, login } = useAuth();
-  if (!isAuthenticated) {
-    login();
+function AuthLoader() {
+  return (
+    <div className="min-h-screen bg-surface-950 flex flex-col items-center justify-center relative overflow-hidden">
+      <div className="absolute inset-0 cyber-grid opacity-15" />
+      <div className="relative z-10 flex flex-col items-center gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center animate-pulse shadow-lg shadow-primary/20">
+          <Shield className="w-8 h-8 text-white animate-spin [animation-duration:3s]" />
+        </div>
+        <p className="text-sm font-semibold tracking-widest text-text-secondary uppercase animate-pulse">
+          Connecting to System...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Require standard member authentication
+ */
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <AuthLoader />;
   }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   return <>{children}</>;
 }
 
 /**
- * Wrapper that auto-logs the user in as admin for the /admin routes
- * since we have no real authentication yet (mockup only).
+ * Require administrator privilege
  */
-function MockAdminGate({ children }: { children: React.ReactNode }) {
-  const { isAdmin, loginAsAdmin } = useAuth();
-  if (!isAdmin) {
-    loginAsAdmin();
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <AuthLoader />;
   }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+/**
+ * Prevent logged-in users from accessing login/register pages
+ */
+function GuestGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <AuthLoader />;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/app" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -60,17 +111,31 @@ function AppRoutes() {
         <Route path="about" element={<About />} />
       </Route>
 
-      {/* Auth Routes (standalone — no navbar/footer) */}
-      <Route path="login" element={<Login />} />
-      <Route path="register" element={<Register />} />
+      {/* Auth Routes (unauthenticated guests only) */}
+      <Route
+        path="login"
+        element={
+          <GuestGate>
+            <Login />
+          </GuestGate>
+        }
+      />
+      <Route
+        path="register"
+        element={
+          <GuestGate>
+            <Register />
+          </GuestGate>
+        }
+      />
 
       {/* Authenticated Routes (member portal) */}
       <Route
         path="app"
         element={
-          <MockAuthGate>
+          <AuthGate>
             <AuthLayout />
-          </MockAuthGate>
+          </AuthGate>
         }
       >
         <Route index element={<Home />} />
@@ -89,9 +154,9 @@ function AppRoutes() {
       <Route
         path="admin"
         element={
-          <MockAdminGate>
+          <AdminGate>
             <AdminLayout />
-          </MockAdminGate>
+          </AdminGate>
         }
       >
         <Route index element={<AdminDashboard />} />

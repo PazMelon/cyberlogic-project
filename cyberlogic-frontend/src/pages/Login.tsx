@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Shield, Eye, EyeOff, Mail, Lock, ArrowLeft, Terminal } from "lucide-react";
+import { Shield, Eye, EyeOff, Mail, Lock, ArrowLeft, Terminal, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
@@ -8,13 +8,23 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    login();
-    navigate("/app");
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await login(email, password, remember);
+      navigate("/app");
+    } catch (err: any) {
+      setError(err.message || "Invalid email or password.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -69,17 +79,17 @@ export default function Login() {
         <div className="absolute inset-0 cyber-grid opacity-10 lg:hidden" />
         <div className="absolute top-1/3 -right-32 w-64 h-64 bg-primary/8 rounded-full blur-[100px] lg:hidden" />
 
-        <div className="relative z-10 w-full max-w-sm">
+        <div className="relative z-10 w-full max-w-md">
           {/* Back to Home */}
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-8"
+            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary transition-colors mb-5"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Home
           </Link>
 
           {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-6">
+          <div className="lg:hidden flex items-center gap-2 mb-4">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
               <Shield className="w-5 h-5 text-white" />
             </div>
@@ -91,12 +101,20 @@ export default function Login() {
           <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary mb-1">
             Welcome back
           </h1>
-          <p className="text-sm text-text-muted mb-8">
+          <p className="text-sm text-text-muted mb-4">
             Log in to access the member portal
           </p>
 
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 flex items-start gap-2.5 text-xs text-error font-medium animate-fadeIn">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-error" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="login-email" className="block text-sm font-medium text-text-secondary mb-1.5">
                 Email address
@@ -106,10 +124,12 @@ export default function Login() {
                 <input
                   id="login-email"
                   type="email"
+                  required
                   value={email}
+                  disabled={isSubmitting}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@university.edu"
-                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
               </div>
             </div>
@@ -123,10 +143,12 @@ export default function Login() {
                 <input
                   id="login-password"
                   type={showPassword ? "text" : "password"}
+                  required
                   value={password}
+                  disabled={isSubmitting}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-11 pr-12 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
+                  className="w-full pl-11 pr-12 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                 />
                 <button
                   type="button"
@@ -143,6 +165,7 @@ export default function Login() {
                 <input
                   type="checkbox"
                   checked={remember}
+                  disabled={isSubmitting}
                   onChange={(e) => setRemember(e.target.checked)}
                   className="w-4 h-4 rounded border-border bg-surface-800 text-primary focus:ring-primary/20 focus:ring-offset-0"
                 />
@@ -155,14 +178,15 @@ export default function Login() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5"
+              disabled={isSubmitting}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-50 disabled:transform-none"
             >
-              Log In
+              {isSubmitting ? "Logging In..." : "Log In"}
             </button>
           </form>
 
           {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
+          <div className="flex items-center gap-4 my-4">
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-text-muted">or continue with</span>
             <div className="flex-1 h-px bg-border" />
@@ -193,7 +217,7 @@ export default function Login() {
             </button>
           </div>
 
-          <p className="text-center text-sm text-text-muted mt-8">
+          <p className="text-center text-sm text-text-muted mt-6">
             Don&apos;t have an account?{" "}
             <Link to="/register" className="text-primary hover:text-primary-light font-medium transition-colors">
               Sign up
