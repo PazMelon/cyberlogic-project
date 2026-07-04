@@ -167,6 +167,7 @@ function AppRoutes() {
         <Route path="members" element={<MemberManagement />} />
         <Route path="announcements" element={<AnnouncementManagement />} />
         <Route path="announcements/create" element={<CreateAnnouncement />} />
+        <Route path="announcements/edit/:id" element={<CreateAnnouncement />} />
         <Route path="events" element={<EventManagement />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />

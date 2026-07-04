@@ -3,13 +3,43 @@
 // All data is hardcoded for frontend mockup
 // ============================================
 
-export interface BlogSection {
-  id: string;
-  heading?: string;
-  body?: string;
-  layout: "single" | "carousel" | "bento" | "masonry" | "split" | "showcase" | "none";
-  images?: string[];
+export type SectionType = 'text' | 'image' | 'quote' | 'divider';
+export type ImageTemplate = 'single' | 'side-by-side' | 'bento-3' | 'bento-4' | 'bento-6' | 'banner';
+
+export interface ImageSlot {
+  url: string;
+  alt: string;
 }
+
+export interface TextSection {
+  type: 'text';
+  id: string;
+  html: string;
+  title?: string;
+  subtitle?: string;
+}
+
+export interface ImageSection {
+  type: 'image';
+  id: string;
+  template: ImageTemplate;
+  images: ImageSlot[];
+  caption?: string;
+}
+
+export interface QuoteSection {
+  type: 'quote';
+  id: string;
+  text: string;
+  attribution?: string;
+}
+
+export interface DividerSection {
+  type: 'divider';
+  id: string;
+}
+
+export type ContentSection = TextSection | ImageSection | QuoteSection | DividerSection;
 
 export interface Announcement {
   id: number;
@@ -22,7 +52,7 @@ export interface Announcement {
   authorAvatar: string;
   date: string;
   pinned: boolean;
-  sections?: BlogSection[];
+  sections?: ContentSection[];
 }
 
 export interface Event {
@@ -82,27 +112,27 @@ export const announcements: Announcement[] = [
     pinned: true,
     sections: [
       {
+        type: "text",
         id: "section-1-1",
-        heading: "Who We Are",
-        body: "Cyberlogic Club is more than just a tech organization. We are a cohort of security researchers, software developers, and system administrators dedicated to mastering the digital domain. We run weekly sessions on ethical hacking, defensive security, reverse engineering, and cloud configurations.",
-        layout: "none"
+        title: "Who We Are",
+        html: "<p>Cyberlogic Club is more than just a tech organization. We are a cohort of security researchers, software developers, and system administrators dedicated to mastering the digital domain. We run weekly sessions on ethical hacking, defensive security, reverse engineering, and cloud configurations.</p>"
       },
       {
+        type: "image",
         id: "section-1-2",
-        heading: "Interactive Hands-on Training Labs",
-        body: "Get ready to dive into actual Capture the Flag (CTF) environments, network penetration rigs, and coding bootcamps. Our labs are loaded with premium toolsets to help you train in real-world scenarios.",
-        layout: "bento",
+        template: "bento-3",
         images: [
-          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=600&auto=format&fit=crop&q=60"
-        ]
+          { url: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60", alt: "Cyber Lab" },
+          { url: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=60", alt: "Servers" },
+          { url: "https://images.unsplash.com/photo-1510915228340-29c85a43dcfe?w=600&auto=format&fit=crop&q=60", alt: "Coding Workstation" }
+        ],
+        caption: "A look into our club's interactive setups"
       },
       {
+        type: "text",
         id: "section-1-3",
-        heading: "Membership Benefits",
-        body: "As a member of Cyberlogic, you will gain access to exclusive study guides, vouchers for industry certifications, premium networking events with cyber security leaders, and team representation in national hacking competitions.",
-        layout: "none"
+        title: "Membership Benefits",
+        html: "<p>As a member of Cyberlogic, you will gain access to exclusive study guides, vouchers for industry certifications, premium networking events with cyber security leaders, and team representation in national hacking competitions.</p>"
       }
     ]
   },
@@ -120,33 +150,26 @@ export const announcements: Announcement[] = [
     pinned: false,
     sections: [
       {
+        type: "text",
         id: "section-2-1",
-        heading: "A Hard-Fought Digital Battle",
-        body: "The competition gathered over 100 universities nationwide. From the first hour, Team Alpha took an aggressive stance, scoring first blood on a challenging reverse engineering binary payload. We are incredibly proud of their teamwork and technical agility.",
-        layout: "split",
-        images: ["https://images.unsplash.com/photo-1607799279861-4dd421887fb3?w=600&auto=format&fit=crop&q=60"]
+        title: "A Hard-Fought Digital Battle",
+        html: "<p>The competition gathered over 100 universities nationwide. From the first hour, Team Alpha took an aggressive stance, scoring first blood on a challenging reverse engineering binary payload. We are incredibly proud of their teamwork and technical agility.</p>"
       },
       {
+        type: "image",
         id: "section-2-2",
-        heading: "Snapshots from the Flag Hunt",
-        body: "Check out the snapshots of our operations command room during the final sprint of the CTF challenge.",
-        layout: "masonry",
+        template: "side-by-side",
         images: [
-          "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop&q=60"
-        ]
+          { url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600&auto=format&fit=crop&q=60", alt: "Cyber Command" },
+          { url: "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=600&auto=format&fit=crop&q=60", alt: "Workstation" }
+        ],
+        caption: "Snapshots from the competition operations desk"
       },
       {
+        type: "quote",
         id: "section-2-3",
-        heading: "Strategic Highlights & Post-Mortem",
-        body: "The team focused heavily on scripting automation to brute-force crypto tokens, freeing up critical analyst time for web vulnerabilities. You can check the code walk-throughs in the upcoming academic assembly.",
-        layout: "carousel",
-        images: [
-          "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=60"
-        ]
+        text: "The team focused heavily on scripting automation to brute-force crypto tokens, freeing up critical analyst time for web vulnerabilities. You can check the code walk-throughs in the upcoming academic assembly.",
+        attribution: "Coach Rivera"
       }
     ]
   },
@@ -164,15 +187,19 @@ export const announcements: Announcement[] = [
     pinned: false,
     sections: [
       {
+        type: "text",
         id: "section-3-1",
-        heading: "Curriculum Syllabus Overview",
-        body: "The learning path is structured into 6 modules: 1) Linux & Networking Basics, 2) Reconnaissance & OSINT, 3) Vulnerability Scanning, 4) Web Exploitation, 5) Privilege Escalation, and 6) Reporting. Each module includes practice labs.",
-        layout: "showcase",
+        title: "Curriculum Syllabus Overview",
+        html: "<p>The learning path is structured into 6 modules: 1) Linux & Networking Basics, 2) Reconnaissance & OSINT, 3) Vulnerability Scanning, 4) Web Exploitation, 5) Privilege Escalation, and 6) Reporting. Each module includes practice labs.</p>"
+      },
+      {
+        type: "image",
+        id: "section-3-2",
+        template: "banner",
         images: [
-          "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80",
-          "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=200&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=200&auto=format&fit=crop&q=60"
-        ]
+          { url: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=800&auto=format&fit=crop&q=80", alt: "Banner Road" }
+        ],
+        caption: "Ethical hacking training roadmap"
       }
     ]
   },
@@ -190,11 +217,19 @@ export const announcements: Announcement[] = [
     pinned: false,
     sections: [
       {
+        type: "text",
         id: "section-4-1",
-        heading: "What to Expect",
-        body: "During the 4-hour window, the member portal, active chat servers, and CTF practice labs will experience brief downtime intervals. Static resources will remain accessible.",
-        layout: "single",
-        images: ["https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=60"]
+        title: "What to Expect",
+        html: "<p>During the 4-hour window, the member portal, active chat servers, and CTF practice labs will experience brief downtime intervals. Static resources will remain accessible.</p>"
+      },
+      {
+        type: "image",
+        id: "section-4-2",
+        template: "single",
+        images: [
+          { url: "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=60", alt: "Database cluster" }
+        ],
+        caption: "Hypervisor hardware migration checks"
       }
     ]
   },
@@ -212,10 +247,10 @@ export const announcements: Announcement[] = [
     pinned: false,
     sections: [
       {
+        type: "text",
         id: "section-5-1",
-        heading: "Topics Covered",
-        body: "The files contain scripts demonstrating simple socket scanners, request-based web parsers, and auto-bruteforcers using standard libraries.",
-        layout: "none"
+        title: "Topics Covered",
+        html: "<p>The files contain scripts demonstrating simple socket scanners, request-based web parsers, and auto-bruteforcers using standard libraries.</p>"
       }
     ]
   },
@@ -233,14 +268,20 @@ export const announcements: Announcement[] = [
     pinned: false,
     sections: [
       {
+        type: "text",
         id: "section-6-1",
-        heading: "Pizza, Games, and Awards",
-        body: "We will be presenting awards to the top CTF contributors of the semester, followed by gaming tournaments. RSVP via the portal before July 18.",
-        layout: "carousel",
-        images: [
-          "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=600&auto=format&fit=crop&q=60",
-          "https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=60"
-        ]
+        title: "Pizza, Games, and Awards",
+        html: "<p>We will be presenting awards to the top CTF contributors of the semester, followed by gaming tournaments. RSVP via the portal before July 18.</p>"
+      },
+      {
+        type: "divider",
+        id: "section-6-2"
+      },
+      {
+        type: "quote",
+        id: "section-6-3",
+        text: "Join us to celebrate a semester of cybersecurity victories!",
+        attribution: "Events Coordinator Committee"
       }
     ]
   }
