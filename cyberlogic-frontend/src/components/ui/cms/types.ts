@@ -51,6 +51,13 @@ export interface CMSBlogState {
   readTime?: string;
   featured?: boolean; // mapped to pinned or featured
   sections: ContentSection[];
+  
+  isEvent?: boolean;
+  eventDate?: string;
+  eventStartTime?: string;
+  eventEndTime?: string;
+  eventLocation?: string;
+  eventCapacity?: number;
 }
 
 export const generateId = () => {

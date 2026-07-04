@@ -25,17 +25,17 @@ export const cliFileSystem: Record<string, CLIFile> = {
     description: "About the Cyberlogic Club",
     content: `# CYBERLOGIC CLUB
 ----------------
-The premier student cybersecurity and tech organization.
+The premier student cyber and tech organization.
 Mission: Empower students with practical skills.
-Vision: Forge the next generation of digital defenders.
+Vision: Forge the next generation of digital innovators and pioneers.
 
 OFFICERS:
-- Alex Reyes (President)
-- Samantha Cruz (Vice President)
-- Miguel Torres (Secretary)
-- Jessica Lim (Treasurer)
-- Carlos Mendoza (Tech Lead)
-- Anna Garcia (Events Coordinator)
+- Ian Jade Lugtanan (President 💻)
+- Heart Murillo (Vice President 💖)
+- Kent Ian Perez (Secretary 📝)
+- Samson Bogs Amahan III (Treasurer 💸)
+- Steven Ochigue (Auditor 🕵️)
+- Michael Angelo Hortilano (Public Information Officer 📢)
 
 Type 'cat contact.txt' for contact info.`,
   },
@@ -45,20 +45,10 @@ Type 'cat contact.txt' for contact info.`,
     description: "List of upcoming club activities",
     content: `# UPCOMING EVENTS 2026
 ---------------------
-[1] Intro to Cybersecurity Workshop
-    - Date: July 10, 2026 (2:00 PM - 5:00 PM)
-    - Loc: IT Lab 3, Building C
-    - Desc: Fundamentals of cybersecurity and threat modeling.
-
-[2] Web Application Security Seminar
-    - Date: July 15, 2026 (1:00 PM - 3:00 PM)
-    - Loc: Auditorium A
-    - Desc: Live demo of OWASP Top 10 vulnerabilities.
-
-[3] Internal CTF Challenge
-    - Date: July 18, 2026 (9:00 AM - 6:00 PM)
-    - Loc: Computer Lab 1 & 2
-    - Desc: Monthly Capture the Flag with prizes!`,
+[1] Cyberlogic Logo Making Contest
+    - Date: July 8, 2026 (2:00 PM - 5:00 PM)
+    - Loc: IT Lab
+    - Desc: First club logo making contest for the Cyberlogic Club logo!`,
   },
   "latest_announcements.txt": {
     name: "latest_announcements.txt",
@@ -67,13 +57,7 @@ Type 'cat contact.txt' for contact info.`,
     content: `# CLUB NOTICES
 --------------
 * Pinned: Cyberlogic Club Recruitment is NOW OPEN!
-  Apply online at /register before July 15.
-  
-* Results: Team Alpha placed 2nd at the National CTF!
-  Congratulations to Samantha, Alex, and Carlos!
-  
-* Training: New Ethical Hacking Learning Path available.
-  Check out /resources for details.`,
+  Apply online at /register.`,
   },
   "resources.json": {
     name: "resources.json",
@@ -82,20 +66,10 @@ Type 'cat contact.txt' for contact info.`,
     content: `{
   "featured_resources": [
     {
-      "title": "Python Automation Toolkit",
-      "type": "Tools",
-      "desc": "Scripts for common security tasks."
+      "title": "Coming Soon!",
+      "type": "N/A",
+      "desc": "Stay tuned for updates!"
     },
-    {
-      "title": "Network Security Fundamentals",
-      "type": "Tutorials",
-      "desc": "A student guide to TCP/IP & VPNs."
-    },
-    {
-      "title": "Linux Command Cheat Sheet",
-      "type": "Cheat Sheet",
-      "desc": "Commands every member should know."
-    }
   ]
 }`,
   },
@@ -104,9 +78,9 @@ Type 'cat contact.txt' for contact info.`,
     category: "doc",
     description: "Contact and support info",
     content: `CONTACT CHANNELS:
-- Email: cyberlogic@university.edu
-- Office: Room 301, Building A
-- Hotline: +63 912 345 6789
+- Email: odemiluyan@srcb.edu.ph
+- Office: HED Faculty Office
+- Hotline: TBA
 - Online Portal: /about (Contact section)`,
   },
   "theme_config.cfg": {

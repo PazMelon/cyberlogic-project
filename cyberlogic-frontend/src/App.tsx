@@ -17,11 +17,13 @@ import Chat from "./pages/Chat";
 import Directory from "./pages/Directory";
 import Profile from "./pages/Profile";
 import AnnouncementDetail from "./pages/AnnouncementDetail";
+import EventDetail from "./pages/EventDetail";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import MemberManagement from "./pages/admin/MemberManagement";
 import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
 import CreateAnnouncement from "./pages/admin/CreateAnnouncement";
 import EventManagement from "./pages/admin/EventManagement";
+import CreateEvent from "./pages/admin/CreateEvent";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
 import SiteSettings from "./pages/admin/SiteSettings";
@@ -110,6 +112,7 @@ function AppRoutes() {
         <Route path="announcements" element={<Announcements />} />
         <Route path="announcements/:id" element={<AnnouncementDetail />} />
         <Route path="events" element={<Events />} />
+        <Route path="events/:id" element={<EventDetail />} />
         <Route path="resources" element={<Resources />} />
         <Route path="about" element={<About />} />
       </Route>
@@ -149,6 +152,7 @@ function AppRoutes() {
         <Route path="announcements" element={<Announcements />} />
         <Route path="announcements/:id" element={<AnnouncementDetail />} />
         <Route path="events" element={<Events />} />
+        <Route path="events/:id" element={<EventDetail />} />
         <Route path="resources" element={<Resources />} />
         <Route path="profile" element={<Profile />} />
         <Route path="profile/:userId" element={<Profile />} />
@@ -169,6 +173,8 @@ function AppRoutes() {
         <Route path="announcements/create" element={<CreateAnnouncement />} />
         <Route path="announcements/edit/:id" element={<CreateAnnouncement />} />
         <Route path="events" element={<EventManagement />} />
+        <Route path="events/create" element={<CreateEvent />} />
+        <Route path="events/edit/:id" element={<CreateEvent />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />
         <Route path="settings" element={<SiteSettings />} />

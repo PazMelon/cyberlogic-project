@@ -44,11 +44,15 @@ export interface Event {
   title: string;
   description: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   type: "Workshop" | "Seminar" | "Competition" | "Social" | "Meeting";
   image?: string;
   attendees: number;
+  isRegistered?: boolean;
+  capacity?: number;
+  sections?: ContentSection[];
 }
 
 export interface Resource {

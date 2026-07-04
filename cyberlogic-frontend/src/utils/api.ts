@@ -1,5 +1,5 @@
 import { apiRequest } from "../context/AuthContext";
-import type { Announcement } from "../data/mockData";
+import type { Announcement, Event } from "../data/mockData";
 
 /**
  * GET /api/announcements
@@ -190,4 +190,197 @@ export async function updateUserRole(userId: number, role: string): Promise<DbUs
 
   const data = await res.json();
   return data.user;
+}
+
+/**
+ * GET /api/events
+ * Fetch all events.
+ */
+export async function fetchEvents(): Promise<Event[]> {
+  const res = await apiRequest("/api/events");
+  if (!res.ok) {
+    throw new Error("Failed to load events from database.");
+  }
+  const data = await res.json();
+  return data.map((e: any) => ({
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    date: e.date,
+    startTime: e.start_time,
+    endTime: e.end_time,
+    location: e.location,
+    type: e.type,
+    image: e.image,
+    capacity: e.capacity,
+    attendees: e.attendees,
+    isRegistered: !!e.is_registered,
+    sections: e.sections || []
+  }));
+}
+
+/**
+ * GET /api/events/{id}
+ * Fetch a single event.
+ */
+export async function fetchEventById(id: number): Promise<Event> {
+  const res = await apiRequest(`/api/events/${id}`);
+  if (!res.ok) {
+    throw new Error("Event not found in database.");
+  }
+  const e = await res.json();
+  return {
+    id: e.id,
+    title: e.title,
+    description: e.description,
+    date: e.date,
+    startTime: e.start_time,
+    endTime: e.end_time,
+    location: e.location,
+    type: e.type,
+    image: e.image,
+    capacity: e.capacity,
+    attendees: e.attendees,
+    isRegistered: !!e.is_registered,
+    sections: e.sections || []
+  };
+}
+
+/**
+ * POST /api/events
+ * Create a new event.
+ */
+export async function createEvent(data: Partial<Event>): Promise<Event> {
+  const res = await apiRequest("/api/events", {
+    method: "POST",
+    body: JSON.stringify({
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      start_time: data.startTime,
+      end_time: data.endTime,
+      location: data.location,
+      type: data.type,
+      image: data.image,
+      capacity: data.capacity,
+      sections: data.sections
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to create event.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/events/{id}
+ * Update an existing event.
+ */
+export async function updateEvent(id: number, data: Partial<Event>): Promise<Event> {
+  const res = await apiRequest(`/api/events/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      title: data.title,
+      description: data.description,
+      date: data.date,
+      start_time: data.startTime,
+      end_time: data.endTime,
+      location: data.location,
+      type: data.type,
+      image: data.image,
+      capacity: data.capacity,
+      sections: data.sections
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to update event.");
+  }
+
+  return res.json();
+}
+
+/**
+ * DELETE /api/events/{id}
+ * Delete an event.
+ */
+export async function deleteEvent(id: number): Promise<void> {
+  const res = await apiRequest(`/api/events/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to delete event.");
+  }
+}
+
+/**
+ * POST /api/events/{id}/register
+ * Register the user for an event (RSVP).
+ */
+export async function registerForEvent(id: number): Promise<{ attendees: number; isRegistered: boolean }> {
+  const res = await apiRequest(`/api/events/${id}/register`, {
+    method: "POST"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to register for event.");
+  }
+
+  const data = await res.json();
+  return {
+    attendees: data.attendees,
+    isRegistered: !!data.is_registered
+  };
+}
+
+/**
+ * POST /api/events/{id}/unregister
+ * Cancel the user's registration for an event.
+ */
+export async function unregisterFromEvent(id: number): Promise<{ attendees: number; isRegistered: boolean }> {
+  const res = await apiRequest(`/api/events/${id}/unregister`, {
+    method: "POST"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to cancel event registration.");
+  }
+
+  const data = await res.json();
+  return {
+    attendees: data.attendees,
+    isRegistered: !!data.is_registered
+  };
+}
+
+/**
+ * Formats startTime and endTime (format HH:mm) to a readable AM/PM range string.
+ */
+export function formatEventTime(startTime?: string, endTime?: string): string {
+  if (!startTime || !endTime) return "TBD";
+  
+  const parseTime = (timeStr: string) => {
+    const [hoursStr, minutesStr] = timeStr.split(":");
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const minutesFormatted = minutes < 10 ? "0" + minutes : minutes;
+    return `${hours}:${minutesFormatted} ${ampm}`;
+  };
+
+  try {
+    return `${parseTime(startTime)} - ${parseTime(endTime)}`;
+  } catch (err) {
+    return `${startTime} - ${endTime}`;
+  }
 }

@@ -572,39 +572,115 @@ export default function CMSBlogBuilder({
             />
           </div>
 
-          {/* Author & Read Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                <User size={10} /> Author *
-              </label>
-              <input
-                type="text"
-                required
-                value={state.author}
-                onChange={e => updateState({ author: e.target.value })}
-                className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                placeholder="Author name"
-              />
+          {/* Author & Read Time OR Event Details */}
+          {!state.isEvent ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                  <User size={10} /> Author *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={state.author}
+                  onChange={e => updateState({ author: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  placeholder="Author name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                  <Clock size={10} /> Read Time
+                </label>
+                <input
+                  type="text"
+                  value={state.readTime || ''}
+                  onChange={e => updateState({ readTime: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  placeholder="e.g. 5 min"
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                <Clock size={10} /> Read Time
-              </label>
-              <input
-                type="text"
-                value={state.readTime || ''}
-                onChange={e => updateState({ readTime: e.target.value })}
-                className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                placeholder="e.g. 5 min"
-              />
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Event Date */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                  Event Date *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={state.eventDate || ''}
+                  onChange={e => updateState({ eventDate: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                />
+              </div>
+
+              {/* Event Start Time & End Time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                    Start Time *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={state.eventStartTime || ''}
+                    onChange={e => updateState({ eventStartTime: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                    End Time *
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={state.eventEndTime || ''}
+                    onChange={e => updateState({ eventEndTime: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                  />
+                </div>
+              </div>
+
+              {/* Event Location & Capacity */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                    Location *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={state.eventLocation || ''}
+                    onChange={e => updateState({ eventLocation: e.target.value })}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                    placeholder="e.g. IT Lab 402"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                    Capacity *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={state.eventCapacity || 50}
+                    onChange={e => updateState({ eventCapacity: Number(e.target.value) })}
+                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                    placeholder="50"
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Category */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
-              <Tag size={12} /> Category *
+              <Tag size={12} /> {state.isEvent ? "Event Type *" : "Category *"}
             </label>
             <select
               value={state.category}
@@ -627,7 +703,9 @@ export default function CMSBlogBuilder({
             />
             <div className="flex items-center gap-2">
               <Star size={14} className={state.featured ? 'text-warning fill-warning' : 'text-text-muted'} />
-              <span className="text-xs font-bold text-text-primary select-none">Pin / Feature Article</span>
+              <span className="text-xs font-bold text-text-primary select-none">
+                {state.isEvent ? "Feature / Pin Event" : "Pin / Feature Article"}
+              </span>
             </div>
           </label>
 
@@ -702,14 +780,22 @@ export default function CMSBlogBuilder({
                 </p>
               )}
 
-              {/* Author Card info */}
+              {/* Author Card info OR Event info */}
               <div className="flex items-center gap-3 pt-4 border-t border-border/40">
                 <div className="w-10 h-10 rounded-full bg-surface-800 flex items-center justify-center border border-border">
                   <User className="w-5 h-5 text-primary/70" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-text-primary">{state.author || "System Admin"}</p>
-                  <p className="text-xs text-text-muted mt-0.5">Published Date Preview · {state.readTime || "5 min read"}</p>
+                  <p className="text-sm font-semibold text-text-primary">
+                    {state.isEvent ? "Event Schedule" : (state.author || "System Admin")}
+                  </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {state.isEvent ? (
+                      `Date: ${state.eventDate || "TBD"} · Time: ${state.eventStartTime || "TBD"} - ${state.eventEndTime || "TBD"} · Location: ${state.eventLocation || "TBD"}`
+                    ) : (
+                      `Published Date Preview · ${state.readTime || "5 min read"}`
+                    )}
+                  </p>
                 </div>
               </div>
             </div>

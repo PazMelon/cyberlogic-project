@@ -11,13 +11,12 @@ import {
   Download,
 } from "lucide-react";
 import {
-  events,
   resources,
   teamMembers,
   clubStats,
 } from "../data/mockData";
-import { fetchAnnouncements } from "../utils/api";
-import type { Announcement } from "../data/mockData";
+import { fetchAnnouncements, fetchEvents } from "../utils/api";
+import type { Announcement, Event } from "../data/mockData";
 import Terminal from "../components/Terminal";
 import { SkeletonCard, SkeletonLine, SkeletonCircle, SkeletonBox } from "../components/Skeleton";
 import { EventCard, AnnouncementCard } from "../components/ui";
@@ -165,10 +164,25 @@ function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
               <SkeletonCard />
               <SkeletonCard />
             </>
-          ) : (
+          ) : latest.length > 0 ? (
             latest.map((item, idx) => (
               <AnnouncementCard key={item.id} announcement={item} index={idx} />
             ))
+          ) : (
+            <div className="col-span-1 md:col-span-2 lg:col-span-3 glass rounded-2xl p-8 border border-border/80 bg-surface-900/20 text-center space-y-4 max-w-lg mx-auto animate-fadeIn relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />
+              <div className="relative z-10 space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mx-auto border border-primary/20 animate-pulse-glow">
+                  <Rocket className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-text-primary font-[family-name:var(--font-heading)]">No Broadcasts Found</h3>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    All communication systems nominal. No announcements have been published yet. Check back soon for fresh updates!
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -190,7 +204,24 @@ function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
    UPCOMING EVENTS
    ============================================ */
 function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
-  const upcoming = events.slice(0, 4);
+  const [upcoming, setUpcoming] = useState<Event[]>([]);
+  const [localLoading, setLocalLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchEvents();
+        setUpcoming(data.slice(0, 4));
+      } catch (err) {
+        console.error("Failed to load landing events:", err);
+      } finally {
+        setLocalLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const activeLoading = isLoading || localLoading;
 
   return (
     <section className="py-20 lg:py-28 bg-surface-900/50">
@@ -215,7 +246,7 @@ function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
 
         {/* Events Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {isLoading ? (
+          {activeLoading ? (
             <>
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="glass rounded-2xl p-6 flex gap-5 animate-pulse">
@@ -228,10 +259,25 @@ function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
                 </div>
               ))}
             </>
-          ) : (
+          ) : upcoming.length > 0 ? (
             upcoming.map((event) => (
               <EventCard key={event.id} event={event} />
             ))
+          ) : (
+            <div className="col-span-1 md:col-span-2 glass rounded-2xl p-8 border border-border/80 bg-surface-900/20 text-center space-y-4 max-w-lg mx-auto animate-fadeIn relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-primary/5 opacity-50" />
+              <div className="relative z-10 space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent mx-auto border border-accent/20 animate-pulse-glow">
+                  <Calendar className="w-6 h-6 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-text-primary font-[family-name:var(--font-heading)]">Upcoming Events Offline</h3>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    We are currently organizing our upcoming workshops, seminars, and capture-the-flag competitions. Stay tuned for future announcements!
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
