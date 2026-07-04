@@ -7,11 +7,8 @@ import {
   Trophy,
   Rocket,
   ChevronRight,
-  MapPin,
-  Clock,
   BookOpen,
   Download,
-  Pin,
 } from "lucide-react";
 import {
   announcements,
@@ -22,6 +19,7 @@ import {
 } from "../data/mockData";
 import Terminal from "../components/Terminal";
 import { SkeletonCard, SkeletonLine, SkeletonCircle, SkeletonBox } from "../components/Skeleton";
+import { EventCard, AnnouncementCard } from "../components/ui";
 
 /* ============================================
    HERO SECTION
@@ -151,57 +149,9 @@ function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
             </>
           ) : (
             latest.map((item, idx) => (
-            <article
-              key={item.id}
-              className={`glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group ${
-                idx === 0 ? "animate-fade-in-up" : ""
-              } ${idx === 1 ? "animate-fade-in-up delay-100" : ""} ${
-                idx === 2 ? "animate-fade-in-up delay-200" : ""
-              }`}
-            >
-              {/* Category + Pinned badge */}
-              <div className="flex items-center gap-2 mb-4">
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    item.category === "General"
-                      ? "bg-info/10 text-info"
-                      : item.category === "Events"
-                      ? "bg-accent/10 text-accent"
-                      : "bg-success/10 text-success"
-                  }`}
-                >
-                  {item.category}
-                </span>
-                {item.pinned && (
-                  <span className="inline-flex items-center gap-1 text-xs text-warning">
-                    <Pin className="w-3 h-3" /> Pinned
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 line-clamp-2">
-                {item.title}
-              </h3>
-              <p className="text-sm text-text-muted mb-4 line-clamp-2">
-                {item.excerpt}
-              </p>
-
-              {/* Author + Date */}
-              <div className="flex items-center gap-3 pt-4 border-t border-border">
-                <img
-                  src={item.authorAvatar}
-                  alt={item.author}
-                  className="w-7 h-7 rounded-full bg-surface-700"
-                />
-                <div className="flex-1">
-                  <span className="text-xs font-medium text-text-secondary">
-                    {item.author}
-                  </span>
-                </div>
-                <time className="text-xs text-text-muted">{item.date}</time>
-              </div>
-            </article>
-          )))}
+              <AnnouncementCard key={item.id} announcement={item} index={idx} />
+            ))
+          )}
         </div>
 
         {/* Mobile "View All" */}
@@ -223,14 +173,6 @@ function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
    ============================================ */
 function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
   const upcoming = events.slice(0, 4);
-
-  const typeColors: Record<string, string> = {
-    Workshop: "bg-primary/10 text-primary",
-    Seminar: "bg-info/10 text-info",
-    Competition: "bg-error/10 text-error",
-    Social: "bg-accent/10 text-accent",
-    Meeting: "bg-success/10 text-success",
-  };
 
   return (
     <section className="py-20 lg:py-28 bg-surface-900/50">
@@ -269,60 +211,10 @@ function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
               ))}
             </>
           ) : (
-            upcoming.map((event) => {
-            const eventDate = new Date(event.date);
-            const month = eventDate.toLocaleString("default", {
-              month: "short",
-            });
-            const day = eventDate.getDate();
-
-            return (
-              <div
-                key={event.id}
-                className="glass rounded-2xl p-6 hover:border-accent/30 transition-all duration-300 group flex gap-5"
-              >
-                {/* Date Badge */}
-                <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-border flex flex-col items-center justify-center">
-                  <span className="text-xs font-semibold uppercase text-accent">
-                    {month}
-                  </span>
-                  <span className="text-xl font-bold text-text-primary leading-none">
-                    {day}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        typeColors[event.type] || "bg-surface-700 text-text-secondary"
-                      }`}
-                    >
-                      {event.type}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-semibold text-text-primary group-hover:text-accent transition-colors mb-1 truncate">
-                    {event.title}
-                  </h3>
-                  <p className="text-sm text-text-muted line-clamp-1 mb-3">
-                    {event.description}
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-text-muted">
-                    <span className="inline-flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" /> {event.time}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" /> {event.location}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5" /> {event.attendees}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          }))}
+            upcoming.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))
+          )}
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Search, Pencil, Trash2, Clock, MapPin, Users } from "lucide-react";
 import { events } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
+import { Button } from "../../components/ui";
 
 export default function EventManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -35,12 +36,14 @@ export default function EventManagement() {
           </h1>
           <p className="text-sm text-text-muted mt-1">{events.length} total events</p>
         </div>
-        <button
+        <Button
           type="button"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all hover:-translate-y-0.5"
+          variant="admin"
+          icon={<Plus className="w-4 h-4" />}
+          className="px-4 py-2.5"
         >
-          <Plus className="w-4 h-4" /> New Event
-        </button>
+          New Event
+        </Button>
       </div>
 
       <div className="relative max-w-sm">

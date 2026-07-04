@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { forumThreads, forumReplies, forumCategories } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
+import { Button } from "../components/ui";
 
 export default function ForumThread() {
   const { threadId } = useParams();
@@ -279,13 +280,15 @@ export default function ForumThread() {
                     className="w-full p-3 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none"
                   />
                   <div className="flex justify-end">
-                    <button
+                    <Button
                       type="submit"
                       disabled={!replyText.trim()}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50"
+                      variant="primary"
+                      className="px-4 py-2 text-xs"
+                      icon={<Send className="w-3 h-3" />}
                     >
-                      <Send className="w-3 h-3" /> Post Comment
-                    </button>
+                      Post Comment
+                    </Button>
                   </div>
                 </div>
               </form>

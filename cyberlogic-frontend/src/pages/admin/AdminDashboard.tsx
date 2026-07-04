@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { pendingMembers, recentAdminActivity } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
+import { Button } from "../../components/ui";
 
 const statCards = [
   { icon: Users, label: "Total Members", value: "150", change: "+8 this month", color: "amber" },
@@ -162,18 +163,20 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <Button
                       type="button"
-                      className="px-3 py-1 rounded-lg bg-success/15 hover:bg-success/25 border border-success/30 text-success text-xs font-semibold transition-all"
+                      variant="success"
+                      className="px-3 py-1 text-xs"
                     >
                       Approve
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="px-3 py-1 rounded-lg bg-error/15 hover:bg-error/25 border border-error/30 text-error text-xs font-semibold transition-all"
+                      variant="danger"
+                      className="px-3 py-1 text-xs"
                     >
                       Reject
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))

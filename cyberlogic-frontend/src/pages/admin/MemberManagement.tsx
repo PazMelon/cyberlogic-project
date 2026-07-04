@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, MoreVertical, AlertCircle, Shield } from "lucide-react";
 import { directoryMembers, pendingMembers } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
+import { Button } from "../../components/ui";
 
 export default function MemberManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -93,18 +94,20 @@ export default function MemberManagement() {
                     </div>
                   </div>
                   <div className="flex gap-1.5">
-                    <button
+                    <Button
                       type="button"
-                      className="px-2 py-1 rounded bg-success/20 hover:bg-success/35 text-success text-[10px] font-semibold border border-success/30 transition-all"
+                      variant="success"
+                      className="px-2 py-1 text-[10px]"
                     >
                       Approve
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
-                      className="px-2 py-1 rounded bg-error/20 hover:bg-error/35 text-error text-[10px] font-semibold border border-error/30 transition-all"
+                      variant="danger"
+                      className="px-2 py-1 text-[10px]"
                     >
                       Reject
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))

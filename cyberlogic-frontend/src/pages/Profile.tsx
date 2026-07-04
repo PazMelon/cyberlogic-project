@@ -3,18 +3,18 @@ import { useParams, Link } from "react-router";
 import {
   Calendar,
   Award,
-  MessageSquare,
-  Heart,
   Save,
   Shield,
   Compass,
   Mail,
   ArrowLeft,
+  MessageSquare,
   Bookmark,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads, forumCategories, directoryMembers } from "../data/mockData";
+import { forumThreads, directoryMembers } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
+import { ForumThreadCard } from "../components/ui";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -81,21 +81,7 @@ export default function Profile() {
     }, 3000);
   };
 
-  const getCategoryColor = (categoryId: string): string => {
-    const cat = forumCategories.find((c) => c.id === categoryId);
-    const colorMap: Record<string, string> = {
-      primary: "bg-primary/10 text-primary border-primary/20",
-      accent: "bg-accent/10 text-accent border-accent/20",
-      success: "bg-success/10 text-success border-success/20",
-      error: "bg-error/10 text-error border-error/20",
-      warning: "bg-warning/10 text-warning border-warning/20",
-    };
-    return colorMap[cat?.color || "primary"] || "bg-surface-700 text-text-secondary border-border/50";
-  };
 
-  const getCategoryName = (categoryId: string): string => {
-    return forumCategories.find((c) => c.id === categoryId)?.name || categoryId;
-  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -203,31 +189,7 @@ export default function Profile() {
                     
                     <div className="space-y-3">
                       {userPosts.slice(0, 2).map((thread) => (
-                        <div
-                          key={thread.id}
-                          className="glass rounded-xl p-4 sm:p-5 hover:border-primary/20 transition-all duration-300 group"
-                        >
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getCategoryColor(thread.categoryId)}`}>
-                              {getCategoryName(thread.categoryId)}
-                            </span>
-                            <span className="text-[10px] text-text-muted">Posted {thread.lastActivity}</span>
-                          </div>
-                          <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors mb-1">
-                            {thread.title}
-                          </h3>
-                          <p className="text-xs text-text-secondary line-clamp-2 mb-3">
-                            {thread.content}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-text-muted">
-                            <span className="inline-flex items-center gap-1">
-                              <MessageSquare className="w-3.5 h-3.5" /> {thread.replyCount} replies
-                            </span>
-                            <span className="inline-flex items-center gap-1">
-                              <Heart className="w-3.5 h-3.5" /> {thread.likes} likes
-                            </span>
-                          </div>
-                        </div>
+                        <ForumThreadCard key={thread.id} thread={thread} mode="compact" />
                       ))}
                       {userPosts.length === 0 && (
                         <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
@@ -267,31 +229,7 @@ export default function Profile() {
                   </h2>
                   <div className="space-y-3">
                     {userPosts.map((thread) => (
-                      <div
-                        key={thread.id}
-                        className="glass rounded-xl p-4 sm:p-5 hover:border-primary/20 transition-all duration-300 group"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getCategoryColor(thread.categoryId)}`}>
-                            {getCategoryName(thread.categoryId)}
-                          </span>
-                          <span className="text-[10px] text-text-muted">Posted {thread.lastActivity}</span>
-                        </div>
-                        <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors mb-1">
-                          {thread.title}
-                        </h3>
-                        <p className="text-xs text-text-secondary line-clamp-2 mb-3">
-                          {thread.content}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-text-muted">
-                          <span className="inline-flex items-center gap-1">
-                            <MessageSquare className="w-3.5 h-3.5" /> {thread.replyCount} replies
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Heart className="w-3.5 h-3.5" /> {thread.likes} likes
-                          </span>
-                        </div>
-                      </div>
+                      <ForumThreadCard key={thread.id} thread={thread} />
                     ))}
                     {userPosts.length === 0 && (
                       <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
@@ -310,31 +248,7 @@ export default function Profile() {
                   </h2>
                   <div className="space-y-3">
                     {savedThreads.map((thread) => (
-                      <div
-                        key={thread.id}
-                        className="glass rounded-xl p-4 sm:p-5 hover:border-primary/20 transition-all duration-300 group"
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${getCategoryColor(thread.categoryId)}`}>
-                            {getCategoryName(thread.categoryId)}
-                          </span>
-                          <span className="text-[10px] text-text-muted">Last Active {thread.lastActivity}</span>
-                        </div>
-                        <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors mb-1">
-                          {thread.title}
-                        </h3>
-                        <p className="text-xs text-text-secondary line-clamp-2 mb-3">
-                          {thread.content}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-text-muted">
-                          <span className="inline-flex items-center gap-1">
-                            <MessageSquare className="w-3.5 h-3.5" /> {thread.replyCount} replies
-                          </span>
-                          <span className="inline-flex items-center gap-1">
-                            <Heart className="w-3.5 h-3.5" /> {thread.likes} likes
-                          </span>
-                        </div>
-                      </div>
+                      <ForumThreadCard key={thread.id} thread={thread} />
                     ))}
                   </div>
                 </div>

@@ -5,16 +5,13 @@ import {
   MessagesSquare,
   Users,
   Calendar,
-  Megaphone,
   ArrowRight,
-  Clock,
-  Eye,
-  Heart,
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { announcements, events, forumThreads } from "../data/mockData";
 import { SkeletonBox, SkeletonLine, SkeletonCircle } from "../components/Skeleton";
+import { ForumThreadCard, EventCard, AnnouncementCard } from "../components/ui";
 
 export default function Home() {
   const { user } = useAuth();
@@ -121,37 +118,8 @@ export default function Home() {
               </>
             ) : (
               recentThreads.map((thread) => (
-                <Link
-                  key={thread.id}
-                  to={`/app/forums/thread/${thread.id}`}
-                  className="flex items-start gap-3 p-3 rounded-xl hover:bg-white/5 transition-colors group"
-                >
-                  <img
-                    src={thread.authorAvatar}
-                    alt={thread.author}
-                    className="w-9 h-9 rounded-full bg-surface-700 flex-shrink-0 mt-0.5"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-text-primary group-hover:text-primary transition-colors truncate">
-                      {thread.title}
-                    </h3>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      {thread.author} · {thread.lastActivity}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-text-muted flex-shrink-0">
-                    <span className="inline-flex items-center gap-1">
-                      <MessageSquare className="w-3 h-3" /> {thread.replyCount}
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Heart className="w-3 h-3" /> {thread.likes}
-                    </span>
-                    <span className="hidden sm:inline-flex items-center gap-1">
-                      <Eye className="w-3 h-3" /> {thread.views}
-                    </span>
-                  </div>
-                </Link>
-              ))
+              <ForumThreadCard key={thread.id} thread={thread} mode="compact" />
+            ))
             )}
           </div>
         </div>
@@ -185,25 +153,9 @@ export default function Home() {
                   ))}
                 </>
               ) : (
-                upcomingEvents.map((event) => {
-                  const d = new Date(event.date);
-                  return (
-                    <div key={event.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
-                      <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-border flex flex-col items-center justify-center flex-shrink-0">
-                        <span className="text-[10px] font-semibold uppercase text-accent leading-none">
-                          {d.toLocaleString("default", { month: "short" })}
-                        </span>
-                        <span className="text-sm font-bold text-text-primary leading-none">{d.getDate()}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-medium text-text-primary truncate">{event.title}</h3>
-                        <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
-                          <Clock className="w-3 h-3" /> {event.time}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
+                upcomingEvents.map((event) => (
+                  <EventCard key={event.id} event={event} layout="compact" />
+                ))
               )}
             </div>
           </div>
@@ -233,13 +185,7 @@ export default function Home() {
                 </>
               ) : (
                 latestAnnouncements.map((a) => (
-                  <div key={a.id} className="p-2 rounded-lg hover:bg-white/5 transition-colors">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Megaphone className="w-3 h-3 text-primary" />
-                      <h3 className="text-sm font-medium text-text-primary truncate flex-1">{a.title}</h3>
-                    </div>
-                    <p className="text-xs text-text-muted line-clamp-1 ml-5">{a.excerpt}</p>
-                  </div>
+                  <AnnouncementCard key={a.id} announcement={a} layout="compact" />
                 ))
               )}
             </div>

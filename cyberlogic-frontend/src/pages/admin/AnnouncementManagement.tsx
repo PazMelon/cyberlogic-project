@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Search, Pin, Pencil, Trash2 } from "lucide-react";
 import { announcements } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
+import { Button } from "../../components/ui";
 
 export default function AnnouncementManagement() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,12 +34,14 @@ export default function AnnouncementManagement() {
           </h1>
           <p className="text-sm text-text-muted mt-1">{announcements.length} total announcements</p>
         </div>
-        <button
+        <Button
           type="button"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all hover:-translate-y-0.5"
+          variant="admin"
+          icon={<Plus className="w-4 h-4" />}
+          className="px-4 py-2.5"
         >
-          <Plus className="w-4 h-4" /> New Announcement
-        </button>
+          New Announcement
+        </Button>
       </div>
 
       <div className="relative max-w-sm">

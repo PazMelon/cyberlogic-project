@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Search, Mail, MapPin, Award, ChevronDown, ChevronUp } from "lucide-react";
 import { directoryMembers } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
+import { Card, Badge, Button } from "../components/ui";
 
 const roleFilters = ["All", "President", "Vice President", "Secretary", "Treasurer", "Tech Lead", "Events Coordinator", "Member", "Alumni"] as const;
 const statusColors: Record<string, string> = {
@@ -103,9 +104,11 @@ export default function Directory() {
             const isExpanded = expandedId === member.id;
 
             return (
-              <div
+              <Card
                 key={member.id}
-                className="glass rounded-2xl p-5 hover:border-primary/20 transition-all duration-300 group flex flex-col justify-between"
+                hoverEffect
+                glowColor="primary"
+                className="p-5 flex flex-col justify-between"
               >
                 <div>
                   {/* Top Bar: Avatar & Role */}
@@ -139,12 +142,13 @@ export default function Directory() {
                   {member.badges.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-4">
                       {member.badges.map((badge) => (
-                        <span
+                        <Badge
                           key={badge}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold bg-accent/10 border border-accent/20 text-accent uppercase tracking-wider"
+                          variant="accent"
+                          className="font-bold tracking-wider"
                         >
                           <Award className="w-2.5 h-2.5" /> {badge}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
                   )}
@@ -179,14 +183,15 @@ export default function Directory() {
 
                 {/* Footer Toolbar: Action Buttons */}
                 <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => setExpandedId(isExpanded ? null : member.id)}
-                    className="flex-1 py-1.5 text-center text-xs font-semibold rounded-lg bg-surface-850 hover:bg-surface-800 text-text-primary border border-border transition-all flex items-center justify-center gap-1"
+                    className="flex-1 py-1.5 text-xs font-semibold flex items-center justify-center gap-1"
+                    icon={isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    iconPosition="right"
                   >
-                    <span>{isExpanded ? "Collapse" : "View Bio"}</span>
-                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                  </button>
+                    {isExpanded ? "Collapse" : "View Bio"}
+                  </Button>
                   <Link
                     to={`/app/profile/${member.id}`}
                     className="px-3 py-1.5 text-center text-xs font-semibold rounded-lg bg-gradient-to-r from-primary to-accent hover:shadow-md hover:shadow-primary/10 text-white transition-all"
@@ -194,7 +199,7 @@ export default function Directory() {
                     Profile
                   </Link>
                 </div>
-              </div>
+              </Card>
             );
           })
         )}
