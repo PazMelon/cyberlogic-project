@@ -112,7 +112,7 @@ export default function Profile() {
       )}
 
       {/* 2-Column Reddit Profile Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Feed, Posts, Saved & Settings */}
         <div className="lg:col-span-8 space-y-6 order-2 lg:order-1">
