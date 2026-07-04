@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ContentSection, ImageTemplate } from "../../data/mockData";
 
 interface BlogContentRendererProps {
@@ -118,9 +120,84 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
         </div>
       );
 
+    case "carousel":
+      return <CarouselLayout images={images} resolveUrl={resolveUrl} />;
+
     default:
       return null;
   }
+}
+
+function CarouselLayout({ images, resolveUrl }: { images: { url: string; alt?: string }[]; resolveUrl: (u: string) => string }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeImages = images.filter(img => img.url);
+
+  if (activeImages.length === 0) {
+    return (
+      <div className="h-[220px] rounded-2xl border border-border/60 bg-surface-900/10 flex items-center justify-center text-xs text-text-muted italic">
+        No images uploaded in this slider.
+      </div>
+    );
+  }
+
+  const prev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveIndex(prevVal => (prevVal === 0 ? activeImages.length - 1 : prevVal - 1));
+  };
+
+  const next = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveIndex(prevVal => (prevVal === activeImages.length - 1 ? 0 : prevVal + 1));
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-border/80 shadow-md h-[340px] group bg-surface-950">
+      <img
+        src={resolveUrl(activeImages[activeIndex].url)}
+        alt={activeImages[activeIndex].alt || `Slide ${activeIndex + 1}`}
+        className="w-full h-full object-cover transition-all duration-500 animate-fadeIn"
+      />
+
+      {activeImages.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={prev}
+            className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-surface-950/80 text-text-primary border border-border/40 hover:bg-primary hover:text-white hover:scale-105 transition-all z-10 cursor-pointer"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={next}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-surface-950/80 text-text-primary border border-border/40 hover:bg-primary hover:text-white hover:scale-105 transition-all z-10 cursor-pointer"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </>
+      )}
+
+      {activeImages.length > 1 && (
+        <div className="absolute bottom-4 inset-x-0 flex items-center justify-center gap-1.5 z-10">
+          {activeImages.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveIndex(i);
+              }}
+              className={`w-2 h-2 rounded-full transition-all cursor-pointer ${i === activeIndex ? 'bg-primary w-4' : 'bg-white/40 hover:bg-white/60'}`}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="absolute top-4 right-4 bg-surface-950/80 border border-border/60 text-[10px] font-bold text-text-secondary px-2 py-0.5 rounded-lg select-none">
+        {activeIndex + 1} / {activeImages.length}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -179,6 +256,7 @@ export default function BlogContentRenderer({ content }: BlogContentRendererProp
             );
 
           case "image":
+            if (!section.template) return null;
             return (
               <div key={section.id} className="space-y-2">
                 <ImageTemplateGrid template={section.template} images={section.images} />

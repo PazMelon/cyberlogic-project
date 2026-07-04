@@ -11,12 +11,13 @@ import {
   Download,
 } from "lucide-react";
 import {
-  announcements,
   events,
   resources,
   teamMembers,
   clubStats,
 } from "../data/mockData";
+import { fetchAnnouncements } from "../utils/api";
+import type { Announcement } from "../data/mockData";
 import Terminal from "../components/Terminal";
 import { SkeletonCard, SkeletonLine, SkeletonCircle, SkeletonBox } from "../components/Skeleton";
 import { EventCard, AnnouncementCard } from "../components/ui";
@@ -116,7 +117,24 @@ function HeroSection() {
    ANNOUNCEMENTS PREVIEW
    ============================================ */
 function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
-  const latest = announcements.slice(0, 3);
+  const [latest, setLatest] = useState<Announcement[]>([]);
+  const [localLoading, setLocalLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await fetchAnnouncements();
+        setLatest(data.slice(0, 3));
+      } catch (err) {
+        console.error("Failed to load landing announcements:", err);
+      } finally {
+        setLocalLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const activeLoading = isLoading || localLoading;
 
   return (
     <section className="py-20 lg:py-28">
@@ -141,7 +159,7 @@ function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
 
         {/* Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
+          {activeLoading ? (
             <>
               <SkeletonCard />
               <SkeletonCard />

@@ -3,43 +3,27 @@
 // All data is hardcoded for frontend mockup
 // ============================================
 
-export type SectionType = 'text' | 'image' | 'quote' | 'divider';
-export type ImageTemplate = 'single' | 'side-by-side' | 'bento-3' | 'bento-4' | 'bento-6' | 'banner';
+import type {
+  SectionType,
+  ImageTemplate,
+  ImageSlot,
+  TextSection,
+  ImageSection,
+  QuoteSection,
+  DividerSection,
+  ContentSection
+} from "../components/ui/cms/types";
 
-export interface ImageSlot {
-  url: string;
-  alt: string;
-}
-
-export interface TextSection {
-  type: 'text';
-  id: string;
-  html: string;
-  title?: string;
-  subtitle?: string;
-}
-
-export interface ImageSection {
-  type: 'image';
-  id: string;
-  template: ImageTemplate;
-  images: ImageSlot[];
-  caption?: string;
-}
-
-export interface QuoteSection {
-  type: 'quote';
-  id: string;
-  text: string;
-  attribution?: string;
-}
-
-export interface DividerSection {
-  type: 'divider';
-  id: string;
-}
-
-export type ContentSection = TextSection | ImageSection | QuoteSection | DividerSection;
+export type {
+  SectionType,
+  ImageTemplate,
+  ImageSlot,
+  TextSection,
+  ImageSection,
+  QuoteSection,
+  DividerSection,
+  ContentSection
+};
 
 export interface Announcement {
   id: number;
@@ -659,7 +643,7 @@ export interface DirectoryMember {
   name: string;
   email: string;
   avatar: string;
-  role: "President" | "Vice President" | "Secretary" | "Treasurer" | "Tech Lead" | "Events Coordinator" | "Member" | "Alumni";
+  role: "President" | "Vice President" | "Secretary" | "Treasurer" | "Tech Lead" | "Events Coordinator" | "Member" | "Alumni" | "Admin" | "Super Admin" | "Moderator";
   department: string;
   yearLevel: string;
   expertise: string[];

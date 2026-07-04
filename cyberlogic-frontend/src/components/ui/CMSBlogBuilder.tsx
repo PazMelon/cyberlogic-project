@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useState } from "react";
 import {
   Type,
   Image as ImageIcon,
@@ -9,287 +9,35 @@ import {
   ChevronUp,
   ChevronDown,
   GripVertical,
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  LayoutGrid,
-  Columns2,
-  PanelTop,
-  GalleryHorizontalEnd,
-  Grid3X3,
   Clock,
   Tag,
   User,
   Star,
   Layers,
-  FileText
+  FileText,
+  Columns2,
+  LayoutGrid,
+  Grid3X3,
+  GalleryHorizontalEnd,
+  PanelTop,
+  GalleryHorizontal,
+  Eye,
+  X
 } from "lucide-react";
 import { Button, Card } from "../ui";
+import BlogContentRenderer from "../common/BlogContentRenderer";
 
-import type { ContentSection, ImageTemplate, SectionType } from "../../data/mockData";
+// Reusable Subcomponents and Types
+import type { CMSBlogState, ContentSection, ImageTemplate, SectionType } from "./cms/types";
+import { generateId, getTemplateImageCount } from "./cms/types";
+import RichTextEditor from "./cms/RichTextEditor";
+import ImageTemplateSelector from "./cms/ImageTemplateSelector";
+import ImageUploadZone from "./cms/ImageUploadZone";
 
-export interface CMSBlogState {
-  title: string;
-  subtitle?: string;
-  excerpt: string;
-  content: string; // intro paragraph
-  author: string;
-  category: string;
-  image?: string; // cover image URL
-  readTime?: string;
-  featured?: boolean; // mapped to pinned or featured
-  sections: ContentSection[];
-}
+// Re-export type schemas and ID generators for consumer components (like CreateAnnouncement)
+export type { CMSBlogState, ContentSection, ImageTemplate, SectionType };
+export { generateId };
 
-export const generateId = () => {
-  return typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-};
-
-export function getTemplateImageCount(template: ImageTemplate): number {
-  switch (template) {
-    case 'single': return 1;
-    case 'side-by-side': return 2;
-    case 'bento-3': return 3;
-    case 'bento-4': return 4;
-    case 'bento-6': return 6;
-    case 'banner': return 1;
-  }
-}
-
-// ============================================================
-// Rich Text Editor Component
-// ============================================================
-interface RichTextEditorProps {
-  value: string;
-  onChange: (html: string) => void;
-  placeholder?: string;
-  minHeight?: string;
-}
-
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder = 'Start writing...',
-  minHeight = '140px',
-}: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (editorRef.current) {
-      if (isFirstRender.current || (value !== editorRef.current.innerHTML && document.activeElement !== editorRef.current)) {
-        editorRef.current.innerHTML = value;
-      }
-      isFirstRender.current = false;
-    }
-  }, [value]);
-
-  const handleInput = useCallback(() => {
-    if (editorRef.current) {
-      const currentHtml = editorRef.current.innerHTML;
-      if (currentHtml !== value) {
-        onChange(currentHtml);
-      }
-    }
-  }, [onChange, value]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
-      handleInput();
-    }
-  };
-
-  const execCommand = (command: string, val?: string) => {
-    document.execCommand(command, false, val);
-    editorRef.current?.focus();
-    handleInput();
-  };
-
-  const isActive = (command: string): boolean => {
-    try {
-      return document.queryCommandState(command);
-    } catch {
-      return false;
-    }
-  };
-
-  const ToolbarButton = ({ command, icon: Icon, label }: { command: string; icon: React.ElementType; label: string }) => (
-    <button
-      type="button"
-      onMouseDown={(e) => {
-        e.preventDefault();
-        execCommand(command);
-      }}
-      className={`p-2 rounded-lg transition-colors cursor-pointer ${isActive(command)
-        ? 'bg-primary/20 text-primary border border-primary/30'
-        : 'text-text-muted hover:text-text-primary hover:bg-white/5'
-        }`}
-      title={label}
-    >
-      <Icon size={14} />
-    </button>
-  );
-
-  return (
-    <div className="border border-border/80 rounded-xl overflow-hidden focus-within:border-primary/50 transition-all bg-surface-900/20">
-      {/* Toolbar */}
-      <div className="flex items-center gap-0.5 px-2 py-1.5 bg-surface-950/40 border-b border-border/60">
-        <ToolbarButton command="bold" icon={Bold} label="Bold" />
-        <ToolbarButton command="italic" icon={Italic} label="Italic" />
-        <div className="w-px h-5 bg-border/50 mx-1" />
-        <ToolbarButton command="insertUnorderedList" icon={List} label="Bullet List" />
-        <ToolbarButton command="insertOrderedList" icon={ListOrdered} label="Numbered List" />
-      </div>
-
-      {/* Editor Editable Area */}
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        onInput={handleInput}
-        onBlur={handleInput}
-        onKeyDown={handleKeyDown}
-        data-placeholder={placeholder}
-        className="px-4 py-3 text-sm text-text-secondary leading-relaxed outline-none bg-surface-900/10 min-h-[inherit]
-          [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-text-muted/40
-          [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2
-          [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-2
-          [&_li]:my-0.5
-          [&_b]:font-bold [&_strong]:font-bold
-          [&_i]:italic [&_em]:italic
-          [&_p]:my-1
-        "
-        style={{ minHeight }}
-      />
-    </div>
-  );
-}
-
-// ============================================================
-// Image Template Selector Component
-// ============================================================
-interface ImageTemplateSelectorProps {
-  value: ImageTemplate;
-  onChange: (template: ImageTemplate) => void;
-}
-
-export function ImageTemplateSelector({ value, onChange }: ImageTemplateSelectorProps) {
-  const TEMPLATES: { id: ImageTemplate; label: string; description: string; icon: React.ElementType; preview: React.ReactNode }[] = [
-    {
-      id: 'single',
-      label: 'Single Image',
-      description: '1 full-width image',
-      icon: ImageIcon,
-      preview: <div className="w-full aspect-video bg-primary/20 rounded-lg border border-primary/20" />,
-    },
-    {
-      id: 'side-by-side',
-      label: 'Side by Side',
-      description: '2 images, 50/50 split',
-      icon: Columns2,
-      preview: (
-        <div className="w-full aspect-video flex gap-1">
-          <div className="flex-1 bg-primary/20 rounded-lg border border-primary/20" />
-          <div className="flex-1 bg-primary/10 rounded-lg border border-primary/10" />
-        </div>
-      ),
-    },
-    {
-      id: 'bento-3',
-      label: 'Bento (3)',
-      description: '1 large + 2 stacked',
-      icon: LayoutGrid,
-      preview: (
-        <div className="w-full aspect-video flex gap-1">
-          <div className="flex-[1.5] bg-primary/20 rounded-lg border border-primary/20" />
-          <div className="flex-1 flex flex-col gap-1">
-            <div className="flex-1 bg-primary/10 rounded-lg border border-primary/10" />
-            <div className="flex-1 bg-primary/5 rounded-lg border border-primary/5" />
-          </div>
-        </div>
-      ),
-    },
-    {
-      id: 'bento-4',
-      label: 'Grid (2×2)',
-      description: '4 images in 2×2',
-      icon: Grid3X3,
-      preview: (
-        <div className="w-full aspect-video grid grid-cols-2 gap-1">
-          <div className="bg-primary/20 rounded-lg border border-primary/20" />
-          <div className="bg-primary/15 rounded-lg border border-primary/15" />
-          <div className="bg-primary/10 rounded-lg border border-primary/10" />
-          <div className="bg-primary/5 rounded-lg border border-primary/5" />
-        </div>
-      ),
-    },
-    {
-      id: 'bento-6',
-      label: 'Masonry (6)',
-      description: '6 image grid mosaic',
-      icon: GalleryHorizontalEnd,
-      preview: (
-        <div className="w-full aspect-video grid grid-cols-3 grid-rows-2 gap-1">
-          <div className="bg-primary/20 rounded-lg col-span-2 row-span-1 border border-primary/20" />
-          <div className="bg-primary/15 rounded-lg border border-primary/15" />
-          <div className="bg-primary/10 rounded-lg border border-primary/10" />
-          <div className="bg-primary/5 rounded-lg col-span-2 row-span-1 border border-primary/5" />
-        </div>
-      ),
-    },
-    {
-      id: 'banner',
-      label: 'Wide Banner',
-      description: 'Full-width cinematic row',
-      icon: PanelTop,
-      preview: <div className="w-full h-8 bg-primary/20 rounded-lg border border-primary/20" />,
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {TEMPLATES.map(t => {
-        const isActive = value === t.id;
-        return (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => onChange(t.id)}
-            className={`
-              relative flex flex-col gap-2 p-3 rounded-xl border-2 text-left cursor-pointer transition-all duration-200
-              ${isActive
-                ? 'border-primary bg-primary/5 shadow-md shadow-primary/10'
-                : 'border-border/60 bg-surface-900/20 hover:border-primary/45 hover:bg-surface-800/40'
-              }
-            `}
-          >
-            <div className="w-full">
-              {t.preview}
-            </div>
-            <div>
-              <p className={`text-[11px] font-bold ${isActive ? 'text-primary' : 'text-text-primary'}`}>{t.label}</p>
-              <p className="text-[9px] text-text-muted">{t.description}</p>
-            </div>
-            {isActive && (
-              <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
-                <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 5L4 7L8 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </div>
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ============================================================
-// MAIN CMS BLOG BUILDER
-// ============================================================
 interface CMSBlogBuilderProps {
   state: CMSBlogState;
   onChange: (state: CMSBlogState) => void;
@@ -312,9 +60,22 @@ function createSection(type: SectionType): ContentSection {
   const id = generateId();
   switch (type) {
     case 'text': return { type: 'text', id, html: '' };
-    case 'image': return { type: 'image', id, template: 'single', images: [{ url: '', alt: '' }], caption: '' };
+    case 'image': return { type: 'image', id, images: [], caption: '' };
     case 'quote': return { type: 'quote', id, text: '', attribution: '' };
     case 'divider': return { type: 'divider', id };
+  }
+}
+
+function getTemplateLabelAndIcon(t?: ImageTemplate) {
+  switch (t) {
+    case 'single': return { label: 'Single Image', icon: ImageIcon };
+    case 'side-by-side': return { label: 'Side by Side Layout', icon: Columns2 };
+    case 'bento-3': return { label: 'Bento Grid (3 Images)', icon: LayoutGrid };
+    case 'bento-4': return { label: 'Grid (2x2 Layout)', icon: Grid3X3 };
+    case 'bento-6': return { label: 'Masonry Mosaic (6 Images)', icon: GalleryHorizontalEnd };
+    case 'banner': return { label: 'Cinematic Wide Banner', icon: PanelTop };
+    case 'carousel': return { label: 'Interactive Carousel Slider', icon: GalleryHorizontal };
+    default: return { label: 'No layout template selected', icon: ImageIcon };
   }
 }
 
@@ -329,6 +90,42 @@ export default function CMSBlogBuilder({
   titleLabel = "CMS Blog Builder"
 }: CMSBlogBuilderProps) {
   
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const toggleCollapse = (id: string) => {
+    setCollapsedSections(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const reordered = [...state.sections];
+    const [movedItem] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, movedItem);
+    updateSections(reordered);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  };
+
   const updateState = (updates: Partial<CMSBlogState>) => {
     onChange({ ...state, ...updates });
   };
@@ -376,25 +173,19 @@ export default function CMSBlogBuilder({
     if (!section || section.type !== 'image') return;
 
     const requiredCount = getTemplateImageCount(template);
-    const currentImages = section.images;
+    const activeImages = section.images.filter(img => img.url);
     const images = Array.from({ length: requiredCount }, (_, i) =>
-      currentImages[i] || { url: '', alt: '' }
+      activeImages[i] || { url: '', alt: '' }
     );
 
     updateSection(id, { template, images } as Partial<ContentSection>);
   };
 
-  const updateImage = (sectionId: string, imageIdx: number, url: string) => {
-    const section = state.sections.find(s => s.id === sectionId);
-    if (!section || section.type !== 'image') return;
 
-    const images = [...section.images];
-    images[imageIdx] = { ...images[imageIdx], url };
-    updateSection(sectionId, { images } as Partial<ContentSection>);
-  };
 
   return (
-    <form onSubmit={onSave} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start animate-fadeIn">
+    <>
+      <form onSubmit={onSave} className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8 items-start animate-fadeIn">
       {/* Left Column: Layout Sections List */}
       <div className="space-y-6">
         <div className="flex items-center justify-between border-b border-border pb-3">
@@ -411,26 +202,59 @@ export default function CMSBlogBuilder({
 
         <div className="space-y-4">
           {state.sections.map((section, idx) => (
-            <div key={section.id} className="relative group">
+            <div
+              key={section.id}
+              draggable
+              onDragStart={(e) => handleDragStart(e, idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={(e) => handleDrop(e, idx)}
+              onDragEnd={handleDragEnd}
+              className={`relative group transition-all duration-200 ${
+                draggedIndex === idx
+                  ? "opacity-35 scale-[0.98] border border-dashed border-primary rounded-xl"
+                  : dragOverIndex === idx
+                  ? "border-t-2 border-t-primary pt-1.5 animate-pulse"
+                  : ""
+              }`}
+            >
               <Card className="border border-border/80 bg-surface-900/30 overflow-hidden shadow-md">
                 
                 {/* Section Block Title Toolbar */}
-                <div className="flex items-center justify-between px-4 py-2.5 bg-surface-950/40 border-b border-border/60">
+                <div className={`flex items-center justify-between px-4 py-2.5 bg-surface-950/40 ${collapsedSections[section.id] ? "" : "border-b border-border/60"}`}>
                   <div className="flex items-center gap-2">
-                    <GripVertical size={14} className="text-text-muted/40 cursor-grab" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
+                    <GripVertical size={14} className="text-text-muted/40 cursor-grab active:cursor-grabbing hover:text-primary transition-colors" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-text-muted select-none">
                       {section.type === 'text' && 'Text Section'}
                       {section.type === 'image' && 'Media Grid Section'}
                       {section.type === 'quote' && 'Blockquote Section'}
                       {section.type === 'divider' && 'Divider'}
                     </span>
+                    {collapsedSections[section.id] && (
+                      <span className="text-[8px] text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 animate-pulse font-bold ml-1 select-none">
+                        Collapsed
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5">
                     <button
                       type="button"
+                      onClick={() => toggleCollapse(section.id)}
+                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors mr-1 cursor-pointer"
+                      title={collapsedSections[section.id] ? "Expand Section" : "Collapse Section"}
+                    >
+                      {collapsedSections[section.id] ? (
+                        <ChevronDown size={14} className="text-primary font-bold" />
+                      ) : (
+                        <ChevronUp size={14} />
+                      )}
+                    </button>
+                    <div className="w-px h-4 bg-border/40 mx-1" />
+                    <button
+                      type="button"
                       onClick={() => moveSection(section.id, 'up')}
                       disabled={idx === 0}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      title="Move Up"
                     >
                       <ChevronUp size={14} />
                     </button>
@@ -438,7 +262,8 @@ export default function CMSBlogBuilder({
                       type="button"
                       onClick={() => moveSection(section.id, 'down')}
                       disabled={idx === state.sections.length - 1}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      title="Move Down"
                     >
                       <ChevronDown size={14} />
                     </button>
@@ -446,7 +271,8 @@ export default function CMSBlogBuilder({
                       type="button"
                       onClick={() => removeSection(section.id)}
                       disabled={state.sections.length <= 1}
-                      className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors ml-1"
+                      className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors ml-1 cursor-pointer"
+                      title="Delete Section"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -454,7 +280,8 @@ export default function CMSBlogBuilder({
                 </div>
 
                 {/* Section Fields Renders */}
-                <div className="p-4 space-y-4">
+                {!collapsedSections[section.id] && (
+                  <div className="p-4 space-y-4">
                   {section.type === 'text' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -491,28 +318,113 @@ export default function CMSBlogBuilder({
 
                   {section.type === 'image' && (
                     <div className="space-y-4">
-                      <ImageTemplateSelector
-                        value={section.template}
-                        onChange={(template) => handleTemplateChange(section.id, template)}
-                      />
-                      
-                      <div className="space-y-2 border-t border-border/40 pt-3">
-                        <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Image Source URLs / seeds</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {section.images.map((img, imgIdx) => (
-                            <div key={imgIdx} className="space-y-1">
-                              <label className="text-[9px] text-text-muted">Slot #{imgIdx + 1} Image URL or Unsplash Seed</label>
-                              <input
-                                type="text"
-                                value={img.url}
-                                onChange={(e) => updateImage(section.id, imgIdx, e.target.value)}
-                                placeholder="e.g. cyber, server, or https://..."
-                                className="w-full px-3 py-1.5 rounded-lg bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                              />
-                            </div>
-                          ))}
+                      {!section.template ? (
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Choose Image Grid Template Layout</label>
+                          <ImageTemplateSelector
+                            value={section.template as any}
+                            onChange={(template) => handleTemplateChange(section.id, template)}
+                          />
                         </div>
-                      </div>
+                      ) : (
+                        <div className="space-y-4 animate-fadeIn">
+                          {/* Layout Header bar */}
+                          {(() => {
+                            const activeLayout = getTemplateLabelAndIcon(section.template);
+                            const ActiveIcon = activeLayout.icon;
+                            const activeImages = section.images.filter(img => img.url);
+                            const requiredCount = getTemplateImageCount(section.template);
+
+                            return (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between bg-surface-950/45 p-3 rounded-xl border border-border/80 shadow-inner">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+                                      <ActiveIcon size={16} />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xs font-bold text-text-primary">{activeLayout.label}</h4>
+                                      <p className="text-[10px] text-text-muted">
+                                        {section.template === 'carousel' 
+                                          ? `${activeImages.length} Image${activeImages.length !== 1 ? 's' : ''} Uploaded` 
+                                          : `${activeImages.length} / ${requiredCount} Image${requiredCount !== 1 ? 's' : ''} Uploaded`
+                                        }
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSection(section.id, { template: undefined } as any)}
+                                    className="text-[10px] font-bold text-primary hover:underline px-2.5 py-1.5 rounded-lg bg-surface-800 border border-border/80 transition-all cursor-pointer"
+                                  >
+                                    Change Layout
+                                  </button>
+                                </div>
+
+                                {/* Single Upload dropzone if not filled */}
+                                {activeImages.length < requiredCount ? (
+                                  <ImageUploadZone
+                                    value=""
+                                    onChange={(url) => {
+                                      const emptyIdx = section.images.findIndex(img => !img.url);
+                                      if (emptyIdx !== -1) {
+                                        const nextImages = [...section.images];
+                                        nextImages[emptyIdx] = { url, alt: '' };
+                                        updateSection(section.id, { images: nextImages } as Partial<ContentSection>);
+                                      } else {
+                                        updateSection(section.id, { images: [...section.images, { url, alt: '' }] } as Partial<ContentSection>);
+                                      }
+                                    }}
+                                    aspectHint={section.template === 'banner' ? 'Banner: 21:9 ratio' : 'Standard: 16:9 ratio'}
+                                    label="Drop or browse a new picture to add to layout"
+                                  />
+                                ) : (
+                                  <div className="p-4 rounded-xl border border-dashed border-border/60 bg-surface-900/10 text-center text-xs text-text-muted italic select-none">
+                                    All {requiredCount} image slots filled for this layout. Remove an image below to upload a new one.
+                                  </div>
+                                )}
+
+                                {/* Preview Grid */}
+                                {activeImages.length > 0 && (
+                                  <div className="space-y-2 pt-2 border-t border-border/40">
+                                    <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Uploaded Previews</label>
+                                    <div className="flex flex-wrap gap-3">
+                                      {activeImages.map((img, imgIdx) => (
+                                        <div key={imgIdx} className="relative w-20 h-20 rounded-xl border border-border/80 overflow-hidden group/thumb bg-surface-950/80 shadow-md">
+                                          <img
+                                            src={img.url.startsWith('data:') || img.url.startsWith('http') ? img.url : `https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=200&auto=format&fit=crop&q=60&sig=${img.url}`}
+                                            alt={`Slot ${imgIdx + 1}`}
+                                            className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                                          />
+                                          <div className="absolute top-1 left-1 bg-surface-950/85 border border-border/60 text-[8px] font-mono font-bold text-text-secondary px-1.5 py-0.5 rounded">
+                                            #{imgIdx + 1}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (section.template === 'carousel') {
+                                                const nextImages = section.images.filter(x => x.url !== img.url);
+                                                updateSection(section.id, { images: nextImages } as Partial<ContentSection>);
+                                              } else {
+                                                const nextImages = section.images.map(x => x.url === img.url ? { url: '', alt: '' } : x);
+                                                updateSection(section.id, { images: nextImages } as Partial<ContentSection>);
+                                              }
+                                            }}
+                                            className="absolute inset-0 bg-error/85 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-150 flex items-center justify-center rounded-xl cursor-pointer"
+                                            title="Remove Image"
+                                          >
+                                            <Trash2 size={14} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
 
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-text-secondary uppercase tracking-wider block">Caption Text</label>
@@ -561,6 +473,7 @@ export default function CMSBlogBuilder({
                     </div>
                   )}
                 </div>
+                )}
               </Card>
 
               {/* Hover + Add Section Button between sections */}
@@ -595,7 +508,7 @@ export default function CMSBlogBuilder({
       </div>
 
       {/* Right Column: Metadata Panel in dark glass card */}
-      <div className="space-y-6">
+      <div className="space-y-6 lg:sticky lg:top-24 max-h-[calc(100vh-140px)] overflow-y-auto pr-2 scrollbar-thin">
         <Card className="p-5 border border-border/80 bg-surface-900/60 shadow-lg space-y-4">
           <h2 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-border/60 pb-2">
             <FileText className="w-4 h-4" /> {titleLabel}
@@ -641,16 +554,12 @@ export default function CMSBlogBuilder({
           </div>
 
           {/* Cover Image */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary">Cover Image URL / Seed</label>
-            <input
-              type="text"
-              value={state.image || ''}
-              onChange={e => updateState({ image: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-              placeholder="Image link or Unsplash query..."
-            />
-          </div>
+          <ImageUploadZone
+            value={state.image || ''}
+            onChange={url => updateState({ image: url })}
+            aspectHint="Cover: 16:9 ratio"
+            label="Cover Image"
+          />
 
           {/* Intro Text */}
           <div className="space-y-1.5">
@@ -728,15 +637,23 @@ export default function CMSBlogBuilder({
               type="submit"
               variant="admin"
               isLoading={saving}
-              className="w-full py-2.5"
+              className="w-full py-2.5 cursor-pointer"
             >
               {saveLabel}
             </Button>
             <Button
               type="button"
               variant="secondary"
+              onClick={() => setIsPreviewOpen(true)}
+              className="w-full py-2 flex items-center justify-center gap-1.5 border border-primary/20 text-primary hover:bg-primary hover:text-white cursor-pointer"
+            >
+              <Eye className="w-4 h-4" /> Preview Draft
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
               onClick={onCancel}
-              className="w-full py-2"
+              className="w-full py-2 cursor-pointer"
             >
               Cancel
             </Button>
@@ -745,5 +662,99 @@ export default function CMSBlogBuilder({
         </Card>
       </div>
     </form>
+
+    {/* Dynamic Draft Preview Modal */}
+    {isPreviewOpen && (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-surface-950/95 flex items-center justify-center p-4 md:p-8 animate-fadeIn">
+        <div className="relative max-w-4xl w-full bg-surface-900 border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+          
+          {/* Modal Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-950/40">
+            <div className="flex items-center gap-2">
+              <Eye className="w-5 h-5 text-primary" />
+              <h3 className="text-base font-bold text-text-primary">CMS Live Post Preview</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(false)}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Modal Body (Scrollable draft rendering) */}
+          <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-8 scrollbar-thin">
+            
+            {/* Blog Header Preview */}
+            <div className="space-y-4">
+              <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                {state.category}
+              </span>
+              
+              <h1 className="text-3xl sm:text-4xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary leading-tight">
+                {state.title || <span className="text-text-muted italic">Untitled Draft</span>}
+              </h1>
+              
+              {state.subtitle && (
+                <p className="text-lg text-text-muted font-light leading-relaxed">
+                  {state.subtitle}
+                </p>
+              )}
+
+              {/* Author Card info */}
+              <div className="flex items-center gap-3 pt-4 border-t border-border/40">
+                <div className="w-10 h-10 rounded-full bg-surface-800 flex items-center justify-center border border-border">
+                  <User className="w-5 h-5 text-primary/70" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">{state.author || "System Admin"}</p>
+                  <p className="text-xs text-text-muted mt-0.5">Published Date Preview · {state.readTime || "5 min read"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cover Image banner */}
+            {state.image && (
+              <div className="relative aspect-video rounded-xl overflow-hidden border border-border/60">
+                <img src={state.image} alt="Cover Preview" className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            {/* Post Content & Sections */}
+            <div className="space-y-6">
+              {state.content && (
+                <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/20 pl-4">
+                  {state.content}
+                </p>
+              )}
+
+              {state.sections && state.sections.length > 0 ? (
+                <div className="pt-6 border-t border-border/30">
+                  <BlogContentRenderer content={state.sections} />
+                </div>
+              ) : (
+                <p className="text-xs text-text-muted italic">No body blocks added yet.</p>
+              )}
+            </div>
+
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-4 border-t border-border bg-surface-950/40 flex justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsPreviewOpen(false)}
+              className="px-5 py-2 cursor-pointer"
+            >
+              Close Preview
+            </Button>
+          </div>
+
+        </div>
+      </div>
+    )}
+    </>
   );
 }

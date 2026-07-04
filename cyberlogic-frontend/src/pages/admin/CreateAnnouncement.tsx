@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router";
 import { FileText, ArrowLeft } from "lucide-react";
-import { announcements } from "../../data/mockData";
-import type { Announcement } from "../../data/mockData";
+import { fetchAnnouncementById, createAnnouncement, updateAnnouncement } from "../../utils/api";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
+import type { Announcement } from "../../data/mockData";
 
 export default function CreateAnnouncement() {
   const navigate = useNavigate();
   const { id } = useParams();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Initialize the state using the CMS Blog Builder schema
   const [editorState, setEditorState] = useState<CMSBlogState>({
@@ -30,9 +31,11 @@ export default function CreateAnnouncement() {
 
   // Load existing data if in Edit Mode
   useEffect(() => {
-    if (editId) {
-      const match = announcements.find((a) => a.id === editId);
-      if (match) {
+    async function loadData() {
+      if (!editId) return;
+      setIsLoading(true);
+      try {
+        const match = await fetchAnnouncementById(editId);
         setEditorState({
           title: match.title || "",
           subtitle: match.subtitle || "",
@@ -40,65 +43,54 @@ export default function CreateAnnouncement() {
           content: match.content || "",
           author: match.author || "System Admin",
           category: match.category || "General",
-          image: "", // Mock Cover Image URL
+          image: "", // Cover Image can be left empty or mapped
           readTime: "5 min",
           featured: match.pinned || false,
           sections: match.sections || [{ type: "text", id: generateId(), html: "" }]
         });
+      } catch (err) {
+        console.error("Failed to load announcement details:", err);
+        alert("Failed to load announcement detail from backend database.");
+        navigate("/admin/announcements");
+      } finally {
+        setIsLoading(false);
       }
     }
-  }, [editId]);
+    loadData();
+  }, [editId, navigate]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editorState.title.trim() || !editorState.excerpt.trim()) return;
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      if (editId) {
-        // Edit mode: find existing and update fields in mutable mock array
-        const idx = announcements.findIndex((a) => a.id === editId);
-        if (idx !== -1) {
-          announcements[idx] = {
-            ...announcements[idx],
-            title: editorState.title,
-            subtitle: editorState.subtitle || undefined,
-            excerpt: editorState.excerpt,
-            content: editorState.content || "",
-            category: editorState.category as "General" | "Academic" | "Events",
-            author: editorState.author || "System Admin",
-            pinned: editorState.featured || false,
-            sections: editorState.sections
-          };
-        }
-      } else {
-        // Create mode: map state and unshift new announcement
-        const newAnnouncement: Announcement = {
-          id: Date.now(),
-          title: editorState.title,
-          subtitle: editorState.subtitle || undefined,
-          excerpt: editorState.excerpt,
-          content: editorState.content || "",
-          category: editorState.category as "General" | "Academic" | "Events",
-          author: editorState.author || "System Admin",
-          authorAvatar: `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(editorState.author || "admin")}`,
-          date: new Date().toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          }),
-          pinned: editorState.featured || false,
-          sections: editorState.sections
-        };
-        announcements.unshift(newAnnouncement);
-      }
+    try {
+      const payload: Partial<Announcement> = {
+        title: editorState.title,
+        subtitle: editorState.subtitle || undefined,
+        excerpt: editorState.excerpt,
+        content: editorState.content || "",
+        category: editorState.category as "General" | "Academic" | "Events",
+        author: editorState.author || "System Admin",
+        pinned: editorState.featured || false,
+        sections: editorState.sections
+      };
 
-      setIsSubmitting(false);
+      if (editId) {
+        await updateAnnouncement(editId, payload);
+      } else {
+        await createAnnouncement(payload);
+      }
 
       // Redirect back to announcements directory
       navigate("/admin/announcements");
-    }, 800);
+    } catch (err: any) {
+      console.error("Failed to save announcement:", err);
+      alert(err.message || "Failed to save announcement to database.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -121,17 +113,24 @@ export default function CreateAnnouncement() {
         </div>
       </div>
 
-      {/* Generic CMS Builder Component */}
-      <CMSBlogBuilder
-        state={editorState}
-        onChange={setEditorState}
-        categories={["General", "Academic", "Events"]}
-        onSave={handleSave}
-        onCancel={() => navigate("/admin/announcements")}
-        saving={isSubmitting}
-        saveLabel={editId ? "Update Announcement" : "Publish Announcement"}
-        titleLabel={editId ? "Edit Announcement Info" : "New Announcement Info"}
-      />
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-xs text-text-muted">Loading data from secure database...</p>
+        </div>
+      ) : (
+        /* Generic CMS Builder Component */
+        <CMSBlogBuilder
+          state={editorState}
+          onChange={setEditorState}
+          categories={["General", "Academic", "Events"]}
+          onSave={handleSave}
+          onCancel={() => navigate("/admin/announcements")}
+          saving={isSubmitting}
+          saveLabel={editId ? "Update Announcement" : "Publish Announcement"}
+          titleLabel={editId ? "Edit Announcement Info" : "New Announcement Info"}
+        />
+      )}
     </div>
   );
 }

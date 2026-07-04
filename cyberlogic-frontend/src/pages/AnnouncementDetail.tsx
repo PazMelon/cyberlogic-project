@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "react-router";
 import { ChevronLeft, Calendar, User, Pin } from "lucide-react";
-import { announcements } from "../data/mockData";
+import { fetchAnnouncementById } from "../utils/api";
+import type { Announcement } from "../data/mockData";
 import BlogContentRenderer from "../components/common/BlogContentRenderer";
 
 export default function AnnouncementDetail() {
@@ -8,12 +10,40 @@ export default function AnnouncementDetail() {
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
 
-  const item = announcements.find((a) => a.id === Number(id));
+  const [item, setItem] = useState<Announcement | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!item) {
+  useEffect(() => {
+    async function loadDetail() {
+      if (!id) return;
+      try {
+        const data = await fetchAnnouncementById(Number(id));
+        setItem(data);
+      } catch (err: any) {
+        console.error("Failed to load details:", err);
+        setError(err.message || "Failed to load announcement.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadDetail();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
+        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <p className="text-xs text-text-muted">Retrieving announcement details...</p>
+      </div>
+    );
+  }
+
+  if (error || !item) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center">
         <h2 className="text-xl font-bold text-text-primary">Announcement Not Found</h2>
+        <p className="text-xs text-text-muted mt-1">{error}</p>
         <Link
           to={isPortal ? "/app/announcements" : "/announcements"}
           className="text-primary hover:underline text-sm mt-4 flex items-center gap-1"
@@ -43,7 +73,7 @@ export default function AnnouncementDetail() {
         </Link>
 
         {/* Hero Header */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-4 mb-8 animate-fadeIn">
           <div className="flex items-center gap-2">
             <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${categoryColors[item.category]}`}>
               {item.category}
@@ -84,7 +114,7 @@ export default function AnnouncementDetail() {
         </div>
 
         {/* Blog Post Content Body */}
-        <div className="space-y-8">
+        <div className="space-y-8 animate-fadeIn">
           
           {/* Main intro content */}
           {item.content && (

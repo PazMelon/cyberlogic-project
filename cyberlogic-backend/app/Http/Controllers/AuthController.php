@@ -98,4 +98,55 @@ class AuthController extends Controller
             'user' => Auth::user(),
         ]);
     }
+
+    /**
+     * GET /api/users
+     * List all registered members (Admin/Super Admin only).
+     */
+    public function index(Request $request)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $users = User::orderBy('id', 'desc')->get();
+        return response()->json($users);
+    }
+
+    /**
+     * PUT /api/users/{id}/role
+     * Update user role (Super Admin / Club Moderator only).
+     */
+    public function updateRole(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || $currentUser->role !== 'superadmin') {
+            return response()->json([
+                'error' => 'Forbidden. Only the Club Moderator (Super Admin) can modify user access roles.'
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'role' => 'required|string|in:member,officer,admin,superadmin',
+        ]);
+
+        $user = User::findOrFail($id);
+        
+        // Prevent Super Admin from changing their own role to avoid self-lockout
+        if ($user->id === $currentUser->id && $validated['role'] !== 'superadmin') {
+            return response()->json([
+                'error' => 'Action Rejected. The primary Club Moderator cannot demote themselves.'
+            ], 400);
+        }
+
+        $user->update([
+            'role' => $validated['role']
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'user' => $user
+        ]);
+    }
 }

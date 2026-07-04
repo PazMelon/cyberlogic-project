@@ -9,22 +9,31 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { announcements, events, forumThreads } from "../data/mockData";
+import { events, forumThreads } from "../data/mockData";
+import { fetchAnnouncements } from "../utils/api";
+import type { Announcement } from "../data/mockData";
 import { SkeletonBox, SkeletonLine, SkeletonCircle } from "../components/Skeleton";
 import { ForumThreadCard, EventCard, AnnouncementCard } from "../components/ui";
 
 export default function Home() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [latestAnnouncements, setLatestAnnouncements] = useState<Announcement[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    async function loadData() {
+      try {
+        const data = await fetchAnnouncements();
+        setLatestAnnouncements(data.slice(0, 3));
+      } catch (err) {
+        console.error("Failed to load dashboard announcements:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadData();
   }, []);
 
-  const latestAnnouncements = announcements.slice(0, 3);
   const upcomingEvents = events.slice(0, 3);
   const recentThreads = forumThreads.slice(0, 4);
 

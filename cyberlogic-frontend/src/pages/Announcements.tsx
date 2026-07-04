@@ -1,22 +1,34 @@
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import {
-  ChevronRight,
-  Pin,
-  Search,
-  Filter,
-} from "lucide-react";
-import { announcements } from "../data/mockData";
-import { useState } from "react";
+import { ChevronRight, Pin, Search, Filter } from "lucide-react";
+import { fetchAnnouncements } from "../utils/api";
+import type { Announcement } from "../data/mockData";
 
 const categories = ["All", "General", "Academic", "Events"] as const;
 
 export default function Announcements() {
+  const [items, setItems] = useState<Announcement[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
 
-  const filtered = announcements.filter((a) => {
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const data = await fetchAnnouncements();
+        setItems(data);
+      } catch (err) {
+        console.error("Failed to load announcements:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, []);
+
+  const filtered = items.filter((a) => {
     const matchesCategory =
       activeCategory === "All" || a.category === activeCategory;
     const matchesSearch =
@@ -81,64 +93,74 @@ export default function Announcements() {
           </div>
         </div>
 
-        {/* Announcements List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {filtered.map((item) => (
-            <Link
-              key={item.id}
-              to={isPortal ? `/app/announcements/${item.id}` : `/announcements/${item.id}`}
-              className="block group"
-            >
-              <article
-                className="glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 h-full flex flex-col justify-between"
+        {/* Loading Indicator */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <p className="text-xs text-text-muted">Loading announcements from secure database...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 border border-dashed border-border/80 rounded-2xl">
+            <p className="text-sm text-text-secondary italic">No announcements found matching the criteria.</p>
+          </div>
+        ) : (
+          /* Announcements List */
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fadeIn">
+            {filtered.map((item) => (
+              <Link
+                key={item.id}
+                to={isPortal ? `/app/announcements/${item.id}` : `/announcements/${item.id}`}
+                className="block group"
               >
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        item.category === "General"
-                          ? "bg-info/10 text-info border border-info/20"
-                          : item.category === "Events"
-                          ? "bg-accent/10 text-accent border border-accent/20"
-                          : "bg-success/10 text-success border border-success/20"
-                      }`}
-                    >
-                      {item.category}
-                    </span>
-                    {item.pinned && (
-                      <span className="inline-flex items-center gap-1 text-xs text-warning">
-                        <Pin className="w-3 h-3" /> Pinned
+                <article
+                  className="glass rounded-2xl p-6 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 h-full flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          item.category === "General"
+                            ? "bg-info/10 text-info border border-info/20"
+                            : item.category === "Academic"
+                            ? "bg-success/10 text-success border border-success/20"
+                            : "bg-accent/10 text-accent border border-accent/20"
+                        }`}
+                      >
+                        {item.category}
                       </span>
-                    )}
-                  </div>
-                  <h3 className="text-lg font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 line-clamp-2">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-text-muted mb-4 line-clamp-3">
-                    {item.excerpt}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 pt-4 border-t border-border mt-auto">
-                  <img
-                    src={item.authorAvatar}
-                    alt={item.author}
-                    className="w-7 h-7 rounded-full bg-surface-700 object-cover"
-                  />
-                  <span className="text-xs font-medium text-text-secondary flex-1">
-                    {item.author}
-                  </span>
-                  <time className="text-xs text-text-muted">{item.date}</time>
-                </div>
-              </article>
-            </Link>
-          ))}
-        </div>
+                      {item.pinned && (
+                        <span className="inline-flex items-center gap-1 text-xs text-warning font-semibold">
+                          <Pin className="w-3.5 h-3.5 fill-warning" /> Pinned
+                        </span>
+                      )}
+                    </div>
 
-        {filtered.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-text-muted">
-              No announcements found matching your search.
-            </p>
+                    <h2 className="text-xl font-bold font-[family-name:var(--font-heading)] text-text-primary group-hover:text-primary transition-colors">
+                      {item.title}
+                    </h2>
+                    <p className="text-sm text-text-muted mt-2 line-clamp-3 leading-relaxed">
+                      {item.excerpt}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-6 mt-6 border-t border-border/60">
+                    <img
+                      src={item.authorAvatar}
+                      alt={item.author}
+                      className="w-8 h-8 rounded-full bg-surface-700 border border-border"
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-text-primary">
+                        {item.author}
+                      </p>
+                      <p className="text-[10px] text-text-muted mt-0.5">
+                        {item.date}
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              </Link>
+            ))}
           </div>
         )}
       </div>

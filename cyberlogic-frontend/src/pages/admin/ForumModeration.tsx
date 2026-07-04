@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  Search,
   Pin,
   CheckCircle,
   Trash2,
@@ -9,28 +8,19 @@ import {
   Heart,
   FolderPlus,
   X,
-  Plus,
 } from "lucide-react";
 import { forumThreads, forumCategories } from "../../data/mockData";
-import { Button, Card } from "../../components/ui";
+import { Button, Card, DataTable } from "../../components/ui";
 
 export default function ForumModeration() {
   const [threadList, setThreadList] = useState(forumThreads);
   const [categoriesList, setCategoriesList] = useState(forumCategories);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
 
   // Category Manager Collapse State
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatColor, setNewCatColor] = useState<"primary" | "accent" | "success" | "error" | "warning">("primary");
   const [newCatDesc, setNewCatDesc] = useState("");
-
-  const filtered = threadList.filter((t) => {
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === "all" || t.categoryId === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
 
   const getCategoryColor = (colorName: string) => {
     const colorMap: Record<string, string> = {
@@ -79,10 +69,6 @@ export default function ForumModeration() {
       setThreadList(
         threadList.map((t) => (t.categoryId === catId ? { ...t, categoryId: "general" } : t))
       );
-
-      if (categoryFilter === catId) {
-        setCategoryFilter("all");
-      }
     }
   };
 
@@ -104,6 +90,119 @@ export default function ForumModeration() {
     );
   };
 
+  const forumColumns = [
+    {
+      header: "Thread",
+      accessor: (thread: any) => (
+        <div className="flex items-center gap-3">
+          <img src={thread.authorAvatar} alt={thread.author} className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 object-cover border border-border/60" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text-primary truncate max-w-xs">{thread.title}</p>
+            <p className="text-xs text-text-muted">{thread.author} · {thread.lastActivity}</p>
+          </div>
+        </div>
+      ),
+      sortable: true,
+      sortKey: "title" as any
+    },
+    {
+      header: "Category",
+      accessor: (thread: any) => {
+        const category = categoriesList.find((c) => c.id === thread.categoryId);
+        return category ? (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${getCategoryColor(category.color)} border border-border/20`}>
+            {category.name}
+          </span>
+        ) : (
+          <span className="text-[10px] text-text-muted">Uncategorized</span>
+        );
+      },
+      sortable: true,
+      sortKey: "categoryId" as any,
+      className: "hidden sm:table-cell"
+    },
+    {
+      header: "Stats",
+      accessor: (thread: any) => (
+        <div className="flex items-center gap-3 text-xs text-text-muted">
+          <span className="flex items-center gap-1 font-medium"><MessageSquare className="w-3 h-3 text-primary/70" /> {thread.replyCount}</span>
+          <span className="flex items-center gap-1 font-medium"><Heart className="w-3 h-3 text-accent/70" /> {thread.likes}</span>
+          <span className="flex items-center gap-1 font-medium"><Eye className="w-3 h-3 text-info/70" /> {thread.views}</span>
+        </div>
+      ),
+      className: "hidden md:table-cell"
+    },
+    {
+      header: "Status",
+      accessor: (thread: any) => (
+        <div className="flex items-center justify-center gap-2">
+          {thread.pinned && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-warning">
+              <Pin className="w-3 h-3 fill-warning" /> Pinned
+            </span>
+          )}
+          {thread.solved && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success">
+              <CheckCircle className="w-3 h-3" /> Solved
+            </span>
+          )}
+        </div>
+      ),
+      className: "text-center hidden sm:table-cell"
+    },
+    {
+      header: "Actions",
+      accessor: (thread: any) => (
+        <div className="flex items-center justify-end gap-1">
+          <button
+            type="button"
+            onClick={() => handleTogglePin(thread.id)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              thread.pinned
+                ? "text-warning hover:text-warning/70 hover:bg-warning/5"
+                : "text-text-muted hover:text-warning hover:bg-warning/5"
+            }`}
+            title={thread.pinned ? "Unpin" : "Pin"}
+          >
+            <Pin className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleToggleSolved(thread.id)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              thread.solved
+                ? "text-success hover:text-success/70 hover:bg-success/5"
+                : "text-text-muted hover:text-success hover:bg-success/5"
+            }`}
+            title={thread.solved ? "Unmark solved" : "Mark solved"}
+          >
+            <CheckCircle className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDeleteThread(thread.id)}
+            className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+      className: "text-right"
+    }
+  ];
+
+  const forumFilters = [
+    {
+      label: "Category",
+      field: "categoryId",
+      options: categoriesList.map((cat) => ({
+        label: cat.name,
+        value: cat.id
+      }))
+    }
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -118,22 +217,22 @@ export default function ForumModeration() {
           type="button"
           variant="admin"
           icon={showCategoryForm ? <X className="w-4 h-4" /> : <FolderPlus className="w-4 h-4" />}
-          className="px-4 py-2.5"
+          className="px-4 py-2.5 cursor-pointer"
           onClick={() => setShowCategoryForm(!showCategoryForm)}
         >
-          {showCategoryForm ? "Close Categories" : "Manage Categories"}
+          {showCategoryForm ? "Close Manager" : "Manage Categories"}
         </Button>
       </div>
 
-      {/* Category Manager Collapsible Inline Section */}
+      {/* Category Management Block */}
       {showCategoryForm && (
-        <Card className="p-6 border border-border/80 bg-surface-900/40 relative animate-fadeIn">
+        <Card className="p-6 border border-border/80 bg-surface-900/40 animate-fadeIn">
           <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
             <div>
               <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)]">
-                Manage Forum Categories
+                Forum Categories Registry
               </h2>
-              <p className="text-xs text-text-muted">Create, edit, or delete categories available for member posts</p>
+              <p className="text-xs text-text-muted">Create or modify forum sections and tags</p>
             </div>
             <button
               type="button"
@@ -144,14 +243,9 @@ export default function ForumModeration() {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-            {/* Left Side: Create New Category Form */}
-            <form onSubmit={handleCreateCategory} className="md:col-span-5 space-y-4 border-r border-border/40 pr-0 md:pr-6">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500">
-                New Category
-              </h3>
-
-              {/* Name */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Create Category Form */}
+            <form onSubmit={handleCreateCategory} className="lg:col-span-1 space-y-4 border-r border-border/30 pr-6">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-text-secondary">Category Name *</label>
                 <input
@@ -159,79 +253,59 @@ export default function ForumModeration() {
                   required
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
-                  placeholder="e.g. Reverse Engineering"
+                  placeholder="e.g. Capture The Flag"
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all"
                 />
               </div>
 
-              {/* Color Tag Selection */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-secondary">Color Theme *</label>
+                <label className="text-xs font-semibold text-text-secondary">Theme Color *</label>
                 <select
                   value={newCatColor}
                   onChange={(e) => setNewCatColor(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-amber-500/50 transition-all"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none"
                 >
-                  <option value="primary">Primary (Cyan)</option>
-                  <option value="accent">Accent (Purple)</option>
-                  <option value="success">Success (Green)</option>
-                  <option value="error">Error (Red)</option>
-                  <option value="warning">Warning (Amber)</option>
+                  <option value="primary">Amber (Primary)</option>
+                  <option value="accent">Purple (Accent)</option>
+                  <option value="success">Green (Success)</option>
+                  <option value="error">Red (Error)</option>
+                  <option value="warning">Orange (Warning)</option>
                 </select>
               </div>
 
-              {/* Description */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-text-secondary">Description</label>
                 <textarea
-                  rows={3}
                   value={newCatDesc}
                   onChange={(e) => setNewCatDesc(e.target.value)}
-                  placeholder="Briefly describe what threads should be posted here..."
-                  className="w-full p-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all resize-none"
+                  rows={2}
+                  placeholder="Summarize the category focus..."
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all resize-none"
                 />
               </div>
 
-              <Button
-                type="submit"
-                variant="admin"
-                className="w-full py-2"
-                icon={<Plus className="w-4 h-4" />}
-              >
-                Add Category
+              <Button type="submit" variant="admin" className="w-full py-2 cursor-pointer">
+                Create Category
               </Button>
             </form>
 
-            {/* Right Side: Active Categories List */}
-            <div className="md:col-span-7 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary">
-                Active Categories ({categoriesList.length})
-              </h3>
-
-              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+            {/* Active Categories list */}
+            <div className="lg:col-span-2 space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">Active Categories Registry</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[250px] overflow-y-auto pr-2 scrollbar-thin">
                 {categoriesList.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="p-3 rounded-xl border border-border bg-surface-900/30 flex items-start justify-between gap-3"
-                  >
+                  <div key={cat.id} className="p-3 rounded-xl bg-surface-950/40 border border-border/80 flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${getCategoryColor(cat.color)}`}>
-                          {cat.name}
-                        </span>
-                        <span className="text-[10px] text-text-muted font-mono">id: {cat.id}</span>
-                      </div>
-                      <p className="text-xs text-text-muted mt-1 leading-tight line-clamp-2">
-                        {cat.description}
-                      </p>
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${getCategoryColor(cat.color)}`}>
+                        {cat.name}
+                      </span>
+                      <p className="text-[11px] text-text-muted mt-1 truncate">{cat.description}</p>
                     </div>
-                    
-                    {/* Delete Category Button */}
                     {cat.id !== "general" && (
                       <button
                         type="button"
                         onClick={() => handleDeleteCategory(cat.id)}
-                        className="p-1 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-all flex-shrink-0"
+                        className="p-1 rounded text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
                         title="Delete Category"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -245,145 +319,13 @@ export default function ForumModeration() {
         </Card>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search threads..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-              categoryFilter === "all"
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                : "border-border bg-surface-800 text-text-muted hover:border-amber-500/20"
-            }`}
-          >
-            All
-          </button>
-          {categoriesList.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setCategoryFilter(cat.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                categoryFilter === cat.id
-                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                  : "border-border bg-surface-800 text-text-muted hover:border-amber-500/20"
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="glass rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider">Thread</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden sm:table-cell">Category</th>
-                <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden md:table-cell">Stats</th>
-                <th className="text-center px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden sm:table-cell">Status</th>
-                <th className="text-right px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.map((thread) => {
-                const category = categoriesList.find((c) => c.id === thread.categoryId);
-                return (
-                  <tr key={thread.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <img src={thread.authorAvatar} alt={thread.author} className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 object-cover" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-text-primary truncate max-w-xs">{thread.title}</p>
-                          <p className="text-xs text-text-muted">{thread.author} · {thread.lastActivity}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 hidden sm:table-cell">
-                      {category ? (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${getCategoryColor(category.color)}`}>
-                          {category.name}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-text-muted">Uncategorized</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 hidden md:table-cell">
-                      <div className="flex items-center gap-3 text-xs text-text-muted">
-                        <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {thread.replyCount}</span>
-                        <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {thread.likes}</span>
-                        <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {thread.views}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 hidden sm:table-cell">
-                      <div className="flex items-center justify-center gap-2">
-                        {thread.pinned && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-warning">
-                            <Pin className="w-3 h-3" /> Pinned
-                          </span>
-                        )}
-                        {thread.solved && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success">
-                            <CheckCircle className="w-3 h-3" /> Solved
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePin(thread.id)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            thread.pinned
-                              ? "text-warning hover:text-warning/70 hover:bg-warning/5"
-                              : "text-text-muted hover:text-warning hover:bg-warning/5"
-                          }`}
-                          title={thread.pinned ? "Unpin" : "Pin"}
-                        >
-                          <Pin className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleSolved(thread.id)}
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            thread.solved
-                              ? "text-success hover:text-success/70 hover:bg-success/5"
-                              : "text-text-muted hover:text-success hover:bg-success/5"
-                          }`}
-                          title={thread.solved ? "Unmark solved" : "Mark solved"}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteThread(thread.id)}
-                          className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        data={threadList}
+        columns={forumColumns}
+        filterGroups={forumFilters}
+        searchPlaceholder="Search forum threads..."
+        emptyStateText="No forum threads found matching the criteria."
+      />
     </div>
   );
 }

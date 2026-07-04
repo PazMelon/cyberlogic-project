@@ -6,14 +6,14 @@ import {
   UserCheck,
   History,
   X,
-  SlidersHorizontal,
   Mail,
   Award,
   Calendar,
 } from "lucide-react";
 import { directoryMembers as initialMembers, pendingMembers as initialPending } from "../../data/mockData";
-import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
-import { Button, Card } from "../../components/ui";
+import { useAuth } from "../../context/AuthContext";
+import { fetchUsers, updateUserRole } from "../../utils/api";
+import { Button, Card, DataTable } from "../../components/ui";
 import type { DirectoryMember } from "../../data/mockData";
 
 // Mock Audit Logs
@@ -24,7 +24,16 @@ const initialAuditLogs = [
   { id: 4, actor: "Samantha Cruz", action: "Promoted Carlos Mendoza to Tech Lead", timestamp: "3 days ago" },
 ];
 
+const labelToRole = (label: string) => {
+  const l = label.toLowerCase();
+  if (l === "super admin" || l === "superadmin" || l === "moderator") return "superadmin";
+  if (l === "admin") return "admin";
+  if (l === "officer" || l === "tech lead" || l === "events coordinator") return "officer";
+  return "member";
+};
+
 export default function MemberManagement() {
+  const { isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<"directory" | "pending" | "suspensions" | "audit">("directory");
   const [members, setMembers] = useState(initialMembers);
   const [pending, setPending] = useState(initialPending);
@@ -44,7 +53,6 @@ export default function MemberManagement() {
   ]);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("All");
   const [isLoading, setIsLoading] = useState(true);
 
   // Selected User Panel State (Inline Split Panel)
@@ -56,19 +64,35 @@ export default function MemberManagement() {
   const [banReason, setBanReason] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    async function load() {
+      try {
+        const users = await fetchUsers();
+        const mapped: DirectoryMember[] = users.map((u) => ({
+          id: u.id,
+          name: `${u.first_name} ${u.last_name}`,
+          email: u.email,
+          avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+          role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : u.role === "officer" ? "Tech Lead" : "Member",
+          department: u.department || "Computer Science",
+          yearLevel: u.year_level || "1st Year",
+          expertise: ["Cybersecurity"],
+          badges: [],
+          joinedDate: u.joinedDate || new Date().toISOString().split("T")[0],
+          status: "offline" as const,
+          bio: u.address ? `Located at ${u.address}` : "Club member.",
+          studentId: u.school_id
+        }));
+        setMembers(mapped);
+      } catch (err) {
+        console.error("Failed to load members from DB:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
   }, []);
 
-  const filteredMembers = members.filter((m) => {
-    const matchesSearch =
-      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "All" || m.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
+
 
   const filteredBanned = bannedMembers.filter((m) =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -138,7 +162,7 @@ export default function MemberManagement() {
     setBanReason("");
   };
 
-  const handleSaveModeration = (e: React.FormEvent) => {
+  const handleSaveModeration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
@@ -170,17 +194,25 @@ export default function MemberManagement() {
       setAuditLogs([newLog, ...auditLogs]);
     } else {
       // Role Update
-      setMembers(
-        members.map((m) => (m.id === selectedUser.id ? { ...m, role: editRole as any } : m))
-      );
+      try {
+        const backendRole = labelToRole(editRole);
+        await updateUserRole(selectedUser.id, backendRole);
 
-      const newLog = {
-        id: Date.now(),
-        actor: "System Admin",
-        action: `Updated role of ${selectedUser.name} to ${editRole}`,
-        timestamp: "Just now",
-      };
-      setAuditLogs([newLog, ...auditLogs]);
+        setMembers(
+          members.map((m) => (m.id === selectedUser.id ? { ...m, role: editRole as any } : m))
+        );
+
+        const newLog = {
+          id: Date.now(),
+          actor: "Club Moderator",
+          action: `Updated role of ${selectedUser.name} to ${editRole}`,
+          timestamp: "Just now",
+        };
+        setAuditLogs([newLog, ...auditLogs]);
+      } catch (err: any) {
+        alert(err.message || "Failed to update member role in backend database.");
+        return;
+      }
     }
 
     setSelectedUser(null);
@@ -216,6 +248,107 @@ export default function MemberManagement() {
     };
     setAuditLogs([newLog, ...auditLogs]);
   };
+
+  const directoryColumns = [
+    {
+      header: "Member",
+      accessor: (member: any) => (
+        <div className="flex items-center gap-3">
+          <div className="relative flex-shrink-0">
+            <img src={member.avatar} alt={member.name} className="w-9 h-9 rounded-full bg-surface-700 object-cover border border-border/60" />
+            <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 ${statusColors[member.status] || "bg-text-muted"}`} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-text-primary truncate">{member.name}</p>
+            <p className="text-xs text-text-muted truncate">{member.email}</p>
+          </div>
+        </div>
+      ),
+      sortable: true,
+      sortKey: "name" as any
+    },
+    {
+      header: "Role",
+      accessor: (member: any) => (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <Shield className="w-2.5 h-2.5" /> {member.role}
+        </span>
+      ),
+      sortable: true,
+      sortKey: "role" as any,
+      className: "hidden md:table-cell"
+    },
+    {
+      header: "Department",
+      accessor: (member: any) => <span className="text-sm text-text-secondary">{member.department}</span>,
+      sortable: true,
+      sortKey: "department" as any,
+      className: "hidden lg:table-cell"
+    },
+    {
+      header: "Status",
+      accessor: (member: any) => <span className="text-xs text-text-secondary capitalize">{member.status}</span>,
+      sortable: true,
+      sortKey: "status" as any,
+      className: "hidden sm:table-cell"
+    },
+    {
+      header: "Joined Date",
+      accessor: (member: any) => <span className="text-xs text-text-muted">{member.joinedDate}</span>,
+      sortable: true,
+      sortKey: "joinedDate" as any,
+      className: "hidden lg:table-cell"
+    },
+    {
+      header: "Action",
+      accessor: (member: any) => {
+        const isCurrentSelected = selectedUser && selectedUser.id === member.id;
+        return (
+          <Button
+            variant={isCurrentSelected ? "admin" : "secondary"}
+            onClick={() => handleOpenDrawer(member)}
+            className="px-3 py-1.5 text-xs font-semibold cursor-pointer"
+          >
+            Manage
+          </Button>
+        );
+      },
+      className: "text-right"
+    }
+  ];
+
+  const memberFilterGroups = [
+    {
+      label: "Role",
+      field: "role",
+      options: [
+        { label: "Member", value: "Member" },
+        { label: "Tech Lead", value: "Tech Lead" },
+        { label: "Events Coordinator", value: "Events Coordinator" },
+        { label: "Moderator", value: "Moderator" },
+        { label: "Admin", value: "Admin" },
+        { label: "Super Admin", value: "Super Admin" }
+      ]
+    },
+    {
+      label: "Department",
+      field: "department",
+      options: [
+        { label: "Computer Science", value: "Computer Science" },
+        { label: "Information Technology", value: "Information Technology" },
+        { label: "Computer Engineering", value: "Computer Engineering" }
+      ]
+    },
+    {
+      label: "Status",
+      field: "status",
+      options: [
+        { label: "Online", value: "online" },
+        { label: "Offline", value: "offline" },
+        { label: "Away", value: "away" }
+      ]
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -297,141 +430,34 @@ export default function MemberManagement() {
         {/* Left Side Section: Content lists / Tables */}
         <div className={`space-y-6 ${selectedUser && activeTab === "directory" ? "xl:col-span-8" : "xl:col-span-12"}`}>
           
-          {/* SEARCH / FILTERS FOR DIRECTORY & SUSPENSIONS */}
-          {(activeTab === "directory" || activeTab === "suspensions") && (
-            <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between">
-              <div className="relative w-full lg:max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, email, or Student ID..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all"
-                />
-              </div>
-              {activeTab === "directory" && (
-                <div className="flex flex-wrap gap-2 items-center">
-                  <SlidersHorizontal className="w-4 h-4 text-text-muted" />
-                  {(["All", "Member", "Alumni", "Tech Lead", "Events Coordinator", "President"] as const).map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setRoleFilter(role)}
-                      className={`px-3 py-1 text-xs rounded-lg border transition-all ${
-                        roleFilter === role
-                          ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
-                          : "border-border bg-surface-800 text-text-muted hover:border-amber-500/20"
-                      }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {activeTab === "suspensions" && (
+            <div className="relative w-full lg:max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, email, or Student ID..."
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-amber-500/50 transition-all"
+              />
             </div>
           )}
 
-          {/* ACTIVE DIRECTORY TABLE */}
           {activeTab === "directory" && (
-            <div className="glass rounded-xl overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider">Member</th>
-                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden md:table-cell">Role</th>
-                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden lg:table-cell">Department</th>
-                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden sm:table-cell">Status</th>
-                      <th className="text-left px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider hidden lg:table-cell">Joined Date</th>
-                      <th className="text-right px-5 py-3.5 text-xs font-semibold text-text-muted uppercase tracking-wider">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {isLoading ? (
-                      <>
-                        {[1, 2, 3].map((i) => (
-                          <tr key={i} className="animate-pulse">
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-3">
-                                <SkeletonCircle className="w-9 h-9 bg-surface-800" />
-                                <div className="space-y-1.5 flex-1">
-                                  <SkeletonLine widthClass="w-24" heightClass="h-3.5" />
-                                  <SkeletonLine widthClass="w-32" heightClass="h-3" />
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 hidden md:table-cell">
-                              <SkeletonLine widthClass="w-16" heightClass="h-4" />
-                            </td>
-                            <td className="px-5 py-3.5 hidden lg:table-cell">
-                              <SkeletonLine widthClass="w-20" heightClass="h-4" />
-                            </td>
-                            <td className="px-5 py-3.5 hidden sm:table-cell">
-                              <SkeletonLine widthClass="w-12" heightClass="h-3.5" />
-                            </td>
-                            <td className="px-5 py-3.5 hidden lg:table-cell">
-                              <SkeletonLine widthClass="w-16" heightClass="h-3.5" />
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <SkeletonCircle className="w-8 h-8 ml-auto bg-surface-800" />
-                            </td>
-                          </tr>
-                        ))}
-                      </>
-                    ) : (
-                      filteredMembers.map((member) => {
-                        const isCurrentSelected = selectedUser && selectedUser.id === member.id;
-                        return (
-                          <tr
-                            key={member.id}
-                            className={`hover:bg-white/[0.02] transition-colors ${
-                              isCurrentSelected ? "bg-amber-500/5 hover:bg-amber-500/10" : ""
-                            }`}
-                          >
-                            <td className="px-5 py-3.5">
-                              <div className="flex items-center gap-3">
-                                <div className="relative flex-shrink-0">
-                                  <img src={member.avatar} alt={member.name} className="w-9 h-9 rounded-full bg-surface-700 object-cover" />
-                                  <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-900 ${statusColors[member.status] || "bg-text-muted"}`} />
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium text-text-primary truncate">{member.name}</p>
-                                  <p className="text-xs text-text-muted truncate">{member.email}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3.5 hidden md:table-cell">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400">
-                                <Shield className="w-2.5 h-2.5" /> {member.role}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3.5 hidden lg:table-cell">
-                              <span className="text-sm text-text-secondary">{member.department}</span>
-                            </td>
-                            <td className="px-5 py-3.5 hidden sm:table-cell">
-                              <span className="text-xs text-text-secondary capitalize">{member.status}</span>
-                            </td>
-                            <td className="px-5 py-3.5 hidden lg:table-cell">
-                              <span className="text-xs text-text-muted">{member.joinedDate}</span>
-                            </td>
-                            <td className="px-5 py-3.5 text-right">
-                              <Button
-                                variant={isCurrentSelected ? "admin" : "secondary"}
-                                onClick={() => handleOpenDrawer(member)}
-                                className="px-3 py-1.5 text-xs font-semibold"
-                              >
-                                Manage
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+            isLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 space-y-3">
+                <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                <p className="text-xs text-text-muted">Loading members from database...</p>
               </div>
-            </div>
+            ) : (
+              <DataTable
+                data={members}
+                columns={directoryColumns}
+                filterGroups={memberFilterGroups}
+                searchPlaceholder="Search by name, email, or Student ID..."
+                emptyStateText="No members found matching the criteria."
+              />
+            )
           )}
 
           {/* PENDING APPROVALS LIST */}
@@ -620,9 +646,10 @@ export default function MemberManagement() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-text-secondary">Club Access Level (Role)</label>
                   <select
+                    disabled={!isSuperAdmin}
                     value={editRole}
                     onChange={(e) => setEditRole(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-amber-500/50 transition-all"
+                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-amber-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="Member">Member</option>
                     <option value="Tech Lead">Tech Lead</option>
@@ -631,6 +658,11 @@ export default function MemberManagement() {
                     <option value="Admin">Admin</option>
                     <option value="Super Admin">Super Admin</option>
                   </select>
+                  {!isSuperAdmin && (
+                    <p className="text-[10px] text-warning flex items-center gap-1 mt-1 font-semibold">
+                      <AlertCircle className="w-3 h-3" /> Only the Club Moderator (Super Admin) can assign user roles.
+                    </p>
+                  )}
                 </div>
 
                 {/* Ban Controls Area */}

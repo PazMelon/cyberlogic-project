@@ -47,11 +47,11 @@ async function getCsrfToken() {
   return null;
 }
 
-async function apiRequest(url: string, options: RequestInit = {}) {
+export async function apiRequest(url: string, options: RequestInit = {}) {
   const csrf = await getCsrfToken();
   const headers = new Headers(options.headers);
 
-  if (!headers.has("Content-Type")) {
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (!headers.has("Accept")) {
