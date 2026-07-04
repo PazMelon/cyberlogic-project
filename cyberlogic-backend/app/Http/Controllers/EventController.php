@@ -56,7 +56,7 @@ class EventController extends Controller
             ->orderBy('date', 'asc')
             ->get();
 
-        $result = $events->map(function ($event) use ($user) {
+        $result = $events->map(function (Event $event) use ($user) {
             $isRegistered = false;
             if ($user) {
                 $isRegistered = $event->registrations()

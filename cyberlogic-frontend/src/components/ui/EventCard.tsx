@@ -1,13 +1,15 @@
 import { Clock, MapPin, Users } from "lucide-react";
 import { Badge } from "./Badge";
 import { Card } from "./Card";
+import { formatEventTime } from "../../utils/api";
 
 interface ClubEvent {
   id: number;
   title: string;
   description: string;
   date: string;
-  time: string;
+  startTime: string;
+  endTime: string;
   location: string;
   type: "Workshop" | "Seminar" | "Competition" | "Social" | "Meeting";
   attendees: number;
@@ -45,7 +47,7 @@ export function EventCard({ event, layout = "default" }: EventCardProps) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium text-text-primary truncate">{event.title}</h3>
           <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
-            <Clock className="w-3 h-3" /> {event.time}
+            <Clock className="w-3 h-3" /> {formatEventTime(event.startTime, event.endTime)}
           </p>
         </div>
       </div>
@@ -71,7 +73,7 @@ export function EventCard({ event, layout = "default" }: EventCardProps) {
         <p className="text-sm text-text-muted line-clamp-1 mb-3">{event.description}</p>
         <div className="flex items-center gap-4 text-xs text-text-muted">
           <span className="inline-flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5" /> {event.time}
+            <Clock className="w-3.5 h-3.5" /> {formatEventTime(event.startTime, event.endTime)}
           </span>
           <span className="inline-flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5" /> {event.location}

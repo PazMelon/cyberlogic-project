@@ -285,7 +285,8 @@ export const events: Event[] = [
     description:
       "Learn the fundamentals of cybersecurity, including threat modeling, common attack vectors, and basic defense strategies.",
     date: "2026-07-10",
-    time: "2:00 PM - 5:00 PM",
+    startTime: "14:00",
+    endTime: "17:00",
     location: "IT Lab 3, Building C",
     type: "Workshop",
     attendees: 42,
@@ -296,7 +297,8 @@ export const events: Event[] = [
     description:
       "A deep dive into OWASP Top 10 vulnerabilities with live demonstrations and mitigation techniques.",
     date: "2026-07-15",
-    time: "1:00 PM - 3:00 PM",
+    startTime: "13:00",
+    endTime: "15:00",
     location: "Auditorium A",
     type: "Seminar",
     attendees: 78,
@@ -307,7 +309,8 @@ export const events: Event[] = [
     description:
       "Test your skills in our monthly Capture The Flag competition. Prizes for top 3 teams!",
     date: "2026-07-18",
-    time: "9:00 AM - 6:00 PM",
+    startTime: "09:00",
+    endTime: "18:00",
     location: "Computer Lab 1 & 2",
     type: "Competition",
     attendees: 56,
@@ -318,7 +321,8 @@ export const events: Event[] = [
     description:
       "Celebrate the semester with fellow members! Food, games, awards ceremony, and networking.",
     date: "2026-07-20",
-    time: "5:00 PM - 9:00 PM",
+    startTime: "17:00",
+    endTime: "21:00",
     location: "Student Center Hall",
     type: "Social",
     attendees: 95,
@@ -329,7 +333,8 @@ export const events: Event[] = [
     description:
       "Monthly general assembly to discuss club activities, upcoming plans, and open forum for suggestions.",
     date: "2026-07-25",
-    time: "3:00 PM - 4:30 PM",
+    startTime: "15:00",
+    endTime: "16:30",
     location: "Room 301, Building A",
     type: "Meeting",
     attendees: 35,
