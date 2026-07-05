@@ -184,6 +184,7 @@ export interface DbUser {
   department?: string;
   address?: string;
   birthday?: string;
+  status?: "pending" | "approved" | "rejected";
 }
 
 /**
@@ -215,6 +216,39 @@ export async function updateUserRole(userId: number, role: string): Promise<DbUs
 
   const data = await res.json();
   return data.user;
+}
+
+/**
+ * PUT /api/users/{id}/approve
+ * Approve a pending user registration.
+ */
+export async function approveUser(userId: number): Promise<DbUser> {
+  const res = await apiRequest(`/api/users/${userId}/approve`, {
+    method: "PUT",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to approve user on server.");
+  }
+
+  const data = await res.json();
+  return data.user;
+}
+
+/**
+ * DELETE /api/users/{id}
+ * Reject and delete a registration request.
+ */
+export async function rejectUser(userId: number): Promise<void> {
+  const res = await apiRequest(`/api/users/${userId}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to reject user on server.");
+  }
 }
 
 /**

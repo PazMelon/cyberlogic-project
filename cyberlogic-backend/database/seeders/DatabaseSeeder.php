@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
             'address' => 'Cyberlogic Admin Office',
             'birthday' => '1990-01-01',
             'role' => 'superadmin',
+            'status' => 'approved',
         ]);
 
         User::create([
@@ -42,6 +43,7 @@ class DatabaseSeeder extends Seeder
             'address' => 'TBA',
             'birthday' => '1997-04-02',
             'role' => 'superadmin',
+            'status' => 'approved',
         ]);
 
         // Seed Default announcements

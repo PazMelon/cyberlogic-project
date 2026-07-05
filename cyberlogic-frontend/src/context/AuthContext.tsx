@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
-    setUser(data.user);
+    setUser(data.user || null);
   };
 
   const logout = async () => {
@@ -202,7 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        isAuthenticated: user !== null,
+        isAuthenticated: !!user,
         isAdmin: user?.role === "admin" || user?.role === "superadmin",
         isSuperAdmin: user?.role === "superadmin",
         isLoading,

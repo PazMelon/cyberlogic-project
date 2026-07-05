@@ -42,13 +42,12 @@ class AuthController extends Controller
             'address' => $request->address,
             'birthday' => $request->birthday,
             'role' => 'member', // Default to standard member
+            'status' => 'pending', // Default to pending approval
         ]);
 
-        Auth::login($user);
-
         return response()->json([
-            'user' => $user,
-            'message' => 'Registration successful.',
+            'message' => 'Registration submitted successfully. Your account is pending review by an administrator or moderator.',
+            'status' => 'pending',
         ], 201);
     }
 
@@ -68,10 +67,29 @@ class AuthController extends Controller
             ]);
         }
 
+        $user = Auth::user();
+        if ($user->status === 'pending') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            throw ValidationException::withMessages([
+                'email' => ['Your account registration is pending approval by an administrator or moderator.'],
+            ]);
+        }
+
+        if ($user->status === 'rejected') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            throw ValidationException::withMessages([
+                'email' => ['Your account registration request has been rejected. Please contact support.'],
+            ]);
+        }
+
         $request->session()->regenerate();
 
         return response()->json([
-            'user' => Auth::user(),
+            'user' => $user,
             'message' => 'Login successful.',
         ]);
     }
@@ -252,5 +270,62 @@ class AuthController extends Controller
         }
 
         return response()->json(['error' => 'Failed to upload profile picture.'], 400);
+    }
+
+    /**
+     * PUT /api/users/{id}/approve
+     * Approve a pending user registration (Admin/Super Admin only).
+     */
+    public function approve(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $user = User::findOrFail($id);
+        $user->update([
+            'status' => 'approved'
+        ]);
+
+        // Log mock email notification
+        \Illuminate\Support\Facades\Log::info("Email notification: Account registration approved for User: {$user->email} ({$user->name})");
+
+        return response()->json([
+            'success' => true,
+            'message' => "User {$user->name} has been approved successfully.",
+            'user' => $user
+        ]);
+    }
+
+    /**
+     * DELETE /api/users/{id}
+     * Reject and delete a registration request, or delete a user account (Admin/Super Admin only).
+     */
+    public function destroy(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $user = User::findOrFail($id);
+        
+        // Prevent admins from deleting themselves
+        if ($user->id === $currentUser->id) {
+            return response()->json(['error' => 'Action Rejected. You cannot delete your own account.'], 400);
+        }
+
+        $userName = $user->name;
+        $userEmail = $user->email;
+        $user->delete();
+
+        // Log rejection email notification
+        \Illuminate\Support\Facades\Log::info("Email notification: Account registration rejected/deleted for User: {$userEmail} ({$userName})");
+
+        return response()->json([
+            'success' => true,
+            'message' => "User {$userName} has been rejected and deleted successfully."
+        ]);
     }
 }

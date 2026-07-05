@@ -12,8 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            $table->string('status')->default('pending')->after('role');
         });
+
+        // Update existing users to 'approved' so we don't lock them out
+        \Illuminate\Support\Facades\DB::table('users')->update(['status' => 'approved']);
     }
 
     /**
@@ -22,7 +25,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            //
+            $table->dropColumn('status');
         });
     }
 };

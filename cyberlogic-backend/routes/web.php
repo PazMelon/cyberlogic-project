@@ -32,6 +32,8 @@ Route::middleware('auth')->group(function () {
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);
     Route::put('/api/users/{id}/role', [AuthController::class, 'updateRole']);
+    Route::put('/api/users/{id}/approve', [AuthController::class, 'approve']);
+    Route::delete('/api/users/{id}', [AuthController::class, 'destroy']);
     
     // CMS Blog Builder Actions protected by session auth and throttle limiters
     Route::post('/api/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:10,1');

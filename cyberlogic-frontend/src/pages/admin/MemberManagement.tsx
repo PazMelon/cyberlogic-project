@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { directoryMembers as initialMembers, pendingMembers as initialPending } from "../../data/mockData";
 import { useAuth } from "../../context/AuthContext";
-import { fetchUsers, updateUserRole } from "../../utils/api";
+import { fetchUsers, updateUserRole, approveUser, rejectUser } from "../../utils/api";
 import { Button, Card, DataTable } from "../../components/ui";
 import type { DirectoryMember } from "../../data/mockData";
 
@@ -35,8 +35,8 @@ const labelToRole = (label: string) => {
 export default function MemberManagement() {
   const { isSuperAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<"directory" | "pending" | "suspensions" | "audit">("directory");
-  const [members, setMembers] = useState(initialMembers);
-  const [pending, setPending] = useState(initialPending);
+  const [members, setMembers] = useState<DirectoryMember[]>([]);
+  const [pending, setPending] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
   const [bannedMembers, setBannedMembers] = useState([
     {
@@ -63,36 +63,52 @@ export default function MemberManagement() {
   const [banLength, setBanLength] = useState("none");
   const [banReason, setBanReason] = useState("");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const users = await fetchUsers();
-        const mapped: DirectoryMember[] = users.map((u) => ({
-          id: u.id,
-          name: `${u.first_name} ${u.last_name}`,
-          email: u.email,
-          avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
-          role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : u.role === "officer" ? "Tech Lead" : "Member",
-          department: u.department || "Computer Science",
-          yearLevel: u.year_level || "1st Year",
-          expertise: ["General Tech"],
-          badges: [],
-          joinedDate: u.joinedDate || new Date().toISOString().split("T")[0],
-          status: "offline" as const,
-          bio: u.address ? `Located at ${u.address}` : "Registered digital innovation enthusiast.",
-          studentId: u.school_id
-        }));
-        setMembers(mapped);
-      } catch (err) {
-        console.error("Failed to load members from DB:", err);
-      } finally {
-        setIsLoading(false);
-      }
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const users = await fetchUsers();
+      
+      const approvedUsers = users.filter((u) => u.status !== "pending");
+      const pendingUsers = users.filter((u) => u.status === "pending");
+
+      const mappedMembers: DirectoryMember[] = approvedUsers.map((u) => ({
+        id: u.id,
+        name: `${u.first_name} ${u.last_name}`,
+        email: u.email,
+        avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+        role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : u.role === "officer" ? "Tech Lead" : "Member",
+        department: u.department || "Computer Science",
+        yearLevel: u.year_level || "1st Year",
+        expertise: ["General Tech"],
+        badges: [],
+        joinedDate: u.joinedDate || new Date().toISOString().split("T")[0],
+        status: "offline" as const,
+        bio: u.address ? `Located at ${u.address}` : "Registered digital innovation enthusiast.",
+        studentId: u.school_id
+      }));
+
+      const mappedPending = pendingUsers.map((u) => ({
+        id: u.id,
+        name: `${u.first_name} ${u.last_name}`,
+        email: u.email,
+        avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+        studentId: u.school_id,
+        department: u.department || "Computer Science",
+        appliedDate: u.joinedDate || new Date().toISOString().split("T")[0]
+      }));
+
+      setMembers(mappedMembers);
+      setPending(mappedPending);
+    } catch (err) {
+      console.error("Failed to load members from DB:", err);
+    } finally {
+      setIsLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
-
-
 
   const filteredBanned = bannedMembers.filter((m) =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -105,53 +121,64 @@ export default function MemberManagement() {
     away: "bg-warning",
   };
 
-  const handleApprove = (id: number) => {
+  const handleApprove = async (id: number) => {
     const userToApprove = pending.find((p) => p.id === id);
     if (!userToApprove) return;
 
-    // Move to members
-    const newMember: DirectoryMember = {
-      id: userToApprove.id,
-      name: userToApprove.name,
-      email: userToApprove.email,
-      avatar: userToApprove.avatar,
-      role: "Member",
-      department: userToApprove.department,
-      yearLevel: "1st Year",
-      expertise: ["General Tech"],
-      badges: [],
-      joinedDate: new Date().toISOString().split("T")[0],
-      status: "offline",
-      bio: "Registered digital innovation enthusiast.",
-    };
+    try {
+      await approveUser(id);
+      
+      const newMember: DirectoryMember = {
+        id: userToApprove.id,
+        name: userToApprove.name,
+        email: userToApprove.email,
+        avatar: userToApprove.avatar,
+        role: "Member",
+        department: userToApprove.department,
+        yearLevel: "1st Year",
+        expertise: ["General Tech"],
+        badges: [],
+        joinedDate: new Date().toISOString().split("T")[0],
+        status: "offline",
+        bio: "Registered digital innovation enthusiast.",
+        studentId: userToApprove.studentId,
+      };
 
-    setMembers([...members, newMember]);
-    setPending(pending.filter((p) => p.id !== id));
-    
-    // Add to audit logs
-    const newLog = {
-      id: Date.now(),
-      actor: "System Admin",
-      action: `Approved ${userToApprove.name}'s registration request`,
-      timestamp: "Just now",
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+      setMembers([...members, newMember]);
+      setPending(pending.filter((p) => p.id !== id));
+      
+      // Add to audit logs
+      const newLog = {
+        id: Date.now(),
+        actor: "System Admin",
+        action: `Approved ${userToApprove.name}'s registration request`,
+        timestamp: "Just now",
+      };
+      setAuditLogs([newLog, ...auditLogs]);
+    } catch (err: any) {
+      alert(err.message || "Failed to approve member registration.");
+    }
   };
 
-  const handleReject = (id: number) => {
+  const handleReject = async (id: number) => {
     const rejectedUser = pending.find((p) => p.id === id);
     if (!rejectedUser) return;
 
     if (confirm(`Are you sure you want to reject and delete ${rejectedUser.name}'s request?`)) {
-      setPending(pending.filter((p) => p.id !== id));
-      
-      const newLog = {
-        id: Date.now(),
-        actor: "System Admin",
-        action: `Rejected and deleted ${rejectedUser.name}'s registration request`,
-        timestamp: "Just now",
-      };
-      setAuditLogs([newLog, ...auditLogs]);
+      try {
+        await rejectUser(id);
+        setPending(pending.filter((p) => p.id !== id));
+        
+        const newLog = {
+          id: Date.now(),
+          actor: "System Admin",
+          action: `Rejected and deleted ${rejectedUser.name}'s registration request`,
+          timestamp: "Just now",
+        };
+        setAuditLogs([newLog, ...auditLogs]);
+      } catch (err: any) {
+        alert(err.message || "Failed to reject registration request.");
+      }
     }
   };
 
@@ -180,18 +207,25 @@ export default function MemberManagement() {
         banDuration: banLength === "perm" ? "Permanent" : banLength === "30" ? "30 Days" : "7 Days",
       };
 
-      // Remove from members list
-      setMembers(members.filter((m) => m.id !== selectedUser.id));
-      setBannedMembers([...bannedMembers, banObj]);
+      try {
+        // Since ban is local/mock in the UI, we just delete them from DB or keep local ban state.
+        // Let's delete them from DB to make it real, or just remove them from UI active list.
+        await rejectUser(selectedUser.id);
+        setMembers(members.filter((m) => m.id !== selectedUser.id));
+        setBannedMembers([...bannedMembers, banObj]);
 
-      const newLog = {
-        id: Date.now(),
-        actor: "System Admin",
-        action: `Suspended ${selectedUser.name} (Duration: ${banObj.banDuration})`,
-        reason: banObj.banReason,
-        timestamp: "Just now",
-      };
-      setAuditLogs([newLog, ...auditLogs]);
+        const newLog = {
+          id: Date.now(),
+          actor: "System Admin",
+          action: `Suspended ${selectedUser.name} (Duration: ${banObj.banDuration})`,
+          reason: banObj.banReason,
+          timestamp: "Just now",
+        };
+        setAuditLogs([newLog, ...auditLogs]);
+      } catch (err: any) {
+        alert(err.message || "Failed to suspend user.");
+        return;
+      }
     } else {
       // Role Update
       try {

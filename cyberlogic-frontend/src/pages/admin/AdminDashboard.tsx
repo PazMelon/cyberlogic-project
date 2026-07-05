@@ -14,16 +14,10 @@ import {
   Pin,
   Info,
 } from "lucide-react";
-import { pendingMembers, recentAdminActivity } from "../../data/mockData";
+import { recentAdminActivity } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 import { Button } from "../../components/ui";
-
-const statCards = [
-  { icon: Users, label: "Total Members", value: "150", change: "+8 this month", color: "amber" },
-  { icon: UserPlus, label: "Pending Approvals", value: "3", change: "Needs attention", color: "error" },
-  { icon: MessagesSquare, label: "Active Threads", value: "118", change: "+12 this week", color: "primary" },
-  { icon: Calendar, label: "Upcoming Events", value: "5", change: "Next: Jul 10", color: "accent" },
-];
+import { fetchUsers, approveUser, rejectUser } from "../../utils/api";
 
 const activityIcons: Record<string, typeof Users> = {
   member_joined: UserPlus,
@@ -45,13 +39,69 @@ const activityColors: Record<string, string> = {
 
 export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
+  const [totalMembersCount, setTotalMembersCount] = useState(150);
+  const [pendingMembersCount, setPendingMembersCount] = useState(3);
+  const [pendingList, setPendingList] = useState<any[]>([]);
+
+  const loadData = async () => {
+    try {
+      const users = await fetchUsers();
+      const approvedCount = users.filter((u) => u.status !== "pending").length;
+      const pendingUsers = users.filter((u) => u.status === "pending");
+
+      setTotalMembersCount(approvedCount);
+      setPendingMembersCount(pendingUsers.length);
+
+      const mappedPending = pendingUsers.map((u) => ({
+        id: u.id,
+        name: `${u.first_name} ${u.last_name}`,
+        email: u.email,
+        avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+        studentId: u.school_id,
+      }));
+      setPendingList(mappedPending);
+    } catch (e) {
+      console.error("Failed to load dashboard statistics:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    loadData();
   }, []);
+
+  const handleApprove = async (id: number) => {
+    try {
+      await approveUser(id);
+      setPendingList((prev) => prev.filter((p) => p.id !== id));
+      setPendingMembersCount((prev) => Math.max(0, prev - 1));
+      setTotalMembersCount((prev) => prev + 1);
+    } catch (err: any) {
+      alert(err.message || "Failed to approve user registration.");
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    const userToReject = pendingList.find((p) => p.id === id);
+    if (!userToReject) return;
+    if (confirm(`Are you sure you want to reject and delete ${userToReject.name}'s request?`)) {
+      try {
+        await rejectUser(id);
+        setPendingList((prev) => prev.filter((p) => p.id !== id));
+        setPendingMembersCount((prev) => Math.max(0, prev - 1));
+      } catch (err: any) {
+        alert(err.message || "Failed to reject registration request.");
+      }
+    }
+  };
+
+  const statCards = [
+    { icon: Users, label: "Total Members", value: totalMembersCount.toString(), change: "Active in database", color: "amber" },
+    { icon: UserPlus, label: "Pending Approvals", value: pendingMembersCount.toString(), change: pendingMembersCount > 0 ? "Needs attention" : "All cleared", color: "error" },
+    { icon: MessagesSquare, label: "Active Threads", value: "118", change: "+12 this week", color: "primary" },
+    { icon: Calendar, label: "Upcoming Events", value: "5", change: "Next: Jul 10", color: "accent" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -146,7 +196,7 @@ export default function AdminDashboard() {
                 ))}
               </>
             ) : (
-              pendingMembers.map((member) => (
+              pendingList.map((member) => (
                 <div
                   key={member.id}
                   className="flex items-center justify-between p-3.5 rounded-xl border border-border bg-surface-900/10 hover:border-amber-500/20 transition-all duration-300"
@@ -155,7 +205,7 @@ export default function AdminDashboard() {
                     <img
                       src={member.avatar}
                       alt={member.name}
-                      className="w-9 h-9 rounded-full bg-surface-700"
+                      className="w-9 h-9 rounded-full bg-surface-700 object-cover"
                     />
                     <div>
                       <h4 className="text-sm font-semibold text-text-primary">{member.name}</h4>
@@ -166,14 +216,16 @@ export default function AdminDashboard() {
                     <Button
                       type="button"
                       variant="success"
-                      className="px-3 py-1 text-xs"
+                      className="px-3 py-1 text-xs cursor-pointer"
+                      onClick={() => handleApprove(member.id)}
                     >
                       Approve
                     </Button>
                     <Button
                       type="button"
                       variant="danger"
-                      className="px-3 py-1 text-xs"
+                      className="px-3 py-1 text-xs cursor-pointer"
+                      onClick={() => handleReject(member.id)}
                     >
                       Reject
                     </Button>
@@ -182,7 +234,7 @@ export default function AdminDashboard() {
               ))
             )}
 
-            {!isLoading && pendingMembers.length === 0 && (
+            {!isLoading && pendingList.length === 0 && (
               <div className="p-6 text-center rounded-xl bg-surface-900/20 border border-border/40 text-xs text-text-muted">
                 <CheckCircle className="w-8 h-8 text-success mx-auto mb-2 opacity-60" />
                 All membership requests have been processed!
