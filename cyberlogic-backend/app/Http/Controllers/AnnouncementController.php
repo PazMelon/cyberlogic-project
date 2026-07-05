@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Announcement;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -185,16 +186,12 @@ class AnnouncementController extends Controller
 
         // Server-side size limits & mime-type binary verification (prevents PHP shells masquerading as images)
         $request->validate([
-            'image' => 'required|image|mimes:jpeg,png,webp,jpg|max:5120',
+            'image' => 'required|image|mimes:jpeg,png,webp,jpg,gif|max:5120',
         ]);
 
         if ($request->file('image')->isValid()) {
-            // Generate a secure, randomized filename to prevent directory traversal and name collisions
-            $file = $request->file('image');
-            $filename = Str::random(40) . '.' . $file->getClientOriginalExtension();
-            
-            // Store under storage/app/public/announcements
-            $path = $file->storeAs('announcements', $filename, 'public');
+            // Use global optimizer service
+            $path = ImageOptimizer::optimize($request->file('image'), 'announcements');
             
             return response()->json([
                 'url' => asset('storage/' . $path)

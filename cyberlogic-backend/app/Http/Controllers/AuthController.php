@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -212,5 +214,43 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Password changed successfully.'
         ]);
+    }
+
+    /**
+     * POST /api/user/avatar
+     * Upload and optimize user profile picture.
+     */
+    public function uploadAvatar(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,png,webp,jpg,gif', 'max:5120'],
+        ]);
+
+        if ($request->file('image')->isValid()) {
+            // Delete old avatar file from disk if it exists
+            if ($user->avatar_path) {
+                Storage::disk('public')->delete($user->avatar_path);
+            }
+
+            // Optimize and store new avatar using global optimizer service
+            $path = ImageOptimizer::optimize($request->file('image'), 'avatars');
+
+            $user->update([
+                'avatar_path' => $path
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile picture updated successfully.',
+                'user' => $user
+            ]);
+        }
+
+        return response()->json(['error' => 'Failed to upload profile picture.'], 400);
     }
 }

@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'bio', 'expertise'])]
+#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'bio', 'expertise', 'avatar_path'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -37,6 +37,9 @@ class User extends Authenticatable
      */
     public function getAvatarAttribute(): string
     {
+        if ($this->avatar_path) {
+            return asset('storage/' . $this->avatar_path);
+        }
         return "https://api.dicebear.com/9.x/avataaars/svg?seed=" . urlencode($this->first_name);
     }
 
