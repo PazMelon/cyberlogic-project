@@ -8,6 +8,7 @@ import Announcements from "./pages/Announcements";
 import Events from "./pages/Events";
 import Resources from "./pages/Resources";
 import About from "./pages/About";
+import OfficerDetail from "./pages/OfficerDetail";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="events/:id" element={<EventDetail />} />
         <Route path="resources" element={<Resources />} />
         <Route path="about" element={<About />} />
+        <Route path="about/officers/:id" element={<OfficerDetail />} />
       </Route>
 
       {/* Auth Routes (unauthenticated guests only) */}

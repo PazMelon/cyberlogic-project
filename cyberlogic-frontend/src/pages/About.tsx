@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import {
   ChevronRight,
+  ChevronLeft,
   Target,
   Eye,
   Heart,
@@ -12,6 +14,32 @@ import {
 import { teamMembers } from "../data/mockData";
 
 export default function About() {
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [startIndex, setStartIndex] = useState(0);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const getVisibleCount = () => {
+    if (windowWidth < 640) return 1;
+    if (windowWidth < 1024) return 2;
+    return 4;
+  };
+
+  const visibleCount = getVisibleCount();
+  const maxIndex = Math.max(0, teamMembers.length - visibleCount);
+
+  const handlePrev = () => {
+    setStartIndex((prev) => (prev === 0 ? maxIndex : prev - 1));
+  };
+
+  const handleNext = () => {
+    setStartIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+  };
+
   return (
     <div className="pt-24 pb-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -167,28 +195,89 @@ export default function About() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
-            {teamMembers.map((member) => (
+          {/* Carousel Container */}
+          <div className="relative max-w-6xl mx-auto px-4 md:px-12">
+            {/* Arrows */}
+            <button
+              onClick={handlePrev}
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface-900/80 border border-border/80 flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent/45 hover:bg-surface-850 hover:-translate-x-0.5 transition-all cursor-pointer z-20 shadow-md shadow-accent/5"
+              aria-label="Previous slide"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            <button
+              onClick={handleNext}
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-surface-900/80 border border-border/80 flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent/45 hover:bg-surface-850 hover:translate-x-0.5 transition-all cursor-pointer z-20 shadow-md shadow-accent/5"
+              aria-label="Next slide"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Viewport */}
+            <div className="overflow-hidden py-4 px-1">
               <div
-                key={member.id}
-                className="glass rounded-2xl p-5 text-center hover:border-accent/20 transition-all duration-300 group"
+                className="flex transition-transform duration-500 ease-out gap-6"
+                style={{
+                  transform: `translateX(-${startIndex * (100 / visibleCount)}%)`,
+                }}
               >
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-20 h-20 rounded-full mx-auto mb-3 bg-surface-700 group-hover:ring-2 group-hover:ring-accent/30 transition-all"
-                />
-                <h4 className="text-sm font-semibold text-text-primary">
-                  {member.name}
-                </h4>
-                <span className="text-xs text-accent font-medium">
-                  {member.role}
-                </span>
-                <p className="text-xs text-text-muted mt-2 line-clamp-2">
-                  {member.bio}
-                </p>
+                {teamMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex-shrink-0"
+                    style={{
+                      width: `calc(100% / ${visibleCount} - ${24 * (visibleCount - 1) / visibleCount}px)`,
+                    }}
+                  >
+                    <Link
+                      to={`/about/officers/${member.id}`}
+                      className="block group h-full cursor-pointer text-left"
+                    >
+                      <div className="glass rounded-2xl p-6 text-center hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5 transition-all duration-300 h-full flex flex-col justify-between">
+                        <div>
+                          <div className="relative inline-block mb-4">
+                            <img
+                              src={member.avatar}
+                              alt={member.name}
+                              className="w-24 h-24 rounded-full mx-auto bg-surface-700 group-hover:ring-2 group-hover:ring-accent/30 transition-all object-cover"
+                            />
+                            <div className="absolute bottom-0 right-0 w-6 h-6 rounded-lg bg-accent/25 border border-accent/40 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <ArrowRight className="w-3.5 h-3.5 text-accent group-hover:translate-x-0.5 transition-transform" />
+                            </div>
+                          </div>
+                          <h4 className="text-base font-bold text-text-primary group-hover:text-accent transition-colors">
+                            {member.name}
+                          </h4>
+                          <span className="text-xs text-accent font-semibold tracking-wider uppercase block mt-1">
+                            {member.role}
+                          </span>
+                        </div>
+                        <p className="text-xs text-text-muted mt-3 line-clamp-3 leading-relaxed font-sans">
+                          {member.bio}
+                        </p>
+                      </div>
+                    </Link>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Navigation Dots */}
+            {maxIndex > 0 && (
+              <div className="flex justify-center gap-2 mt-6">
+                {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setStartIndex(idx)}
+                    className={`w-2.5 h-2.5 rounded-full transition-all cursor-pointer ${
+                      startIndex === idx ? "bg-accent w-6" : "bg-border hover:bg-text-muted"
+                    }`}
+                    aria-label={`Go to slide ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
