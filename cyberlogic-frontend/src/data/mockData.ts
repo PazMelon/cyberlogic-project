@@ -407,6 +407,12 @@ export interface DirectoryMember {
   joinedDate: string;
   status: "online" | "offline" | "away";
   bio: string;
+  reputation?: {
+    week: number;
+    month: number;
+    year: number;
+    allTime: number;
+  };
 }
 
 export const directoryMembers: DirectoryMember[] = [
@@ -418,6 +424,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Founder", "CTF Champion", "Mentor"],
     joinedDate: "2023-06-01", status: "online",
     bio: "Passionate about building secure systems and mentoring the next generation of cyber defenders.",
+    reputation: { week: 120, month: 450, year: 2300, allTime: 4500 }
   },
   {
     id: 2, name: "Samantha Cruz", email: "sam.cruz@uni.edu",
@@ -427,6 +434,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["CTF Champion", "Speaker", "Top Contributor"],
     joinedDate: "2023-06-01", status: "online",
     bio: "Web security specialist who loves breaking (and fixing) web applications.",
+    reputation: { week: 150, month: 380, year: 2100, allTime: 4200 }
   },
   {
     id: 3, name: "Miguel Torres", email: "miguel.torres@uni.edu",
@@ -436,6 +444,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Organizer", "Helper"],
     joinedDate: "2024-01-15", status: "away",
     bio: "Keeps the club organized and automates everything he can with Python.",
+    reputation: { week: 80, month: 290, year: 1500, allTime: 2100 }
   },
   {
     id: 4, name: "Jessica Lim", email: "jessica.lim@uni.edu",
@@ -445,6 +454,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Organizer"],
     joinedDate: "2024-01-15", status: "offline",
     bio: "Manages club finances and ensures we get the best value for our events.",
+    reputation: { week: 40, month: 150, year: 980, allTime: 1400 }
   },
   {
     id: 5, name: "Carlos Mendoza", email: "carlos.mendoza@uni.edu",
@@ -454,6 +464,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Code Ninja", "Infrastructure Master", "Mentor"],
     joinedDate: "2023-09-01", status: "online",
     bio: "Full-stack developer who maintains the club's infrastructure and loves building tools.",
+    reputation: { week: 210, month: 520, year: 2500, allTime: 3800 }
   },
   {
     id: 6, name: "Anna Garcia", email: "anna.garcia@uni.edu",
@@ -463,6 +474,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Organizer", "Community Star"],
     joinedDate: "2024-06-01", status: "online",
     bio: "Makes sure every event runs smoothly and every member feels welcome.",
+    reputation: { week: 90, month: 310, year: 1600, allTime: 2300 }
   },
   {
     id: 7, name: "Rafael Santos", email: "rafael.santos@uni.edu",
@@ -472,6 +484,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Rising Star"],
     joinedDate: "2025-06-15", status: "online",
     bio: "Interested in the intersection of hardware troubleshooting and IoT systems.",
+    reputation: { week: 130, month: 240, year: 820, allTime: 950 }
   },
   {
     id: 8, name: "Patricia Reyes", email: "patricia.reyes@uni.edu",
@@ -481,6 +494,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Scholar"],
     joinedDate: "2025-06-15", status: "offline",
     bio: "Fascinated by the math behind encryption and working on a research paper.",
+    reputation: { week: 70, month: 280, year: 1200, allTime: 1350 }
   },
   {
     id: 9, name: "Daniel Villanueva", email: "daniel.v@uni.edu",
@@ -490,6 +504,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Newcomer"],
     joinedDate: "2026-01-10", status: "away",
     bio: "Freshman eager to learn everything about computers and digital technology!",
+    reputation: { week: 180, month: 210, year: 310, allTime: 310 }
   },
   {
     id: 10, name: "Isabelle Tan", email: "isabelle.tan@uni.edu",
@@ -499,6 +514,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Design Champion", "UI/UX Expert"],
     joinedDate: "2024-06-01", status: "online",
     bio: "Digital creative who loves solving puzzles and designing sleek user interfaces.",
+    reputation: { week: 95, month: 340, year: 1750, allTime: 2850 }
   },
   {
     id: 11, name: "Marco Dela Cruz", email: "marco.dc@uni.edu",
@@ -508,6 +524,7 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["App Builder"],
     joinedDate: "2025-09-01", status: "offline",
     bio: "Android developer exploring mobile application security testing.",
+    reputation: { week: 110, month: 190, year: 560, allTime: 560 }
   },
   {
     id: 12, name: "Sofia Navarro", email: "sofia.navarro@uni.edu",
@@ -517,7 +534,8 @@ export const directoryMembers: DirectoryMember[] = [
     badges: ["Founder", "Mentor", "Alumni"],
     joinedDate: "2020-06-01", status: "offline",
     bio: "One of the original founders, now working as a Cloud Security Engineer.",
-  },
+    reputation: { week: 10, month: 40, year: 600, allTime: 5200 }
+  }
 ];
 
 // ============================================

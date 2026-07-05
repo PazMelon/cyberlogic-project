@@ -1,13 +1,21 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
+import { useSearchParams } from "react-router";
 import { forumThreads, forumCategories } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 
 export default function Forums() {
-  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category") || "all";
+  const [activeCategory, setActiveCategory] = useState<string>(categoryParam);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Sync state if URL param changes
+  useEffect(() => {
+    setActiveCategory(categoryParam);
+  }, [categoryParam]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -57,7 +65,10 @@ export default function Forums() {
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setActiveCategory("all")}
+            onClick={() => {
+              setActiveCategory("all");
+              setSearchParams({});
+            }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
               activeCategory === "all"
                 ? "border-primary/30 bg-primary/10 text-primary"
@@ -70,7 +81,10 @@ export default function Forums() {
             <button
               type="button"
               key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
+              onClick={() => {
+                setActiveCategory(cat.id);
+                setSearchParams({ category: cat.id });
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                 activeCategory === cat.id
                   ? "border-primary/30 bg-primary/10 text-primary"

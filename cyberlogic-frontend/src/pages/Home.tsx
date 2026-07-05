@@ -6,17 +6,21 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads } from "../data/mockData";
 import { fetchAnnouncements, fetchEvents } from "../utils/api";
 import type { Announcement, Event } from "../data/mockData";
-import { SkeletonBox, SkeletonLine, SkeletonCircle } from "../components/Skeleton";
-import { ForumThreadCard, EventCard, AnnouncementCard } from "../components/ui";
+import { forumCategories } from "../data/mockData";
+import { SkeletonLine, SkeletonBox } from "../components/Skeleton";
+import { EventCard, AnnouncementCard } from "../components/ui";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
 import { StatCard } from "../components/dashboard/StatCard";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
+import { ReputationLeaderboard } from "../components/dashboard/ReputationLeaderboard";
+import { ForumsActivityHub } from "../components/dashboard/ForumsActivityHub";
+import { CategoryNewestCard } from "../components/dashboard/CategoryNewestCard";
 
 export default function Home() {
   const { user } = useAuth();
+  const isRegularMember = user?.role === "member";
   const [isLoading, setIsLoading] = useState(true);
   const [latestAnnouncements, setLatestAnnouncements] = useState<Announcement[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
@@ -55,8 +59,6 @@ export default function Home() {
     loadData();
   }, []);
 
-  const recentThreads = forumThreads.slice(0, 4);
-
   const quickStats = [
     { icon: MessagesSquare, label: "Forum Threads", value: "118", change: "+12 this week", color: "primary" },
     { icon: MessageSquare, label: "Chat Messages", value: "1.2k", change: "+89 today", color: "accent" },
@@ -68,66 +70,64 @@ export default function Home() {
     <div className="space-y-6">
       <WelcomeBanner name={user?.name || "Member"} totalUpcomingCount={totalUpcomingCount} />
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="glass rounded-xl p-4 space-y-3 animate-pulse">
-              <div className="flex items-center justify-between">
-                <SkeletonCircle className="w-10 h-10 bg-surface-800" />
-                <SkeletonLine widthClass="w-8" heightClass="h-3" />
-              </div>
-              <SkeletonLine widthClass="w-1/2" heightClass="h-7" />
-              <SkeletonLine widthClass="w-3/4" heightClass="h-3" />
-            </div>
-          ))
-        ) : (
-          quickStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              icon={stat.icon}
-              label={stat.label}
-              value={stat.value}
-              change={stat.change}
-              color={stat.color}
-            />
-          ))
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Forum Activity - 2 columns */}
-        <div className="lg:col-span-2">
-          <DashboardCard
-            title="Recent Forum Activity"
-            viewAllPath="/app/forums"
-            isLoading={isLoading}
-            className="h-full"
-            skeletonCount={4}
-            renderSkeleton={() => (
-              <div className="flex items-start gap-3 p-3 rounded-xl animate-pulse">
-                <SkeletonCircle className="w-9 h-9 bg-surface-800 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <SkeletonLine widthClass="w-3/4" heightClass="h-4" />
-                  <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
+      {/* Quick Stats Grid - Hidden for regular members */}
+      {!isRegularMember && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="glass rounded-xl p-4 space-y-3 animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="w-10 h-10 rounded-lg bg-surface-800" />
+                  <div className="w-8 h-3 rounded bg-surface-800" />
                 </div>
+                <div className="w-1/2 h-7 rounded bg-surface-800" />
+                <div className="w-3/4 h-3 rounded bg-surface-800" />
               </div>
-            )}
-            isEmpty={recentThreads.length === 0}
-            renderEmpty={() => (
-              <div className="text-center py-6 px-4">
-                <p className="text-xs text-text-muted font-medium">No recent forum activity found.</p>
+            ))
+          ) : (
+            quickStats.map((stat) => (
+              <StatCard
+                key={stat.label}
+                icon={stat.icon}
+                label={stat.label}
+                value={stat.value}
+                change={stat.change}
+                color={stat.color}
+              />
+            ))
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* Left Column (2/3 width): Forum Hub & Category Newest Threads */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Forums Activity Hub (Top Engaged) */}
+          {isLoading ? (
+            <div className="glass rounded-2xl p-5 h-[390px] animate-pulse flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : (
+            <ForumsActivityHub />
+          )}
+
+          {/* Newest Threads Category Cards Stacked Vertically */}
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="glass rounded-2xl p-5 h-[280px] animate-pulse flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
               </div>
-            )}
-          >
-            {recentThreads.map((thread) => (
-              <ForumThreadCard key={thread.id} thread={thread} mode="compact" />
-            ))}
-          </DashboardCard>
+            ))
+          ) : (
+            forumCategories.map((cat) => (
+              <CategoryNewestCard key={cat.id} category={cat} />
+            ))
+          )}
         </div>
 
-        {/* Right Column: Events and Announcements */}
-        <div className="space-y-6">
+        {/* Right Column (1/3 width): sticky sidebar with Events, Announcements, and Leaderboard */}
+        <div className="sticky top-6 space-y-6">
+          {/* Upcoming Events */}
           <DashboardCard
             title="Upcoming Events"
             viewAllPath="/app/events"
@@ -158,6 +158,7 @@ export default function Home() {
             ))}
           </DashboardCard>
 
+          {/* Latest Announcements */}
           <DashboardCard
             title="Announcements"
             viewAllPath="/app/announcements"
@@ -181,6 +182,15 @@ export default function Home() {
               <AnnouncementCard key={a.id} announcement={a} layout="compact" />
             ))}
           </DashboardCard>
+
+          {/* Reputation Leaderboard */}
+          {isLoading ? (
+            <div className="glass rounded-2xl p-5 h-[390px] animate-pulse flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : (
+            <ReputationLeaderboard />
+          )}
         </div>
       </div>
     </div>
