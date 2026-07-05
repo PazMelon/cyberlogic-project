@@ -148,6 +148,27 @@ export async function uploadImageFile(file: File): Promise<string> {
   return data.url; // Returns public storage URL
 }
 
+/**
+ * POST /api/user/avatar
+ * Uploads a profile picture (JPG, PNG, WEBP, GIF) to the Laravel backend.
+ */
+export async function uploadAvatar(file: File): Promise<{ user: any; message: string }> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiRequest("/api/user/avatar", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Profile picture upload failed.");
+  }
+
+  return res.json();
+}
+
 export interface DbUser {
   id: number;
   first_name: string;

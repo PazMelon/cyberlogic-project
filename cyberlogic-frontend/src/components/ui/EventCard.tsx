@@ -73,7 +73,7 @@ export function EventCard({ event, layout = "default" }: EventCardProps) {
 
   return (
     <Link to={detailUrl} className="block text-inherit hover:no-underline">
-      <Card hoverEffect={!isEnded} glowColor={isEnded ? "neutral" : "accent"} className={`p-6 flex gap-5 group transition-all ${isEnded ? "opacity-60 hover:opacity-85" : ""}`}>
+      <Card hoverEffect={!isEnded} glowColor={isEnded ? "none" : "accent"} className={`p-6 flex gap-5 group transition-all ${isEnded ? "opacity-60 hover:opacity-85" : ""}`}>
         {/* Date Badge */}
         <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-border flex flex-col items-center justify-center">
           <span className="text-xs font-semibold uppercase text-accent">{month}</span>

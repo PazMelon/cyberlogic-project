@@ -222,7 +222,9 @@ export default function EventDetail() {
                         ? "You have a reserved slot. Click button to cancel RSVP."
                         : isFull
                         ? "All slots are taken. Stay tuned for future slots."
-                        : `Hurry! Only ${item.capacity - item.attendees} spots remaining.`}
+                        : item.capacity
+                        ? `Hurry! Only ${item.capacity - item.attendees} spots remaining.`
+                        : "Slots are available. RSVP now!"}
                     </p>
                   </div>
                 </div>
@@ -332,7 +334,9 @@ export default function EventDetail() {
                   ? "You have a reserved slot. Click button to cancel RSVP."
                   : isFull
                   ? "All slots are taken. Stay tuned for future slots."
-                  : `Hurry! Only ${item.capacity - item.attendees} spots remaining.`}
+                  : item.capacity
+                  ? `Hurry! Only ${item.capacity - item.attendees} spots remaining.`
+                  : "Slots are available. RSVP now!"}
               </p>
             </div>
           </div>

@@ -14,15 +14,18 @@ import {
   Lock,
   MapPin,
   Cake,
-  GraduationCap
+  GraduationCap,
+  Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { forumThreads, directoryMembers } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
+import { optimizeAndConvertToWebP } from "../utils/imageOptimizer";
+import { uploadAvatar } from "../utils/api";
 
 export default function Profile() {
-  const { user, updateProfile, updatePassword } = useAuth();
+  const { user, updateProfile, updatePassword, updateUser } = useAuth();
   const { userId } = useParams();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +61,52 @@ export default function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  // Avatar upload status
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+
+    try {
+      // 1. Client-side compress and WebP convert (skips GIF canvas step automatically)
+      const result = await optimizeAndConvertToWebP(file);
+
+      // 2. Convert base64 dataURL back into a File object for multipart upload
+      const secureName = file.name.substring(0, file.name.lastIndexOf('.')) || "avatar";
+      const fileExt = file.type === "image/gif" ? "gif" : "webp";
+      
+      const dataURLtoFile = (dataurl: string, filename: string) => {
+        const arr = dataurl.split(",");
+        const mime = arr[0].match(/:(.*?);/)?.[1] || "image/webp";
+        const bstr = atob(arr[arr.length - 1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new File([u8arr], filename, { type: mime });
+      };
+
+      const processedFile = dataURLtoFile(result.dataUrl, `${secureName}.${fileExt}`);
+
+      // 3. Upload WebP/GIF payload securely to backend
+      const response = await uploadAvatar(processedFile);
+      
+      // Update auth context state
+      updateUser(response.user);
+    } catch (err: any) {
+      console.error("Failed to upload profile picture:", err);
+      setAvatarError(err.message || "Failed to upload profile picture.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Sync state if userId or user changes
   useEffect(() => {
@@ -654,14 +703,46 @@ export default function Profile() {
               ) : (
                 <>
                   {/* Avatar position overlapping banner */}
-                  <div className="relative -mt-12 mb-3 inline-block">
+                  <div className="relative -mt-12 mb-3 inline-block group">
                     <img
                       src={activeUser.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${activeUser.name}`}
                       alt={activeUser.name}
-                      className="w-20 h-20 rounded-full border-4 border-surface-950 bg-surface-800 shadow-lg object-cover"
+                      className={`w-20 h-20 rounded-full border-4 border-surface-950 bg-surface-800 shadow-lg object-cover transition-opacity duration-200 ${
+                        isUploadingAvatar ? "opacity-40 animate-pulse" : ""
+                      }`}
                     />
                     <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success border-2 border-surface-950" />
+                    
+                    {/* Upload overlay (own profile only) */}
+                    {isOwnProfile && (
+                      <label 
+                        className="absolute inset-0 rounded-full bg-black/60 flex flex-col items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-all duration-200 border border-white/10"
+                        title="Upload Profile Picture"
+                      >
+                        {isUploadingAvatar ? (
+                          <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+                        ) : (
+                          <>
+                            <Camera className="w-5 h-5 text-white" />
+                            <span className="text-[9px] text-white/90 font-semibold mt-0.5">Upload</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          onChange={handleAvatarUpload}
+                          disabled={isUploadingAvatar}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
                   </div>
+                  
+                  {avatarError && (
+                    <div className="text-[10px] text-error font-medium mt-1 mb-2 text-center max-w-[200px]">
+                      ✗ {avatarError}
+                    </div>
+                  )}
 
                   {/* Identity */}
                   <div>

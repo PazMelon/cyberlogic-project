@@ -75,11 +75,11 @@ export default function MemberManagement() {
           role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : u.role === "officer" ? "Tech Lead" : "Member",
           department: u.department || "Computer Science",
           yearLevel: u.year_level || "1st Year",
-          expertise: ["Cybersecurity"],
+          expertise: ["General Tech"],
           badges: [],
           joinedDate: u.joinedDate || new Date().toISOString().split("T")[0],
           status: "offline" as const,
-          bio: u.address ? `Located at ${u.address}` : "Club member.",
+          bio: u.address ? `Located at ${u.address}` : "Registered digital innovation enthusiast.",
           studentId: u.school_id
         }));
         setMembers(mapped);
@@ -118,11 +118,11 @@ export default function MemberManagement() {
       role: "Member",
       department: userToApprove.department,
       yearLevel: "1st Year",
-      expertise: ["Cybersecurity"],
+      expertise: ["General Tech"],
       badges: [],
       joinedDate: new Date().toISOString().split("T")[0],
       status: "offline",
-      bio: "Registered cyber security enthusiast.",
+      bio: "Registered digital innovation enthusiast.",
     };
 
     setMembers([...members, newMember]);
@@ -230,7 +230,7 @@ export default function MemberManagement() {
       role: "Member",
       department: unbanned.department,
       yearLevel: "3rd Year",
-      expertise: ["Cybersecurity"],
+      expertise: ["General Tech"],
       badges: [],
       joinedDate: new Date().toISOString().split("T")[0],
       status: "offline",

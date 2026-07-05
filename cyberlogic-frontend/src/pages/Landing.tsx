@@ -59,8 +59,7 @@ function HeroSection() {
 
             {/* Subtitle */}
             <p className="text-base sm:text-lg text-text-muted max-w-xl animate-fade-in-up delay-200 leading-relaxed">
-              The premier student cybersecurity and technology club. Learn, compete, collaborate, 
-              and grow with a community of passionate tech enthusiasts. Try out our simulated terminal!
+              The ultimate tech and digital innovation hub at St. Rita's College of Balingasag. Discover hardware servicing, software productivity, and digital creative arts. Try out our simulated terminal!
             </p>
 
             {/* CTA Buttons */}
@@ -273,7 +272,7 @@ function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-text-primary font-[family-name:var(--font-heading)]">Upcoming Events Offline</h3>
                   <p className="text-xs text-text-muted leading-relaxed">
-                    We are currently organizing our upcoming workshops, seminars, and capture-the-flag competitions. Stay tuned for future announcements!
+                    We are currently organizing our upcoming workshops, seminars, and hands-on activities. Stay tuned for future announcements!
                   </p>
                 </div>
               </div>
@@ -389,18 +388,13 @@ function AboutPreview({ isLoading }: { isLoading: boolean }) {
             </span>
             <h2 className="text-3xl lg:text-4xl font-bold font-[family-name:var(--font-heading)] text-text-primary mt-2 mb-6">
               Building the Next Generation of{" "}
-              <span className="text-gradient">Cyber Defenders</span>
+              <span className="text-gradient">Digital Creators</span>
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
-              Cyberlogic Club is a student-led organization dedicated to
-              advancing cybersecurity knowledge, fostering collaboration, and
-              preparing members for careers in information security and
-              technology.
+              Cyberlogic Club is the ultimate tech and digital innovation hub at St. Rita's College of Balingasag. We bridge the gap between classroom theory and real-world application, transforming passive tech users into active creators and problem-solvers.
             </p>
             <p className="text-text-muted leading-relaxed mb-8">
-              Through hands-on workshops, capture-the-flag competitions,
-              industry talks, and peer mentorship, we create an environment
-              where curiosity thrives and skills are sharpened.
+              Through hands-on workshops in hardware servicing, digital creative arts, software solutions, and peer mentorship, we equip students from all departments with the digital skills to excel tomorrow.
             </p>
             <Link
               to="/about"
@@ -465,7 +459,7 @@ function CTABanner() {
           <span className="text-gradient">Level Up</span>?
         </h2>
         <p className="text-lg text-text-muted mb-10 max-w-xl mx-auto">
-          Join a community of passionate students and start your cybersecurity
+          Join a community of passionate students and start your digital innovation
           journey today. No experience required — just curiosity.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

@@ -31,7 +31,7 @@ export default function About() {
             <span className="text-gradient">Cyberlogic Club</span>
           </h1>
           <p className="text-lg text-text-muted max-w-2xl mx-auto">
-            A student-led organization dedicated to advancing cybersecurity knowledge, 
+            A student-led organization dedicated to advancing tech and digital innovation, 
             fostering collaboration, and building the next generation of tech leaders.
           </p>
         </div>
@@ -43,7 +43,7 @@ export default function About() {
               icon: Target,
               title: "Our Mission",
               description:
-                "To empower students with practical cybersecurity skills and knowledge through hands-on workshops, competitions, and peer collaboration.",
+                "To empower students with practical tech and digital skills through hands-on workshops in hardware, software, and creative digital arts.",
               color: "text-primary",
               bgColor: "bg-primary/10",
             },
@@ -51,7 +51,7 @@ export default function About() {
               icon: Eye,
               title: "Our Vision",
               description:
-                "To be the leading student cybersecurity community, producing skilled professionals who make the digital world safer for everyone.",
+                "To be the leading student technology hub, fostering creative problem-solvers and builders of the digital future.",
               color: "text-accent",
               bgColor: "bg-accent/10",
             },
@@ -102,17 +102,17 @@ export default function About() {
               {
                 year: "2020",
                 title: "Club Founded",
-                desc: "Cyberlogic Club was established by a group of CS students passionate about cybersecurity.",
+                desc: "Cyberlogic Club was established by a group of technology-passionate students to bridge the gap between classroom theory and real-world application.",
               },
               {
                 year: "2021",
-                title: "First CTF Victory",
-                desc: "Won our first inter-university Capture The Flag competition, placing 3rd nationally.",
+                title: "First Bootcamp",
+                desc: "Hosted our first inter-departmental digital design showcase and hardware troubleshooting bootcamp.",
               },
               {
                 year: "2022",
-                title: "Lab Inauguration",
-                desc: "Opened our dedicated cybersecurity lab with industry-grade tools and equipment.",
+                title: "Innovation Hub Inauguration",
+                desc: "Opened our dedicated computer servicing and digital design hub with custom workspace tools.",
               },
               {
                 year: "2023",
@@ -121,8 +121,8 @@ export default function About() {
               },
               {
                 year: "2024",
-                title: "National Recognition",
-                desc: "Recognized as one of the top student cybersecurity organizations in the country.",
+                title: "Campus Recognition",
+                desc: "Recognized as one of the most innovative and active student organizations at St. Rita's College.",
               },
               {
                 year: "2026",

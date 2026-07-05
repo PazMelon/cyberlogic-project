@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { UploadCloud, X, AlertCircle, Sparkles } from "lucide-react";
-import { optimizeAndConvertToWebP } from "./imageOptimizer";
+import { optimizeAndConvertToWebP } from "../../../utils/imageOptimizer";
 import { uploadImageFile } from "../../../utils/api";
 
 interface ImageUploadZoneProps {

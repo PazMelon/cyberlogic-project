@@ -70,7 +70,7 @@ export default function Register() {
             Join the <span className="text-gradient">Cyberlogic</span> Community
           </h2>
           <p className="text-text-muted leading-relaxed mb-10">
-            Become part of the premier student cybersecurity club. Access exclusive resources,
+            Become part of the premier student tech and digital innovation club. Access exclusive resources,
             connect with like-minded peers, and accelerate your tech career.
           </p>
 

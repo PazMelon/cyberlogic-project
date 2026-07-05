@@ -6,7 +6,6 @@ import {
   Palette,
   AlertTriangle,
   Save,
-  Shield,
   Trash2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";

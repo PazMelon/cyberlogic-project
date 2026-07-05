@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/user', [AuthController::class, 'user']);
     Route::put('/api/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/api/user/password', [AuthController::class, 'updatePassword']);
+    Route::post('/api/user/avatar', [AuthController::class, 'uploadAvatar']);
     
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);

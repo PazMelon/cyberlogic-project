@@ -1,6 +1,6 @@
 /**
  * Client-Side Image Optimizer
- * Validates, compresses, and converts uploaded images to WebP format.
+ * Validates, compresses, and converts uploaded images to WebP format (except GIFs).
  */
 
 export interface OptimizationResult {
@@ -16,10 +16,10 @@ export function optimizeAndConvertToWebP(
   maxDimension = 1600
 ): Promise<OptimizationResult> {
   return new Promise((resolve, reject) => {
-    // 1. Validation: Format Checks
-    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    // 1. Validation: Format Checks (including GIF)
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      return reject(new Error("Invalid file type. Only JPG, JPEG, PNG, and WEBP files are allowed."));
+      return reject(new Error("Invalid file type. Only JPG, JPEG, PNG, GIF, and WEBP files are allowed."));
     }
 
     // 2. Validation: Size Checks (5MB Limit)
@@ -28,7 +28,25 @@ export function optimizeAndConvertToWebP(
       return reject(new Error("File size exceeds 5MB limit. Please choose a smaller picture."));
     }
 
-    // 3. Canvas Optimization Pipeline
+    // 3. GIF Handling: Bypass canvas pipeline to preserve animation frames
+    if (file.type === "image/gif") {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = () => {
+        resolve({
+          dataUrl: reader.result as string,
+          originalName: file.name,
+          originalSize: file.size,
+          optimizedSize: file.size,
+        });
+      };
+      reader.onerror = () => {
+        reject(new Error("Failed to read GIF image."));
+      };
+      return;
+    }
+
+    // 4. Canvas Optimization Pipeline (for JPEGs, PNGs, WEBPs)
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
 
@@ -68,7 +86,7 @@ export function optimizeAndConvertToWebP(
             return reject(new Error("Failed to compress canvas to blob."));
           }
 
-          // Convert WebP Blob to base64 DataURL for offline mock persistence
+          // Convert WebP Blob to base64 DataURL
           const reader = new FileReader();
           reader.readAsDataURL(blob);
           reader.onloadend = () => {

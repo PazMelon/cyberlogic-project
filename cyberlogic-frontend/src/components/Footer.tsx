@@ -31,7 +31,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-sm text-text-muted leading-relaxed max-w-xs">
-              Empowering students through cybersecurity education, hands-on
+              Empowering students through technology education, hands-on
               workshops, and a collaborative community of tech enthusiasts.
             </p>
           </div>
