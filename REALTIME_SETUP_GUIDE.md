@@ -199,3 +199,19 @@ this.url = `${protocol}//${window.location.host}/ws`;
 ### 3. Service starts then crashes immediately
 * **Reason**: Port `3001` is already in use by another running Node process.
 * **Fix**: Kill previous Node instances using Task Manager or run `Stop-Process` on Windows PowerShell.
+
+### 4. Uploaded files (avatars, announcement images) return 404
+* **Reason**: The public storage symbolic link (`public/storage`) is missing, broken, or misconfigured in production.
+* **Fix**:
+  1. Open a terminal on your production server.
+  2. Navigate to your backend directory (`cyberlogic-backend`).
+  3. Delete any existing broken/invalid symbolic link if it exists:
+     * **Linux/macOS**: `rm public/storage`
+     * **Windows (Command Prompt)**: `rmdir public\storage`
+     * **Windows (PowerShell)**: `Remove-Item public\storage`
+  4. Regenerate the symbolic link using Artisan:
+     ```bash
+     php artisan storage:link
+     ```
+  5. Ensure your web server allows following symbolic links:
+     * **Apache**: Ensure `Options FollowSymLinks` is active for your document root directory.
