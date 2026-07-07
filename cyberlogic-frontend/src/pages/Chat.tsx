@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Hash, Send, Smile, Paperclip, Users, Info } from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { useWebSocket } from "../context/WebSocketContext";
-import { apiRequest } from "../context/AuthContext";
+import { apiRequest, useAuth } from "../context/AuthContext";
 
 interface ChatChannel {
   id: number;
@@ -23,8 +23,15 @@ interface ChatMessage {
   isSystem?: boolean;
 }
 
+interface TypingUser {
+  userId: number;
+  name: string;
+  avatar: string;
+}
+
 export default function Chat() {
   const { subscribe, sendMessage, onlineUsers, isConnected } = useWebSocket();
+  const { user: currentUser } = useAuth();
 
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>("");
@@ -34,9 +41,18 @@ export default function Chat() {
   
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Local user typing state refs
+  const isLocalTypingRef = useRef(false);
+  const lastLocalTypingTimeRef = useRef(0);
+  const stopTypingTimerRef = useRef<any>(null);
+
+  // Stale typing indicators timeouts map
+  const typingTimeoutsRef = useRef<Map<number, any>>(new Map());
 
   const activeChannelData = channels.find((c) => c.slug === activeChannel);
 
@@ -66,6 +82,21 @@ export default function Chat() {
   useEffect(() => {
     if (!activeChannel) return;
 
+    // Reset typing indicators for the new channel
+    setTypingUsers([]);
+    typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    typingTimeoutsRef.current.clear();
+
+    // Reset local typing state
+    if (isLocalTypingRef.current) {
+      isLocalTypingRef.current = false;
+      sendMessage("typing", `chat:${activeChannel}`, { isTyping: false });
+    }
+    if (stopTypingTimerRef.current) {
+      clearTimeout(stopTypingTimerRef.current);
+      stopTypingTimerRef.current = null;
+    }
+
     // Load history
     async function loadHistory() {
       try {
@@ -92,29 +123,104 @@ export default function Chat() {
           if (prev.some((m) => m.id === payload.id)) return prev;
           return [...prev, payload];
         });
+      } else if (type === "typing") {
+        const { userId, name, avatar, isTyping } = payload;
+
+        // Clear existing cleanup timeout for this user if they are still typing
+        if (typingTimeoutsRef.current.has(userId)) {
+          clearTimeout(typingTimeoutsRef.current.get(userId));
+          typingTimeoutsRef.current.delete(userId);
+        }
+
+        if (isTyping) {
+          setTypingUsers((prev) => {
+            if (prev.some((u) => u.userId === userId)) return prev;
+            return [...prev, { userId, name, avatar }];
+          });
+
+          // Set a fallback pruning timeout to clear stuck typing indicators (e.g. on client network loss)
+          const timeoutId = setTimeout(() => {
+            setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+            typingTimeoutsRef.current.delete(userId);
+          }, 4000);
+          typingTimeoutsRef.current.set(userId, timeoutId);
+        } else {
+          setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
+        }
       }
     });
 
     return () => {
+      // Clean up WS subscription
       unsubscribe();
+      // Clean up timeouts
+      typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+      typingTimeoutsRef.current.clear();
     };
   }, [activeChannel, subscribe]);
 
-  // 3. Scroll to bottom on load/new messages
+  // 3. Scroll to bottom on load/new messages/typing indicators
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [messages, messagesLoading]);
+  }, [messages, messagesLoading, typingUsers]);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (stopTypingTimerRef.current) {
+        clearTimeout(stopTypingTimerRef.current);
+      }
+      typingTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    };
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setMessageText(val);
+
+    if (!activeChannel || !isConnected) return;
+
+    // Send typing state update to server
+    const now = Date.now();
+    if (!isLocalTypingRef.current || now - lastLocalTypingTimeRef.current > 1500) {
+      isLocalTypingRef.current = true;
+      lastLocalTypingTimeRef.current = now;
+      sendMessage("typing", `chat:${activeChannel}`, { isTyping: true });
+    }
+
+    // Reset local typing inactivity timeout
+    if (stopTypingTimerRef.current) {
+      clearTimeout(stopTypingTimerRef.current);
+    }
+
+    stopTypingTimerRef.current = setTimeout(() => {
+      if (isLocalTypingRef.current) {
+        isLocalTypingRef.current = false;
+        sendMessage("typing", `chat:${activeChannel}`, { isTyping: false });
+      }
+    }, 2000);
+  };
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() || !activeChannel) return;
 
-    // Send via WebSocket
+    // Send message via WebSocket
     sendMessage("message", `chat:${activeChannel}`, {
       content: messageText,
     });
+
+    // Reset local typing timers immediately
+    if (stopTypingTimerRef.current) {
+      clearTimeout(stopTypingTimerRef.current);
+      stopTypingTimerRef.current = null;
+    }
+    if (isLocalTypingRef.current) {
+      isLocalTypingRef.current = false;
+      sendMessage("typing", `chat:${activeChannel}`, { isTyping: false });
+    }
 
     setMessageText("");
   };
@@ -158,8 +264,8 @@ export default function Chat() {
         {/* Online Members Preview */}
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-            <div className="w-2 h-2 rounded-full bg-success" />
-            <span>{onlineUsers.length} online</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-success" />
+            <span className="font-medium text-text-primary">{onlineUsers.length} online</span>
           </div>
           <div className="flex -space-x-2">
             {onlineUsers.slice(0, 5).map((m) => (
@@ -167,7 +273,7 @@ export default function Chat() {
                 key={m.id}
                 src={m.avatar}
                 alt={m.name}
-                className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700"
+                className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 object-cover"
                 title={m.name}
               />
             ))}
@@ -244,31 +350,93 @@ export default function Chat() {
               messages.map((msg) => {
                 if (msg.isSystem) {
                   return (
-                    <div key={msg.id} className="flex items-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50">
+                    <div key={msg.id} className="flex items-center justify-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50 my-2 max-w-md mx-auto">
                       <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
                       <span>{msg.content}</span>
                     </div>
                   );
                 }
 
+                const isMe = msg.authorId === currentUser?.id;
+
+                if (isMe) {
+                  return (
+                    <div key={msg.id} className="flex items-start justify-end gap-3 p-1">
+                      <div className="flex flex-col items-end max-w-[70%] min-w-0">
+                        <div className="flex items-baseline gap-2 mb-1 justify-end">
+                          <span className="text-[10px] text-text-muted">{msg.timestamp}</span>
+                          <span className="text-xs font-semibold text-primary">{msg.author}</span>
+                        </div>
+                        <div className="bg-primary/15 border border-primary/30 rounded-2xl rounded-tr-none px-3.5 py-2">
+                          <p className="text-sm text-text-primary leading-relaxed break-words whitespace-pre-wrap text-left">{msg.content}</p>
+                        </div>
+                      </div>
+                      <img
+                        src={msg.authorAvatar}
+                        alt={msg.author}
+                        className="w-8 h-8 rounded-full bg-surface-700 object-cover flex-shrink-0 border border-primary/30 mt-5"
+                      />
+                    </div>
+                  );
+                }
+
                 return (
-                  <div key={msg.id} className="flex items-start gap-3 group hover:bg-white/[0.02] p-2 rounded-lg -mx-2 transition-colors">
+                  <div key={msg.id} className="flex items-start justify-start gap-3 p-1">
                     <img
                       src={msg.authorAvatar}
                       alt={msg.author}
-                      className="w-9 h-9 rounded-full bg-surface-700 object-cover flex-shrink-0"
+                      className="w-8 h-8 rounded-full bg-surface-700 object-cover flex-shrink-0 border border-border mt-5"
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-2 mb-0.5">
-                        <span className="text-sm font-semibold text-text-primary">{msg.author}</span>
+                    <div className="flex flex-col items-start max-w-[70%] min-w-0">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-xs font-semibold text-text-primary">{msg.author}</span>
                         <span className="text-[10px] text-text-muted">{msg.timestamp}</span>
                       </div>
-                      <p className="text-sm text-text-secondary leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                      <div className="bg-white/[0.03] border border-border/40 rounded-2xl rounded-tl-none px-3.5 py-2">
+                        <p className="text-sm text-text-secondary leading-relaxed break-words whitespace-pre-wrap">{msg.content}</p>
+                      </div>
                     </div>
                   </div>
                 );
               })
             )}
+
+            {/* Typing Indicator */}
+            {typingUsers.length > 0 && (
+              <div className="flex items-center gap-3 text-xs text-text-muted px-2 py-1 select-none animate-pulse">
+                {typingUsers.length === 1 ? (
+                  <img
+                    src={typingUsers[0].avatar}
+                    alt={typingUsers[0].name}
+                    className="w-5 h-5 rounded-full object-cover bg-surface-700 animate-pulse border border-border"
+                  />
+                ) : (
+                  <div className="flex -space-x-2 overflow-hidden">
+                    {typingUsers.map((u) => (
+                      <img
+                        key={u.userId}
+                        src={u.avatar}
+                        alt={u.name}
+                        className="inline-block h-5 w-5 rounded-full ring-2 ring-surface-950 object-cover bg-surface-700"
+                      />
+                    ))}
+                  </div>
+                )}
+                <span>
+                  {typingUsers.length === 1
+                    ? `${typingUsers[0].name} is typing`
+                    : typingUsers.length === 2
+                    ? `${typingUsers[0].name} and ${typingUsers[1].name} are typing`
+                    : "Several people are typing"}
+                </span>
+                <span className="flex gap-0.5 items-center ml-0.5 h-3">
+                  <span className="w-1 h-1 rounded-full bg-text-muted animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1 h-1 rounded-full bg-text-muted animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1 h-1 rounded-full bg-text-muted animate-bounce" />
+                </span>
+              </div>
+            )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -318,7 +486,7 @@ export default function Chat() {
             <input
               type="text"
               value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
+              onChange={handleInputChange}
               placeholder={activeChannelData ? `Message #${activeChannelData.name}` : "Connect to a channel..."}
               disabled={!activeChannel || !isConnected}
               className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1"

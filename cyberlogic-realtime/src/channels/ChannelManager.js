@@ -174,6 +174,12 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleChatMessage(client, user, channelSlug, payload);
         }
+      } else if (type === 'typing') {
+        // Handle user typing state
+        if (channel.startsWith('chat:')) {
+          const channelSlug = channel.split(':')[1];
+          this.handleChatTyping(client, user, channelSlug, payload);
+        }
       }
     } catch (err) {
       console.error('[WS] Error handling message:', err.message);
@@ -219,6 +225,35 @@ class ChannelManager {
     } catch (err) {
       console.error('[WS] Error saving/broadcasting chat message:', err.message);
       this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to send message.' });
+    }
+  }
+
+  /**
+   * Broadcast typing status to other subscribers in the chat channel.
+   */
+  handleChatTyping(client, user, channelSlug, payload) {
+    const { isTyping } = payload;
+    const channelName = `chat:${channelSlug}`;
+
+    if (!this.channels.has(channelName)) return;
+
+    const message = JSON.stringify({
+      type: 'typing',
+      channel: channelName,
+      payload: {
+        userId: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        isTyping: !!isTyping,
+      },
+    });
+
+    const clients = this.channels.get(channelName);
+    for (const otherClient of clients) {
+      // Send to all subscribers EXCEPT the one who is typing
+      if (otherClient !== client && otherClient.readyState === 1) {
+        otherClient.send(message);
+      }
     }
   }
 }
