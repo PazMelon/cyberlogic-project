@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { X } from "lucide-react";
 import { useWebSocket } from "../context/WebSocketContext";
 import { apiRequest, useAuth } from "../context/AuthContext";
 
@@ -266,56 +265,20 @@ export default function Chat() {
             onClick={() => setShowMobileChannels(false)}
           />
           
-          <div className="relative flex w-64 max-w-xs flex-col bg-surface-900 border-r border-border p-2 animate-slideRight">
-            <div className="p-3 border-b border-border flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-primary font-[family-name:var(--font-heading)]">
-                Channels
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowMobileChannels(false)}
-                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
-                aria-label="Close sidebar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-2">
-              <ChannelSidebar
-                channels={channels}
-                activeChannel={activeChannel}
-                setActiveChannel={setActiveChannel}
-                channelsLoading={channelsLoading}
-                onlineUsers={onlineUsers as any}
-                isConnected={!!isConnected}
-                onChannelSelect={() => setShowMobileChannels(false)}
-                collapsedGroups={collapsedGroups}
-                setCollapsedGroups={setCollapsedGroups}
-              />
-            </div>
-
-            <div className="p-3 border-t border-border">
-              <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-success" />
-                <span className="font-medium text-text-primary">{onlineUsers.length} online</span>
-              </div>
-              <div className="flex -space-x-2">
-                {onlineUsers.slice(0, 5).map((m) => (
-                  <img
-                    key={m.id}
-                    src={m.avatar}
-                    alt={m.name}
-                    className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 object-cover"
-                  />
-                ))}
-                {onlineUsers.length > 5 && (
-                  <div className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-800 flex items-center justify-center text-[10px] font-bold text-text-primary">
-                    +{onlineUsers.length - 5}
-                  </div>
-                )}
-              </div>
-            </div>
+          <div className="relative flex w-64 max-w-xs flex-col bg-surface-900 border-r border-border animate-slideRight">
+            {/* Render ChannelSidebar directly, passing onClose handler callback to let it close drawer */}
+            <ChannelSidebar
+              channels={channels}
+              activeChannel={activeChannel}
+              setActiveChannel={setActiveChannel}
+              channelsLoading={channelsLoading}
+              onlineUsers={onlineUsers as any}
+              isConnected={!!isConnected}
+              onChannelSelect={() => setShowMobileChannels(false)}
+              collapsedGroups={collapsedGroups}
+              setCollapsedGroups={setCollapsedGroups}
+              className="flex flex-col h-full w-full"
+            />
           </div>
         </div>
       )}

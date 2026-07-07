@@ -44,6 +44,7 @@ export interface ChannelSidebarProps {
   onChannelSelect?: () => void;
   collapsedGroups: Record<string, boolean>;
   setCollapsedGroups: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  className?: string;
 }
 
 const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
@@ -77,6 +78,7 @@ export default function ChannelSidebar({
   onChannelSelect,
   collapsedGroups,
   setCollapsedGroups,
+  className,
 }: ChannelSidebarProps) {
   // Group channels by grouping parameter
   const groupedChannels: Record<string, ChatChannel[]> = {};
@@ -140,7 +142,7 @@ export default function ChannelSidebar({
   };
 
   return (
-    <div className="w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col h-full">
+    <div className={className || "w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col h-full"}>
       <div className="p-4 border-b border-border flex items-center justify-between">
         <h2 className="text-sm font-semibold text-text-primary font-[family-name:var(--font-heading)]">
           Channels
