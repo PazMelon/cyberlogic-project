@@ -413,6 +413,7 @@ export interface DirectoryMember {
     year: number;
     allTime: number;
   };
+  studentId?: string;
 }
 
 export const directoryMembers: DirectoryMember[] = [

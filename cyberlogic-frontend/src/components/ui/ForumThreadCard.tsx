@@ -115,7 +115,12 @@ export function ForumThreadCard({ thread, mode = "full" }: ForumThreadCardProps)
             
             {/* Snippet */}
             <p className="text-sm text-text-muted line-clamp-1 mb-2">
-              {thread.content}
+              {(() => {
+                const cleanText = thread.content
+                  .replace(/(?:\|\|)([^\s].*?[^\s]|[^\s])(?:\|\|)/g, '<span class="px-1.5 rounded font-mono select-none" style="background-color: #0c0f17; color: transparent; border: 1px solid rgba(239, 68, 68, 0.2); user-select: none;">$1</span>')
+                  .replace(/(?:&gt;!|>!)([^\s].*?[^\s]|[^\s])(?:!&lt;|!<)/g, '<span class="px-1.5 rounded font-mono select-none" style="background-color: #0c0f17; color: transparent; border: 1px solid rgba(239, 68, 68, 0.2); user-select: none;">$1</span>');
+                return <span dangerouslySetInnerHTML={{ __html: cleanText }} />;
+              })()}
             </p>
 
             {/* Footer metrics */}

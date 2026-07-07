@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Forums from "./pages/Forums";
+import CreateThread from "./pages/CreateThread";
 import ForumThread from "./pages/ForumThread";
 import Chat from "./pages/Chat";
 import Directory from "./pages/Directory";
@@ -149,6 +150,7 @@ function AppRoutes() {
       >
         <Route index element={<Home />} />
         <Route path="forums" element={<Forums />} />
+        <Route path="forums/create" element={<CreateThread />} />
         <Route path="forums/thread/:threadId" element={<ForumThread />} />
         <Route path="chat" element={<Chat />} />
         <Route path="directory" element={<Directory />} />

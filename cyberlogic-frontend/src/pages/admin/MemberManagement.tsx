@@ -10,7 +10,6 @@ import {
   Award,
   Calendar,
 } from "lucide-react";
-import { directoryMembers as initialMembers, pendingMembers as initialPending } from "../../data/mockData";
 import { useAuth } from "../../context/AuthContext";
 import { fetchUsers, updateUserRole, approveUser, rejectUser } from "../../utils/api";
 import { Button, Card, DataTable } from "../../components/ui";

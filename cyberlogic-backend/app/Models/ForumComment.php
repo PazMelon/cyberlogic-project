@@ -17,10 +17,14 @@ class ForumComment extends Model
         'parent_id',
         'content',
         'is_best_answer',
+        'is_spoiler',
+        'is_redacted',
     ];
 
     protected $casts = [
         'is_best_answer' => 'boolean',
+        'is_spoiler' => 'boolean',
+        'is_redacted' => 'boolean',
     ];
 
     protected $appends = ['voteScore', 'userVote'];

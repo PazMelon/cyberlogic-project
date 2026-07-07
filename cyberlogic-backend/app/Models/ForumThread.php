@@ -21,12 +21,18 @@ class ForumThread extends Model
         'is_solved',
         'is_closed',
         'solution_comment_id',
+        'images',
+        'is_spoiler',
+        'is_redacted',
     ];
 
     protected $casts = [
         'is_pinned' => 'boolean',
         'is_solved' => 'boolean',
         'is_closed' => 'boolean',
+        'is_spoiler' => 'boolean',
+        'is_redacted' => 'boolean',
+        'images' => 'array',
     ];
 
     protected $appends = ['voteScore', 'commentCount', 'userVote'];

@@ -37,6 +37,8 @@ class ForumCommentController extends Controller
         $validated = $request->validate([
             'content' => 'required|string',
             'parent_id' => 'nullable|integer|exists:forum_comments,id',
+            'is_spoiler' => 'nullable|boolean',
+            'is_redacted' => 'nullable|boolean',
         ]);
 
         // If parent_id is provided, verify it belongs to the same thread
@@ -50,6 +52,8 @@ class ForumCommentController extends Controller
             'parent_id' => $validated['parent_id'] ?? null,
             'content' => $validated['content'],
             'is_best_answer' => false,
+            'is_spoiler' => filter_var($request->input('is_spoiler'), FILTER_VALIDATE_BOOLEAN),
+            'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
         ]);
 
         return response()->json($comment->load('user'), 201);
@@ -70,10 +74,14 @@ class ForumCommentController extends Controller
 
         $validated = $request->validate([
             'content' => 'required|string',
+            'is_spoiler' => 'nullable|boolean',
+            'is_redacted' => 'nullable|boolean',
         ]);
 
         $comment->update([
             'content' => $validated['content'],
+            'is_spoiler' => filter_var($request->input('is_spoiler'), FILTER_VALIDATE_BOOLEAN),
+            'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
         ]);
 
         return response()->json($comment->load('user'));

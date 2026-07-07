@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import {
   fetchForumCategories,
-  fetchForumThreads,
-  createForumThread
+  fetchForumThreads
 } from "../utils/api";
 import type {
   ForumCategoryMapped,
@@ -12,17 +11,16 @@ import type {
 } from "../utils/api";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
-import { CreateThreadModal } from "../components/forum";
 
 export default function Forums() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const categoryParam = searchParams.get("category") || "all";
   const [activeCategory, setActiveCategory] = useState<string>(categoryParam);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Sync state if URL param changes
   useEffect(() => {
@@ -50,12 +48,6 @@ export default function Forums() {
     loadData();
   }, [categoryParam, searchQuery]);
 
-  const handleCreateThread = async (title: string, content: string, categoryDbId: number) => {
-    await createForumThread({ title, content, category_id: categoryDbId });
-    // Reload threads
-    loadData();
-  };
-
   // Get total thread count across all categories
   const totalThreadCount = categories.reduce((sum, c) => sum + c.threadCount, 0);
 
@@ -73,7 +65,7 @@ export default function Forums() {
         </div>
         <button
           type="button"
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => navigate("/app/forums/create")}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> New Thread
@@ -161,14 +153,6 @@ export default function Forums() {
           <p className="text-text-muted">No threads found.</p>
         </div>
       )}
-
-      {/* Create Modal */}
-      <CreateThreadModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        categories={categories}
-        onSubmit={handleCreateThread}
-      />
     </div>
   );
 }

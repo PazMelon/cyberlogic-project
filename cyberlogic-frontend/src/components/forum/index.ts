@@ -3,3 +3,7 @@ export * from "./CommentForm";
 export * from "./CommentItem";
 export * from "./CommentTree";
 export * from "./CreateThreadModal";
+export * from "./SpoilerGate";
+export * from "./RedactedFormatter";
+export * from "./ImageCarousel";
+export * from "./FullscreenImageViewer";

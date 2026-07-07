@@ -5,6 +5,8 @@ use App\Models\ForumComment;
 use App\Models\ForumThread;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -234,4 +236,62 @@ test('users can vote on threads and comments', function () {
             'vote_score' => 1,
             'user_vote' => 1,
         ]);
+});
+
+test('authenticated users can create a thread with images, spoiler, and redacted flags', function () {
+    [$discussionCategory, , $user] = array_values(setupForumTest());
+
+    // Mock storage disk
+    Storage::fake('public');
+
+    $response = $this->actingAs($user)
+        ->postJson('/api/forum/threads', [
+            'title' => 'My Styled Thread',
+            'content' => 'Body content',
+            'category_id' => $discussionCategory->id,
+            'is_spoiler' => true,
+            'is_redacted' => true,
+            'images' => [
+                UploadedFile::fake()->image('cyber1.jpg'),
+                UploadedFile::fake()->image('cyber2.png'),
+            ],
+        ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('is_spoiler', true)
+        ->assertJsonPath('is_redacted', true);
+
+    $this->assertDatabaseHas('forum_threads', [
+        'title' => 'My Styled Thread',
+        'is_spoiler' => true,
+        'is_redacted' => true,
+    ]);
+});
+
+test('posting comments supports spoiler and redacted switches', function () {
+    [$discussionCategory, , $user, $author] = array_values(setupForumTest());
+
+    $thread = ForumThread::create([
+        'title' => 'Sample Thread',
+        'content' => 'Content',
+        'category_id' => $discussionCategory->id,
+        'user_id' => $author->id,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->postJson("/api/forum/threads/{$thread->id}/comments", [
+            'content' => 'My hidden reply',
+            'is_spoiler' => true,
+            'is_redacted' => true,
+        ]);
+
+    $response->assertStatus(201)
+        ->assertJsonPath('is_spoiler', true)
+        ->assertJsonPath('is_redacted', true);
+
+    $this->assertDatabaseHas('forum_comments', [
+        'content' => 'My hidden reply',
+        'is_spoiler' => true,
+        'is_redacted' => true,
+    ]);
 });

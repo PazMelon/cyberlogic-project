@@ -4,6 +4,8 @@ import { useAuth } from "../../context/AuthContext";
 import type { ForumCommentMapped } from "../../utils/api";
 import { VoteControl } from "./VoteControl";
 import { CommentForm } from "./CommentForm";
+import { SpoilerGate } from "./SpoilerGate";
+import { RedactedFormatter } from "./RedactedFormatter";
 
 interface CommentItemProps {
   comment: ForumCommentMapped;
@@ -13,8 +15,8 @@ interface CommentItemProps {
   canSelectSolution: boolean;
   onSelectSolution: (commentId: number | null) => void;
   onVote: (commentId: number, direction: "up" | "down") => void;
-  onReply: (parentId: number, content: string) => Promise<void>;
-  onEdit: (commentId: number, content: string) => Promise<void>;
+  onReply: (parentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => Promise<void>;
+  onEdit: (commentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => Promise<void>;
   onDelete: (commentId: number) => Promise<void>;
   allComments: ForumCommentMapped[];
   depth?: number;
@@ -45,13 +47,13 @@ export function CommentItem({
   // Filter replies (child comments of this comment)
   const childReplies = allComments.filter((c) => c.parentId === comment.id);
 
-  const handlePostReply = async (content: string) => {
-    await onReply(comment.id, content);
+  const handlePostReply = async (content: string, isSpoiler?: boolean, isRedacted?: boolean) => {
+    await onReply(comment.id, content, isSpoiler, isRedacted);
     setShowReplyForm(false);
   };
 
-  const handleUpdateComment = async (content: string) => {
-    await onEdit(comment.id, content);
+  const handleUpdateComment = async (content: string, isSpoiler?: boolean, isRedacted?: boolean) => {
+    await onEdit(comment.id, content, isSpoiler, isRedacted);
     setShowEditForm(false);
   };
 
@@ -107,7 +109,11 @@ export function CommentItem({
               />
             </div>
           ) : (
-            <p className="text-text-primary leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+            <div className="text-text-primary">
+              <SpoilerGate isSpoiler={comment.isSpoiler}>
+                <RedactedFormatter content={comment.content} isRedacted={comment.isRedacted} />
+              </SpoilerGate>
+            </div>
           )}
 
           {/* Comment Action Toolbar */}

@@ -34,7 +34,15 @@ import type {
   ForumCommentMapped,
   ForumCategoryMapped
 } from "../utils/api";
-import { VoteControl, CommentTree, CommentForm } from "../components/forum";
+import {
+  VoteControl,
+  CommentTree,
+  CommentForm,
+  SpoilerGate,
+  RedactedFormatter,
+  ImageCarousel,
+  FullscreenImageViewer
+} from "../components/forum";
 
 export default function ForumThread() {
   const { threadId } = useParams();
@@ -45,6 +53,8 @@ export default function ForumThread() {
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Auth checking for toggle buttons
   const isThreadOwner = user && thread && user.id === thread.authorId;
@@ -146,18 +156,20 @@ export default function ForumThread() {
     }
   };
 
-  const handlePostTopComment = async (content: string) => {
-    const newComment = await createForumComment(thread.id, { content });
+  const handlePostTopComment = async (content: string, isSpoiler?: boolean, isRedacted?: boolean) => {
+    if (!thread) return;
+    const newComment = await createForumComment(thread.id, { content, is_spoiler: isSpoiler, is_redacted: isRedacted });
     setComments([...comments, newComment]);
   };
 
-  const handlePostReply = async (parentId: number, content: string) => {
-    const newComment = await createForumComment(thread.id, { content, parent_id: parentId });
+  const handlePostReply = async (parentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => {
+    if (!thread) return;
+    const newComment = await createForumComment(thread.id, { content, parent_id: parentId, is_spoiler: isSpoiler, is_redacted: isRedacted });
     setComments([...comments, newComment]);
   };
 
-  const handleEditComment = async (commentId: number, content: string) => {
-    const updated = await updateForumComment(commentId, { content });
+  const handleEditComment = async (commentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => {
+    const updated = await updateForumComment(commentId, { content, is_spoiler: isSpoiler, is_redacted: isRedacted });
     setComments(comments.map((c) => (c.id === commentId ? updated : c)));
   };
 
@@ -264,9 +276,20 @@ export default function ForumThread() {
               </h1>
 
               {/* Post Content HTML */}
-              <div className="text-sm text-text-secondary leading-relaxed space-y-3 whitespace-pre-wrap pt-2">
-                {thread.content}
-              </div>
+              <SpoilerGate isSpoiler={thread.isSpoiler}>
+                <div className="text-sm text-text-secondary leading-relaxed space-y-3 pt-2">
+                  <RedactedFormatter content={thread.content} isRedacted={thread.isRedacted} />
+                </div>
+                {thread.images && thread.images.length > 0 && (
+                  <ImageCarousel
+                    images={thread.images}
+                    onImageClick={(imgIndex) => {
+                      setActiveImageIndex(imgIndex);
+                      setIsViewerOpen(true);
+                    }}
+                  />
+                )}
+              </SpoilerGate>
 
               {/* Post Footer Action Toolbar */}
               <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
@@ -460,6 +483,14 @@ export default function ForumThread() {
           </div>
         </div>
       </div>
+      {thread?.images && (
+        <FullscreenImageViewer
+          images={thread.images}
+          initialIndex={activeImageIndex}
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }

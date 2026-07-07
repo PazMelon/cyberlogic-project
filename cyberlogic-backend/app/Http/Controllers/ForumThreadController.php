@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ForumCategory;
 use App\Models\ForumComment;
 use App\Models\ForumThread;
+use App\Services\ImageOptimizer;
 use Illuminate\Http\Request;
 
 class ForumThreadController extends Controller
@@ -93,7 +94,19 @@ class ForumThreadController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:forum_categories,id',
+            'images' => 'nullable|array',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:4096',
+            'is_spoiler' => 'nullable',
+            'is_redacted' => 'nullable',
         ]);
+
+        $imagesPaths = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $file) {
+                $path = ImageOptimizer::optimize($file, 'forum');
+                $imagesPaths[] = '/storage/'.$path;
+            }
+        }
 
         $thread = ForumThread::create([
             'title' => $validated['title'],
@@ -104,6 +117,9 @@ class ForumThreadController extends Controller
             'is_pinned' => false,
             'is_solved' => false,
             'is_closed' => false,
+            'is_spoiler' => filter_var($request->input('is_spoiler'), FILTER_VALIDATE_BOOLEAN),
+            'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
+            'images' => ! empty($imagesPaths) ? $imagesPaths : null,
         ]);
 
         return response()->json($thread->load(['user', 'category']), 201);

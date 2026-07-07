@@ -488,6 +488,9 @@ export interface ForumThreadMapped {
   solutionCommentId: number | null;
   userVote: number | null;
   categoryDbId: number;
+  images: string[] | null;
+  isSpoiler: boolean;
+  isRedacted: boolean;
 }
 
 export interface ForumCommentMapped {
@@ -503,6 +506,8 @@ export interface ForumCommentMapped {
   createdAt: string;
   isBestAnswer: boolean;
   userVote: number | null;
+  isSpoiler: boolean;
+  isRedacted: boolean;
 }
 
 // Helper to format relative times
@@ -589,7 +594,10 @@ export async function fetchForumThreads(params?: {
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   }));
 }
 
@@ -621,21 +629,20 @@ export async function fetchForumThread(id: number): Promise<ForumThreadMapped> {
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
 /**
  * POST /api/forum/threads
  */
-export async function createForumThread(data: {
-  title: string;
-  content: string;
-  category_id: number;
-}): Promise<ForumThreadMapped> {
+export async function createForumThread(data: FormData): Promise<ForumThreadMapped> {
   const res = await apiRequest("/api/forum/threads", {
     method: "POST",
-    body: JSON.stringify(data)
+    body: data
   });
 
   if (!res.ok) {
@@ -663,7 +670,10 @@ export async function createForumThread(data: {
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
@@ -704,7 +714,10 @@ export async function updateForumThread(
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
@@ -755,7 +768,10 @@ export async function toggleThreadPin(id: number): Promise<ForumThreadMapped> {
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
@@ -792,7 +808,10 @@ export async function toggleThreadClose(id: number): Promise<ForumThreadMapped> 
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
@@ -830,7 +849,10 @@ export async function toggleThreadSolve(id: number, commentId: number | null): P
     closed: !!t.is_closed,
     solutionCommentId: t.solution_comment_id,
     userVote: t.userVote,
-    categoryDbId: t.category_id
+    categoryDbId: t.category_id,
+    images: t.images || null,
+    isSpoiler: !!t.is_spoiler,
+    isRedacted: !!t.is_redacted
   };
 }
 
@@ -855,7 +877,9 @@ export async function fetchForumComments(threadId: number): Promise<ForumComment
     likes: c.voteScore,
     createdAt: formatRelativeTime(c.created_at),
     isBestAnswer: !!c.is_best_answer,
-    userVote: c.userVote
+    userVote: c.userVote,
+    isSpoiler: !!c.is_spoiler,
+    isRedacted: !!c.is_redacted
   }));
 }
 
@@ -864,7 +888,7 @@ export async function fetchForumComments(threadId: number): Promise<ForumComment
  */
 export async function createForumComment(
   threadId: number,
-  data: { content: string; parent_id?: number }
+  data: { content: string; parent_id?: number; is_spoiler?: boolean; is_redacted?: boolean }
 ): Promise<ForumCommentMapped> {
   const res = await apiRequest(`/api/forum/threads/${threadId}/comments`, {
     method: "POST",
@@ -889,14 +913,19 @@ export async function createForumComment(
     likes: c.voteScore,
     createdAt: formatRelativeTime(c.created_at),
     isBestAnswer: !!c.is_best_answer,
-    userVote: c.userVote
+    userVote: c.userVote,
+    isSpoiler: !!c.is_spoiler,
+    isRedacted: !!c.is_redacted
   };
 }
 
 /**
  * PUT /api/forum/comments/{id}
  */
-export async function updateForumComment(id: number, data: { content: string }): Promise<ForumCommentMapped> {
+export async function updateForumComment(
+  id: number,
+  data: { content: string; is_spoiler?: boolean; is_redacted?: boolean }
+): Promise<ForumCommentMapped> {
   const res = await apiRequest(`/api/forum/comments/${id}`, {
     method: "PUT",
     body: JSON.stringify(data)
@@ -920,7 +949,9 @@ export async function updateForumComment(id: number, data: { content: string }):
     likes: c.voteScore,
     createdAt: formatRelativeTime(c.created_at),
     isBestAnswer: !!c.is_best_answer,
-    userVote: c.userVote
+    userVote: c.userVote,
+    isSpoiler: !!c.is_spoiler,
+    isRedacted: !!c.is_redacted
   };
 }
 
