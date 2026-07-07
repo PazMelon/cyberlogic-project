@@ -455,6 +455,10 @@ export interface DbForumCategory {
   description: string | null;
   color: string;
   type: "discussion" | "support";
+  icon: string | null;
+  is_visible: boolean;
+  allow_solved: boolean;
+  rules: string | null;
   threadCount: number;
 }
 
@@ -465,6 +469,10 @@ export interface ForumCategoryMapped {
   threadCount: number;
   color: string;
   type: "discussion" | "support";
+  icon: string | null;
+  is_visible: boolean;
+  allow_solved: boolean;
+  rules: string | null;
   dbId: number;
 }
 
@@ -552,6 +560,10 @@ export async function fetchForumCategories(): Promise<ForumCategoryMapped[]> {
     threadCount: c.threadCount,
     color: c.color,
     type: c.type,
+    icon: c.icon,
+    is_visible: c.is_visible,
+    allow_solved: c.allow_solved,
+    rules: c.rules,
     dbId: c.id
   }));
 }
@@ -1001,6 +1013,192 @@ export async function voteComment(
   if (!res.ok) {
     const errorData = await res.json();
     throw new Error(errorData.message || errorData.error || "Failed to submit vote.");
+  }
+
+  return res.json();
+}
+
+// ============================================
+// ADMIN CHAT & FORUM CATEGORY MANAGEMENT API
+// ============================================
+
+export interface DbChatChannel {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  type: 'group' | 'dm';
+  allowed_roles: string[] | null;
+  write_roles: string[] | null;
+  is_archived: boolean;
+  messageCount: number;
+}
+
+export interface DbForumCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  color: string;
+  type: 'discussion' | 'support';
+  icon: string | null;
+  is_visible: boolean;
+  allow_solved: boolean;
+  rules: string | null;
+  sort_order: number;
+  threadCount: number;
+  solvedThreadCount: number;
+}
+
+/**
+ * POST /api/admin/chat/channels
+ */
+export async function createChatChannel(data: {
+  name: string;
+  description?: string;
+  type: string;
+  allowed_roles?: string[];
+  write_roles?: string[];
+}): Promise<DbChatChannel> {
+  const res = await apiRequest("/api/admin/chat/channels", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to create channel.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/chat/channels/{id}
+ */
+export async function updateChatChannel(
+  id: number,
+  data: {
+    name: string;
+    description?: string;
+    type: string;
+    allowed_roles?: string[];
+    write_roles?: string[];
+    is_archived: boolean;
+  }
+): Promise<DbChatChannel> {
+  const res = await apiRequest(`/api/admin/chat/channels/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to update channel.");
+  }
+
+  return res.json();
+}
+
+/**
+ * DELETE /api/admin/chat/channels/{id}
+ */
+export async function deleteChatChannel(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/admin/chat/channels/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to delete channel.");
+  }
+
+  return res.json();
+}
+
+/**
+ * POST /api/admin/forum/categories
+ */
+export async function createForumCategory(data: {
+  name: string;
+  description?: string;
+  color: string;
+  type: string;
+  icon?: string;
+  is_visible: boolean;
+  allow_solved: boolean;
+  rules?: string;
+}): Promise<DbForumCategory> {
+  const res = await apiRequest("/api/admin/forum/categories", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to create category.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/forum/categories/{id}
+ */
+export async function updateForumCategory(
+  id: number,
+  data: {
+    name: string;
+    description?: string;
+    color: string;
+    type: string;
+    icon?: string;
+    is_visible: boolean;
+    allow_solved: boolean;
+    rules?: string;
+  }
+): Promise<DbForumCategory> {
+  const res = await apiRequest(`/api/admin/forum/categories/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to update category.");
+  }
+
+  return res.json();
+}
+
+/**
+ * DELETE /api/admin/forum/categories/{id}
+ */
+export async function deleteForumCategory(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/admin/forum/categories/${id}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to delete category.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/forum/categories/reorder
+ */
+export async function reorderForumCategories(ids: number[]): Promise<{ message: string }> {
+  const res = await apiRequest("/api/admin/forum/categories/reorder", {
+    method: "PUT",
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to reorder categories.");
   }
 
   return res.json();

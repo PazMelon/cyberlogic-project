@@ -14,8 +14,9 @@ class ChatController extends Controller
     /**
      * Get all chat channels. Seeds default ones if none exist.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
         $channels = ChatChannel::all();
 
         if ($channels->isEmpty()) {
@@ -25,18 +26,24 @@ class ChatController extends Controller
                     'slug' => 'general',
                     'description' => 'General chat and discussion for all members.',
                     'type' => 'group',
+                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                    'write_roles' => ['member', 'officer', 'admin', 'superadmin'],
                 ],
                 [
                     'name' => 'Announcements',
                     'slug' => 'announcements',
                     'description' => 'Realtime announcement stream and updates.',
                     'type' => 'group',
+                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                    'write_roles' => ['officer', 'admin', 'superadmin'],
                 ],
                 [
                     'name' => 'Events',
                     'slug' => 'events',
                     'description' => 'Chat and updates about upcoming club events.',
                     'type' => 'group',
+                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                    'write_roles' => ['member', 'officer', 'admin', 'superadmin'],
                 ],
             ];
 
@@ -47,7 +54,22 @@ class ChatController extends Controller
             $channels = ChatChannel::all();
         }
 
-        return response()->json($channels);
+        // Filter based on user role and archive status
+        $filtered = $channels->filter(function ($channel) use ($user) {
+            // Non-admins can't see archived channels
+            if ($channel->is_archived && ! in_array($user->role, ['admin', 'superadmin'])) {
+                return false;
+            }
+
+            // Check if user role is in allowed_roles
+            if (is_array($channel->allowed_roles)) {
+                return in_array($user->role, $channel->allowed_roles);
+            }
+
+            return true;
+        })->values();
+
+        return response()->json($filtered);
     }
 
     /**
@@ -101,5 +123,90 @@ class ChatController extends Controller
         return response()->json([
             'ticket' => $ticket,
         ]);
+    }
+
+    /**
+     * Create a new chat channel (Admin/Superadmin only).
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'description' => 'nullable|string',
+            'type' => 'required|string|in:group,dm',
+            'allowed_roles' => 'nullable|array',
+            'write_roles' => 'nullable|array',
+        ]);
+
+        $validated['slug'] = Str::slug($validated['name']);
+
+        // Ensure unique slug
+        $count = 1;
+        $originalSlug = $validated['slug'];
+        while (ChatChannel::where('slug', $validated['slug'])->exists()) {
+            $validated['slug'] = $originalSlug.'-'.$count++;
+        }
+
+        $validated['created_by'] = $currentUser->id;
+
+        $channel = ChatChannel::create($validated);
+
+        return response()->json($channel, 201);
+    }
+
+    /**
+     * Update an existing chat channel (Admin/Superadmin only).
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $channel = ChatChannel::findOrFail($id);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'description' => 'nullable|string',
+            'type' => 'required|string|in:group,dm',
+            'allowed_roles' => 'nullable|array',
+            'write_roles' => 'nullable|array',
+            'is_archived' => 'required|boolean',
+        ]);
+
+        $validated['slug'] = Str::slug($validated['name']);
+
+        // Ensure unique slug (ignoring current ID)
+        $count = 1;
+        $originalSlug = $validated['slug'];
+        while (ChatChannel::where('slug', $validated['slug'])->where('id', '!=', $id)->exists()) {
+            $validated['slug'] = $originalSlug.'-'.$count++;
+        }
+
+        $channel->update($validated);
+
+        return response()->json($channel);
+    }
+
+    /**
+     * Delete a chat channel (Superadmin only).
+     */
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if ($currentUser->role !== 'superadmin') {
+            return response()->json(['message' => 'Unauthorized. Superadmin role required.'], 403);
+        }
+
+        $channel = ChatChannel::findOrFail($id);
+        $channel->delete();
+
+        return response()->json(['message' => 'Channel deleted successfully']);
     }
 }

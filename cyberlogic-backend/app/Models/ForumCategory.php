@@ -13,9 +13,18 @@ class ForumCategory extends Model
         'color',
         'type',
         'sort_order',
+        'icon',
+        'is_visible',
+        'allow_solved',
+        'rules',
     ];
 
-    protected $appends = ['threadCount'];
+    protected $casts = [
+        'is_visible' => 'boolean',
+        'allow_solved' => 'boolean',
+    ];
+
+    protected $appends = ['threadCount', 'solvedThreadCount'];
 
     /**
      * Get the threads for the category.
@@ -31,5 +40,13 @@ class ForumCategory extends Model
     public function getThreadCountAttribute(): int
     {
         return $this->threads()->count();
+    }
+
+    /**
+     * Get the solved thread count.
+     */
+    public function getSolvedThreadCountAttribute(): int
+    {
+        return $this->threads()->where('is_solved', true)->count();
     }
 }

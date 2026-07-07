@@ -194,11 +194,24 @@ export default function CreateThread() {
               <div className="text-[10px] text-text-muted bg-surface-900/30 border border-border/10 rounded-lg p-2.5 flex items-start gap-2">
                 <Info className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
                 <span>
-                  Threads in **Help & Support** allow marking replies as solved, while other categories are general discussions.
+                  {categories.find((c) => c.dbId.toString() === categoryId)?.allow_solved 
+                    ? "Threads in this category support marking replies as the accepted solution."
+                    : "This category is for general discussions. Solution marking is not enabled here."}
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Category Rules & Guidelines */}
+          {categories.find((c) => c.dbId.toString() === categoryId)?.rules && (
+            <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20 text-xs text-text-secondary flex items-start gap-2 animate-fadeIn">
+              <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-text-primary mb-0.5">Category Guidelines</p>
+                <p className="whitespace-pre-wrap leading-relaxed text-text-muted">{categories.find((c) => c.dbId.toString() === categoryId)?.rules}</p>
+              </div>
+            </div>
+          )}
 
           {/* Title Input */}
           <div>

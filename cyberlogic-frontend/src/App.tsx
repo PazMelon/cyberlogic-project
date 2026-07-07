@@ -30,6 +30,7 @@ import EventManagement from "./pages/admin/EventManagement";
 import CreateEvent from "./pages/admin/CreateEvent";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
+import ChatManagement from "./pages/admin/ChatManagement";
 import SiteSettings from "./pages/admin/SiteSettings";
 import { Shield } from "lucide-react";
 
@@ -184,6 +185,7 @@ function AppRoutes() {
         <Route path="events/edit/:id" element={<CreateEvent />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />
+        <Route path="chat" element={<ChatManagement />} />
         <Route path="settings" element={<SiteSettings />} />
       </Route>
 

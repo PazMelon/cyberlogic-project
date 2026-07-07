@@ -7,6 +7,7 @@ import {
   Megaphone,
   Calendar,
   BookOpen,
+  MessageSquare,
   MessagesSquare,
   Palette,
   ChevronLeft,
@@ -28,6 +29,7 @@ const adminNavSections = [
     items: [
       { icon: Users, label: "Members", path: "/admin/members", badge: 3 },
       { icon: MessagesSquare, label: "Forums", path: "/admin/forums" },
+      { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat" },
       { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
       { icon: Calendar, label: "Events", path: "/admin/events" },
       { icon: BookOpen, label: "Resources", path: "/admin/resources" },

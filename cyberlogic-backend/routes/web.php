@@ -76,6 +76,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chat/channels', [ChatController::class, 'index']);
     Route::get('/api/chat/channels/{slug}/messages', [ChatController::class, 'messages']);
     Route::post('/api/chat/ticket', [ChatController::class, 'ticket']);
+
+    // Admin Chat & Forum Category Actions
+    Route::post('/api/admin/chat/channels', [ChatController::class, 'store']);
+    Route::put('/api/admin/chat/channels/{id}', [ChatController::class, 'update']);
+    Route::delete('/api/admin/chat/channels/{id}', [ChatController::class, 'destroy']);
+
+    Route::post('/api/admin/forum/categories', [ForumCategoryController::class, 'store']);
+    Route::put('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'update']);
+    Route::delete('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'destroy']);
+    Route::put('/api/admin/forum/categories/reorder', [ForumCategoryController::class, 'reorder']);
 });
 
 // React SPA fallback handler

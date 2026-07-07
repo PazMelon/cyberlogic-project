@@ -10,6 +10,9 @@ interface ChatChannel {
   slug: string;
   description: string;
   type: string;
+  allowed_roles?: string[] | null;
+  write_roles?: string[] | null;
+  is_archived?: boolean;
 }
 
 interface ChatMessage {
@@ -56,6 +59,12 @@ export default function Chat() {
   const typingTimeoutsRef = useRef<Map<number, any>>(new Map());
 
   const activeChannelData = channels.find((c) => c.slug === activeChannel);
+
+  // Check write permissions for the current user
+  const hasWritePermission = !activeChannelData || 
+    !activeChannelData.write_roles || 
+    !Array.isArray(activeChannelData.write_roles) || 
+    (currentUser && activeChannelData.write_roles.includes(currentUser.role));
 
   // 1. Load channels on mount
   useEffect(() => {
@@ -182,7 +191,7 @@ export default function Chat() {
     const val = e.target.value;
     setMessageText(val);
 
-    if (!activeChannel || !isConnected) return;
+    if (!activeChannel || !isConnected || !hasWritePermission) return;
 
     // Send typing state update to server
     const now = Date.now();
@@ -207,7 +216,7 @@ export default function Chat() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!messageText.trim() || !activeChannel) return;
+    if (!messageText.trim() || !activeChannel || !hasWritePermission) return;
 
     // Send message via WebSocket
     sendMessage("message", `chat:${activeChannel}`, {
@@ -480,7 +489,8 @@ export default function Chat() {
           >
             <button
               type="button"
-              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors"
+              disabled={!hasWritePermission}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:hover:text-text-muted"
               aria-label="Upload file"
             >
               <Paperclip className="w-4 h-4" />
@@ -489,20 +499,27 @@ export default function Chat() {
               type="text"
               value={messageText}
               onChange={handleInputChange}
-              placeholder={activeChannelData ? `Message #${activeChannelData.name}` : "Connect to a channel..."}
-              disabled={!activeChannel || !isConnected}
-              className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1"
+              placeholder={
+                !activeChannelData
+                  ? "Connect to a channel..."
+                  : !hasWritePermission
+                  ? `Message #${activeChannelData.name} (Read-only)`
+                  : `Message #${activeChannelData.name}`
+              }
+              disabled={!activeChannel || !isConnected || !hasWritePermission}
+              className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1 disabled:text-text-muted disabled:cursor-not-allowed"
             />
             <button
               type="button"
-              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors"
+              disabled={!hasWritePermission}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:hover:text-text-muted"
               aria-label="Add emoji"
             >
               <Smile className="w-4 h-4" />
             </button>
             <button
               type="submit"
-              disabled={!messageText.trim() || !activeChannel || !isConnected}
+              disabled={!messageText.trim() || !activeChannel || !isConnected || !hasWritePermission}
               className="p-2 rounded-xl bg-primary hover:bg-primary-light disabled:opacity-50 text-white transition-colors"
               aria-label="Send message"
             >

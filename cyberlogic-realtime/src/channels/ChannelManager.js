@@ -161,6 +161,21 @@ class ChannelManager {
       console.log(`[WS] Received: ${type} on ${channel}`);
 
       if (type === 'subscribe') {
+        // Enforce allowed_roles authorization for chat channels
+        if (channel.startsWith('chat:')) {
+          const channelSlug = channel.split(':')[1];
+          const [channels] = await pool.query('SELECT allowed_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+          if (channels.length > 0) {
+            const allowed = channels[0].allowed_roles;
+            let allowedRoles = typeof allowed === 'string' ? JSON.parse(allowed) : allowed;
+            if (allowedRoles && Array.isArray(allowedRoles) && !allowedRoles.includes(user.role)) {
+              console.log(`[WS] Subscription rejected: User ${user.name} (${user.role}) not allowed in ${channel}`);
+              this.sendToClient(client, channel, 'subscription_error', { message: 'Not allowed to view this channel.' });
+              return;
+            }
+          }
+        }
+
         this.subscribe(client, channel);
         if (channel === 'presence') {
           const presenceList = Array.from(this.onlineUsers.values()).map(p => ({
@@ -185,7 +200,7 @@ class ChannelManager {
         // Handle user typing state
         if (channel.startsWith('chat:')) {
           const channelSlug = channel.split(':')[1];
-          this.handleChatTyping(client, user, channelSlug, payload);
+          await this.handleChatTyping(client, user, channelSlug, payload);
         }
       }
     } catch (err) {
@@ -202,12 +217,21 @@ class ChannelManager {
     if (!content || !content.trim()) return;
 
     try {
-      // 1. Get channel ID from DB
-      const [channels] = await pool.query('SELECT id FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+      // 1. Get channel ID and write_roles from DB
+      const [channels] = await pool.query('SELECT id, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
       if (channels.length === 0) {
         throw new Error(`Channel ${channelSlug} not found in database`);
       }
       const channelId = channels[0].id;
+      const write = channels[0].write_roles;
+      let writeRoles = typeof write === 'string' ? JSON.parse(write) : write;
+
+      // Check write permissions
+      if (writeRoles && Array.isArray(writeRoles) && !writeRoles.includes(user.role)) {
+        console.log(`[WS] Message rejected: User ${user.name} (${user.role}) cannot write to ${channelSlug}`);
+        this.sendToClient(client, `chat:${channelSlug}`, 'write_error', { message: 'You do not have permission to write in this channel.' });
+        return;
+      }
 
       // 2. Persist message to DB
       const [result] = await pool.query(
@@ -238,11 +262,25 @@ class ChannelManager {
   /**
    * Broadcast typing status to other subscribers in the chat channel.
    */
-  handleChatTyping(client, user, channelSlug, payload) {
+  async handleChatTyping(client, user, channelSlug, payload) {
     const { isTyping } = payload;
     const channelName = `chat:${channelSlug}`;
 
     if (!this.channels.has(channelName)) return;
+
+    try {
+      const [channels] = await pool.query('SELECT write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+      if (channels.length > 0) {
+        const write = channels[0].write_roles;
+        let writeRoles = typeof write === 'string' ? JSON.parse(write) : write;
+        if (writeRoles && Array.isArray(writeRoles) && !writeRoles.includes(user.role)) {
+          return; // Silently drop typing updates from unauthorized users
+        }
+      }
+    } catch (err) {
+      console.error('[WS] Error checking typing write_roles:', err.message);
+      return;
+    }
 
     const message = JSON.stringify({
       type: 'typing',
