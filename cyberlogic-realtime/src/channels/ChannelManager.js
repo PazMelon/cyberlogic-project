@@ -196,6 +196,12 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleChatMessage(client, user, channelSlug, payload);
         }
+      } else if (type === 'reaction') {
+        // Handle chat reaction
+        if (channel.startsWith('chat:')) {
+          const channelSlug = channel.split(':')[1];
+          await this.handleChatReaction(client, user, channelSlug, payload);
+        }
       } else if (type === 'typing') {
         // Handle user typing state
         if (channel.startsWith('chat:')) {
@@ -300,6 +306,90 @@ class ChannelManager {
       if (otherClient !== client && otherClient.readyState === 1) {
         otherClient.send(message);
       }
+    }
+  }
+
+  /**
+   * Toggle emoji reaction, enforce limit of 5 reactions per user per message, and broadcast updated reactions.
+   */
+  async handleChatReaction(client, user, channelSlug, payload) {
+    const { messageId, emoji } = payload;
+    if (!messageId || !emoji) return;
+
+    try {
+      // 1. Check if reaction exists
+      const [existing] = await pool.query(
+        'SELECT id FROM chat_message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ? LIMIT 1',
+        [messageId, user.id, emoji]
+      );
+
+      if (existing.length > 0) {
+        // Delete reaction
+        await pool.query('DELETE FROM chat_message_reactions WHERE id = ?', [existing[0].id]);
+      } else {
+        // Check reaction count per user per message
+        const [counts] = await pool.query(
+          'SELECT COUNT(*) as count FROM chat_message_reactions WHERE message_id = ? AND user_id = ?',
+          [messageId, user.id]
+        );
+        const count = counts[0].count;
+        if (count >= 5) {
+          this.sendToClient(client, `chat:${channelSlug}`, 'reaction_error', {
+            messageId,
+            message: 'Maximum 5 reactions per message reached.'
+          });
+          return;
+        }
+
+        // Insert new reaction
+        await pool.query(
+          'INSERT INTO chat_message_reactions (message_id, user_id, emoji, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+          [messageId, user.id, emoji]
+        );
+      }
+
+      // 2. Fetch updated reaction list for this message
+      const [rawReactions] = await pool.query(
+        'SELECT r.emoji, r.user_id, u.name FROM chat_message_reactions r LEFT JOIN users u ON r.user_id = u.id WHERE r.message_id = ?',
+        [messageId]
+      );
+
+      // 3. Group and aggregate reactions
+      const reactionsMap = {};
+      rawReactions.forEach((row) => {
+        if (!reactionsMap[row.emoji]) {
+          reactionsMap[row.emoji] = {
+            emoji: row.emoji,
+            count: 0,
+            users: [],
+            userIds: []
+          };
+        }
+        reactionsMap[row.emoji].count += 1;
+        reactionsMap[row.emoji].users.push(row.name || 'Anonymous');
+        reactionsMap[row.emoji].userIds.push(row.user_id);
+      });
+
+      // Format for broadcast
+      // Each subscriber will receive this. We send the full map, and then we let them compute if they themselves reacted.
+      // Alternatively, we broadcast the summary with userIds and let the clients map it locally, or send a general map.
+      // Let's broadcast the raw summary with 'userIds' so the frontend can easily match if current user is in `userIds`!
+      const reactionsSummary = Object.values(reactionsMap).map(item => ({
+        emoji: item.emoji,
+        count: item.count,
+        users: item.users,
+        userIds: item.userIds
+      }));
+
+      // 4. Broadcast updated reaction summary to all subscribers of the channel
+      this.broadcast(`chat:${channelSlug}`, 'reaction_update', {
+        messageId,
+        reactions: reactionsSummary
+      });
+
+    } catch (err) {
+      console.error('[WS] Error handling chat reaction:', err.message);
+      this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to process reaction.' });
     }
   }
 }

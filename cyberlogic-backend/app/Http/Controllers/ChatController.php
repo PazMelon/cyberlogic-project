@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ChatChannel;
 use App\Models\ChatMessage;
+use App\Models\ChatMessageReaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,15 +82,33 @@ class ChatController extends Controller
 
         // Get last 50 messages, ordered oldest to newest for the chat stream
         $messages = ChatMessage::where('channel_id', $channel->id)
-            ->with('user')
+            ->with(['user', 'reactions.user'])
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get()
             ->reverse()
             ->values();
 
+        $currentUser = request()->user();
+
         // Map messages to format expected by the frontend
-        $mappedMessages = $messages->map(function ($msg) use ($slug) {
+        $mappedMessages = $messages->map(function ($msg) use ($slug, $currentUser) {
+            // Group reactions by emoji
+            $reactionsGrouped = $msg->reactions->groupBy('emoji');
+            $reactionsSummary = [];
+
+            foreach ($reactionsGrouped as $emoji => $reactions) {
+                $userIds = $reactions->pluck('user_id')->toArray();
+                $reactionsSummary[] = [
+                    'emoji' => $emoji,
+                    'count' => $reactions->count(),
+                    'users' => $reactions->map(function ($r) {
+                        return $r->user ? $r->user->name : 'Anonymous';
+                    })->values()->toArray(),
+                    'reacted' => $currentUser ? in_array($currentUser->id, $userIds) : false,
+                ];
+            }
+
             return [
                 'id' => $msg->id,
                 'channelId' => $slug,
@@ -99,10 +118,72 @@ class ChatController extends Controller
                 'content' => $msg->content,
                 'timestamp' => $msg->created_at ? $msg->created_at->format('g:i A') : now()->format('g:i A'),
                 'isSystem' => $msg->type === 'system',
+                'reactions' => $reactionsSummary,
             ];
         });
 
         return response()->json($mappedMessages);
+    }
+
+    /**
+     * Toggle reaction on a message. Max 5 unique emojis per user per message.
+     */
+    public function toggleReaction(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'emoji' => 'required|string|max:20',
+        ]);
+        $emoji = $validated['emoji'];
+
+        $existing = ChatMessageReaction::where('message_id', $messageId)
+            ->where('user_id', $user->id)
+            ->where('emoji', $emoji)
+            ->first();
+
+        if ($existing) {
+            $existing->delete();
+        } else {
+            // Count current user reactions on this message
+            $currentUserReactionsCount = ChatMessageReaction::where('message_id', $messageId)
+                ->where('user_id', $user->id)
+                ->count();
+
+            if ($currentUserReactionsCount >= 5) {
+                return response()->json(['message' => 'Maximum 5 reactions per message reached.'], 400);
+            }
+
+            ChatMessageReaction::create([
+                'message_id' => $messageId,
+                'user_id' => $user->id,
+                'emoji' => $emoji,
+            ]);
+        }
+
+        // Get updated list of reactions for this message
+        $reactions = ChatMessageReaction::where('message_id', $messageId)
+            ->with('user')
+            ->get();
+
+        $reactionsGrouped = $reactions->groupBy('emoji');
+        $reactionsSummary = [];
+
+        foreach ($reactionsGrouped as $emo => $reacs) {
+            $userIds = $reacs->pluck('user_id')->toArray();
+            $reactionsSummary[] = [
+                'emoji' => $emo,
+                'count' => $reacs->count(),
+                'users' => $reacs->map(function ($r) {
+                    return $r->user ? $r->user->name : 'Anonymous';
+                })->values()->toArray(),
+                'reacted' => in_array($user->id, $userIds),
+            ];
+        }
+
+        return response()->json([
+            'messageId' => $messageId,
+            'reactions' => $reactionsSummary,
+        ]);
     }
 
     /**

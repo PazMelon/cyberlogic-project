@@ -31,4 +31,12 @@ class ChatMessage extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    /**
+     * Get the reactions for this message.
+     */
+    public function reactions()
+    {
+        return $this->hasMany(ChatMessageReaction::class, 'message_id');
+    }
 }
