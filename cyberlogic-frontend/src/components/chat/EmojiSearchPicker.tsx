@@ -42,19 +42,26 @@ export default function EmojiSearchPicker({ onSelectEmoji, onClose }: EmojiSearc
 
         {!searchQuery ? (
           <>
-            <div className="flex gap-1 overflow-x-auto pb-2 mb-2 border-b border-border/20 scrollbar-none">
-              {Object.keys(ALL_EMOJIS_BY_CATEGORY).map((category) => (
+            {/* Category tabs using flex wrap layout to avoid scrollbar and ensure clean visual look */}
+            <div className="flex flex-wrap gap-1.5 mb-3 border-b border-border/20 pb-2">
+              {Object.entries({
+                "Smileys & Emotion": "😀 Smileys",
+                "People & Body": "👋 People",
+                "Animals & Nature": "🐶 Animals",
+                "Food & Drink": "🍔 Food",
+                "Travel & Places": "✈️ Travel"
+              }).map(([category, label]) => (
                 <button
                   key={category}
                   type="button"
                   onClick={() => setActiveCategory(category)}
-                  className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg shrink-0 transition-colors ${
+                  className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all cursor-pointer ${
                     activeCategory === category
-                      ? "bg-primary/20 text-primary"
-                      : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                      ? "bg-primary text-white shadow-xs"
+                      : "bg-surface-800 text-text-muted hover:text-text-primary hover:bg-surface-700"
                   }`}
                 >
-                  {category.split(" ")[0]}
+                  {label}
                 </button>
               ))}
             </div>
@@ -76,7 +83,7 @@ export default function EmojiSearchPicker({ onSelectEmoji, onClose }: EmojiSearc
           <div className="flex-1 overflow-y-auto grid grid-cols-6 gap-2 p-1 min-h-[180px]">
             {Object.values(ALL_EMOJIS_BY_CATEGORY)
               .flat()
-              .filter((emoji) => emoji.includes(searchQuery) || true)
+              .filter((emoji) => emoji.includes(searchQuery))
               .slice(0, 36)
               .map((emoji) => (
                 <button

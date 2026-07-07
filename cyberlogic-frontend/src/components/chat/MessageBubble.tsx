@@ -77,8 +77,11 @@ export default function MessageBubble({
 
   const contentContainer = (
     <div className="relative group/message flex flex-col min-w-[120px] max-w-[70%]">
-      {/* Desktop hover Smile picker trigger */}
-      <div className="absolute top-1/2 -translate-y-1/2 hidden md:group-hover/message:flex items-center gap-1 z-10 mx-2 left-full">
+      {/* Desktop hover Smile picker trigger placed in the bottom left relative to message bubble row */}
+      {/* We use a negative margin / overlay container to bridge hover space so it doesn't disappear when moving the cursor */}
+      <div className={`absolute bottom-0 translate-y-1/4 hidden md:group-hover/message:flex items-center z-10 ${
+        isMe ? "right-full pr-1.5 -mr-0.5" : "left-full pl-1.5 -ml-0.5"
+      }`}>
         <button
           type="button"
           onClick={() => setActivePickerId(showReactionTrigger ? null : message.id)}
@@ -119,11 +122,27 @@ export default function MessageBubble({
           <p className="text-sm text-text-secondary leading-relaxed break-words whitespace-pre-wrap">
             {message.content}
           </p>
+
+          {/* Facebook-style reaction badges overlay placed on the bottom corner edge of the message bubble */}
+          {message.reactions && message.reactions.length > 0 && (
+            <div className={`absolute bottom-[-10px] flex items-center gap-0.5 bg-surface-900 border border-border/50 rounded-full px-1.5 py-0.5 shadow-md z-10 transition-all ${
+              isMe ? "left-3" : "right-3"
+            }`}>
+              {message.reactions.slice(0, 3).map((reaction) => (
+                <span key={reaction.emoji} className="text-xs select-none">
+                  {reaction.emoji}
+                </span>
+              ))}
+              <span className="text-[9px] font-bold text-text-muted px-0.5 select-none">
+                {message.reactions.reduce((sum, r) => sum + r.count, 0)}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Reaction badges pills */}
+        {/* Aggregate reaction lists pills underneath the message row (still keeping clickable pills for details) */}
         {message.reactions && message.reactions.length > 0 && (
-          <div className={`flex flex-wrap gap-1 mt-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
+          <div className={`flex flex-wrap gap-1 mt-3 ${isMe ? "justify-end" : "justify-start"}`}>
             {message.reactions.map((reaction) => (
               <div key={reaction.emoji} className="group/pill relative">
                 <button

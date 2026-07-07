@@ -142,16 +142,13 @@ class ChatController extends Controller
             ->first();
 
         if ($existing) {
+            // User clicked the same emoji again, remove it
             $existing->delete();
         } else {
-            // Count current user reactions on this message
-            $currentUserReactionsCount = ChatMessageReaction::where('message_id', $messageId)
+            // Delete all other reactions the user has on this message (since we restrict to 1 reaction)
+            ChatMessageReaction::where('message_id', $messageId)
                 ->where('user_id', $user->id)
-                ->count();
-
-            if ($currentUserReactionsCount >= 5) {
-                return response()->json(['message' => 'Maximum 5 reactions per message reached.'], 400);
-            }
+                ->delete();
 
             ChatMessageReaction::create([
                 'message_id' => $messageId,

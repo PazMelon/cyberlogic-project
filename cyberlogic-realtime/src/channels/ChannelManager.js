@@ -324,22 +324,14 @@ class ChannelManager {
       );
 
       if (existing.length > 0) {
-        // Delete reaction
+        // User clicked the same emoji again, remove it
         await pool.query('DELETE FROM chat_message_reactions WHERE id = ?', [existing[0].id]);
       } else {
-        // Check reaction count per user per message
-        const [counts] = await pool.query(
-          'SELECT COUNT(*) as count FROM chat_message_reactions WHERE message_id = ? AND user_id = ?',
+        // Delete all other reactions this user has on this message
+        await pool.query(
+          'DELETE FROM chat_message_reactions WHERE message_id = ? AND user_id = ?',
           [messageId, user.id]
         );
-        const count = counts[0].count;
-        if (count >= 5) {
-          this.sendToClient(client, `chat:${channelSlug}`, 'reaction_error', {
-            messageId,
-            message: 'Maximum 5 reactions per message reached.'
-          });
-          return;
-        }
 
         // Insert new reaction
         await pool.query(
@@ -348,9 +340,13 @@ class ChannelManager {
         );
       }
 
-      // 2. Fetch updated reaction list for this message
+      // 2. Fetch updated reaction list for this message (concatenating first, middle, last names)
       const [rawReactions] = await pool.query(
-        'SELECT r.emoji, r.user_id, u.name FROM chat_message_reactions r LEFT JOIN users u ON r.user_id = u.id WHERE r.message_id = ?',
+        `SELECT r.emoji, r.user_id, 
+                TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name)) as name 
+         FROM chat_message_reactions r 
+         LEFT JOIN users u ON r.user_id = u.id 
+         WHERE r.message_id = ?`,
         [messageId]
       );
 
