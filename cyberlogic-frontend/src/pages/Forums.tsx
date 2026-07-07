@@ -1,9 +1,18 @@
 import { useState, useEffect } from "react";
 import { Search, Plus } from "lucide-react";
 import { useSearchParams } from "react-router";
-import { forumThreads, forumCategories } from "../data/mockData";
+import {
+  fetchForumCategories,
+  fetchForumThreads,
+  createForumThread
+} from "../utils/api";
+import type {
+  ForumCategoryMapped,
+  ForumThreadMapped
+} from "../utils/api";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
+import { CreateThreadModal } from "../components/forum";
 
 export default function Forums() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -11,24 +20,44 @@ export default function Forums() {
   const [activeCategory, setActiveCategory] = useState<string>(categoryParam);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
+  const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Sync state if URL param changes
   useEffect(() => {
     setActiveCategory(categoryParam);
   }, [categoryParam]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  // Load categories and threads from APIs
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [catsData, threadsData] = await Promise.all([
+        fetchForumCategories(),
+        fetchForumThreads({ category: categoryParam, q: searchQuery })
+      ]);
+      setCategories(catsData);
+      setThreads(threadsData);
+    } catch (err) {
+      console.error("Failed to load forum data:", err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  };
 
-  const filtered = forumThreads.filter((t) => {
-    const matchesCategory = activeCategory === "all" || t.categoryId === activeCategory;
-    const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  useEffect(() => {
+    loadData();
+  }, [categoryParam, searchQuery]);
+
+  const handleCreateThread = async (title: string, content: string, categoryDbId: number) => {
+    await createForumThread({ title, content, category_id: categoryDbId });
+    // Reload threads
+    loadData();
+  };
+
+  // Get total thread count across all categories
+  const totalThreadCount = categories.reduce((sum, c) => sum + c.threadCount, 0);
 
   return (
     <div className="space-y-6">
@@ -44,7 +73,8 @@ export default function Forums() {
         </div>
         <button
           type="button"
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer"
         >
           <Plus className="w-4 h-4" /> New Thread
         </button>
@@ -69,15 +99,15 @@ export default function Forums() {
               setActiveCategory("all");
               setSearchParams({});
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
               activeCategory === "all"
                 ? "border-primary/30 bg-primary/10 text-primary"
                 : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
             }`}
           >
-            All ({forumThreads.length})
+            All ({totalThreadCount})
           </button>
-          {forumCategories.map((cat) => (
+          {categories.map((cat) => (
             <button
               type="button"
               key={cat.id}
@@ -85,7 +115,7 @@ export default function Forums() {
                 setActiveCategory(cat.id);
                 setSearchParams({ category: cat.id });
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
                 activeCategory === cat.id
                   ? "border-primary/30 bg-primary/10 text-primary"
                   : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
@@ -120,17 +150,25 @@ export default function Forums() {
             ))}
           </>
         ) : (
-          filtered.map((thread) => (
+          threads.map((thread) => (
             <ForumThreadCard key={thread.id} thread={thread} />
           ))
         )}
       </div>
 
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && threads.length === 0 && (
         <div className="text-center py-12">
           <p className="text-text-muted">No threads found.</p>
         </div>
       )}
+
+      {/* Create Modal */}
+      <CreateThreadModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        categories={categories}
+        onSubmit={handleCreateThread}
+      />
     </div>
   );
 }

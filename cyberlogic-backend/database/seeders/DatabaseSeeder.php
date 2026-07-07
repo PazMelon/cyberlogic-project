@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Announcement;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -47,7 +48,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // Seed Default announcements
-        \App\Models\Announcement::create([
+        Announcement::create([
             'title' => 'Cyberlogic Club Recruitment — Now Open!',
             'subtitle' => 'Join the premier student cyber security force and secure your digital future.',
             'excerpt' => "We're looking for passionate students who want to explore cybersecurity, programming, and tech innovation. Apply before July 15!",
@@ -62,9 +63,11 @@ class DatabaseSeeder extends Seeder
                     'type' => 'text',
                     'id' => 'sec-1',
                     'title' => 'Why Join Cyberlogic?',
-                    'html' => '<p>Cyberlogic offers a comprehensive pathway to practical cybersecurity competencies, hands-on vulnerability assessments, and capture-the-flag competitions. Joining the club grants you access to exclusive CTF labs, hardware toolsets, and mentorship from industry specialists.</p>'
-                ]
-            ]
+                    'html' => '<p>Cyberlogic offers a comprehensive pathway to practical cybersecurity competencies, hands-on vulnerability assessments, and capture-the-flag competitions. Joining the club grants you access to exclusive CTF labs, hardware toolsets, and mentorship from industry specialists.</p>',
+                ],
+            ],
         ]);
+
+        $this->call(ForumSeeder::class);
     }
 }

@@ -7,50 +7,89 @@ import {
   Flag,
   CheckCircle,
   Award,
-  Send,
-  ChevronUp,
-  ChevronDown,
   Bookmark,
   Info,
   Calendar,
   MessageSquare,
-  Heart,
+  Pin,
+  Lock,
+  Unlock
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads, forumReplies, forumCategories } from "../data/mockData";
-import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
-import { Button } from "../components/ui";
+import {
+  fetchForumThread,
+  fetchForumComments,
+  createForumComment,
+  updateForumComment,
+  deleteForumComment,
+  voteThread,
+  voteComment,
+  toggleThreadPin,
+  toggleThreadClose,
+  toggleThreadSolve,
+  fetchForumCategories
+} from "../utils/api";
+import type {
+  ForumThreadMapped,
+  ForumCommentMapped,
+  ForumCategoryMapped
+} from "../utils/api";
+import { VoteControl, CommentTree, CommentForm } from "../components/forum";
 
 export default function ForumThread() {
   const { threadId } = useParams();
   const { user } = useAuth();
-  const thread = forumThreads.find((t) => t.id === Number(threadId));
-  const initialReplies = forumReplies.filter((r) => r.threadId === Number(threadId));
 
+  const [thread, setThread] = useState<ForumThreadMapped | null>(null);
+  const [comments, setComments] = useState<ForumCommentMapped[]>([]);
+  const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [replies, setReplies] = useState(initialReplies);
-  const [replyText, setReplyText] = useState("");
-
-  const [threadVote, setThreadVote] = useState<"up" | "down" | null>(null);
-  const [threadLikes, setThreadLikes] = useState(thread?.likes || 0);
-
-  const [replyVotes, setReplyVotes] = useState<Record<number, "up" | "down" | null>>({});
-  const [replyLikes, setReplyLikes] = useState<Record<number, number>>(() => {
-    const initial: Record<number, number> = {};
-    initialReplies.forEach((r) => {
-      initial[r.id] = r.likes;
-    });
-    return initial;
-  });
-
   const [isSaved, setIsSaved] = useState(false);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  // Auth checking for toggle buttons
+  const isThreadOwner = user && thread && user.id === thread.authorId;
+  const isAdmin = user && (user.role === "admin" || user.role === "superadmin");
+
+  const loadData = async () => {
+    if (!threadId) return;
+    try {
+      setIsLoading(true);
+      const [threadData, commentsData, categoriesData] = await Promise.all([
+        fetchForumThread(Number(threadId)),
+        fetchForumComments(Number(threadId)),
+        fetchForumCategories()
+      ]);
+      setThread(threadData);
+      setComments(commentsData);
+      setCategories(categoriesData);
+    } catch (err) {
+      console.error("Failed to load thread details:", err);
+    } finally {
       setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [threadId]);
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-6xl mx-auto space-y-6 animate-pulse">
+        <div className="h-8 w-24 bg-surface-800 rounded-lg" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="h-64 bg-surface-900/30 rounded-xl border border-border/50" />
+            <div className="h-96 bg-surface-900/30 rounded-xl border border-border/50" />
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="h-48 bg-surface-900/30 rounded-xl border border-border/50" />
+            <div className="h-48 bg-surface-900/30 rounded-xl border border-border/50" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!thread) {
     return (
@@ -64,59 +103,7 @@ export default function ForumThread() {
     );
   }
 
-  const category = forumCategories.find((c) => c.id === thread.categoryId);
-
-  const handleThreadVote = (type: "up" | "down") => {
-    if (threadVote === type) {
-      setThreadVote(null);
-      setThreadLikes(threadLikes + (type === "up" ? -1 : 1));
-    } else {
-      let delta = type === "up" ? 1 : -1;
-      if (threadVote !== null) {
-        delta *= 2;
-      }
-      setThreadVote(type);
-      setThreadLikes(threadLikes + delta);
-    }
-  };
-
-  const handleReplyVote = (replyId: number, type: "up" | "down") => {
-    const currentVote = replyVotes[replyId] || null;
-    const currentLikesVal = replyLikes[replyId] ?? 0;
-
-    if (currentVote === type) {
-      setReplyVotes({ ...replyVotes, [replyId]: null });
-      setReplyLikes({ ...replyLikes, [replyId]: currentLikesVal + (type === "up" ? -1 : 1) });
-    } else {
-      let delta = type === "up" ? 1 : -1;
-      if (currentVote !== null) {
-        delta *= 2;
-      }
-      setReplyVotes({ ...replyVotes, [replyId]: type });
-      setReplyLikes({ ...replyLikes, [replyId]: currentLikesVal + delta });
-    }
-  };
-
-  const handlePostReply = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!replyText.trim() || !user) return;
-
-    const newReply = {
-      id: Date.now(),
-      threadId: thread.id,
-      author: user.name,
-      authorAvatar: user.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
-      authorRole: user.role || "Member",
-      content: replyText,
-      likes: 0,
-      createdAt: "Just now",
-      isBestAnswer: false,
-    };
-
-    setReplies([...replies, newReply]);
-    setReplyLikes({ ...replyLikes, [newReply.id]: 0 });
-    setReplyText("");
-  };
+  const category = categories.find((c) => c.id === thread.categoryId);
 
   const selectedColorClass =
     category?.color === "primary"
@@ -129,9 +116,88 @@ export default function ForumThread() {
       ? "bg-error/10 border-error/20 text-error"
       : "bg-warning/10 border-warning/20 text-warning";
 
+  const handleThreadVoteAction = async (direction: "up" | "down") => {
+    try {
+      const val = direction === "up" ? 1 : -1;
+      const res = await voteThread(thread.id, val);
+      setThread({
+        ...thread,
+        likes: res.vote_score,
+        userVote: res.user_vote
+      });
+    } catch (err) {
+      console.error("Failed to vote:", err);
+    }
+  };
+
+  const handleCommentVoteAction = async (commentId: number, direction: "up" | "down") => {
+    try {
+      const val = direction === "up" ? 1 : -1;
+      const res = await voteComment(commentId, val);
+      setComments(
+        comments.map((c) =>
+          c.id === commentId
+            ? { ...c, likes: res.vote_score, userVote: res.user_vote }
+            : c
+        )
+      );
+    } catch (err) {
+      console.error("Failed to vote comment:", err);
+    }
+  };
+
+  const handlePostTopComment = async (content: string) => {
+    const newComment = await createForumComment(thread.id, { content });
+    setComments([...comments, newComment]);
+  };
+
+  const handlePostReply = async (parentId: number, content: string) => {
+    const newComment = await createForumComment(thread.id, { content, parent_id: parentId });
+    setComments([...comments, newComment]);
+  };
+
+  const handleEditComment = async (commentId: number, content: string) => {
+    const updated = await updateForumComment(commentId, { content });
+    setComments(comments.map((c) => (c.id === commentId ? updated : c)));
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    await deleteForumComment(commentId);
+    setComments(comments.filter((c) => c.id !== commentId));
+  };
+
+  const handleSelectSolution = async (commentId: number | null) => {
+    try {
+      const updatedThread = await toggleThreadSolve(thread.id, commentId);
+      setThread(updatedThread);
+    } catch (err) {
+      console.error("Failed to set thread solution:", err);
+    }
+  };
+
+  const handleTogglePin = async () => {
+    try {
+      const updated = await toggleThreadPin(thread.id);
+      setThread(updated);
+    } catch (err) {
+      console.error("Failed to toggle pin:", err);
+    }
+  };
+
+  const handleToggleClose = async () => {
+    try {
+      const updated = await toggleThreadClose(thread.id);
+      setThread(updated);
+    } catch (err) {
+      console.error("Failed to toggle close status:", err);
+    }
+  };
+
+  // Condition to allow thread author to select solution
+  const canSelectSolution = !!(user && category?.type === "support" && isThreadOwner);
+
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
-      
       {/* Back Button */}
       <Link
         to="/app/forums"
@@ -142,276 +208,178 @@ export default function ForumThread() {
 
       {/* 2-Column Reddit Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
         {/* Left Column: Post and Comments */}
         <div className="lg:col-span-8 space-y-6">
-          
           {/* Main Thread Card */}
           <div className="glass rounded-xl overflow-hidden border border-border flex">
-            
             {/* Reddit Vote Panel */}
-            {isLoading ? (
-              <div className="hidden sm:flex flex-col items-center gap-2 py-4 px-3 bg-surface-900/30 border-r border-border/50 w-12 flex-shrink-0 animate-pulse">
-                <div className="w-5 h-5 rounded bg-surface-800/60" />
-                <div className="w-6 h-4 rounded bg-surface-800/60" />
-                <div className="w-5 h-5 rounded bg-surface-800/60" />
-              </div>
-            ) : (
-              <div className="hidden sm:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleThreadVote("up")}
-                  className={`p-1 rounded hover:bg-white/5 transition-colors ${
-                    threadVote === "up" ? "text-primary" : "text-text-muted hover:text-text-primary"
-                  }`}
-                  aria-label="Upvote"
-                >
-                  <ChevronUp className="w-5 h-5" />
-                </button>
-                <span className={`text-xs font-bold font-mono ${
-                  threadVote === "up" ? "text-primary" : threadVote === "down" ? "text-error" : "text-text-primary"
-                }`}>
-                  {threadLikes}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleThreadVote("down")}
-                  className={`p-1 rounded hover:bg-white/5 transition-colors ${
-                    threadVote === "down" ? "text-error" : "text-text-muted hover:text-text-primary"
-                  }`}
-                  aria-label="Downvote"
-                >
-                  <ChevronDown className="w-5 h-5" />
-                </button>
-              </div>
-            )}
+            <div className="hidden sm:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
+              <VoteControl
+                score={thread.likes}
+                userVote={thread.userVote}
+                onVote={handleThreadVoteAction}
+                orientation="vertical"
+                size="md"
+              />
+            </div>
 
             {/* Post Detail Body */}
-            <div className={`flex-1 p-5 sm:p-6 space-y-4 ${isLoading ? "animate-pulse" : ""}`}>
-              {isLoading ? (
-                <>
-                  {/* Header Info Skeleton */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <SkeletonLine widthClass="w-24" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-48" heightClass="h-3" />
-                  </div>
-                  {/* Title Skeleton */}
-                  <SkeletonLine widthClass="w-11/12" heightClass="h-7" />
-                  {/* Content Skeleton (More lines to match actual text load) */}
-                  <div className="space-y-2.5 pt-2">
-                    <SkeletonLine widthClass="w-full" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-full" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-11/12" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-3/4" heightClass="h-4" />
-                  </div>
-                  {/* Footer Action Toolbar Skeleton (Prevents card height and width shift) */}
-                  <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
-                    <SkeletonLine widthClass="w-28" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-20" heightClass="h-4" />
-                    <div className="flex items-center gap-4 ml-auto">
-                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
-                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
-                      <SkeletonLine widthClass="w-16" heightClass="h-4" />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Header Info */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {category && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}>
-                        {category.name}
-                      </span>
-                    )}
-                    {thread.solved && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
-                        <CheckCircle className="w-2.5 h-2.5" /> Solved
-                      </span>
-                    )}
-                    <span className="text-[10px] text-text-muted">
-                      Posted by <span className="font-medium text-text-secondary">u/{thread.author.toLowerCase().replace(/\s+/g, "")}</span>
-                    </span>
-                    <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
-                  </div>
+            <div className="flex-1 p-5 sm:p-6 space-y-4">
+              {/* Header Info */}
+              <div className="flex flex-wrap items-center gap-2">
+                {category && (
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}
+                  >
+                    {category.name}
+                  </span>
+                )}
+                {thread.solved && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
+                    <CheckCircle className="w-2.5 h-2.5" /> Solved
+                  </span>
+                )}
+                {thread.pinned && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded-full">
+                    <Pin className="w-2.5 h-2.5" /> Pinned
+                  </span>
+                )}
+                {thread.closed && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-error bg-error/10 border border-error/20 px-2 py-0.5 rounded-full">
+                    <Lock className="w-2.5 h-2.5" /> Closed
+                  </span>
+                )}
+                <span className="text-[10px] text-text-muted">
+                  Posted by{" "}
+                  <span className="font-medium text-text-secondary">
+                    u/{thread.author.toLowerCase().replace(/\s+/g, "")}
+                  </span>
+                </span>
+                <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
+              </div>
 
-                  {/* Title */}
-                  <h1 className="text-xl sm:text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary leading-tight">
-                    {thread.title}
-                  </h1>
+              {/* Title */}
+              <h1 className="text-xl sm:text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary leading-tight">
+                {thread.title}
+              </h1>
 
-                  {/* Post Content HTML */}
-                  <div className="text-sm text-text-secondary leading-relaxed space-y-3 whitespace-pre-wrap pt-2">
-                    {thread.content}
-                  </div>
+              {/* Post Content HTML */}
+              <div className="text-sm text-text-secondary leading-relaxed space-y-3 whitespace-pre-wrap pt-2">
+                {thread.content}
+              </div>
 
-                  {/* Post Footer Action Toolbar */}
-                  <div className="flex items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
-                    <span className="inline-flex items-center gap-1">
-                      <MessageSquare className="w-3.5 h-3.5" /> {replies.length} comments
-                    </span>
-                    <span className="inline-flex items-center gap-1 sm:hidden">
-                      <Heart className="w-3.5 h-3.5" /> {threadLikes} likes
-                    </span>
-                    <span className="hidden sm:inline-flex items-center gap-1">
-                      <Eye className="w-3.5 h-3.5" /> {thread.views} views
-                    </span>
+              {/* Post Footer Action Toolbar */}
+              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <MessageSquare className="w-3.5 h-3.5" /> {comments.length} comments
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="w-3.5 h-3.5" /> {thread.views} views
+                </span>
 
+                {/* Admin controls */}
+                {isAdmin && (
+                  <div className="flex items-center gap-2.5 border-l border-border/40 pl-3">
                     <button
                       type="button"
-                      onClick={() => setIsSaved(!isSaved)}
-                      className={`inline-flex items-center gap-1 hover:text-primary transition-colors ml-auto ${
-                        isSaved ? "text-primary font-medium" : ""
+                      onClick={handleTogglePin}
+                      className={`inline-flex items-center gap-1 hover:text-warning transition-colors font-medium cursor-pointer ${
+                        thread.pinned ? "text-warning" : ""
                       }`}
                     >
-                      <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-primary/20" : ""}`} />
-                      <span>{isSaved ? "Saved" : "Save"}</span>
+                      <Pin className="w-3.5 h-3.5" />
+                      <span>{thread.pinned ? "Unpin" : "Pin"}</span>
                     </button>
-                    <button type="button" className="inline-flex items-center gap-1 hover:text-accent transition-colors">
-                      <Share2 className="w-3.5 h-3.5" /> Share
-                    </button>
-                    <button type="button" className="inline-flex items-center gap-1 hover:text-error transition-colors">
-                      <Flag className="w-3.5 h-3.5" /> Report
+                    <button
+                      type="button"
+                      onClick={handleToggleClose}
+                      className={`inline-flex items-center gap-1 hover:text-error transition-colors font-medium cursor-pointer ${
+                        thread.closed ? "text-error" : ""
+                      }`}
+                    >
+                      {thread.closed ? (
+                        <>
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Open</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Close</span>
+                        </>
+                      )}
                     </button>
                   </div>
-                </>
-              )}
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setIsSaved(!isSaved)}
+                  className={`inline-flex items-center gap-1 hover:text-primary transition-colors ml-auto cursor-pointer ${
+                    isSaved ? "text-primary font-medium" : ""
+                  }`}
+                >
+                  <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-primary/20" : ""}`} />
+                  <span>{isSaved ? "Saved" : "Save"}</span>
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-accent transition-colors cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Share
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 hover:text-error transition-colors cursor-pointer"
+                >
+                  <Flag className="w-3.5 h-3.5" /> Report
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Comments/Replies Section */}
           <div className="glass rounded-xl p-5 sm:p-6 space-y-6">
-            {isLoading ? (
-              <div className="border-b border-border pb-3 animate-pulse">
-                <SkeletonLine widthClass="w-32" heightClass="h-5" />
-              </div>
-            ) : (
-              <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)] border-b border-border pb-3">
-                Comments ({replies.length})
-              </h2>
-            )}
+            <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)] border-b border-border pb-3">
+              Comments ({comments.length})
+            </h2>
 
-            {/* Comment Form / Skeleton */}
-            {isLoading ? (
-              <div className="flex gap-3 animate-pulse">
-                <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0 mt-1" />
-                <div className="flex-1 space-y-2">
-                  <div className="w-full h-[88px] rounded-xl bg-surface-800/60 border border-border/10" />
-                  <div className="flex justify-end">
-                    <div className="w-28 h-8 rounded-lg bg-surface-800/60" />
-                  </div>
-                </div>
+            {/* Comment Form for new top level comment */}
+            {thread.closed ? (
+              <div className="flex items-center gap-2 p-3 bg-error/10 border border-error/20 text-error rounded-xl text-xs font-medium">
+                <Lock className="w-4 h-4" /> This thread is closed and no longer accepting comments.
               </div>
-            ) : user && (
-              <form onSubmit={handlePostReply} className="flex gap-3">
+            ) : user ? (
+              <div className="flex gap-3">
                 <img
                   src={user.avatar}
                   alt={user.name}
-                  className="w-8 h-8 rounded-full bg-surface-700 mt-1 flex-shrink-0"
+                  className="w-8 h-8 rounded-full bg-surface-700 mt-1 flex-shrink-0 object-cover"
                 />
-                <div className="flex-1 space-y-2">
-                  <textarea
-                    rows={3}
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="What are your thoughts?"
-                    className="w-full p-3 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none"
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={!replyText.trim()}
-                      variant="primary"
-                      className="px-4 py-2 text-xs"
-                      icon={<Send className="w-3 h-3" />}
-                    >
-                      Post Comment
-                    </Button>
-                  </div>
+                <div className="flex-1">
+                  <CommentForm onSubmit={handlePostTopComment} placeholder="Add a comment..." />
                 </div>
-              </form>
+              </div>
+            ) : (
+              <div className="p-3 bg-surface-900/30 border border-border/40 text-text-muted rounded-xl text-xs text-center">
+                Please login to participate in discussions.
+              </div>
             )}
 
-            {/* Replies List */}
-            <div className="space-y-4 pt-2">
-              {isLoading ? (
-                <>
-                  {Array.from({ length: Math.min(initialReplies.length || 3, 8) }).map((_, i) => (
-                    <div key={i} className="flex gap-3 animate-pulse">
-                      <SkeletonCircle className="w-8 h-8 bg-surface-800 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0 bg-surface-900/20 rounded-xl p-3.5 border border-border/40 space-y-2.5">
-                        <SkeletonLine widthClass="w-1/4" heightClass="h-3" />
-                        <SkeletonLine widthClass="w-full" heightClass="h-4" />
-                        <SkeletonLine widthClass="w-5/6" heightClass="h-4" />
-                      </div>
-                    </div>
-                  ))}
-                </>
-              ) : (
-                replies.map((reply) => {
-                  const currentVote = replyVotes[reply.id] || null;
-                  const currentLikes = replyLikes[reply.id] ?? reply.likes;
-
-                  return (
-                    <div key={reply.id} className="flex items-start gap-3 text-sm group">
-                      <img
-                        src={reply.authorAvatar}
-                        alt={reply.author}
-                        className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0 bg-surface-900/20 rounded-xl p-3.5 border border-border/40">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-semibold text-text-secondary">
-                            u/{reply.author.toLowerCase().replace(/\s+/g, "")}
-                          </span>
-                          <span className="text-[10px] text-text-muted">{reply.createdAt}</span>
-                        </div>
-                        <p className="text-text-primary leading-relaxed whitespace-pre-wrap">{reply.content}</p>
-
-                        {/* Reply Action Toolbar */}
-                        <div className="flex items-center gap-4 mt-3 text-xs text-text-muted border-t border-border/10 pt-2.5">
-                          <div className="flex items-center gap-1.5 bg-surface-850 px-2 py-0.5 rounded-lg border border-border/45">
-                            <button
-                              type="button"
-                              onClick={() => handleReplyVote(reply.id, "up")}
-                              className={`hover:text-primary transition-colors ${
-                                currentVote === "up" ? "text-primary" : ""
-                              }`}
-                              aria-label="Upvote reply"
-                            >
-                              <ChevronUp className="w-3.5 h-3.5" />
-                            </button>
-                            <span className={`text-[10px] font-bold font-mono ${
-                              currentVote === "up" ? "text-primary" : currentVote === "down" ? "text-error" : "text-text-muted"
-                            }`}>
-                              {currentLikes}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleReplyVote(reply.id, "down")}
-                              className={`hover:text-error transition-colors ${
-                                currentVote === "down" ? "text-error" : ""
-                              }`}
-                              aria-label="Downvote reply"
-                            >
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          <button type="button" className="text-[11px] font-medium hover:text-primary transition-colors">
-                            Reply
-                          </button>
-                          
-                          <button type="button" className="text-[11px] font-medium hover:text-error transition-colors ml-auto">
-                            Report
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+            {/* Nested Comments Tree */}
+            <div className="pt-2">
+              <CommentTree
+                comments={comments}
+                threadAuthorId={thread.authorId}
+                isThreadClosed={thread.closed}
+                solutionCommentId={thread.solutionCommentId}
+                canSelectSolution={canSelectSolution}
+                onSelectSolution={handleSelectSolution}
+                onVote={handleCommentVoteAction}
+                onReply={handlePostReply}
+                onEdit={handleEditComment}
+                onDelete={handleDeleteComment}
+              />
             </div>
           </div>
         </div>
@@ -419,143 +387,79 @@ export default function ForumThread() {
         {/* Right Column: Sidebar Panels */}
         <div className="lg:col-span-4">
           <div className="space-y-6 sticky top-20">
-            
             {/* About Category/Community Card */}
-            <div className={`glass rounded-xl overflow-hidden border border-border ${isLoading ? "animate-pulse" : ""}`}>
+            <div className="glass rounded-xl overflow-hidden border border-border">
               <div className="h-4 bg-gradient-to-r from-primary/35 to-accent/35" />
               <div className="p-4 space-y-3">
-                {isLoading ? (
-                  <>
-                    {/* Header Skeleton */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-surface-800/60" />
-                      <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
-                    </div>
-                    {/* Description Paragraph Skeletons */}
-                    <div className="space-y-2">
-                      <SkeletonLine widthClass="w-1/2" heightClass="h-4" />
-                      <SkeletonLine widthClass="w-full" heightClass="h-3" />
-                      <SkeletonLine widthClass="w-5/6" heightClass="h-3" />
-                    </div>
-                    {/* Stats Grid Skeletons */}
-                    <div className="grid grid-cols-2 gap-4 py-2 border-y border-border/40">
-                      <div className="space-y-1">
-                        <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
-                        <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
-                      </div>
-                      <div className="space-y-1">
-                        <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
-                        <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
-                      </div>
-                    </div>
-                    {/* Rules Skeletons */}
-                    <div className="space-y-1.5 pt-1">
-                      <SkeletonLine widthClass="w-1/4" heightClass="h-3" />
-                      <SkeletonLine widthClass="w-2/3" heightClass="h-2.5" />
-                      <SkeletonLine widthClass="w-3/4" heightClass="h-2.5" />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Info className="w-4 h-4 text-primary" />
-                      <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                        Category details
-                      </h3>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-text-primary leading-tight">
-                        {category?.name || "Forums"}
-                      </h4>
-                      <p className="text-xs text-text-muted mt-1 leading-relaxed">
-                        {category?.description || "Exchange cyber knowledge with members."}
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 py-2 border-y border-border">
-                      <div>
-                        <span className="text-[10px] text-text-muted block">Total Threads</span>
-                        <span className="text-xs font-bold text-text-primary">
-                          {category?.threadCount || 10}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-[10px] text-text-muted block">Members Online</span>
-                        <span className="text-xs font-bold text-success">🟢 14</span>
-                      </div>
-                    </div>
-                    <div className="text-[10px] text-text-muted space-y-1">
-                      <p className="font-semibold text-text-secondary uppercase">Community Rules:</p>
-                      <p>1. Respect each other.</p>
-                      <p>2. Do not share illegal exploits/cracks.</p>
-                      <p>3. Use appropriate category tags.</p>
-                    </div>
-                  </>
-                )}
+                <div className="flex items-center gap-2">
+                  <Info className="w-4 h-4 text-primary" />
+                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                    Category details
+                  </h3>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-text-primary leading-tight">
+                    {category?.name || "Forums"}
+                  </h4>
+                  <p className="text-xs text-text-muted mt-1 leading-relaxed">
+                    {category?.description || "Exchange cyber knowledge with members."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 py-2 border-y border-border">
+                  <div>
+                    <span className="text-[10px] text-text-muted block">Total Threads</span>
+                    <span className="text-xs font-bold text-text-primary">
+                      {category?.threadCount || 0}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-text-muted block">Type</span>
+                    <span className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                      {category?.type || "discussion"}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[10px] text-text-muted space-y-1">
+                  <p className="font-semibold text-text-secondary uppercase">Community Rules:</p>
+                  <p>1. Respect each other.</p>
+                  <p>2. Do not share illegal exploits/cracks.</p>
+                  <p>3. Use appropriate category tags.</p>
+                </div>
               </div>
             </div>
 
             {/* Original Poster Card */}
-            <div className={`glass rounded-xl p-4 border border-border space-y-3 ${isLoading ? "animate-pulse" : ""}`}>
-              {isLoading ? (
-                <>
-                  {/* Header Skeleton */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-surface-800/60" />
-                    <SkeletonLine widthClass="w-1/3" heightClass="h-3.5" />
-                  </div>
-                  {/* Avatar & Name Skeletons */}
-                  <div className="flex items-center gap-3">
-                    <SkeletonCircle className="w-10 h-10 bg-surface-800" />
-                    <div className="space-y-1.5 flex-1">
-                      <SkeletonLine widthClass="w-1/2" heightClass="h-3.5" />
-                      <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
-                    </div>
-                  </div>
-                  {/* Join Date Skeleton */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3.5 h-3.5 rounded bg-surface-800/60" />
-                    <SkeletonLine widthClass="w-1/3" heightClass="h-3" />
-                  </div>
-                  {/* Profile Button Skeleton */}
-                  <div className="w-full h-8 rounded-xl bg-surface-800/60 border border-border/10" />
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-                    <Award className="w-4 h-4 text-primary" /> About Author
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={thread.authorAvatar}
-                      alt={thread.author}
-                      className="w-10 h-10 rounded-full bg-surface-700"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-text-primary">{thread.author}</p>
-                      <span className="inline-flex items-center text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.25 rounded mt-0.5 uppercase tracking-wide">
-                        Original Poster
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>Joined July 2025</span>
-                  </div>
-                  <Link
-                    to={`/app/profile?name=${encodeURIComponent(thread.author)}`}
-                    className="w-full flex items-center justify-center py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
-                  >
-                    View Author Profile
-                  </Link>
-                </>
-              )}
+            <div className="glass rounded-xl p-4 border border-border space-y-3">
+              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-primary" /> About Author
+              </h3>
+              <div className="flex items-center gap-3">
+                <img
+                  src={thread.authorAvatar}
+                  alt={thread.author}
+                  className="w-10 h-10 rounded-full bg-surface-700 object-cover"
+                />
+                <div>
+                  <p className="text-xs font-bold text-text-primary">{thread.author}</p>
+                  <span className="inline-flex items-center text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.25 rounded mt-0.5 uppercase tracking-wide">
+                    {thread.authorRole}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Joined Cyberlogic Club</span>
+              </div>
+              <Link
+                to={`/app/profile?name=${encodeURIComponent(thread.author)}`}
+                className="w-full flex items-center justify-center py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
+              >
+                View Author Profile
+              </Link>
             </div>
-
           </div>
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -29,7 +29,7 @@ class User extends Authenticatable
      */
     public function getNameAttribute(): string
     {
-        return trim("{$this->first_name} " . ($this->middle_name ? "{$this->middle_name} " : "") . $this->last_name);
+        return trim("{$this->first_name} ".($this->middle_name ? "{$this->middle_name} " : '').$this->last_name);
     }
 
     /**
@@ -38,9 +38,10 @@ class User extends Authenticatable
     public function getAvatarAttribute(): string
     {
         if ($this->avatar_path) {
-            return asset('storage/' . $this->avatar_path);
+            return asset('storage/'.$this->avatar_path);
         }
-        return "https://api.dicebear.com/9.x/avataaars/svg?seed=" . urlencode($this->first_name);
+
+        return 'https://api.dicebear.com/9.x/avataaars/svg?seed='.urlencode($this->first_name);
     }
 
     /**
@@ -63,5 +64,29 @@ class User extends Authenticatable
             'password' => 'hashed',
             'birthday' => 'date',
         ];
+    }
+
+    /**
+     * Get the forum threads for the user.
+     */
+    public function forumThreads()
+    {
+        return $this->hasMany(ForumThread::class);
+    }
+
+    /**
+     * Get the forum comments for the user.
+     */
+    public function forumComments()
+    {
+        return $this->hasMany(ForumComment::class);
+    }
+
+    /**
+     * Get the forum votes for the user.
+     */
+    public function forumVotes()
+    {
+        return $this->hasMany(ForumVote::class);
     }
 }

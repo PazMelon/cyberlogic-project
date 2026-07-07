@@ -1,14 +1,18 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\ForumCategoryController;
+use App\Http\Controllers\ForumCommentController;
+use App\Http\Controllers\ForumThreadController;
+use App\Http\Controllers\ForumVoteController;
+use Illuminate\Support\Facades\Route;
 
 // Public API endpoints
 Route::get('/api/csrf-cookie', function () {
     return response()->json([
-        'csrf_token' => csrf_token()
+        'csrf_token' => csrf_token(),
     ]);
 });
 
@@ -21,6 +25,12 @@ Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);
 Route::get('/api/events', [EventController::class, 'index']);
 Route::get('/api/events/{id}', [EventController::class, 'show']);
 
+// Public Forum API endpoints
+Route::get('/api/forum/categories', [ForumCategoryController::class, 'index']);
+Route::get('/api/forum/threads', [ForumThreadController::class, 'index']);
+Route::get('/api/forum/threads/{id}', [ForumThreadController::class, 'show']);
+Route::get('/api/forum/threads/{threadId}/comments', [ForumCommentController::class, 'index']);
+
 // Authenticated API endpoints
 Route::middleware('auth')->group(function () {
     Route::post('/api/logout', [AuthController::class, 'logout']);
@@ -28,13 +38,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/api/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/api/user/avatar', [AuthController::class, 'uploadAvatar']);
-    
+
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);
     Route::put('/api/users/{id}/role', [AuthController::class, 'updateRole']);
     Route::put('/api/users/{id}/approve', [AuthController::class, 'approve']);
     Route::delete('/api/users/{id}', [AuthController::class, 'destroy']);
-    
+
     // CMS Blog Builder Actions protected by session auth and throttle limiters
     Route::post('/api/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:10,1');
     Route::put('/api/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('throttle:10,1');
@@ -47,6 +57,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/events', [EventController::class, 'store'])->middleware('throttle:10,1');
     Route::put('/api/events/{id}', [EventController::class, 'update'])->middleware('throttle:10,1');
     Route::delete('/api/events/{id}', [EventController::class, 'destroy']);
+
+    // Secure Forum actions
+    Route::post('/api/forum/threads', [ForumThreadController::class, 'store'])->middleware('throttle:10,1');
+    Route::put('/api/forum/threads/{id}', [ForumThreadController::class, 'update']);
+    Route::delete('/api/forum/threads/{id}', [ForumThreadController::class, 'destroy']);
+    Route::put('/api/forum/threads/{id}/pin', [ForumThreadController::class, 'togglePin']);
+    Route::put('/api/forum/threads/{id}/close', [ForumThreadController::class, 'toggleClose']);
+    Route::put('/api/forum/threads/{id}/solve', [ForumThreadController::class, 'toggleSolve']);
+    Route::post('/api/forum/threads/{threadId}/comments', [ForumCommentController::class, 'store'])->middleware('throttle:30,1');
+    Route::put('/api/forum/comments/{id}', [ForumCommentController::class, 'update']);
+    Route::delete('/api/forum/comments/{id}', [ForumCommentController::class, 'destroy']);
+    Route::post('/api/forum/threads/{id}/vote', [ForumVoteController::class, 'voteThread']);
+    Route::post('/api/forum/comments/{id}/vote', [ForumVoteController::class, 'voteComment']);
 });
 
 // React SPA fallback handler
@@ -55,5 +78,6 @@ Route::fallback(function () {
     if (file_exists($indexPath)) {
         return file_get_contents($indexPath);
     }
+
     return response('React frontend is not built yet. Please run "npm run build" in the frontend directory.', 404);
 });

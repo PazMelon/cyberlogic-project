@@ -1,8 +1,15 @@
 import { Link } from "react-router";
 import { MessageSquare, Heart, Eye, Pin, CheckCircle } from "lucide-react";
-import { forumCategories } from "../../data/mockData";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
+
+const defaultCategories = [
+  { id: "general", name: "General Discussion", color: "primary" },
+  { id: "tech-talk", name: "Tech Talk", color: "accent" },
+  { id: "help", name: "Help & Support", color: "success" },
+  { id: "ctf", name: "CTF Challenges", color: "error" },
+  { id: "off-topic", name: "Off-Topic", color: "warning" },
+];
 
 interface ForumThread {
   id: number;
@@ -26,7 +33,7 @@ interface ForumThreadCardProps {
 }
 
 export function ForumThreadCard({ thread, mode = "full" }: ForumThreadCardProps) {
-  const category = forumCategories.find((c) => c.id === thread.categoryId);
+  const category = defaultCategories.find((c) => c.id === thread.categoryId);
 
   const getCategoryColorVariant = (colorName?: string) => {
     const map: Record<string, "primary" | "accent" | "success" | "warning" | "error" | "info" | "neutral"> = {

@@ -1,0 +1,220 @@
+import { useState } from "react";
+import { MessageSquare, Shield, CheckCircle, Trash2, Edit3 } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import type { ForumCommentMapped } from "../../utils/api";
+import { VoteControl } from "./VoteControl";
+import { CommentForm } from "./CommentForm";
+
+interface CommentItemProps {
+  comment: ForumCommentMapped;
+  threadAuthorId: number;
+  isThreadClosed: boolean;
+  solutionCommentId: number | null;
+  canSelectSolution: boolean;
+  onSelectSolution: (commentId: number | null) => void;
+  onVote: (commentId: number, direction: "up" | "down") => void;
+  onReply: (parentId: number, content: string) => Promise<void>;
+  onEdit: (commentId: number, content: string) => Promise<void>;
+  onDelete: (commentId: number) => Promise<void>;
+  allComments: ForumCommentMapped[];
+  depth?: number;
+}
+
+export function CommentItem({
+  comment,
+  threadAuthorId,
+  isThreadClosed,
+  solutionCommentId,
+  canSelectSolution,
+  onSelectSolution,
+  onVote,
+  onReply,
+  onEdit,
+  onDelete,
+  allComments,
+  depth = 0
+}: CommentItemProps) {
+  const { user } = useAuth();
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+
+  const isOwner = user?.id === comment.authorId;
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const isSolution = solutionCommentId === comment.id;
+
+  // Filter replies (child comments of this comment)
+  const childReplies = allComments.filter((c) => c.parentId === comment.id);
+
+  const handlePostReply = async (content: string) => {
+    await onReply(comment.id, content);
+    setShowReplyForm(false);
+  };
+
+  const handleUpdateComment = async (content: string) => {
+    await onEdit(comment.id, content);
+    setShowEditForm(false);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div
+        className={`flex items-start gap-3 text-sm transition-all rounded-xl p-3.5 border ${
+          isSolution
+            ? "border-success bg-success/5 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
+            : "border-border/40 bg-surface-900/20"
+        }`}
+      >
+        <img
+          src={comment.authorAvatar}
+          alt={comment.author}
+          className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 mt-0.5 object-cover"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-text-secondary">
+                u/{comment.author.toLowerCase().replace(/\s+/g, "")}
+              </span>
+              {comment.authorRole !== "Member" && (
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 text-[9px] font-bold rounded bg-primary/10 text-primary border border-primary/20">
+                  <Shield className="w-2.5 h-2.5" /> {comment.authorRole}
+                </span>
+              )}
+              {comment.authorId === threadAuthorId && (
+                <span className="inline-flex items-center text-[9px] font-semibold text-accent bg-accent/10 px-1.5 py-0.25 rounded border border-accent/25 uppercase tracking-wide">
+                  OP
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-text-muted">{comment.createdAt}</span>
+          </div>
+
+          {/* Solution Banner */}
+          {isSolution && (
+            <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-success bg-success/15 border border-success/30 px-2 py-0.5 rounded-full mb-2">
+              <CheckCircle className="w-3 h-3 fill-success/10" /> Accepted Solution
+            </div>
+          )}
+
+          {showEditForm ? (
+            <div className="mt-2">
+              <CommentForm
+                initialValue={comment.content}
+                onSubmit={handleUpdateComment}
+                onCancel={() => setShowEditForm(false)}
+                buttonText="Save Edits"
+                autoFocus
+              />
+            </div>
+          ) : (
+            <p className="text-text-primary leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+          )}
+
+          {/* Comment Action Toolbar */}
+          {!showEditForm && (
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-text-muted border-t border-border/10 pt-2.5">
+              {/* Vote controls */}
+              <VoteControl
+                score={comment.likes}
+                userVote={comment.userVote}
+                onVote={(direction) => onVote(comment.id, direction)}
+                orientation="horizontal"
+                size="sm"
+              />
+
+              {/* Reply */}
+              {!isThreadClosed && user && (
+                <button
+                  type="button"
+                  onClick={() => setShowReplyForm(!showReplyForm)}
+                  className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Reply
+                </button>
+              )}
+
+              {/* Accepted Answer selection toggle */}
+              {canSelectSolution && (
+                <button
+                  type="button"
+                  onClick={() => onSelectSolution(isSolution ? null : comment.id)}
+                  className={`text-[11px] font-medium flex items-center gap-1 transition-colors hover:text-success cursor-pointer ${
+                    isSolution ? "text-success" : "text-text-muted"
+                  }`}
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  {isSolution ? "Unmark Solution" : "Mark as Solution"}
+                </button>
+              )}
+
+              {/* Edit Comment */}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditForm(true)}
+                  className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+              )}
+
+              {/* Delete Comment */}
+              {(isOwner || isAdmin) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm("Are you sure you want to delete this comment?")) {
+                      onDelete(comment.id);
+                    }
+                  }}
+                  className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer ml-auto"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Delete
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Reply Form */}
+      {showReplyForm && (
+        <div className="pl-6 border-l border-border/30">
+          <CommentForm
+            placeholder={`Reply to u/${comment.author.toLowerCase().replace(/\s+/g, "")}...`}
+            buttonText="Post Reply"
+            onSubmit={handlePostReply}
+            onCancel={() => setShowReplyForm(false)}
+            autoFocus
+          />
+        </div>
+      )}
+
+      {/* Recursive replies rendering */}
+      {childReplies.length > 0 && (
+        <div className="pl-6 border-l border-border/30 space-y-4 pt-1">
+          {childReplies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply}
+              threadAuthorId={threadAuthorId}
+              isThreadClosed={isThreadClosed}
+              solutionCommentId={solutionCommentId}
+              canSelectSolution={canSelectSolution}
+              onSelectSolution={onSelectSolution}
+              onVote={onVote}
+              onReply={onReply}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              allComments={allComments}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

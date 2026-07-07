@@ -1,14 +1,15 @@
 import { Link } from "react-router";
 import { MessageSquare, ThumbsUp, ArrowRight, Flame, CheckCircle2 } from "lucide-react";
-import { forumThreads, type ForumCategory } from "../../data/mockData";
+import type { ForumThreadMapped, ForumCategoryMapped } from "../../utils/api";
 
 interface CategoryNewestCardProps {
-  category: ForumCategory;
+  category: ForumCategoryMapped;
+  threads: ForumThreadMapped[];
 }
 
-export function CategoryNewestCard({ category }: CategoryNewestCardProps) {
+export function CategoryNewestCard({ category, threads }: CategoryNewestCardProps) {
   // Get newest 10 threads in this category
-  const newestThreads = [...forumThreads]
+  const newestThreads = threads
     .filter((t) => t.categoryId === category.id)
     .sort((a, b) => b.id - a.id)
     .slice(0, 10);

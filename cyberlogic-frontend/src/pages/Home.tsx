@@ -6,9 +6,17 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { fetchAnnouncements, fetchEvents } from "../utils/api";
+import {
+  fetchAnnouncements,
+  fetchEvents,
+  fetchForumCategories,
+  fetchForumThreads
+} from "../utils/api";
+import type {
+  ForumCategoryMapped,
+  ForumThreadMapped
+} from "../utils/api";
 import type { Announcement, Event } from "../data/mockData";
-import { forumCategories } from "../data/mockData";
 import { SkeletonLine, SkeletonBox } from "../components/Skeleton";
 import { EventCard, AnnouncementCard } from "../components/ui";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
@@ -26,14 +34,20 @@ export default function Home() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
   const [totalUpcomingCount, setTotalUpcomingCount] = useState(0);
   const [nextEventDateStr, setNextEventDateStr] = useState("None scheduled");
+  const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
+  const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [annData, evData] = await Promise.all([
+        const [annData, evData, catsData, threadsData] = await Promise.all([
           fetchAnnouncements(),
-          fetchEvents()
+          fetchEvents(),
+          fetchForumCategories(),
+          fetchForumThreads()
         ]);
+        setCategories(catsData);
+        setThreads(threadsData);
         
         const todayStr = new Date().toISOString().split('T')[0];
         const upcoming = evData.filter((e) => e.date >= todayStr);
@@ -119,8 +133,8 @@ export default function Home() {
               </div>
             ))
           ) : (
-            forumCategories.map((cat) => (
-              <CategoryNewestCard key={cat.id} category={cat} />
+            categories.map((cat) => (
+              <CategoryNewestCard key={cat.id} category={cat} threads={threads} />
             ))
           )}
         </div>
