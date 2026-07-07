@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { useEffect } from "react";
+import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import PublicLayout from "./layouts/PublicLayout";
@@ -199,7 +200,7 @@ function AppRoutes() {
 export default function App() {
   useEffect(() => {
     const savedTheme = localStorage.getItem("cl-theme") || "cyberpunk";
-    document.documentElement.setAttribute("data-theme", savedTheme);
+    applyGlobalTheme(savedTheme);
   }, []);
 
   return (

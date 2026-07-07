@@ -9,6 +9,7 @@ import {
   Trash2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { applyGlobalTheme } from "../utils/theme";
 
 export default function Settings() {
   const { user, updateProfile, updatePassword } = useAuth();
@@ -160,11 +161,7 @@ export default function Settings() {
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    localStorage.setItem("cl-theme", newTheme);
-    // Dynamic theme applying demo
-    document.documentElement.setAttribute("data-theme", newTheme);
-    // Clear inline terminal styles so standard theme CSS takes full effect
-    document.documentElement.removeAttribute("style");
+    applyGlobalTheme(newTheme);
   };
 
   return (
