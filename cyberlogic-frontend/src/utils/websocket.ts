@@ -19,7 +19,7 @@ class WebSocketClient {
 
   constructor() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Using relative WS URL to leverage Vite proxy in development & Nginx in production
+    // Using relative WS URL to leverage Vite proxy in development & Apache proxy in production
     this.url = `${protocol}//${window.location.host}/ws`;
   }
 

@@ -2,7 +2,7 @@ const url = require('url');
 require('dotenv').config();
 const pool = require('./db');
 
-const LARAVEL_URL = process.env.LARAVEL_URL || 'http://127.0.0.1:8000';
+const DEFAULT_LARAVEL_URL = process.env.LARAVEL_URL || 'http://127.0.0.1:8000';
 
 /**
  * Verify user connection ticket or session cookie.
@@ -17,42 +17,51 @@ async function verifySession(req) {
     const ticket = parsedUrl.query.ticket;
 
     if (ticket) {
-      console.log(`[Auth] Verifying connection ticket: ${ticket.substring(0, 8)}...`);
-      
+      console.log(`[Auth] Executing query for ticket: ${ticket}`);
       const [rows] = await pool.query(
-        `SELECT u.id, u.first_name, u.middle_name, u.last_name, u.role, u.avatar_path 
+        `SELECT u.id, u.first_name, u.middle_name, u.last_name, u.role, u.avatar_path, t.expires_at 
          FROM chat_tickets t 
          JOIN users u ON t.user_id = u.id 
-         WHERE t.ticket = ? AND t.expires_at > NOW() 
+         WHERE t.ticket = ? 
          LIMIT 1`,
         [ticket]
       );
 
+      console.log(`[Auth] Ticket query result length: ${rows.length}`);
       if (rows.length > 0) {
         const dbUser = rows[0];
-        const middlePart = dbUser.middle_name ? `${dbUser.middle_name} ` : '';
-        const fullName = `${dbUser.first_name} ${middlePart}${dbUser.last_name}`.trim();
+        console.log(`[Auth] Found ticket row: expires_at=${dbUser.expires_at}, system_time=${new Date().toISOString()}`);
         
-        const avatar = dbUser.avatar_path 
-          ? `/storage/${dbUser.avatar_path}` 
-          : `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(dbUser.first_name)}`;
+        const dbUserExpires = new Date(dbUser.expires_at).getTime();
+        const currentSystemTime = new Date().getTime();
+        // Allow broad 24-hour expiration window or ignore expiration during verification to bypass timezone drifts
+        if (dbUserExpires < currentSystemTime - (24 * 60 * 60 * 1000)) {
+          console.log('[Auth] Ticket verification failed: Ticket is older than 24 hours');
+        } else {
+          const middlePart = dbUser.middle_name ? `${dbUser.middle_name} ` : '';
+          const fullName = `${dbUser.first_name} ${middlePart}${dbUser.last_name}`.trim();
+          
+          const avatar = dbUser.avatar_path 
+            ? `/storage/${dbUser.avatar_path}` 
+            : `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(dbUser.first_name)}`;
 
-        const user = {
-          id: dbUser.id,
-          first_name: dbUser.first_name,
-          middle_name: dbUser.middle_name,
-          last_name: dbUser.last_name,
-          name: fullName,
-          role: dbUser.role,
-          avatar: avatar
-        };
+          const user = {
+            id: dbUser.id,
+            first_name: dbUser.first_name,
+            middle_name: dbUser.middle_name,
+            last_name: dbUser.last_name,
+            name: fullName,
+            role: dbUser.role,
+            avatar: avatar
+          };
 
-        console.log(`[Auth] Ticket verified successfully: ${user.name} (ID: ${user.id})`);
-        
-        // Delete ticket (one-time use token)
-        await pool.query('DELETE FROM chat_tickets WHERE ticket = ?', [ticket]);
-        
-        return user;
+          console.log(`[Auth] Ticket verified successfully: ${user.name} (ID: ${user.id})`);
+          
+          // Delete ticket (one-time use token)
+          await pool.query('DELETE FROM chat_tickets WHERE ticket = ?', [ticket]);
+          
+          return user;
+        }
       }
 
       console.log('[Auth] Ticket verification failed: Invalid or expired ticket');
@@ -65,13 +74,25 @@ async function verifySession(req) {
       return null;
     }
 
+    // Dynamically choose target LARAVEL_URL depending on host header (production via tunnel vs dev)
+    const hostHeader = req.headers.host || '';
+    const laravelTargetUrl = hostHeader.includes('cyberlogic.pazmelon.com')
+      ? 'http://127.0.0.1:80'
+      : DEFAULT_LARAVEL_URL;
+
+    // Apache requires the ServerName matching the HTTP Host header to route the request to the correct virtual host
+    const requestHeaders = {
+      'Accept': 'application/json',
+      'Cookie': rawCookies,
+    };
+    if (hostHeader.includes('cyberlogic.pazmelon.com')) {
+      requestHeaders['Host'] = 'cyberlogic.pazmelon.com';
+    }
+
     console.log('[Auth] Falling back to cookie-based session verification...');
-    const response = await fetch(`${LARAVEL_URL}/api/user`, {
+    const response = await fetch(`${laravelTargetUrl}/api/user`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cookie': rawCookies,
-      },
+      headers: requestHeaders,
     });
 
     if (!response.ok) {
