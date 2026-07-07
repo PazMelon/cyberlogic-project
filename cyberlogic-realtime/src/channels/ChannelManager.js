@@ -317,9 +317,9 @@ class ChannelManager {
     if (!messageId || !emoji) return;
 
     try {
-      // 1. Check if reaction exists
+      // 1. Check if reaction exists (using BINARY to prevent MySQL emoji equivalence collation collision)
       const [existing] = await pool.query(
-        'SELECT id FROM chat_message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ? LIMIT 1',
+        'SELECT id FROM chat_message_reactions WHERE message_id = ? AND user_id = ? AND BINARY emoji = ? LIMIT 1',
         [messageId, user.id, emoji]
       );
 

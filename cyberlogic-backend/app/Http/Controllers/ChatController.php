@@ -138,7 +138,7 @@ class ChatController extends Controller
 
         $existing = ChatMessageReaction::where('message_id', $messageId)
             ->where('user_id', $user->id)
-            ->where('emoji', $emoji)
+            ->whereRaw('BINARY emoji = ?', [$emoji])
             ->first();
 
         if ($existing) {
