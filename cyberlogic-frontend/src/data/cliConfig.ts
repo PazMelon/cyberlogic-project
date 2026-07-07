@@ -100,6 +100,7 @@ Type 'cat contact.txt' for contact info.`,
 #   - light_mint    (Soothing Green Light - Mint & Sky)
 #   - light_lavender (Lavender Mist Light - Purple & Pink)
 #   - light_retro   (Warm Sand Light - Brown & Teal)
+#   - maroon_spider (Maroon Spider - Maroon & Black)
 
 current_theme=cyber`,
   },

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Announcement;
 use App\Models\User;
+use App\Models\SiteSetting;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -69,5 +70,12 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(ForumSeeder::class);
+        $this->call(ChatChannelSeeder::class);
+
+        // Seed site settings defaults
+        SiteSetting::updateOrCreate(
+            ['key' => 'default_theme'],
+            ['value' => 'cyberpunk']
+        );
     }
 }

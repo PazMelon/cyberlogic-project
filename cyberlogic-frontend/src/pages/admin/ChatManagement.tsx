@@ -3,7 +3,6 @@ import {
   Plus, 
   Pencil, 
   Trash2, 
-  Shield, 
   Lock, 
   Eye, 
   AlertTriangle, 
@@ -207,28 +206,31 @@ export default function ChatManagement() {
   const channelColumns = [
     {
       header: "Sorting",
-      accessor: (_ch: DbChatChannel, index: number) => (
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            disabled={index === 0}
-            onClick={() => handleMoveChannel(index, "up")}
-            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
-            title="Move Up"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            disabled={index === channels.length - 1}
-            onClick={() => handleMoveChannel(index, "down")}
-            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
-            title="Move Down"
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
+      accessor: (ch: DbChatChannel) => {
+        const index = channels.findIndex((c) => c.id === ch.id);
+        return (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              disabled={index <= 0}
+              onClick={() => handleMoveChannel(index, "up")}
+              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
+              title="Move Up"
+            >
+              <ArrowUp className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={index < 0 || index === channels.length - 1}
+              onClick={() => handleMoveChannel(index, "down")}
+              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
+              title="Move Down"
+            >
+              <ArrowDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      },
       className: "w-20"
     },
     {

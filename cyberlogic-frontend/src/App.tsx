@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { useEffect } from "react";
 import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { fetchSiteSettings } from "./utils/api";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import PublicLayout from "./layouts/PublicLayout";
 import AuthLayout from "./layouts/AuthLayout";
@@ -111,6 +112,49 @@ function GuestGate({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    const initTheme = async () => {
+      // 1. Resolve cached default theme synchronously
+      const cachedDefault = localStorage.getItem("cl-default-theme") || "cyberpunk";
+
+      // 2. Resolve final theme
+      let resolvedTheme = "";
+      if (isAuthenticated && user) {
+        resolvedTheme = localStorage.getItem(`cl-theme-user-${user.id}`) || cachedDefault;
+      } else {
+        resolvedTheme = localStorage.getItem("cl-theme-guest") || cachedDefault;
+      }
+
+      // Apply synchronously first to avoid FOUC/visual flash!
+      applyGlobalTheme(resolvedTheme, isAuthenticated && user ? user.id : null);
+
+      // 3. Fetch backend settings updates in the background
+      try {
+        const settings = await fetchSiteSettings();
+        if (settings && settings.default_theme && settings.default_theme !== cachedDefault) {
+          localStorage.setItem("cl-default-theme", settings.default_theme);
+
+          // Check if there is no user override
+          const userOverride = isAuthenticated && user 
+            ? localStorage.getItem(`cl-theme-user-${user.id}`) 
+            : localStorage.getItem("cl-theme-guest");
+
+          if (!userOverride) {
+            applyGlobalTheme(settings.default_theme, isAuthenticated && user ? user.id : null);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load default site theme:", err);
+      }
+    };
+
+    if (!isLoading) {
+      initTheme();
+    }
+  }, [isAuthenticated, user, isLoading]);
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -198,11 +242,6 @@ function AppRoutes() {
 }
 
 export default function App() {
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("cl-theme") || "cyberpunk";
-    applyGlobalTheme(savedTheme);
-  }, []);
-
   return (
     <AuthProvider>
       <WebSocketProvider>

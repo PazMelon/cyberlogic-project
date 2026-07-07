@@ -1227,3 +1227,31 @@ export async function reorderChatChannels(ids: number[]): Promise<{ message: str
 
   return res.json();
 }
+
+/**
+ * GET /api/site-settings
+ */
+export async function fetchSiteSettings(): Promise<Record<string, string>> {
+  const res = await apiRequest("/api/site-settings");
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to load site settings.");
+  }
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/site-settings
+ */
+export async function updateSiteSettings(settings: Record<string, string>): Promise<{ message: string; settings: Record<string, string> }> {
+  const res = await apiRequest("/api/admin/site-settings", {
+    method: "PUT",
+    body: JSON.stringify({ settings }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to save site settings.");
+  }
+  return res.json();
+}
+

@@ -174,12 +174,42 @@ export const CLI_THEMES: Record<string, Record<string, string>> = {
     "--cl-glass": "rgba(253, 251, 247, 0.8)",
     "--cl-glass-light": "rgba(253, 251, 247, 0.4)",
   },
+  maroon_spider: {
+    "--cl-primary": "#881337",
+    "--cl-primary-light": "#be123c",
+    "--cl-primary-dark": "#4c0519",
+    "--cl-primary-glow": "rgba(136, 19, 55, 0.4)",
+    "--cl-accent": "#dc2626",
+    "--cl-accent-light": "#ef4444",
+    "--cl-accent-dark": "#991b1b",
+    "--cl-accent-glow": "rgba(220, 38, 38, 0.3)",
+    "--cl-surface-950": "#040102",
+    "--cl-surface-900": "#0d0407",
+    "--cl-surface-800": "#190a10",
+    "--cl-surface-700": "#29121a",
+    "--cl-surface-600": "#3c1a26",
+    "--cl-text-primary": "#f8fafc",
+    "--cl-text-secondary": "#e2e8f0",
+    "--cl-text-muted": "#94a3b8",
+    "--cl-border": "rgba(136, 19, 55, 0.25)",
+    "--cl-border-light": "rgba(136, 19, 55, 0.12)",
+    "--cl-glass": "rgba(13, 4, 7, 0.85)",
+    "--cl-glass-light": "rgba(13, 4, 7, 0.5)",
+  },
 };
 
-export const applyGlobalTheme = (themeName: string) => {
+export const applyGlobalTheme = (themeName: string, userId?: number | null) => {
   if (!themeName) return;
 
-  // Save to local storage
+  // Save to appropriate local storage key
+  if (userId) {
+    localStorage.setItem(`cl-theme-user-${userId}`, themeName);
+  } else {
+    // If guest, save to cl-theme-guest
+    localStorage.setItem("cl-theme-guest", themeName);
+  }
+
+  // Also save to cl-theme for session compatibility
   localStorage.setItem("cl-theme", themeName);
 
   // Normalize name for dataset attribute (e.g., light-classic instead of light_classic)

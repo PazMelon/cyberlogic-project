@@ -192,6 +192,33 @@
   --cl-glass-light: rgba(253, 251, 247, 0.4);
 }
 
+:root[data-theme="maroon-spider"] {
+  --cl-primary: #881337; /* Deep Maroon Red */
+  --cl-primary-light: #be123c; /* Crimson Maroon */
+  --cl-primary-dark: #4c0519; /* Dark Maroon */
+  --cl-primary-glow: rgba(136, 19, 55, 0.4);
+
+  --cl-accent: #dc2626; /* Crimson Accent */
+  --cl-accent-light: #ef4444; /* Web Accent */
+  --cl-accent-dark: #991b1b;
+  --cl-accent-glow: rgba(220, 38, 38, 0.3);
+
+  --cl-surface-950: #040102; /* Pure Black Widow Pitch Black */
+  --cl-surface-900: #0d0407; /* Spider Velvet Black */
+  --cl-surface-800: #190a10; /* Dark Charcoal Web */
+  --cl-surface-700: #29121a;
+  --cl-surface-600: #3c1a26;
+
+  --cl-text-primary: #f8fafc; /* Crisp silver white */
+  --cl-text-secondary: #e2e8f0; /* Off white */
+  --cl-text-muted: #94a3b8; /* Web grey */
+
+  --cl-border: rgba(136, 19, 55, 0.25); /* Crimson web outlines */
+  --cl-border-light: rgba(136, 19, 55, 0.12);
+  --cl-glass: rgba(13, 4, 7, 0.85);
+  --cl-glass-light: rgba(13, 4, 7, 0.5);
+}
+
 /* ============================================
    BASE STYLES
    ============================================ */

@@ -9,6 +9,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          const savedTheme = localStorage.getItem("cl-theme") || localStorage.getItem("cl-default-theme") || "cyberpunk";
+          const normalizedTheme = savedTheme.replace("_", "-");
+          document.documentElement.setAttribute("data-theme", normalizedTheme);
+          const presets = {
+            cyber: { primary: "#06b6d4", primaryLight: "#22d3ee", primaryDark: "#0891b2", accent: "#a855f7", surface950: "#0a0e1a", surface900: "#0f1729", surface800: "#151d33" },
+            matrix: { primary: "#22c55e", primaryLight: "#4ade80", primaryDark: "#16a34a", accent: "#10b981", surface950: "#030804", surface900: "#061208", surface800: "#0a1d0d" },
+            amber: { primary: "#f59e0b", primaryLight: "#fbbf24", primaryDark: "#d97706", accent: "#ea580c", surface950: "#0d0702", surface900: "#160d04", surface800: "#231407" },
+            rose: { primary: "#f43f5e", primaryLight: "#fb7185", primaryDark: "#e11d48", accent: "#d946ef", surface950: "#0e0207", surface900: "#17040d", surface800: "#250616" },
+            royal: { primary: "#3b82f6", primaryLight: "#60a5fa", primaryDark: "#2563eb", accent: "#6366f1", surface950: "#030712", surface900: "#0b0f19", surface800: "#121824" }
+          };
+          const p = presets[savedTheme];
+          if (p) {
+            document.documentElement.style.setProperty("--cl-primary", p.primary);
+            document.documentElement.style.setProperty("--cl-primary-light", p.primaryLight);
+            document.documentElement.style.setProperty("--cl-primary-dark", p.primaryDark);
+            document.documentElement.style.setProperty("--cl-accent", p.accent);
+            document.documentElement.style.setProperty("--cl-surface-950", p.surface950);
+            document.documentElement.style.setProperty("--cl-surface-900", p.surface900);
+            document.documentElement.style.setProperty("--cl-surface-800", p.surface800);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

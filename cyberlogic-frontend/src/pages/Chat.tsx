@@ -14,7 +14,9 @@ import {
   HeartHandshake,
   HelpCircle,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { useWebSocket } from "../context/WebSocketContext";
@@ -82,6 +84,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState("");
   const [showMembers, setShowMembers] = useState(false);
+  const [showMobileChannels, setShowMobileChannels] = useState(false);
   
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -116,6 +119,50 @@ export default function Chat() {
       ...prev,
       [groupName]: !prev[groupName],
     }));
+  };
+
+  const renderChannelList = (onChannelSelect: () => void) => {
+    return Object.keys(groupedChannels).map((groupName) => {
+      const isCollapsed = !!collapsedGroups[groupName];
+      const groupChannels = groupedChannels[groupName];
+
+      return (
+        <div key={groupName} className="space-y-0.5">
+          <button
+            type="button"
+            onClick={() => toggleGroupCollapse(groupName)}
+            className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors cursor-pointer text-left"
+          >
+            <span className="truncate">{groupName}</span>
+            {isCollapsed ? (
+              <ChevronRight className="w-3 h-3 flex-shrink-0" />
+            ) : (
+              <ChevronDown className="w-3 h-3 flex-shrink-0" />
+            )}
+          </button>
+
+          {!isCollapsed &&
+            groupChannels.map((ch) => (
+              <button
+                key={ch.id}
+                type="button"
+                onClick={() => {
+                  setActiveChannel(ch.slug);
+                  onChannelSelect();
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  activeChannel === ch.slug
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                }`}
+              >
+                <ChannelIcon iconName={ch.icon} className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+                <span className="truncate flex-1 text-left">{ch.name}</span>
+              </button>
+            ))}
+        </div>
+      );
+    });
   };
 
   const activeChannelData = channels.find((c) => c.slug === activeChannel);
@@ -298,6 +345,69 @@ export default function Chat() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-surface-950">
+      {/* Mobile Drawer (Hidden on sm and larger) */}
+      {showMobileChannels && (
+        <div className="fixed inset-0 z-50 flex sm:hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowMobileChannels(false)}
+          />
+          
+          {/* Drawer container */}
+          <div className="relative flex w-64 max-w-xs flex-col bg-surface-900 border-r border-border p-2 animate-slideRight">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text-primary font-[family-name:var(--font-heading)]">
+                Channels
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowMobileChannels(false)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                aria-label="Close sidebar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-2 space-y-4">
+              {channelsLoading ? (
+                <div className="space-y-3 p-2">
+                  <SkeletonLine widthClass="w-full" heightClass="h-7" />
+                  <SkeletonLine widthClass="w-full" heightClass="h-7" />
+                  <SkeletonLine widthClass="w-full" heightClass="h-7" />
+                </div>
+              ) : (
+                renderChannelList(() => setShowMobileChannels(false))
+              )}
+            </div>
+
+            {/* Online Members in Mobile Drawer */}
+            <div className="p-3 border-t border-border">
+              <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-success" />
+                <span className="font-medium text-text-primary">{onlineUsers.length} online</span>
+              </div>
+              <div className="flex -space-x-2">
+                {onlineUsers.slice(0, 5).map((m) => (
+                  <img
+                    key={m.id}
+                    src={m.avatar}
+                    alt={m.name}
+                    className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 object-cover"
+                  />
+                ))}
+                {onlineUsers.length > 5 && (
+                  <div className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-800 flex items-center justify-center text-[10px] font-bold text-text-primary">
+                    +{onlineUsers.length - 5}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Channel Sidebar */}
       <div className="w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col">
         <div className="p-4 border-b border-border flex items-center justify-between">
@@ -314,44 +424,7 @@ export default function Chat() {
               <SkeletonLine widthClass="w-full" heightClass="h-7" />
             </div>
           ) : (
-            Object.keys(groupedChannels).map((groupName) => {
-              const isCollapsed = !!collapsedGroups[groupName];
-              const groupChannels = groupedChannels[groupName];
-
-              return (
-                <div key={groupName} className="space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroupCollapse(groupName)}
-                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors cursor-pointer text-left"
-                  >
-                    <span className="truncate">{groupName}</span>
-                    {isCollapsed ? (
-                      <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                    ) : (
-                      <ChevronDown className="w-3 h-3 flex-shrink-0" />
-                    )}
-                  </button>
-
-                  {!isCollapsed &&
-                    groupChannels.map((ch) => (
-                      <button
-                        key={ch.id}
-                        type="button"
-                        onClick={() => setActiveChannel(ch.slug)}
-                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          activeChannel === ch.slug
-                            ? "bg-primary/10 text-primary font-semibold"
-                            : "text-text-muted hover:text-text-primary hover:bg-white/5"
-                        }`}
-                      >
-                        <ChannelIcon iconName={ch.icon} className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
-                        <span className="truncate flex-1 text-left">{ch.name}</span>
-                      </button>
-                    ))}
-                </div>
-              );
-            })
+            renderChannelList(() => {})
           )}
         </div>
 
@@ -385,6 +458,14 @@ export default function Chat() {
         {/* Chat Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border bg-surface-900/30 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => setShowMobileChannels(true)}
+              className="sm:hidden p-2 -ml-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors mr-1 cursor-pointer"
+              aria-label="Open channels list"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
             <Hash className="w-5 h-5 text-text-muted flex-shrink-0" />
             <h3 className="text-sm font-semibold text-text-primary truncate">{activeChannelData?.name || "Loading..."}</h3>
             <span className="hidden md:inline text-xs text-text-muted">—</span>

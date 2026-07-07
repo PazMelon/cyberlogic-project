@@ -117,7 +117,7 @@ export default function Terminal() {
         output = `AVAILABLE COMMANDS:
   ls                  List available simulated documents
   cat [filename]      View the content of a document (e.g. cat about.md)
-  theme [name]        Interactively swap portal colors (matrix, amber, rose, royal, cyber, light_classic, light_neo, light_mint, light_lavender, light_retro)
+  theme [name]        Interactively swap portal colors (matrix, amber, rose, royal, cyber, light_classic, light_neo, light_mint, light_lavender, light_retro, maroon_spider)
   join                Redirect to sign-up registration page
   socials             Display club contact & social media channels
   clear               Flush terminal history logs
@@ -161,7 +161,7 @@ export default function Terminal() {
           if (success) {
             output = `System theme successfully updated to: '${selectedTheme}' profile.\nCustom accents and surface variables have been refreshed dynamically.`;
           } else {
-            output = `theme: profile not found: '${selectedTheme}'.\nSupported profiles: cyber, matrix, amber, rose, royal, light_classic, light_neo, light_mint, light_lavender, light_retro.`;
+            output = `theme: profile not found: '${selectedTheme}'.\nSupported profiles: cyber, matrix, amber, rose, royal, light_classic, light_neo, light_mint, light_lavender, light_retro, maroon_spider.`;
             isError = true;
           }
         }

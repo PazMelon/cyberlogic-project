@@ -60,6 +60,11 @@ export default function Settings() {
       setBirthday(user.birthday ? user.birthday.split("T")[0] : "");
       setBio(user.bio || "");
       setExpertise(user.expertise || "");
+
+      const savedUserTheme = localStorage.getItem(`cl-theme-user-${user.id}`);
+      if (savedUserTheme) {
+        setTheme(savedUserTheme);
+      }
     }
   }, [user]);
 
@@ -161,7 +166,7 @@ export default function Settings() {
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    applyGlobalTheme(newTheme);
+    applyGlobalTheme(newTheme, user?.id);
   };
 
   return (
@@ -651,6 +656,19 @@ export default function Settings() {
                 >
                   <span className="text-xs font-bold text-text-primary block">📜 Sand Retro</span>
                   <span className="text-[9px] text-text-muted mt-0.5 block">Warm sand cream backgrounds, sepia text, and deep amber highlights.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("maroon-spider")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "maroon-spider"
+                      ? "border-rose-900 bg-rose-950/20 text-rose-800"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Velvet black surfaces with crimson web lines and deep maroon details.</span>
                 </button>
               </div>
             </div>

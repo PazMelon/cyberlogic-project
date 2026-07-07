@@ -137,6 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    if (data.user) {
+      const userTheme = localStorage.getItem(`cl-theme-user-${data.user.id}`);
+      if (userTheme) {
+        localStorage.setItem("cl-theme", userTheme);
+      } else {
+        localStorage.removeItem("cl-theme");
+      }
+    }
     setUser(data.user);
   };
 
@@ -153,6 +161,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    if (data.user) {
+      const userTheme = localStorage.getItem(`cl-theme-user-${data.user.id}`);
+      if (userTheme) {
+        localStorage.setItem("cl-theme", userTheme);
+      } else {
+        localStorage.removeItem("cl-theme");
+      }
+    }
     setUser(data.user || null);
   };
 
@@ -162,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.error("Logout request error", e);
     } finally {
+      // Clear generic cl-theme key so it reverts back to default/guest theme on reload
+      localStorage.removeItem("cl-theme");
       setUser(null);
       cachedCsrfToken = null;
     }

@@ -8,6 +8,7 @@ use App\Http\Controllers\ForumCategoryController;
 use App\Http\Controllers\ForumCommentController;
 use App\Http\Controllers\ForumThreadController;
 use App\Http\Controllers\ForumVoteController;
+use App\Http\Controllers\SiteSettingController;
 use Illuminate\Support\Facades\Route;
 
 // Public API endpoints
@@ -19,6 +20,7 @@ Route::get('/api/csrf-cookie', function () {
 
 Route::post('/api/register', [AuthController::class, 'register']);
 Route::post('/api/login', [AuthController::class, 'login']);
+Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
 
 Route::get('/api/announcements', [AnnouncementController::class, 'index']);
 Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);
@@ -87,6 +89,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'update']);
     Route::delete('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'destroy']);
     Route::put('/api/admin/forum/categories/reorder', [ForumCategoryController::class, 'reorder']);
+
+    Route::put('/api/admin/site-settings', [SiteSettingController::class, 'update']);
 });
 
 // React SPA fallback handler
