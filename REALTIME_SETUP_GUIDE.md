@@ -33,7 +33,7 @@ DB_USERNAME=root
 DB_PASSWORD=your_secure_password
 
 # Secret token shared with Node WebSocket server for system broadcasts
-REALTIME_WS_SECRET=cyberlogic_secret_token_123
+REALTIME_WS_SECRET=secret_token_here
 ```
 
 ### B. Realtime WebSocket Service (`cyberlogic-realtime/.env`)
@@ -41,7 +41,7 @@ Ensure database settings match Laravel's production parameters:
 ```env
 WS_PORT=3001
 LARAVEL_URL=http://127.0.0.1:8000
-REALTIME_WS_SECRET=cyberlogic_secret_token_123
+REALTIME_WS_SECRET=secret_token_here
 
 # Database configuration matching Laravel
 DB_HOST=127.0.0.1
@@ -61,7 +61,7 @@ Below are the exact development variables currently configured on the repository
 ```env
 APP_NAME=Laravel
 APP_ENV=local
-APP_KEY=base64:8ChsubzoTws7dtxo2ZWj8CpAuzJNGlDT/Gsctyo8fd0=
+APP_KEY=your_base64_key_here
 APP_DEBUG=true
 APP_URL=http://localhost:8000
 
@@ -70,7 +70,7 @@ DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=cyberlogic-backend
 DB_USERNAME=root
-DB_PASSWORD=e57!@HJpANqqb92*
+DB_PASSWORD=your_secure_password
 
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
@@ -83,21 +83,21 @@ FILESYSTEM_DISK=local
 QUEUE_CONNECTION=database
 CACHE_STORE=database
 
-REALTIME_WS_SECRET=cyberlogic_secret_token_123
+REALTIME_WS_SECRET=secret_token_here
 ```
 
 #### 2. Realtime WebSocket Service Development (`cyberlogic-realtime/.env`)
 ```env
 WS_PORT=3001
 LARAVEL_URL=http://127.0.0.1:8000
-REALTIME_WS_SECRET=cyberlogic_secret_token_123
+REALTIME_WS_SECRET=secret_token_here
 
 # Database configuration (matching development Laravel)
 DB_HOST=127.0.0.1
 DB_PORT=3306
 DB_DATABASE=cyberlogic-backend
 DB_USERNAME=root
-DB_PASSWORD=e57!@HJpANqqb92*
+DB_PASSWORD=your_secure_password
 ```
 
 ---
