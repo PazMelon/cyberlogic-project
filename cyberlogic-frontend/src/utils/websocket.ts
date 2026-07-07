@@ -15,6 +15,7 @@ class WebSocketClient {
   private maxReconnectDelay = 30000;
   private onStatusChangeCallbacks: Set<(status: 'connecting' | 'connected' | 'disconnected') => void> = new Set();
   private connectionStatus: 'connecting' | 'connected' | 'disconnected' = 'disconnected';
+  private getTicketFn: (() => Promise<string | null>) | null = null;
 
   constructor() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -22,16 +23,36 @@ class WebSocketClient {
     this.url = `${protocol}//${window.location.host}/ws`;
   }
 
-  public connect(): void {
+  /**
+   * Register a callback to fetch authentication tickets.
+   */
+  public setTicketFetcher(fetcher: () => Promise<string | null>): void {
+    this.getTicketFn = fetcher;
+  }
+
+  public async connect(): Promise<void> {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
     this.updateStatus('connecting');
-    console.log(`[WS] Connecting to ${this.url}...`);
+
+    let connectionUrl = this.url;
+    if (this.getTicketFn) {
+      try {
+        const ticket = await this.getTicketFn();
+        if (ticket) {
+          connectionUrl = `${this.url}?ticket=${encodeURIComponent(ticket)}`;
+        }
+      } catch (err) {
+        console.error('[WS] Failed to fetch connection ticket:', err);
+      }
+    }
+
+    console.log(`[WS] Connecting to ${connectionUrl}...`);
 
     try {
-      this.ws = new WebSocket(this.url);
+      this.ws = new WebSocket(connectionUrl);
 
       this.ws.onopen = () => {
         console.log('[WS] Connected successfully.');

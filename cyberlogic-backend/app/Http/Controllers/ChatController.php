@@ -5,6 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\ChatChannel;
 use App\Models\ChatMessage;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ChatController extends Controller
 {
@@ -78,5 +81,25 @@ class ChatController extends Controller
         });
 
         return response()->json($mappedMessages);
+    }
+
+    /**
+     * Generate a short-lived ticket for WebSocket connection authentication.
+     */
+    public function ticket(Request $request): JsonResponse
+    {
+        $ticket = Str::random(40);
+
+        DB::table('chat_tickets')->insert([
+            'user_id' => $request->user()->id,
+            'ticket' => $ticket,
+            'expires_at' => now()->addMinutes(1),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'ticket' => $ticket,
+        ]);
     }
 }

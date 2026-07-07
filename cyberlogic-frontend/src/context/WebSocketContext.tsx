@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth, apiRequest } from './AuthContext';
 import { wsClient } from '../utils/websocket';
 
 interface OnlineUser {
@@ -25,7 +25,23 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
 
-  // 1. Manage WebSocket Connection lifecycle based on auth state
+  // 1. Setup Ticket Fetcher on mount
+  useEffect(() => {
+    wsClient.setTicketFetcher(async () => {
+      try {
+        const res = await apiRequest('/api/chat/ticket', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          return data.ticket;
+        }
+      } catch (err) {
+        console.error('[WebSocketContext] Failed to fetch auth ticket:', err);
+      }
+      return null;
+    });
+  }, []);
+
+  // 2. Manage WebSocket Connection lifecycle based on auth state
   useEffect(() => {
     if (isAuthenticated) {
       wsClient.connect();
@@ -38,7 +54,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated]);
 
-  // 2. Track connection status
+  // 3. Track connection status
   useEffect(() => {
     const unsubscribeStatus = wsClient.onStatusChange((newStatus) => {
       setStatus(newStatus);
@@ -49,7 +65,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 3. Listen to global presence channel for online users list
+  // 4. Listen to global presence channel for online users list
   useEffect(() => {
     if (status === 'connected') {
       const unsubscribePresence = wsClient.subscribe('presence', (presenceList: any) => {

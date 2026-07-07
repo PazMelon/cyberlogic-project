@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     // Chat Actions
     Route::get('/api/chat/channels', [ChatController::class, 'index']);
     Route::get('/api/chat/channels/{slug}/messages', [ChatController::class, 'messages']);
+    Route::post('/api/chat/ticket', [ChatController::class, 'ticket']);
 });
 
 // React SPA fallback handler
