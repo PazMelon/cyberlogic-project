@@ -131,12 +131,17 @@ export default function Chat() {
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg.id === messageId) {
-              const mappedReactions = reactions.map((r: any) => ({
-                emoji: r.emoji,
-                count: r.count,
-                users: r.users,
-                reacted: currentUser ? r.userIds.includes(currentUser.id) : false,
-              }));
+              const mappedReactions = reactions.map((r: any) => {
+                const userIdsMapped = Array.isArray(r.userIds) 
+                  ? r.userIds.map((uid: any) => Number(uid)) 
+                  : [];
+                return {
+                  emoji: r.emoji,
+                  count: r.count,
+                  users: r.users,
+                  reacted: currentUser ? userIdsMapped.includes(Number(currentUser.id)) : false,
+                };
+              });
               return { ...msg, reactions: mappedReactions };
             }
             return msg;

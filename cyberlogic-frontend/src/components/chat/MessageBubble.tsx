@@ -128,11 +128,14 @@ export default function MessageBubble({
             <div className={`absolute bottom-[-10px] flex items-center gap-0.5 bg-surface-900 border border-border/50 rounded-full px-1.5 py-0.5 shadow-md z-10 transition-all ${
               isMe ? "left-3" : "right-3"
             }`}>
-              {message.reactions.slice(0, 3).map((reaction) => (
-                <span key={reaction.emoji} className="text-xs select-none">
-                  {reaction.emoji}
-                </span>
-              ))}
+              {[...message.reactions]
+                .sort((a, b) => (b.reacted ? 1 : 0) - (a.reacted ? 1 : 0))
+                .slice(0, 3)
+                .map((reaction) => (
+                  <span key={reaction.emoji} className="text-xs select-none">
+                    {reaction.emoji}
+                  </span>
+                ))}
               <span className="text-[9px] font-bold text-text-muted px-0.5 select-none">
                 {message.reactions.reduce((sum, r) => sum + r.count, 0)}
               </span>
