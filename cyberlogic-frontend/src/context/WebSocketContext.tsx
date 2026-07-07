@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuth, apiRequest } from './AuthContext';
 import { wsClient } from '../utils/websocket';
 
@@ -25,8 +25,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
 
-  // 1. Setup Ticket Fetcher on mount
+  // 1. Setup Ticket Fetcher on mount AND manage connection lifecycle based on auth state
   useEffect(() => {
+    // Register the ticket fetcher BEFORE connecting
     wsClient.setTicketFetcher(async () => {
       try {
         const res = await apiRequest('/api/chat/ticket', { method: 'POST' });
@@ -34,15 +35,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           const data = await res.json();
           return data.ticket;
         }
+        console.warn('[WebSocketContext] Ticket request failed:', res.status);
       } catch (err) {
         console.error('[WebSocketContext] Failed to fetch auth ticket:', err);
       }
       return null;
     });
-  }, []);
 
-  // 2. Manage WebSocket Connection lifecycle based on auth state
-  useEffect(() => {
     if (isAuthenticated) {
       wsClient.connect();
     } else {
@@ -54,7 +53,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, [isAuthenticated]);
 
-  // 3. Track connection status
+  // 2. Track connection status
   useEffect(() => {
     const unsubscribeStatus = wsClient.onStatusChange((newStatus) => {
       setStatus(newStatus);
@@ -65,7 +64,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 4. Listen to global presence channel for online users list
+  // 3. Listen to global presence channel for online users list
   useEffect(() => {
     if (status === 'connected') {
       const unsubscribePresence = wsClient.subscribe('presence', (presenceList: any) => {
@@ -82,13 +81,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }
   }, [status]);
 
-  const subscribe = (channel: string, callback: (payload: any, type: string) => void) => {
+  // Stable function references to prevent unnecessary re-renders
+  const subscribe = useCallback((channel: string, callback: (payload: any, type: string) => void) => {
     return wsClient.subscribe(channel, callback);
-  };
+  }, []);
 
-  const sendMessage = (type: string, channel: string, payload: any) => {
+  const sendMessage = useCallback((type: string, channel: string, payload: any) => {
     wsClient.send(type, channel, payload);
-  };
+  }, []);
 
   return (
     <WebSocketContext.Provider

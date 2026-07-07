@@ -162,6 +162,13 @@ class ChannelManager {
 
       if (type === 'subscribe') {
         this.subscribe(client, channel);
+        if (channel === 'presence') {
+          const presenceList = Array.from(this.onlineUsers.values()).map(p => ({
+            ...p.user,
+            status: 'online',
+          }));
+          this.sendToClient(client, 'presence', 'presence', presenceList);
+        }
         // If subscribing to chat, send success ack or do setup
         if (channel.startsWith('chat:')) {
           this.sendToClient(client, channel, 'subscribe_success', { channel });
@@ -242,6 +249,7 @@ class ChannelManager {
       channel: channelName,
       payload: {
         userId: user.id,
+        firstName: user.first_name || user.name.split(' ')[0],
         name: user.name,
         avatar: user.avatar,
         isTyping: !!isTyping,

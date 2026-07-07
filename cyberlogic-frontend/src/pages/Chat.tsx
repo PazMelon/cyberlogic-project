@@ -26,6 +26,7 @@ interface ChatMessage {
 interface TypingUser {
   userId: number;
   name: string;
+  firstName: string;
   avatar: string;
 }
 
@@ -135,7 +136,8 @@ export default function Chat() {
         if (isTyping) {
           setTypingUsers((prev) => {
             if (prev.some((u) => u.userId === userId)) return prev;
-            return [...prev, { userId, name, avatar }];
+            const firstName = payload.firstName || name.split(' ')[0];
+            return [...prev, { userId, name, firstName, avatar }];
           });
 
           // Set a fallback pruning timeout to clear stuck typing indicators (e.g. on client network loss)
@@ -424,10 +426,10 @@ export default function Chat() {
                 )}
                 <span>
                   {typingUsers.length === 1
-                    ? `${typingUsers[0].name} is typing`
+                    ? `${typingUsers[0].firstName} is typing`
                     : typingUsers.length === 2
-                    ? `${typingUsers[0].name} and ${typingUsers[1].name} are typing`
-                    : "Several people are typing"}
+                    ? `${typingUsers[0].firstName} and ${typingUsers[1].firstName} are typing`
+                    : `${typingUsers.map(u => u.firstName).join(", ")} and more are typing`}
                 </span>
                 <span className="flex gap-0.5 items-center ml-0.5 h-3">
                   <span className="w-1 h-1 rounded-full bg-text-muted animate-bounce [animation-delay:-0.3s]" />
