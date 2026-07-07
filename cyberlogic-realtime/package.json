@@ -1,0 +1,17 @@
+{
+  "name": "cyberlogic-realtime",
+  "version": "1.0.0",
+  "description": "Realtime Node.js WebSocket Service for Cyberlogic Club",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js"
+  },
+  "dependencies": {
+    "cookie": "^0.6.0",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.9.2",
+    "ws": "^8.16.0"
+  }
+}

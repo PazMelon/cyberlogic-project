@@ -89,4 +89,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(ForumVote::class);
     }
+
+    /**
+     * Get the chat messages for the user.
+     */
+    public function chatMessages()
+    {
+        return $this->hasMany(ChatMessage::class);
+    }
+
+    /**
+     * Get the notifications for the user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
 }

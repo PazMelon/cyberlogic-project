@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'realtime' => [
+        'url' => env('REALTIME_WS_URL', 'http://127.0.0.1:3001'),
+        'secret' => env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123'),
+    ],
+
 ];

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\ForumCategoryController;
 use App\Http\Controllers\ForumCommentController;
@@ -70,6 +71,10 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/forum/comments/{id}', [ForumCommentController::class, 'destroy']);
     Route::post('/api/forum/threads/{id}/vote', [ForumVoteController::class, 'voteThread']);
     Route::post('/api/forum/comments/{id}/vote', [ForumVoteController::class, 'voteComment']);
+
+    // Chat Actions
+    Route::get('/api/chat/channels', [ChatController::class, 'index']);
+    Route::get('/api/chat/channels/{slug}/messages', [ChatController::class, 'messages']);
 });
 
 // React SPA fallback handler

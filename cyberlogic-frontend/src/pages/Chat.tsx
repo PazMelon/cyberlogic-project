@@ -1,74 +1,168 @@
 import { useState, useRef, useEffect } from "react";
 import { Hash, Send, Smile, Paperclip, Users, Info } from "lucide-react";
-import { chatChannels, chatMessages, directoryMembers } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
+import { useWebSocket } from "../context/WebSocketContext";
+import { apiRequest } from "../context/AuthContext";
+
+interface ChatChannel {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  type: string;
+}
+
+interface ChatMessage {
+  id: number;
+  channelId: string;
+  author: string;
+  authorAvatar: string;
+  authorId: number;
+  content: string;
+  timestamp: string;
+  isSystem?: boolean;
+}
 
 export default function Chat() {
-  const [activeChannel, setActiveChannel] = useState("general");
-  const [message, setMessage] = useState("");
+  const { subscribe, sendMessage, onlineUsers, isConnected } = useWebSocket();
+
+  const [channels, setChannels] = useState<ChatChannel[]>([]);
+  const [activeChannel, setActiveChannel] = useState<string>("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messageText, setMessageText] = useState("");
   const [showMembers, setShowMembers] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const channelMessages = chatMessages.filter((m) => m.channelId === activeChannel);
-  const channel = chatChannels.find((c) => c.id === activeChannel);
-  const onlineMembers = directoryMembers.filter((m) => m.status === "online");
+  const activeChannelData = channels.find((c) => c.slug === activeChannel);
 
+  // 1. Load channels on mount
   useEffect(() => {
-    setIsLoading(true);
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [activeChannel]);
+    async function loadChannels() {
+      try {
+        setChannelsLoading(true);
+        const res = await apiRequest("/api/chat/channels");
+        if (res.ok) {
+          const data: ChatChannel[] = await res.json();
+          setChannels(data);
+          if (data.length > 0) {
+            setActiveChannel(data[0].slug);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load chat channels:", err);
+      } finally {
+        setChannelsLoading(false);
+      }
+    }
+    loadChannels();
+  }, []);
 
+  // 2. Load message history and subscribe to realtime channel when active channel changes
+  useEffect(() => {
+    if (!activeChannel) return;
+
+    // Load history
+    async function loadHistory() {
+      try {
+        setMessagesLoading(true);
+        const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages`);
+        if (res.ok) {
+          const data: ChatMessage[] = await res.json();
+          setMessages(data);
+        }
+      } catch (err) {
+        console.error("Failed to load chat history:", err);
+      } finally {
+        setMessagesLoading(false);
+      }
+    }
+    loadHistory();
+
+    // Subscribe to WS channel
+    const wsChannel = `chat:${activeChannel}`;
+    const unsubscribe = subscribe(wsChannel, (payload: any, type: string) => {
+      if (type === "message") {
+        setMessages((prev) => {
+          // Prevent duplicates
+          if (prev.some((m) => m.id === payload.id)) return prev;
+          return [...prev, payload];
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [activeChannel, subscribe]);
+
+  // 3. Scroll to bottom on load/new messages
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
-  }, [activeChannel, isLoading]);
+  }, [messages, messagesLoading]);
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim() || !activeChannel) return;
+
+    // Send via WebSocket
+    sendMessage("message", `chat:${activeChannel}`, {
+      content: messageText,
+    });
+
+    setMessageText("");
+  };
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-surface-950">
       {/* Channel Sidebar */}
       <div className="w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col">
-        <div className="p-4 border-b border-border">
+        <div className="p-4 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold text-text-primary font-[family-name:var(--font-heading)]">
             Channels
           </h2>
+          <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-success" : "bg-error animate-pulse"}`} title={isConnected ? "WebSocket Connected" : "WebSocket Disconnected"} />
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {chatChannels.map((ch) => (
-            <button
-              key={ch.id}
-              type="button"
-              onClick={() => setActiveChannel(ch.id)}
-              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                activeChannel === ch.id
-                  ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:text-text-primary hover:bg-white/5"
-              }`}
-            >
-              <Hash className="w-4 h-4 flex-shrink-0 opacity-60" />
-              <span className="truncate flex-1 text-left">{ch.name}</span>
-              {ch.unreadCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
-                  {ch.unreadCount}
-                </span>
-              )}
-            </button>
-          ))}
+          {channelsLoading ? (
+            <div className="space-y-3 p-2">
+              <SkeletonLine widthClass="w-full" heightClass="h-7" />
+              <SkeletonLine widthClass="w-full" heightClass="h-7" />
+              <SkeletonLine widthClass="w-full" heightClass="h-7" />
+            </div>
+          ) : (
+            channels.map((ch) => (
+              <button
+                key={ch.id}
+                type="button"
+                onClick={() => setActiveChannel(ch.slug)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
+                  activeChannel === ch.slug
+                    ? "bg-primary/10 text-primary"
+                    : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                }`}
+              >
+                <Hash className="w-4 h-4 flex-shrink-0 opacity-60" />
+                <span className="truncate flex-1 text-left">{ch.name}</span>
+              </button>
+            ))
+          )}
         </div>
 
         {/* Online Members Preview */}
         <div className="p-3 border-t border-border">
           <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
             <div className="w-2 h-2 rounded-full bg-success" />
-            <span>{onlineMembers.length} online</span>
+            <span>{onlineUsers.length} online</span>
           </div>
           <div className="flex -space-x-2">
-            {onlineMembers.slice(0, 5).map((m) => (
+            {onlineUsers.slice(0, 5).map((m) => (
               <img
                 key={m.id}
                 src={m.avatar}
@@ -77,9 +171,9 @@ export default function Chat() {
                 title={m.name}
               />
             ))}
-            {onlineMembers.length > 5 && (
+            {onlineUsers.length > 5 && (
               <div className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 flex items-center justify-center text-[10px] text-text-muted font-bold">
-                +{onlineMembers.length - 5}
+                +{onlineUsers.length - 5}
               </div>
             )}
           </div>
@@ -92,10 +186,10 @@ export default function Chat() {
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border bg-surface-900/30 flex-shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Hash className="w-5 h-5 text-text-muted flex-shrink-0" />
-            <h3 className="text-sm font-semibold text-text-primary truncate">{channel?.name}</h3>
+            <h3 className="text-sm font-semibold text-text-primary truncate">{activeChannelData?.name || "Loading..."}</h3>
             <span className="hidden md:inline text-xs text-text-muted">—</span>
             <span className="hidden md:inline text-xs text-text-muted truncate">
-              {channel?.description}
+              {activeChannelData?.description}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -126,9 +220,9 @@ export default function Chat() {
             ref={chatContainerRef}
             className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
           >
-            {isLoading ? (
+            {messagesLoading ? (
               <div className="space-y-5 animate-pulse">
-                {[1, 2, 3, 4].map((i) => (
+                {[1, 2, 3].map((i) => (
                   <div key={i} className="flex items-start gap-3">
                     <SkeletonCircle className="w-9 h-9 bg-surface-800 flex-shrink-0" />
                     <div className="flex-1 space-y-2">
@@ -141,8 +235,13 @@ export default function Chat() {
                   </div>
                 ))}
               </div>
+            ) : messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted text-sm gap-2">
+                <Hash className="w-8 h-8 opacity-30" />
+                <p>Welcome to #{activeChannelData?.name || ""}. This is the start of the message history.</p>
+              </div>
             ) : (
-              channelMessages.map((msg) => {
+              messages.map((msg) => {
                 if (msg.isSystem) {
                   return (
                     <div key={msg.id} className="flex items-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50">
@@ -182,7 +281,7 @@ export default function Chat() {
                 </h3>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {directoryMembers.map((m) => (
+                {onlineUsers.map((m) => (
                   <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
                     <div className="relative">
                       <img
@@ -190,13 +289,11 @@ export default function Chat() {
                         alt={m.name}
                         className="w-8 h-8 rounded-full bg-surface-700 object-cover"
                       />
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 ${
-                        m.status === "online" ? "bg-success" : m.status === "away" ? "bg-warning" : "bg-text-muted"
-                      }`} />
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
-                      <p className="text-[9px] text-text-muted truncate">{m.role}</p>
+                      <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
                     </div>
                   </div>
                 ))}
@@ -208,10 +305,7 @@ export default function Chat() {
         {/* Input Bar */}
         <div className="p-4 border-t border-border bg-surface-900/30 flex-shrink-0">
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (message.trim()) setMessage("");
-            }}
+            onSubmit={handleSendMessage}
             className="flex items-center gap-2 p-2 rounded-xl bg-surface-800 border border-border focus-within:border-primary/50 transition-all"
           >
             <button
@@ -223,9 +317,10 @@ export default function Chat() {
             </button>
             <input
               type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Message #${channel?.name}`}
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              placeholder={activeChannelData ? `Message #${activeChannelData.name}` : "Connect to a channel..."}
+              disabled={!activeChannel || !isConnected}
               className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1"
             />
             <button
@@ -237,7 +332,7 @@ export default function Chat() {
             </button>
             <button
               type="submit"
-              disabled={!message.trim()}
+              disabled={!messageText.trim() || !activeChannel || !isConnected}
               className="p-2 rounded-xl bg-primary hover:bg-primary-light disabled:opacity-50 text-white transition-colors"
               aria-label="Send message"
             >
