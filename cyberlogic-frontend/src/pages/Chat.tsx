@@ -1,5 +1,21 @@
 import { useState, useRef, useEffect } from "react";
-import { Hash, Send, Smile, Paperclip, Users, Info } from "lucide-react";
+import { 
+  Hash, 
+  Send, 
+  Smile, 
+  Paperclip, 
+  Users, 
+  Info,
+  Sparkles,
+  Megaphone,
+  FileText,
+  Laugh,
+  BookOpen,
+  HeartHandshake,
+  HelpCircle,
+  ChevronDown,
+  ChevronRight
+} from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { useWebSocket } from "../context/WebSocketContext";
 import { apiRequest, useAuth } from "../context/AuthContext";
@@ -10,10 +26,34 @@ interface ChatChannel {
   slug: string;
   description: string;
   type: string;
+  icon?: string | null;
+  grouping?: string;
+  sort_order?: number;
   allowed_roles?: string[] | null;
   write_roles?: string[] | null;
   is_archived?: boolean;
 }
+
+const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
+  switch (iconName) {
+    case "Sparkles":
+      return <Sparkles className={className} />;
+    case "Megaphone":
+      return <Megaphone className={className} />;
+    case "FileText":
+      return <FileText className={className} />;
+    case "Laugh":
+      return <Laugh className={className} />;
+    case "BookOpen":
+      return <BookOpen className={className} />;
+    case "HeartHandshake":
+      return <HeartHandshake className={className} />;
+    case "HelpCircle":
+      return <HelpCircle className={className} />;
+    default:
+      return <Hash className={className} />;
+  }
+};
 
 interface ChatMessage {
   id: number;
@@ -47,6 +87,9 @@ export default function Chat() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
+  // Collapse state for grouping categories
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +100,23 @@ export default function Chat() {
 
   // Stale typing indicators timeouts map
   const typingTimeoutsRef = useRef<Map<number, any>>(new Map());
+
+  // Group channels by their 'grouping' property (maintaining order within group)
+  const groupedChannels: Record<string, ChatChannel[]> = {};
+  channels.forEach((ch) => {
+    const groupName = ch.grouping || "General";
+    if (!groupedChannels[groupName]) {
+      groupedChannels[groupName] = [];
+    }
+    groupedChannels[groupName].push(ch);
+  });
+
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups((prev) => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
 
   const activeChannelData = channels.find((c) => c.slug === activeChannel);
 
@@ -246,7 +306,7 @@ export default function Chat() {
           </h2>
           <span className={`w-2.5 h-2.5 rounded-full ${isConnected ? "bg-success" : "bg-error animate-pulse"}`} title={isConnected ? "WebSocket Connected" : "WebSocket Disconnected"} />
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+        <div className="flex-1 overflow-y-auto p-2 space-y-4">
           {channelsLoading ? (
             <div className="space-y-3 p-2">
               <SkeletonLine widthClass="w-full" heightClass="h-7" />
@@ -254,21 +314,44 @@ export default function Chat() {
               <SkeletonLine widthClass="w-full" heightClass="h-7" />
             </div>
           ) : (
-            channels.map((ch) => (
-              <button
-                key={ch.id}
-                type="button"
-                onClick={() => setActiveChannel(ch.slug)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${
-                  activeChannel === ch.slug
-                    ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:text-text-primary hover:bg-white/5"
-                }`}
-              >
-                <Hash className="w-4 h-4 flex-shrink-0 opacity-60" />
-                <span className="truncate flex-1 text-left">{ch.name}</span>
-              </button>
-            ))
+            Object.keys(groupedChannels).map((groupName) => {
+              const isCollapsed = !!collapsedGroups[groupName];
+              const groupChannels = groupedChannels[groupName];
+
+              return (
+                <div key={groupName} className="space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => toggleGroupCollapse(groupName)}
+                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors cursor-pointer text-left"
+                  >
+                    <span className="truncate">{groupName}</span>
+                    {isCollapsed ? (
+                      <ChevronRight className="w-3 h-3 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 flex-shrink-0" />
+                    )}
+                  </button>
+
+                  {!isCollapsed &&
+                    groupChannels.map((ch) => (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => setActiveChannel(ch.slug)}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          activeChannel === ch.slug
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                        }`}
+                      >
+                        <ChannelIcon iconName={ch.icon} className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+                        <span className="truncate flex-1 text-left">{ch.name}</span>
+                      </button>
+                    ))}
+                </div>
+              );
+            })
           )}
         </div>
 

@@ -17,7 +17,7 @@ class ChatController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $channels = ChatChannel::all();
+        $channels = ChatChannel::orderBy('sort_order', 'asc')->get();
 
         if ($channels->isEmpty()) {
             $defaultChannels = [
@@ -139,6 +139,8 @@ class ChatController extends Controller
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
             'type' => 'required|string|in:group,dm',
+            'icon' => 'nullable|string|max:50',
+            'grouping' => 'required|string|max:100',
             'allowed_roles' => 'nullable|array',
             'write_roles' => 'nullable|array',
         ]);
@@ -153,6 +155,10 @@ class ChatController extends Controller
         }
 
         $validated['created_by'] = $currentUser->id;
+
+        // Set next sort order
+        $maxSort = ChatChannel::max('sort_order') ?: 0;
+        $validated['sort_order'] = $maxSort + 1;
 
         $channel = ChatChannel::create($validated);
 
@@ -175,6 +181,8 @@ class ChatController extends Controller
             'name' => 'required|string|max:100',
             'description' => 'nullable|string',
             'type' => 'required|string|in:group,dm',
+            'icon' => 'nullable|string|max:50',
+            'grouping' => 'required|string|max:100',
             'allowed_roles' => 'nullable|array',
             'write_roles' => 'nullable|array',
             'is_archived' => 'required|boolean',
@@ -208,5 +216,29 @@ class ChatController extends Controller
         $channel->delete();
 
         return response()->json(['message' => 'Channel deleted successfully']);
+    }
+
+    /**
+     * Reorder chat channels sort_order (Admin/Superadmin only).
+     */
+    public function reorder(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'required|integer|exists:chat_channels,id',
+        ]);
+
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['ids'] as $index => $id) {
+                ChatChannel::where('id', $id)->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return response()->json(['message' => 'Channel sorting updated successfully']);
     }
 }

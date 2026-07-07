@@ -1,10 +1,66 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Shield, Lock, Eye, AlertTriangle } from "lucide-react";
+import { 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  Shield, 
+  Lock, 
+  Eye, 
+  AlertTriangle, 
+  Sparkles, 
+  Megaphone, 
+  FileText, 
+  Laugh, 
+  BookOpen, 
+  HeartHandshake, 
+  HelpCircle, 
+  Hash,
+  ArrowUp,
+  ArrowDown
+} from "lucide-react";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
-import { createChatChannel, updateChatChannel, deleteChatChannel, type DbChatChannel } from "../../utils/api";
+import { 
+  createChatChannel, 
+  updateChatChannel, 
+  deleteChatChannel, 
+  reorderChatChannels,
+  type DbChatChannel 
+} from "../../utils/api";
 
 const availableRoles = ["member", "officer", "admin", "superadmin"];
+
+const availableIcons = [
+  { value: "Hash", label: "Hash (#)" },
+  { value: "Sparkles", label: "Sparkles (Welcome)" },
+  { value: "Megaphone", label: "Megaphone (News)" },
+  { value: "FileText", label: "File Text (Rules)" },
+  { value: "Laugh", label: "Laugh (Fun)" },
+  { value: "BookOpen", label: "Book Open (Study)" },
+  { value: "HeartHandshake", label: "Heart Handshake (Support)" },
+  { value: "HelpCircle", label: "Help Circle (FAQ)" }
+];
+
+const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
+  switch (iconName) {
+    case "Sparkles":
+      return <Sparkles className={className} />;
+    case "Megaphone":
+      return <Megaphone className={className} />;
+    case "FileText":
+      return <FileText className={className} />;
+    case "Laugh":
+      return <Laugh className={className} />;
+    case "BookOpen":
+      return <BookOpen className={className} />;
+    case "HeartHandshake":
+      return <HeartHandshake className={className} />;
+    case "HelpCircle":
+      return <HelpCircle className={className} />;
+    default:
+      return <Hash className={className} />;
+  }
+};
 
 export default function ChatManagement() {
   const { user: currentUser } = useAuth();
@@ -17,6 +73,8 @@ export default function ChatManagement() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<"group" | "dm">("group");
+  const [icon, setIcon] = useState("Hash");
+  const [grouping, setGrouping] = useState("General");
   const [allowedRoles, setAllowedRoles] = useState<string[]>(availableRoles);
   const [writeRoles, setWriteRoles] = useState<string[]>(availableRoles);
   const [isArchived, setIsArchived] = useState(false);
@@ -46,6 +104,8 @@ export default function ChatManagement() {
     setName("");
     setDescription("");
     setType("group");
+    setIcon("Hash");
+    setGrouping("General Discussions");
     setAllowedRoles(availableRoles);
     setWriteRoles(availableRoles);
     setIsArchived(false);
@@ -58,6 +118,8 @@ export default function ChatManagement() {
     setName(channel.name);
     setDescription(channel.description || "");
     setType(channel.type);
+    setIcon(channel.icon || "Hash");
+    setGrouping(channel.grouping || "General Discussions");
     setAllowedRoles(channel.allowed_roles || availableRoles);
     setWriteRoles(channel.write_roles || availableRoles);
     setIsArchived(channel.is_archived);
@@ -83,6 +145,8 @@ export default function ChatManagement() {
         name,
         description,
         type,
+        icon,
+        grouping,
         allowed_roles: allowedRoles,
         write_roles: writeRoles,
         is_archived: isArchived,
@@ -117,24 +181,88 @@ export default function ChatManagement() {
     }
   };
 
+  const handleMoveChannel = async (index: number, direction: "up" | "down") => {
+    const newChannels = [...channels];
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    
+    if (targetIndex < 0 || targetIndex >= newChannels.length) return;
+
+    // Swap elements
+    const temp = newChannels[index];
+    newChannels[index] = newChannels[targetIndex];
+    newChannels[targetIndex] = temp;
+
+    // Set state immediately for smooth UI feedback
+    setChannels(newChannels);
+
+    try {
+      const ids = newChannels.map((c) => c.id);
+      await reorderChatChannels(ids);
+    } catch (err: any) {
+      console.error("Failed to save channel order:", err);
+      loadChannels(); // Rollback to database state
+    }
+  };
+
   const channelColumns = [
     {
-      header: "Channel Name",
+      header: "Sorting",
+      accessor: (_ch: DbChatChannel, index: number) => (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={index === 0}
+            onClick={() => handleMoveChannel(index, "up")}
+            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
+            title="Move Up"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            disabled={index === channels.length - 1}
+            onClick={() => handleMoveChannel(index, "down")}
+            className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
+            title="Move Down"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+      className: "w-20"
+    },
+    {
+      header: "Channel",
       accessor: (ch: DbChatChannel) => (
-        <div>
-          <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
-            {ch.name}
-            {ch.is_archived && (
-              <span className="text-[10px] bg-warning/10 border border-warning/20 text-warning px-1.5 py-0.5 rounded">
-                Archived
-              </span>
-            )}
-          </p>
-          <p className="text-xs text-text-muted truncate max-w-sm mt-0.5">{ch.description || "No description."}</p>
+        <div className="flex items-start gap-2.5">
+          <div className="p-2 rounded-lg bg-surface-800 border border-border/40 text-primary flex-shrink-0 mt-0.5">
+            <ChannelIcon iconName={ch.icon} className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
+              {ch.name}
+              {ch.is_archived && (
+                <span className="text-[10px] bg-warning/10 border border-warning/20 text-warning px-1.5 py-0.5 rounded font-bold uppercase">
+                  Archived
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-text-muted truncate max-w-xs mt-0.5">{ch.description || "No description."}</p>
+          </div>
         </div>
       ),
       sortable: true,
       sortKey: "name" as any,
+    },
+    {
+      header: "Group Category",
+      accessor: (ch: DbChatChannel) => (
+        <span className="text-xs font-semibold text-text-secondary bg-surface-800 border border-border/30 px-2.5 py-1 rounded-lg">
+          {ch.grouping}
+        </span>
+      ),
+      sortable: true,
+      sortKey: "grouping" as any,
     },
     {
       header: "View Permission",
@@ -173,15 +301,6 @@ export default function ChatManagement() {
       ),
     },
     {
-      header: "Messages count",
-      accessor: (ch: DbChatChannel) => (
-        <span className="text-xs text-text-muted font-medium">
-          {ch.messageCount ?? 0}
-        </span>
-      ),
-      className: "hidden md:table-cell text-center",
-    },
-    {
       header: "Actions",
       accessor: (ch: DbChatChannel) => (
         <div className="flex items-center justify-end gap-1">
@@ -209,6 +328,17 @@ export default function ChatManagement() {
     },
   ];
 
+  const channelFilters = [
+    {
+      label: "Group Category",
+      field: "grouping",
+      options: Array.from(new Set(channels.map(ch => ch.grouping || "General"))).map(group => ({
+        label: group,
+        value: group
+      }))
+    }
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -216,7 +346,7 @@ export default function ChatManagement() {
           <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
             Chat Channel Management
           </h1>
-          <p className="text-sm text-text-muted mt-1">Create or modify chat channels and customize permissions</p>
+          <p className="text-sm text-text-muted mt-1">Create or modify chat channels, customize icons, groupings, and permissions</p>
         </div>
         <Button
           type="button"
@@ -238,6 +368,7 @@ export default function ChatManagement() {
         <DataTable
           data={channels}
           columns={channelColumns}
+          filterGroups={channelFilters}
           searchPlaceholder="Search chat channels..."
           emptyStateText="No chat channels configured."
         />
@@ -251,7 +382,7 @@ export default function ChatManagement() {
               {editingChannel ? "Edit Chat Channel" : "Create Chat Channel"}
             </h2>
             <p className="text-xs text-text-muted mb-4">
-              {editingChannel ? "Modify settings and access privileges." : "Add a new room to the chat interface."}
+              {editingChannel ? "Modify settings, grouping categories, icons, and access privileges." : "Add a new room, select icons, groupings and set permissions."}
             </p>
 
             {errorMsg && (
@@ -262,16 +393,30 @@ export default function ChatManagement() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-secondary">Channel Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Cyber Security"
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5 col-span-1">
+                  <label className="text-xs font-semibold text-text-secondary">Channel Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Cyber Security"
+                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5 col-span-1">
+                  <label className="text-xs font-semibold text-text-secondary">Group Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={grouping}
+                    onChange={(e) => setGrouping(e.target.value)}
+                    placeholder="e.g. Academic & Help"
+                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -285,7 +430,7 @@ export default function ChatManagement() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1.5 col-span-1">
                   <label className="text-xs font-semibold text-text-secondary">Channel Type</label>
                   <select
@@ -298,7 +443,20 @@ export default function ChatManagement() {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 mt-7 col-span-1">
+                <div className="space-y-1.5 col-span-1">
+                  <label className="text-xs font-semibold text-text-secondary">Sidebar Icon</label>
+                  <select
+                    value={icon}
+                    onChange={(e) => setIcon(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none"
+                  >
+                    {availableIcons.map((i) => (
+                      <option key={i.value} value={i.value}>{i.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2 mt-7 col-span-1 pl-2">
                   <input
                     type="checkbox"
                     id="isArchived"

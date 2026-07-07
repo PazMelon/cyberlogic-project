@@ -81,6 +81,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/admin/chat/channels', [ChatController::class, 'store']);
     Route::put('/api/admin/chat/channels/{id}', [ChatController::class, 'update']);
     Route::delete('/api/admin/chat/channels/{id}', [ChatController::class, 'destroy']);
+    Route::put('/api/admin/chat/channels/reorder', [ChatController::class, 'reorder']);
 
     Route::post('/api/admin/forum/categories', [ForumCategoryController::class, 'store']);
     Route::put('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'update']);

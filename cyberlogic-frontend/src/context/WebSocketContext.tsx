@@ -57,6 +57,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribeStatus = wsClient.onStatusChange((newStatus) => {
       setStatus(newStatus);
+      if (newStatus !== 'connected') {
+        setOnlineUsers([]);
+      }
     });
 
     return () => {
@@ -64,22 +67,18 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // 3. Listen to global presence channel for online users list
+  // 3. Listen to global presence channel for online users list on mount
   useEffect(() => {
-    if (status === 'connected') {
-      const unsubscribePresence = wsClient.subscribe('presence', (presenceList: any) => {
-        if (Array.isArray(presenceList)) {
-          setOnlineUsers(presenceList);
-        }
-      });
+    const unsubscribePresence = wsClient.subscribe('presence', (presenceList: any) => {
+      if (Array.isArray(presenceList)) {
+        setOnlineUsers(presenceList);
+      }
+    });
 
-      return () => {
-        unsubscribePresence();
-      };
-    } else {
-      setOnlineUsers([]);
-    }
-  }, [status]);
+    return () => {
+      unsubscribePresence();
+    };
+  }, []);
 
   // Stable function references to prevent unnecessary re-renders
   const subscribe = useCallback((channel: string, callback: (payload: any, type: string) => void) => {

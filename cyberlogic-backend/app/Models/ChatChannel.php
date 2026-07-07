@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -16,6 +18,9 @@ class ChatChannel extends Model
         'allowed_roles',
         'write_roles',
         'is_archived',
+        'icon',
+        'grouping',
+        'sort_order',
     ];
 
     protected $casts = [

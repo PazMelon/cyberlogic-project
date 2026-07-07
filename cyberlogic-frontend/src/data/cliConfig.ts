@@ -90,11 +90,16 @@ Type 'cat contact.txt' for contact info.`,
     content: `# SYSTEM THEME CONFIGURATION
 # To change portal theme, type: theme [name]
 # Available profiles:
-#   - cyber     (Default Dark Cyberpunk - Cyan & Purple)
-#   - matrix    (Digital Rain - Green & Emerald)
-#   - amber     (Retro Terminal - Amber & Orange)
-#   - rose      (Neon Rose - Rose & Violet)
-#   - royal     (Blue Blood - Indigo & Blue)
+#   - cyber         (Default Dark Cyberpunk - Cyan & Purple)
+#   - matrix        (Digital Rain - Green & Emerald)
+#   - amber         (Retro Terminal - Amber & Orange)
+#   - rose          (Neon Rose - Rose & Violet)
+#   - royal         (Blue Blood - Indigo & Blue)
+#   - light_classic (Classic Slate Light - Amber & Indigo)
+#   - light_neo     (Neon Crisp Light - Cyan & Pink)
+#   - light_mint    (Soothing Green Light - Mint & Sky)
+#   - light_lavender (Lavender Mist Light - Purple & Pink)
+#   - light_retro   (Warm Sand Light - Brown & Teal)
 
 current_theme=cyber`,
   },

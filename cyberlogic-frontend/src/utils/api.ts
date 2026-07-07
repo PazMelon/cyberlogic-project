@@ -1028,6 +1028,9 @@ export interface DbChatChannel {
   slug: string;
   description: string | null;
   type: 'group' | 'dm';
+  icon: string | null;
+  grouping: string;
+  sort_order: number;
   allowed_roles: string[] | null;
   write_roles: string[] | null;
   is_archived: boolean;
@@ -1057,6 +1060,8 @@ export async function createChatChannel(data: {
   name: string;
   description?: string;
   type: string;
+  icon?: string;
+  grouping: string;
   allowed_roles?: string[];
   write_roles?: string[];
 }): Promise<DbChatChannel> {
@@ -1082,6 +1087,8 @@ export async function updateChatChannel(
     name: string;
     description?: string;
     type: string;
+    icon?: string;
+    grouping: string;
     allowed_roles?: string[];
     write_roles?: string[];
     is_archived: boolean;
@@ -1199,6 +1206,23 @@ export async function reorderForumCategories(ids: number[]): Promise<{ message: 
   if (!res.ok) {
     const errorData = await res.json();
     throw new Error(errorData.message || "Failed to reorder categories.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/chat/channels/reorder
+ */
+export async function reorderChatChannels(ids: number[]): Promise<{ message: string }> {
+  const res = await apiRequest("/api/admin/chat/channels/reorder", {
+    method: "PUT",
+    body: JSON.stringify({ ids }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to reorder channels.");
   }
 
   return res.json();

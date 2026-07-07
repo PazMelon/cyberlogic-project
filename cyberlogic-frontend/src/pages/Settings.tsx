@@ -163,6 +163,8 @@ export default function Settings() {
     localStorage.setItem("cl-theme", newTheme);
     // Dynamic theme applying demo
     document.documentElement.setAttribute("data-theme", newTheme);
+    // Clear inline terminal styles so standard theme CSS takes full effect
+    document.documentElement.removeAttribute("style");
   };
 
   return (
@@ -587,6 +589,71 @@ export default function Settings() {
                 >
                   <span className="text-xs font-bold text-text-primary block">💎 Glassmorphism</span>
                   <span className="text-[9px] text-text-muted mt-0.5 block">Rich translucent containers and colorful backgrounds.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-classic")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-classic"
+                      ? "border-amber-500 bg-amber-500/10 text-amber-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">☀️ Classic Light</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Washed slate surfaces, warm amber accents, and indigo details.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-neo")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-neo"
+                      ? "border-cyan-500 bg-cyan-500/10 text-cyan-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">⚡ Neon Light</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Crisp neutral white with electric cyan lines and hot pink glows.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-mint")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-mint"
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🍃 Mint Light</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Soothing mint base, deep forest text, and vibrant emerald accents.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-lavender")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-lavender"
+                      ? "border-purple-500 bg-purple-500/10 text-purple-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🦄 Lavender Mist</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Soft purple base, lavender mist cards, and orchid accents.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-retro")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-retro"
+                      ? "border-amber-700 bg-amber-700/10 text-amber-700"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">📜 Sand Retro</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Warm sand cream backgrounds, sepia text, and deep amber highlights.</span>
                 </button>
               </div>
             </div>

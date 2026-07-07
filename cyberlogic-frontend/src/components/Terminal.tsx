@@ -4,7 +4,7 @@ import { Terminal as TerminalIcon, Maximize2, Minimize2, Circle } from "lucide-r
 import { cliFileSystem, terminalMessages } from "../data/cliConfig";
 
 // Predefined CLI themes that update root CSS custom properties
-export const CLI_THEMES: Record<string, Record<string, string>> = {
+const CLI_THEMES: Record<string, Record<string, string>> = {
   cyber: {
     "--cl-primary": "#06b6d4",
     "--cl-primary-light": "#22d3ee",
@@ -69,6 +69,116 @@ export const CLI_THEMES: Record<string, Record<string, string>> = {
     "--cl-surface-950": "#030712",
     "--cl-surface-900": "#0b0f19",
     "--cl-surface-800": "#121824",
+  },
+  light_classic: {
+    "--cl-primary": "#d97706",
+    "--cl-primary-light": "#f59e0b",
+    "--cl-primary-dark": "#b45309",
+    "--cl-primary-glow": "rgba(217, 119, 6, 0.15)",
+    "--cl-accent": "#4f46e5",
+    "--cl-accent-light": "#6366f1",
+    "--cl-accent-dark": "#3730a3",
+    "--cl-accent-glow": "rgba(79, 70, 229, 0.15)",
+    "--cl-surface-950": "#f8fafc",
+    "--cl-surface-900": "#f1f5f9",
+    "--cl-surface-800": "#e2e8f0",
+    "--cl-surface-700": "#cbd5e1",
+    "--cl-surface-600": "#94a3b8",
+    "--cl-text-primary": "#0f172a",
+    "--cl-text-secondary": "#334155",
+    "--cl-text-muted": "#64748b",
+    "--cl-border": "rgba(15, 23, 42, 0.08)",
+    "--cl-border-light": "rgba(15, 23, 42, 0.04)",
+    "--cl-glass": "rgba(248, 250, 252, 0.8)",
+    "--cl-glass-light": "rgba(248, 250, 252, 0.4)",
+  },
+  light_neo: {
+    "--cl-primary": "#0891b2",
+    "--cl-primary-light": "#06b6d4",
+    "--cl-primary-dark": "#0e7490",
+    "--cl-primary-glow": "rgba(8, 145, 178, 0.15)",
+    "--cl-accent": "#db2777",
+    "--cl-accent-light": "#ec4899",
+    "--cl-accent-dark": "#be185d",
+    "--cl-accent-glow": "rgba(219, 39, 119, 0.15)",
+    "--cl-surface-950": "#ffffff",
+    "--cl-surface-900": "#fafafa",
+    "--cl-surface-800": "#f5f5f5",
+    "--cl-surface-700": "#e5e5e5",
+    "--cl-surface-600": "#d4d4d4",
+    "--cl-text-primary": "#171717",
+    "--cl-text-secondary": "#404040",
+    "--cl-text-muted": "#737373",
+    "--cl-border": "rgba(23, 23, 23, 0.08)",
+    "--cl-border-light": "rgba(23, 23, 23, 0.04)",
+    "--cl-glass": "rgba(255, 255, 255, 0.85)",
+    "--cl-glass-light": "rgba(255, 255, 255, 0.45)",
+  },
+  light_mint: {
+    "--cl-primary": "#059669",
+    "--cl-primary-light": "#10b981",
+    "--cl-primary-dark": "#047857",
+    "--cl-primary-glow": "rgba(5, 150, 105, 0.15)",
+    "--cl-accent": "#0284c7",
+    "--cl-accent-light": "#0ea5e9",
+    "--cl-accent-dark": "#0369a1",
+    "--cl-accent-glow": "rgba(2, 132, 199, 0.15)",
+    "--cl-surface-950": "#f0fdf4",
+    "--cl-surface-900": "#dcfce7",
+    "--cl-surface-800": "#bbf7d0",
+    "--cl-surface-700": "#86efac",
+    "--cl-surface-600": "#4ade80",
+    "--cl-text-primary": "#14532d",
+    "--cl-text-secondary": "#166534",
+    "--cl-text-muted": "#15803d",
+    "--cl-border": "rgba(20, 83, 45, 0.08)",
+    "--cl-border-light": "rgba(20, 83, 45, 0.04)",
+    "--cl-glass": "rgba(240, 253, 244, 0.8)",
+    "--cl-glass-light": "rgba(240, 253, 244, 0.4)",
+  },
+  light_lavender: {
+    "--cl-primary": "#8b5cf6",
+    "--cl-primary-light": "#a78bfa",
+    "--cl-primary-dark": "#7c3aed",
+    "--cl-primary-glow": "rgba(139, 92, 246, 0.15)",
+    "--cl-accent": "#db2777",
+    "--cl-accent-light": "#ec4899",
+    "--cl-accent-dark": "#be185d",
+    "--cl-accent-glow": "rgba(219, 39, 119, 0.15)",
+    "--cl-surface-950": "#faf5ff",
+    "--cl-surface-900": "#f3e8ff",
+    "--cl-surface-800": "#e9d5ff",
+    "--cl-surface-700": "#d8b4fe",
+    "--cl-surface-600": "#c084fc",
+    "--cl-text-primary": "#3b0764",
+    "--cl-text-secondary": "#581c87",
+    "--cl-text-muted": "#701a75",
+    "--cl-border": "rgba(59, 7, 100, 0.08)",
+    "--cl-border-light": "rgba(59, 7, 100, 0.04)",
+    "--cl-glass": "rgba(250, 245, 255, 0.8)",
+    "--cl-glass-light": "rgba(250, 245, 255, 0.4)",
+  },
+  light_retro: {
+    "--cl-primary": "#b45309",
+    "--cl-primary-light": "#d97706",
+    "--cl-primary-dark": "#78350f",
+    "--cl-primary-glow": "rgba(180, 83, 9, 0.15)",
+    "--cl-accent": "#0d9488",
+    "--cl-accent-light": "#14b8a6",
+    "--cl-accent-dark": "#0f766e",
+    "--cl-accent-glow": "rgba(13, 148, 136, 0.15)",
+    "--cl-surface-950": "#fdfbf7",
+    "--cl-surface-900": "#f5f0e6",
+    "--cl-surface-800": "#eaddca",
+    "--cl-surface-700": "#d8c3a5",
+    "--cl-surface-600": "#c8ad8d",
+    "--cl-text-primary": "#451a03",
+    "--cl-text-secondary": "#78350f",
+    "--cl-text-muted": "#92400e",
+    "--cl-border": "rgba(69, 26, 3, 0.08)",
+    "--cl-border-light": "rgba(69, 26, 3, 0.04)",
+    "--cl-glass": "rgba(253, 251, 247, 0.8)",
+    "--cl-glass-light": "rgba(253, 251, 247, 0.4)",
   },
 };
 
@@ -188,7 +298,7 @@ export default function Terminal() {
         output = `AVAILABLE COMMANDS:
   ls                  List available simulated documents
   cat [filename]      View the content of a document (e.g. cat about.md)
-  theme [name]        Interactively swap portal accent colors (matrix, amber, rose, royal, cyber)
+  theme [name]        Interactively swap portal colors (matrix, amber, rose, royal, cyber, light_classic, light_neo, light_mint, light_lavender, light_retro)
   join                Redirect to sign-up registration page
   socials             Display club contact & social media channels
   clear               Flush terminal history logs
@@ -232,7 +342,7 @@ export default function Terminal() {
           if (success) {
             output = `System theme successfully updated to: '${selectedTheme}' profile.\nCustom accents and surface variables have been refreshed dynamically.`;
           } else {
-            output = `theme: profile not found: '${selectedTheme}'.\nSupported profiles: cyber, matrix, amber, rose, royal.`;
+            output = `theme: profile not found: '${selectedTheme}'.\nSupported profiles: cyber, matrix, amber, rose, royal, light_classic, light_neo, light_mint, light_lavender, light_retro.`;
             isError = true;
           }
         }
