@@ -83,46 +83,47 @@ export default function SearchResults() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
-          Search Results
-        </h1>
-        <p className="text-sm text-text-muted mt-1">
-          Showing results for "{q}"
-        </p>
-      </div>
-
       {/* Main Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
-        {/* Sidebar Filters */}
-        <div className="lg:col-span-1 glass rounded-2xl border border-border p-4 space-y-1 bg-surface-900/40">
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-3 mb-3">
-            Filter by Category
-          </h3>
-          {tabs.map((tab) => {
-            const count = getResultsCount(tab.id);
-            const isActive = typeFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                  isActive
+        {/* Sticky Sidebar Container */}
+        <div className="lg:col-span-1 space-y-6 sticky top-0">
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
+              Search Results
+            </h1>
+            <p className="text-sm text-text-muted mt-1">
+              Showing {getResultsCount("all")} results for "{q}"
+            </p>
+          </div>
+
+          {/* Sidebar Filters */}
+          <div className="glass rounded-2xl border border-border p-4 space-y-1 bg-surface-900/40">
+            <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-3 mb-3">
+              Filter by Category
+            </h3>
+            {tabs.map((tab) => {
+              const count = getResultsCount(tab.id);
+              const isActive = typeFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${isActive
                     ? "bg-primary/10 text-primary border-primary/20"
                     : "bg-transparent text-text-muted border-transparent hover:text-text-primary hover:bg-white/5"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                  isActive ? "bg-primary/20 text-primary" : "bg-surface-800 text-text-muted"
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+                    }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${isActive ? "bg-primary/20 text-primary" : "bg-surface-800 text-text-muted"
+                    }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Results List */}
