@@ -836,11 +836,13 @@ export async function fetchForumThreads(params?: {
   category?: string;
   q?: string;
   sort?: string;
+  userId?: number;
 }): Promise<ForumThreadMapped[]> {
   const urlParams = new URLSearchParams();
   if (params?.category) urlParams.append("category", params.category);
   if (params?.q) urlParams.append("q", params.q);
   if (params?.sort) urlParams.append("sort", params.sort);
+  if (params?.userId) urlParams.append("user_id", String(params.userId));
 
   const queryString = urlParams.toString();
   const res = await apiRequest(`/api/forum/threads?${queryString}`);

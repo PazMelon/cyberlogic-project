@@ -42,6 +42,12 @@ class ForumThreadController extends Controller
             });
         }
 
+        // Filter by user ID
+        if ($request->has('user_id')) {
+            $query->where('user_id', $request->input('user_id'));
+        }
+
+
         // Search by title or content
         if ($request->has('q') && ! empty($request->input('q'))) {
             $search = $request->input('q');

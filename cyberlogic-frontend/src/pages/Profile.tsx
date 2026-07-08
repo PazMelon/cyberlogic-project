@@ -18,11 +18,16 @@ import {
   Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 import { optimizeAndConvertToWebP } from "../utils/imageOptimizer";
-import { uploadAvatar, fetchDirectoryMemberById, type DirectoryMember } from "../utils/api";
+import { 
+  uploadAvatar, 
+  fetchDirectoryMemberById, 
+  fetchForumThreads,
+  type DirectoryMember, 
+  type ForumThreadMapped 
+} from "../utils/api";
 
 export default function Profile() {
   const { user, updateProfile, updatePassword, updateUser } = useAuth();
@@ -169,6 +174,8 @@ export default function Profile() {
   }
 
   const [activeTab, setActiveTab] = useState<"overview" | "posts" | "saved" | "settings">("overview");
+  const [userPosts, setUserPosts] = useState<ForumThreadMapped[]>([]);
+  const [savedThreads] = useState<ForumThreadMapped[]>([]);
 
   // Sync tab status with URL query parameter
   useEffect(() => {
@@ -185,11 +192,21 @@ export default function Profile() {
     }
   }, [location.search, isOwnProfile]);
 
-  // Get forum activity posts by the user
-  const userPosts = forumThreads.filter((t) => t.author === activeUser.name);
+  const profileUserId = isOwnProfile ? user?.id : (userId ? parseInt(userId, 10) : undefined);
 
-  // Get saved threads
-  const savedThreads = forumThreads.slice(1, 3); // mock saved
+  // Load user threads dynamically from database
+  useEffect(() => {
+    const loadUserThreads = async () => {
+      if (!profileUserId) return;
+      try {
+        const threadsData = await fetchForumThreads({ userId: profileUserId });
+        setUserPosts(threadsData);
+      } catch (err) {
+        console.error("Failed to load user threads:", err);
+      }
+    };
+    loadUserThreads();
+  }, [profileUserId]);
 
   const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
