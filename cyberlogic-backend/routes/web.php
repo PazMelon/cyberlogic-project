@@ -11,6 +11,7 @@ use App\Http\Controllers\ForumThreadController;
 use App\Http\Controllers\ForumVoteController;
 use App\Http\Controllers\SiteSettingController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\OfficerController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -24,6 +25,8 @@ Route::get('/api/csrf-cookie', function () {
 Route::post('/api/register', [AuthController::class, 'register']);
 Route::post('/api/login', [AuthController::class, 'login']);
 Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
+Route::get('/api/officers', [OfficerController::class, 'index']);
+Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
 
 Route::get('/api/announcements', [AnnouncementController::class, 'index']);
 Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);
@@ -103,6 +106,12 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/admin/forum/categories/reorder', [ForumCategoryController::class, 'reorder']);
 
     Route::put('/api/admin/site-settings', [SiteSettingController::class, 'update']);
+    Route::get('/api/admin/officers', [OfficerController::class, 'adminIndex']);
+    Route::post('/api/admin/officers', [OfficerController::class, 'store']);
+    Route::put('/api/admin/officers/reorder', [OfficerController::class, 'reorder']);
+    Route::put('/api/admin/officers/{id}', [OfficerController::class, 'update']);
+    Route::delete('/api/admin/officers/{id}', [OfficerController::class, 'destroy']);
+    Route::post('/api/admin/officers/upload-avatar', [OfficerController::class, 'uploadAvatar']);
     Route::get('/api/admin/audit-logs', [AuditLogController::class, 'index']);
     Route::get('/api/admin/audit-logs/stats', [AuditLogController::class, 'stats']);
 

@@ -8,6 +8,7 @@ interface ImageUploadZoneProps {
   onChange: (url: string) => void;
   aspectHint?: string;
   label?: string;
+  uploadFn?: (file: File) => Promise<string>;
 }
 
 // Convert base64 DataURL to File object for backend multipart uploads
@@ -27,7 +28,8 @@ export default function ImageUploadZone({
   value,
   onChange,
   aspectHint = "Recommended: 16:9 ratio",
-  label = "Upload Image"
+  label = "Upload Image",
+  uploadFn
 }: ImageUploadZoneProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
@@ -57,7 +59,7 @@ export default function ImageUploadZone({
       const webpFile = dataURLtoFile(result.dataUrl, `${secureName}.webp`);
 
       // 3. Upload WebP binary payload securely to backend public storage
-      const backendUrl = await uploadImageFile(webpFile);
+      const backendUrl = uploadFn ? await uploadFn(webpFile) : await uploadImageFile(webpFile);
       onChange(backendUrl);
 
       // Calculate compression stats for rich user feedback

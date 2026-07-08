@@ -1,18 +1,51 @@
 import { useParams, Link } from "react-router";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Mail, Calendar, Cpu, Terminal, Shield } from "lucide-react";
-import { teamMembers } from "../data/mockData";
+import { fetchOfficerById } from "../utils/api";
+import type { Officer } from "../utils/api";
 
 export default function OfficerDetail() {
   const { id } = useParams<{ id: string }>();
-  const officer = teamMembers.find((m) => m.id === Number(id));
+  const [officer, setOfficer] = useState<Officer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!officer) {
+  useEffect(() => {
+    if (!id) return;
+    const loadOfficer = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await fetchOfficerById(Number(id));
+        setOfficer(data);
+      } catch (err: any) {
+        console.error("Failed to load officer details:", err);
+        setError(err.message || "Officer profile not found.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadOfficer();
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="pt-32 pb-24 text-center">
+        <div className="max-w-md mx-auto p-8 glass rounded-2xl border border-border flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-sm text-text-muted">Loading profile details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !officer) {
     return (
       <div className="pt-32 pb-24 text-center">
         <div className="max-w-md mx-auto p-8 glass rounded-2xl border border-border">
           <h2 className="text-xl font-bold text-error mb-2">Officer Not Found</h2>
           <p className="text-sm text-text-muted mb-6">
-            The profile you are looking for does not exist or has been moved.
+            {error || "The profile you are looking for does not exist or has been moved."}
           </p>
           <Link
             to="/about"
@@ -25,18 +58,32 @@ export default function OfficerDetail() {
     );
   }
 
-  // Enrich with dummy details for high aesthetics
+  // Resolve skills from linked user expertise, or fallback to role defaults
+  const getSkills = () => {
+    if (officer.user?.expertise) {
+      return officer.user.expertise.split(",").map((s) => s.trim());
+    }
+    const r = officer.role.toLowerCase();
+    if (r.includes("president") && !r.includes("vice")) {
+      return ["Cybersecurity", "Network Architecture", "Leadership"];
+    } else if (r.includes("vice president")) {
+      return ["UI/UX Design", "Frontend Development", "Graphic Design"];
+    } else if (r.includes("secretary")) {
+      return ["Technical Writing", "Communications", "Project Management"];
+    } else if (r.includes("treasurer")) {
+      return ["Financial Planning", "Sponsorships", "Event Logistics"];
+    } else if (r.includes("tech") || r.includes("lead")) {
+      return ["Full-Stack Dev", "DevOps", "Cybersecurity Audit"];
+    }
+    return ["Event Management", "Public Relations", "Marketing"];
+  };
+
   const extraDetails = {
-    email: `${officer.name.toLowerCase().replace(/\s+/g, "")}@srcb.edu.ph`,
-    joinedDate: "Active since 2024",
-    skills: officer.role === "President" ? ["Cybersecurity", "Network Architecture", "Leadership"] :
-            officer.role === "Vice President" ? ["UI/UX Design", "Frontend Development", "Graphic Design"] :
-            officer.role === "Secretary" ? ["Technical Writing", "Communications", "Project Management"] :
-            officer.role === "Treasurer" ? ["Financial Planning", "Sponsorships", "Event Logistics"] :
-            officer.role === "Tech Lead" ? ["Full-Stack Dev", "DevOps", "Cybersecurity Audit"] :
-            ["Event Management", "Public Relations", "Marketing"],
-    github: `github.com/${officer.name.toLowerCase().replace(/\s+/g, "")}`,
-    linkedin: `linkedin.com/in/${officer.name.toLowerCase().replace(/\s+/g, "")}`,
+    email: officer.email,
+    joinedDate: officer.user?.joinedDate ? `Active since ${officer.user.joinedDate.substring(0, 4)}` : "Active member",
+    skills: getSkills(),
+    github: officer.github,
+    linkedin: officer.linkedin,
   };
 
   return (

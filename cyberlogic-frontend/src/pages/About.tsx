@@ -12,15 +12,98 @@ import {
   Phone,
 } from "lucide-react";
 import { teamMembers } from "../data/mockData";
+import { fetchSiteSettings, fetchOfficers } from "../utils/api";
+
+const defaultHistory = [
+  {
+    year: "2020",
+    title: "Club Founded",
+    desc: "Cyberlogic Club was established by a group of technology-passionate students to bridge the gap between classroom theory and real-world application.",
+  },
+  {
+    year: "2021",
+    title: "First Bootcamp",
+    desc: "Hosted our first inter-departmental digital design showcase and hardware troubleshooting bootcamp.",
+  },
+  {
+    year: "2022",
+    title: "Innovation Hub Inauguration",
+    desc: "Opened our dedicated computer servicing and digital design hub with custom workspace tools.",
+  },
+  {
+    year: "2023",
+    title: "100+ Members",
+    desc: "Reached over 100 active members and launched our online learning platform.",
+  },
+  {
+    year: "2024",
+    title: "Campus Recognition",
+    desc: "Recognized as one of the most innovative and active student organizations at St. Rita's College.",
+  },
+  {
+    year: "2026",
+    title: "Portal Launch",
+    desc: "Launched the Cyberlogic Club Portal — a centralized hub for members and resources.",
+  },
+];
 
 export default function About() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [startIndex, setStartIndex] = useState(0);
 
+  const [mission, setMission] = useState("To empower students with practical tech and digital skills through hands-on workshops in hardware, software, and creative digital arts.");
+  const [vision, setVision] = useState("To be the leading student technology hub, fostering creative problem-solvers and builders of the digital future.");
+  const [values, setValues] = useState("Curiosity, collaboration, integrity, and continuous learning. We believe in open knowledge sharing and supporting each other's growth.");
+  const [history, setHistory] = useState<typeof defaultHistory>([]);
+  const [officers, setOfficers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const loadPageData = async () => {
+      try {
+        setIsLoading(true);
+        const [settings, fetchedOfficers] = await Promise.all([
+          fetchSiteSettings(),
+          fetchOfficers()
+        ]);
+
+        if (settings) {
+          if (settings.about_mission) setMission(settings.about_mission);
+          if (settings.about_vision) setVision(settings.about_vision);
+          if (settings.about_values) setValues(settings.about_values);
+          if (settings.about_history) {
+            try {
+              setHistory(JSON.parse(settings.about_history));
+            } catch {
+              setHistory(defaultHistory);
+            }
+          } else {
+            setHistory(defaultHistory);
+          }
+        } else {
+          setHistory(defaultHistory);
+        }
+
+        if (fetchedOfficers && fetchedOfficers.length > 0) {
+          setOfficers(fetchedOfficers);
+        } else {
+          setOfficers(teamMembers);
+        }
+      } catch (err) {
+        console.error("Failed to load about page details from database", err);
+        setHistory(defaultHistory);
+        setOfficers(teamMembers);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadPageData();
   }, []);
 
   const getVisibleCount = () => {
@@ -30,7 +113,7 @@ export default function About() {
   };
 
   const visibleCount = getVisibleCount();
-  const maxIndex = Math.max(0, teamMembers.length - visibleCount);
+  const maxIndex = Math.max(0, officers.length - visibleCount);
 
   const handlePrev = () => {
     setStartIndex((prev) => (prev === 0 ? maxIndex : prev - 1));
@@ -70,24 +153,21 @@ export default function About() {
             {
               icon: Target,
               title: "Our Mission",
-              description:
-                "To empower students with practical tech and digital skills through hands-on workshops in hardware, software, and creative digital arts.",
+              description: mission,
               color: "text-primary",
               bgColor: "bg-primary/10",
             },
             {
               icon: Eye,
               title: "Our Vision",
-              description:
-                "To be the leading student technology hub, fostering creative problem-solvers and builders of the digital future.",
+              description: vision,
               color: "text-accent",
               bgColor: "bg-accent/10",
             },
             {
               icon: Heart,
               title: "Our Values",
-              description:
-                "Curiosity, collaboration, integrity, and continuous learning. We believe in open knowledge sharing and supporting each other's growth.",
+              description: values,
               color: "text-success",
               bgColor: "bg-success/10",
             },
@@ -126,38 +206,7 @@ export default function About() {
             {/* Timeline line */}
             <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-border" />
 
-            {[
-              {
-                year: "2020",
-                title: "Club Founded",
-                desc: "Cyberlogic Club was established by a group of technology-passionate students to bridge the gap between classroom theory and real-world application.",
-              },
-              {
-                year: "2021",
-                title: "First Bootcamp",
-                desc: "Hosted our first inter-departmental digital design showcase and hardware troubleshooting bootcamp.",
-              },
-              {
-                year: "2022",
-                title: "Innovation Hub Inauguration",
-                desc: "Opened our dedicated computer servicing and digital design hub with custom workspace tools.",
-              },
-              {
-                year: "2023",
-                title: "100+ Members",
-                desc: "Reached over 100 active members and launched our online learning platform.",
-              },
-              {
-                year: "2024",
-                title: "Campus Recognition",
-                desc: "Recognized as one of the most innovative and active student organizations at St. Rita's College.",
-              },
-              {
-                year: "2026",
-                title: "Portal Launch",
-                desc: "Launched the Cyberlogic Club Portal — a centralized hub for members and resources.",
-              },
-            ].map((event, idx) => (
+            {history.map((event, idx) => (
               <div
                 key={event.year}
                 className={`relative flex items-start gap-6 mb-10 ${
@@ -222,7 +271,7 @@ export default function About() {
                   transform: `translateX(-${startIndex * (100 / visibleCount)}%)`,
                 }}
               >
-                {teamMembers.map((member) => (
+                {officers.map((member) => (
                   <div
                     key={member.id}
                     className="flex-shrink-0"

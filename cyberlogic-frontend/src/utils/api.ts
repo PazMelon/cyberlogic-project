@@ -1413,6 +1413,140 @@ export async function updateSiteSettings(settings: Record<string, string>): Prom
   return res.json();
 }
 
+export interface Officer {
+  id: number;
+  user_id: number | null;
+  use_profile_info: boolean;
+  display_name: string | null;
+  display_role: string | null;
+  display_bio: string | null;
+  display_avatar: string | null;
+  display_email: string | null;
+  display_github: string | null;
+  display_linkedin: string | null;
+  sort_order: number;
+  // Resolved attributes
+  name: string;
+  role: string;
+  bio: string;
+  avatar: string;
+  email: string;
+  github: string;
+  linkedin: string;
+  user?: DbUser;
+}
+
+/**
+ * GET /api/officers
+ */
+export async function fetchOfficers(): Promise<Officer[]> {
+  const res = await apiRequest("/api/officers");
+  if (!res.ok) {
+    throw new Error("Failed to load officers directory.");
+  }
+  return res.json();
+}
+
+/**
+ * GET /api/officers/{id}
+ */
+export async function fetchOfficerById(id: number): Promise<Officer> {
+  const res = await apiRequest(`/api/officers/${id}`);
+  if (!res.ok) {
+    throw new Error("Officer profile not found.");
+  }
+  return res.json();
+}
+
+/**
+ * GET /api/admin/officers
+ */
+export async function fetchAdminOfficers(): Promise<Officer[]> {
+  const res = await apiRequest("/api/admin/officers");
+  if (!res.ok) {
+    throw new Error("Failed to load admin officers list.");
+  }
+  return res.json();
+}
+
+/**
+ * POST /api/admin/officers
+ */
+export async function createOfficer(data: Partial<Officer>): Promise<Officer> {
+  const res = await apiRequest("/api/admin/officers", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to create officer.");
+  }
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/officers/{id}
+ */
+export async function updateOfficer(id: number, data: Partial<Officer>): Promise<Officer> {
+  const res = await apiRequest(`/api/admin/officers/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to update officer.");
+  }
+  return res.json();
+}
+
+/**
+ * DELETE /api/admin/officers/{id}
+ */
+export async function deleteOfficer(id: number): Promise<void> {
+  const res = await apiRequest(`/api/admin/officers/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to delete officer.");
+  }
+}
+
+/**
+ * PUT /api/admin/officers/reorder
+ */
+export async function reorderOfficers(ids: number[]): Promise<void> {
+  const res = await apiRequest("/api/admin/officers/reorder", {
+    method: "PUT",
+    body: JSON.stringify({ ids }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to reorder officers.");
+  }
+}
+
+/**
+ * POST /api/admin/officers/upload-avatar
+ */
+export async function uploadOfficerAvatar(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiRequest("/api/admin/officers/upload-avatar", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to upload avatar image.");
+  }
+
+  const result = await res.json();
+  return result.url;
+}
+
 export interface AuditLogEntry {
   id: number;
   user_id: number | null;
