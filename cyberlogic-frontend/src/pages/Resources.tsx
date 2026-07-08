@@ -16,6 +16,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Filter,
 } from "lucide-react";
 import {
   fetchResources,
@@ -25,7 +26,6 @@ import {
   type ResourceMapped,
 } from "../utils/api";
 import SubmitResourceModal from "../components/resources/SubmitResourceModal";
-import { Button } from "../components/ui";
 
 const categories = ["All", "Tutorials", "Documents", "Tools", "Links"] as const;
 
@@ -122,7 +122,7 @@ export default function Resources() {
     <div className={isPortal ? "pb-8" : "pt-24 pb-16"}>
       <div className={isPortal ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
         {/* Page Header */}
-        <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             {!isPortal && (
               <div className="flex items-center gap-2 text-sm text-text-muted mb-4">
@@ -140,6 +140,15 @@ export default function Resources() {
               Tutorials, documents, tools, and links curated by the Cyberlogic community.
             </p>
           </div>
+          {isPortal && (
+            <button
+              type="button"
+              onClick={() => setIsSubmitModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Submit Resource
+            </button>
+          )}
         </div>
 
         {/* Navigation Tabs (Member portal only) */}
@@ -176,48 +185,37 @@ export default function Resources() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-          <div className="relative flex-1 w-full lg:max-w-xs">
+        {/* Search + Categories */}
+        <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between mb-6">
+          <div className="relative w-full lg:max-w-sm">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search resources..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
             />
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full lg:w-auto">
-            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full lg:max-w-md">
+          <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+            <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
+            <div className="flex items-center gap-1.5">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
                     activeCategory === cat
-                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
-                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
+                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/20 shadow-sm"
+                      : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
                   }`}
                 >
                   {cat}
                 </button>
               ))}
             </div>
-
-            {isPortal && (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={() => setIsSubmitModalOpen(true)}
-                icon={<Plus className="w-4 h-4" />}
-                className="px-4 py-2.5 text-xs font-semibold"
-              >
-                Submit Resource
-              </Button>
-            )}
           </div>
         </div>
 

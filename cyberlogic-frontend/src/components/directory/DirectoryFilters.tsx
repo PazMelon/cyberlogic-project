@@ -1,6 +1,16 @@
-import { Search, ChevronDown } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 
-const roleFilters = ["All", "President", "Vice President", "Secretary", "Treasurer", "Tech Lead", "Events Coordinator", "Member", "Alumni"] as const;
+const roleFilters = [
+  "All",
+  "President",
+  "Vice President",
+  "Secretary",
+  "Treasurer",
+  "Tech Lead",
+  "Events Coordinator",
+  "Member",
+  "Alumni",
+] as const;
 
 interface DirectoryFiltersProps {
   searchQuery: string;
@@ -16,30 +26,38 @@ export function DirectoryFilters({
   setRoleFilter,
 }: DirectoryFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 animate-fadeIn">
-      <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+    <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between mb-6 animate-fadeIn">
+      {/* Search Bar */}
+      <div className="relative w-full lg:max-w-sm">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name, department, expertise..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+          placeholder="Search members..."
+          className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
         />
       </div>
-      <div className="relative">
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-          className="px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all appearance-none pr-10 cursor-pointer"
-        >
+
+      {/* Role Filter Pills */}
+      <div className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+        <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
+        <div className="flex items-center gap-1.5">
           {roleFilters.map((role) => (
-            <option key={role} value={role}>
+            <button
+              key={role}
+              type="button"
+              onClick={() => setRoleFilter(role)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
+                roleFilter === role
+                  ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/20 shadow-sm"
+                  : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
+              }`}
+            >
               {role}
-            </option>
+            </button>
           ))}
-        </select>
-        <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+        </div>
       </div>
     </div>
   );

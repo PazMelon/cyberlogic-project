@@ -9,7 +9,9 @@ import {
   LayoutList,
   LayoutGrid,
   Check,
-  QrCode
+  QrCode,
+  Search,
+  Filter
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchEvents, registerForEvent, unregisterFromEvent, formatEventTime } from "../utils/api";
@@ -29,6 +31,7 @@ export default function Events() {
   const [activeType, setActiveType] = useState<string>("All");
   const [activeStatus, setActiveStatus] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
   
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
@@ -87,7 +90,10 @@ export default function Events() {
     const matchesType = activeType === "All" || e.type === activeType;
     const matchesStatus =
       activeStatus === "All" || e.status.toLowerCase() === activeStatus.toLowerCase();
-    return matchesType && matchesStatus;
+    const matchesSearch =
+      e.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesType && matchesStatus && matchesSearch;
   });
 
   const typeColors: Record<string, string> = {
@@ -153,51 +159,61 @@ export default function Events() {
           </div>
         </div>
 
-        {/* Filter Bars */}
-        <div className="space-y-3 mb-8">
-          {/* Type Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-surface-900/35 p-3 rounded-2xl border border-border/60">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider min-w-[70px] select-none">
-              Category:
-            </span>
-            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
-              {eventTypes.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => setActiveType(type)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
-                    activeType === type
-                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
-                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
-                  }`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
+        {/* Search + Filters */}
+        <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between mb-6">
+          {/* Search Bar */}
+          <div className="relative w-full lg:max-w-sm">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search events..."
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+            />
           </div>
 
-          {/* Status Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-surface-900/35 p-3 rounded-2xl border border-border/60">
-            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider min-w-[70px] select-none">
-              Status:
-            </span>
-            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
-              {statusFilters.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => setActiveStatus(status)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
-                    activeStatus === status
-                      ? "bg-gradient-to-r from-accent/15 to-accent/5 text-accent border-accent/30 shadow-sm shadow-accent/10 scale-[1.02]"
-                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-accent/20"
-                  }`}
-                >
-                  {status}
-                </button>
-              ))}
+          <div className="flex flex-col md:flex-row gap-3 flex-1 lg:justify-end overflow-hidden w-full lg:w-auto">
+            {/* Category Filter */}
+            <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+              <Filter className="w-3.5 h-3.5 text-text-muted mx-1.5 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                {eventTypes.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setActiveType(type)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
+                      activeType === type
+                        ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/20 shadow-sm"
+                        : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+              <Clock className="w-3.5 h-3.5 text-text-muted mx-1.5 flex-shrink-0" />
+              <div className="flex items-center gap-1">
+                {statusFilters.map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setActiveStatus(status)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
+                      activeStatus === status
+                        ? "bg-gradient-to-r from-accent/15 to-accent/5 text-accent border-accent/20 shadow-sm"
+                        : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
