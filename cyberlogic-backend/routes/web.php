@@ -89,6 +89,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/events', [EventController::class, 'store'])->middleware('throttle:10,1');
     Route::put('/api/events/{id}', [EventController::class, 'update'])->middleware('throttle:10,1');
     Route::delete('/api/events/{id}', [EventController::class, 'destroy']);
+    Route::get('/api/events/{id}/attendance-qr', [EventController::class, 'generateQr']);
+    Route::post('/api/events/{id}/check-in', [EventController::class, 'checkIn']);
+    Route::get('/api/events/{id}/attendees', [EventController::class, 'attendees']);
+    Route::put('/api/events/{id}/status', [EventController::class, 'updateStatus']);
 
     // Secure Forum actions
     Route::post('/api/forum/threads', [ForumThreadController::class, 'store'])->middleware('throttle:10,1');

@@ -435,7 +435,16 @@ export async function fetchEvents(): Promise<Event[]> {
     capacity: e.capacity,
     attendees: e.attendees,
     isRegistered: !!e.is_registered,
-    sections: e.sections || []
+    sections: e.sections || [],
+    status: e.status,
+    eventMode: e.event_mode,
+    attendanceCapacity: e.attendance_capacity,
+    registrationStart: e.registration_start,
+    registrationEnd: e.registration_end,
+    attendanceStart: e.attendance_start,
+    attendanceEnd: e.attendance_end,
+    attendanceCount: e.attendance_count,
+    isAttended: !!e.is_attended
   }));
 }
 
@@ -462,7 +471,16 @@ export async function fetchEventById(id: number): Promise<Event> {
     capacity: e.capacity,
     attendees: e.attendees,
     isRegistered: !!e.is_registered,
-    sections: e.sections || []
+    sections: e.sections || [],
+    status: e.status,
+    eventMode: e.event_mode,
+    attendanceCapacity: e.attendance_capacity,
+    registrationStart: e.registration_start,
+    registrationEnd: e.registration_end,
+    attendanceStart: e.attendance_start,
+    attendanceEnd: e.attendance_end,
+    attendanceCount: e.attendance_count,
+    isAttended: !!e.is_attended
   };
 }
 
@@ -483,7 +501,14 @@ export async function createEvent(data: Partial<Event>): Promise<Event> {
       type: data.type,
       image: data.image,
       capacity: data.capacity,
-      sections: data.sections
+      sections: data.sections,
+      status: data.status,
+      event_mode: data.eventMode,
+      attendance_capacity: data.attendanceCapacity,
+      registration_start: data.registrationStart,
+      registration_end: data.registrationEnd,
+      attendance_start: data.attendanceStart,
+      attendance_end: data.attendanceEnd
     })
   });
 
@@ -512,7 +537,14 @@ export async function updateEvent(id: number, data: Partial<Event>): Promise<Eve
       type: data.type,
       image: data.image,
       capacity: data.capacity,
-      sections: data.sections
+      sections: data.sections,
+      status: data.status,
+      event_mode: data.eventMode,
+      attendance_capacity: data.attendanceCapacity,
+      registration_start: data.registrationStart,
+      registration_end: data.registrationEnd,
+      attendance_start: data.attendanceStart,
+      attendance_end: data.attendanceEnd
     })
   });
 
@@ -579,6 +611,65 @@ export async function unregisterFromEvent(id: number): Promise<{ attendees: numb
     attendees: data.attendees,
     isRegistered: !!data.is_registered
   };
+}
+
+/**
+ * GET /api/events/{id}/attendance-qr
+ * Fetch attendance QR token.
+ */
+export async function fetchAttendanceQr(id: number): Promise<string> {
+  const res = await apiRequest(`/api/events/${id}/attendance-qr`);
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to generate attendance QR code.");
+  }
+  const data = await res.json();
+  return data.qr_token;
+}
+
+/**
+ * POST /api/events/{id}/check-in
+ * Submit a scanned QR token to check in.
+ */
+export async function checkInAttendee(id: number, qrToken: string): Promise<any> {
+  const res = await apiRequest(`/api/events/${id}/check-in`, {
+    method: "POST",
+    body: JSON.stringify({ qr_token: qrToken })
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to check in attendee.");
+  }
+  return res.json();
+}
+
+/**
+ * GET /api/events/{id}/attendees
+ * Fetch checked-in attendees and registrations.
+ */
+export async function fetchEventAttendees(id: number): Promise<{ attendees: any[]; registrations: any[] }> {
+  const res = await apiRequest(`/api/events/${id}/attendees`);
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to retrieve attendees list.");
+  }
+  return res.json();
+}
+
+/**
+ * PUT /api/events/{id}/status
+ * Update event status.
+ */
+export async function updateEventStatus(id: number, status: string): Promise<{ success: boolean; status: string; message: string }> {
+  const res = await apiRequest(`/api/events/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status })
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || "Failed to update event status.");
+  }
+  return res.json();
 }
 
 /**

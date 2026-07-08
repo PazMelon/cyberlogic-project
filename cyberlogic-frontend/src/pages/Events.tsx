@@ -9,12 +9,14 @@ import {
   LayoutList,
   LayoutGrid,
   Check,
+  QrCode
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchEvents, registerForEvent, unregisterFromEvent, formatEventTime } from "../utils/api";
 import type { Event } from "../data/mockData";
 
 const eventTypes = ["All", "Workshop", "Seminar", "Competition", "Social", "Meeting"] as const;
+const statusFilters = ["All", "Upcoming", "Ongoing", "Completed", "Closed", "Postponed"] as const;
 
 export default function Events() {
   const navigate = useNavigate();
@@ -25,6 +27,7 @@ export default function Events() {
   const [rsvpLoadingId, setRsvpLoadingId] = useState<number | null>(null);
 
   const [activeType, setActiveType] = useState<string>("All");
+  const [activeStatus, setActiveStatus] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   
   const location = useLocation();
@@ -48,7 +51,6 @@ export default function Events() {
 
   const handleRsvp = async (event: Event) => {
     if (!isAuthenticated) {
-      // Redirect unauthenticated guests to login
       navigate("/login");
       return;
     }
@@ -81,9 +83,12 @@ export default function Events() {
     }
   };
 
-  const filtered = eventList.filter(
-    (e) => activeType === "All" || e.type === activeType
-  );
+  const filtered = eventList.filter((e) => {
+    const matchesType = activeType === "All" || e.type === activeType;
+    const matchesStatus =
+      activeStatus === "All" || e.status.toLowerCase() === activeStatus.toLowerCase();
+    return matchesType && matchesStatus;
+  });
 
   const typeColors: Record<string, string> = {
     Workshop: "bg-primary/10 text-primary border border-primary/20",
@@ -91,6 +96,14 @@ export default function Events() {
     Competition: "bg-error/10 text-error border border-error/20",
     Social: "bg-accent/10 text-accent border border-accent/20",
     Meeting: "bg-success/10 text-success border border-success/20",
+  };
+
+  const statusColors: Record<string, string> = {
+    upcoming: "bg-info/10 text-info border border-info/20",
+    ongoing: "bg-success/10 text-success border border-success/20",
+    completed: "bg-purple-500/10 text-purple-400 border border-purple-500/20",
+    closed: "bg-surface-700 text-text-muted border border-border/20",
+    postponed: "bg-warning/10 text-warning border border-warning/20",
   };
 
   return (
@@ -140,28 +153,51 @@ export default function Events() {
           </div>
         </div>
 
-        {/* Type Filters */}
-        <div className="flex flex-wrap items-center gap-2 mb-8">
-          {eventTypes.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setActiveType(type)}
-              className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
-                activeType === type
-                  ? "bg-primary/10 text-primary border-primary/30"
-                  : "bg-surface-800 text-text-muted border-border hover:border-primary/20 hover:text-text-secondary"
-              }`}
-            >
-              {type}
-            </button>
-          ))}
+        {/* Filter Bars */}
+        <div className="space-y-4 mb-8">
+          {/* Type Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-text-muted mr-1">Category:</span>
+            {eventTypes.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setActiveType(type)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
+                  activeType === type
+                    ? "bg-primary/10 text-primary border-primary/30 font-semibold"
+                    : "bg-surface-800 text-text-muted border-border hover:border-primary/20 hover:text-text-secondary"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
+          {/* Status Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-text-muted mr-1">Status:</span>
+            {statusFilters.map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setActiveStatus(status)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
+                  activeStatus === status
+                    ? "bg-accent/10 text-accent border-accent/30 font-semibold"
+                    : "bg-surface-800 text-text-muted border-border hover:border-accent/20 hover:text-text-secondary"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
         </div>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3 animate-fadeIn">
             <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-xs text-text-muted">Loading upcoming events...</p>
+            <p className="text-xs text-text-muted">Loading events...</p>
           </div>
         ) : error ? (
           <div className="text-center py-16">
@@ -196,6 +232,10 @@ export default function Events() {
               const isFull = event.capacity ? event.attendees >= event.capacity : false;
               const detailUrl = isPortal ? `/app/events/${event.id}` : `/events/${event.id}`;
 
+              // Determine button state
+              const isRsvpMode = event.eventMode !== "attendance_only";
+              const isButtonDisabled = rsvpLoadingId === event.id || event.status !== "upcoming" || !isRsvpMode;
+
               return (
                 <div
                   key={event.id}
@@ -224,13 +264,27 @@ export default function Events() {
                   </Link>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
                           typeColors[event.type] || "bg-surface-700 text-text-secondary"
                         }`}
                       >
                         {event.type}
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
+                          statusColors[event.status] || "bg-surface-700 text-text-secondary"
+                        }`}
+                      >
+                        {event.status}
+                      </span>
+                      <span className="text-[10px] text-text-muted font-medium ml-auto">
+                        {event.eventMode === "registration_only"
+                          ? "RSVP Only"
+                          : event.eventMode === "attendance_only"
+                          ? "Attendance Only"
+                          : "RSVP + Attendance"}
                       </span>
                     </div>
                     <h3 className="text-lg font-semibold text-text-primary group-hover:text-accent transition-colors mb-2">
@@ -248,31 +302,42 @@ export default function Events() {
                       <span className="inline-flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5" /> {event.location}
                       </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" /> {event.attendees} / {event.capacity || 50} attending
-                      </span>
+                      {event.eventMode !== "attendance_only" && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5" /> {event.attendees} / {event.capacity || "∞"} attending
+                        </span>
+                      )}
                     </div>
                     
                     {viewMode === "grid" && (
                       <button
                         type="button"
-                        disabled={rsvpLoadingId === event.id}
+                        disabled={isButtonDisabled}
                         onClick={() => handleRsvp(event)}
                         className={`w-full py-2.5 rounded-xl border text-sm font-medium transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          event.isRegistered
+                          !isRsvpMode
+                            ? "bg-surface-800/40 border-border text-text-muted cursor-default"
+                            : event.isRegistered
                             ? "bg-accent/10 border-accent/30 text-accent hover:bg-accent/20"
-                            : isFull
+                            : isButtonDisabled
                             ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
                             : "border-primary/30 text-primary hover:bg-primary/5"
                         }`}
                       >
                         {rsvpLoadingId === event.id ? (
                           <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                        ) : !isRsvpMode ? (
+                          <>
+                            <QrCode className="w-4 h-4" />
+                            Audience Check-in Only
+                          </>
                         ) : event.isRegistered ? (
                           <>
                             <Check className="w-4 h-4" />
                             Registered
                           </>
+                        ) : event.status !== "upcoming" ? (
+                          "RSVP Closed"
                         ) : isFull ? (
                           "Fully Booked"
                         ) : (
@@ -288,20 +353,26 @@ export default function Events() {
                   {viewMode === "list" && (
                     <button
                       type="button"
-                      disabled={rsvpLoadingId === event.id}
+                      disabled={isButtonDisabled}
                       onClick={() => handleRsvp(event)}
                       className={`flex-shrink-0 self-center px-5 py-2.5 rounded-xl border text-sm font-medium transition-all cursor-pointer ${
-                        event.isRegistered
+                        !isRsvpMode
+                          ? "bg-surface-800/40 border-border text-text-muted cursor-default"
+                          : event.isRegistered
                           ? "bg-accent/10 border-accent/30 text-accent hover:bg-accent/20"
-                          : isFull
+                          : isButtonDisabled
                           ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
                           : "border-primary/30 text-primary hover:bg-primary/5"
                       }`}
                     >
                       {rsvpLoadingId === event.id ? (
                         <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                      ) : !isRsvpMode ? (
+                        "Check-in Only"
                       ) : event.isRegistered ? (
                         "Registered"
+                      ) : event.status !== "upcoming" ? (
+                        "Closed"
                       ) : isFull ? (
                         "Full"
                       ) : (
@@ -317,7 +388,7 @@ export default function Events() {
 
         {!isLoading && filtered.length === 0 && !error && (
           <div className="text-center py-16">
-            <p className="text-text-muted">No events found for this category.</p>
+            <p className="text-text-muted">No events found matching the criteria.</p>
           </div>
         )}
       </div>

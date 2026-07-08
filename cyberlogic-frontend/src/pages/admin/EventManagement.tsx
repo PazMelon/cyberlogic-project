@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Clock, MapPin, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, MapPin, Scan, List } from "lucide-react";
 import { useNavigate } from "react-router";
-import { fetchEvents, deleteEvent, formatEventTime } from "../../utils/api";
+import { fetchEvents, deleteEvent, formatEventTime, updateEventStatus } from "../../utils/api";
 import { Button, DataTable } from "../../components/ui";
 import type { Event } from "../../data/mockData";
 
@@ -25,13 +25,7 @@ export default function EventManagement() {
     loadEvents();
   }, []);
 
-  const typeColors: Record<string, string> = {
-    Workshop: "bg-primary/10 text-primary",
-    Seminar: "bg-info/10 text-info",
-    Competition: "bg-error/10 text-error",
-    Social: "bg-accent/10 text-accent",
-    Meeting: "bg-success/10 text-success",
-  };
+
 
   const handleDeleteEvent = async (id: number) => {
     if (confirm("Are you sure you want to delete this event?")) {
@@ -41,6 +35,15 @@ export default function EventManagement() {
       } catch (err: any) {
         alert(err.message || "Failed to delete event.");
       }
+    }
+  };
+
+  const handleUpdateStatus = async (id: number, status: string) => {
+    try {
+      await updateEventStatus(id, status);
+      setEventList(prev => prev.map(e => e.id === id ? { ...e, status: status as any } : e));
+    } catch (err: any) {
+      alert(err.message || "Failed to update event status.");
     }
   };
 
@@ -57,15 +60,47 @@ export default function EventManagement() {
       sortKey: "title" as any
     },
     {
-      header: "Type",
+      header: "Mode",
       accessor: (event: Event) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${typeColors[event.type] || "bg-surface-700 text-text-muted"} border border-border/20`}>
-          {event.type}
+        <span className="text-xs text-text-secondary">
+          {event.eventMode === 'registration_only' ? 'RSVP Only' : event.eventMode === 'attendance_only' ? 'Attendance Only' : 'RSVP + Attendance'}
         </span>
       ),
       sortable: true,
-      sortKey: "type" as any,
+      sortKey: "eventMode" as any,
       className: "hidden sm:table-cell"
+    },
+    {
+      header: "Status",
+      accessor: (event: Event) => {
+        const statusColors: Record<string, string> = {
+          upcoming: "bg-info/10 text-info border border-info/20",
+          ongoing: "bg-primary/10 text-primary border border-primary/20",
+          completed: "bg-success/10 text-success border border-success/20",
+          closed: "bg-surface-700 text-text-muted border border-border/20",
+          postponed: "bg-warning/10 text-warning border border-warning/20",
+        };
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusColors[event.status] || "bg-surface-700 text-text-muted"}`}>
+              {event.status}
+            </span>
+            <select
+              value={event.status}
+              onChange={(e) => handleUpdateStatus(event.id, e.target.value)}
+              className="px-1.5 py-0.5 rounded-md bg-surface-800 border border-border text-[10px] text-text-secondary focus:outline-none cursor-pointer"
+            >
+              <option value="upcoming">Upcoming</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="closed">Closed</option>
+              <option value="postponed">Postponed</option>
+            </select>
+          </div>
+        );
+      },
+      sortable: true,
+      sortKey: "status" as any
     },
     {
       header: "Date & Time",
@@ -93,20 +128,47 @@ export default function EventManagement() {
       className: "hidden lg:table-cell"
     },
     {
-      header: "Attendees",
+      header: "Attendees / RSVPs",
       accessor: (event: Event) => (
-        <span className="text-xs text-text-muted flex items-center gap-1">
-          <Users className="w-3 h-3" /> {event.attendees} / {event.capacity || 50}
-        </span>
+        <div className="text-xs text-text-muted space-y-0.5">
+          {event.eventMode !== 'attendance_only' && (
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-text-secondary">RSVP:</span>
+              <span>{event.attendees} / {event.capacity || '∞'}</span>
+            </div>
+          )}
+          {event.eventMode !== 'registration_only' && (
+            <div className="flex items-center gap-1">
+              <span className="font-medium text-text-secondary">Present:</span>
+              <span>{event.attendanceCount || 0} / {event.attendanceCapacity || '∞'}</span>
+            </div>
+          )}
+        </div>
       ),
-      sortable: true,
-      sortKey: "attendees" as any,
       className: "hidden lg:table-cell"
     },
     {
       header: "Actions",
       accessor: (event: Event) => (
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1.5">
+          {event.eventMode !== 'registration_only' && (
+            <button 
+              type="button" 
+              onClick={() => navigate(`/admin/events/${event.id}/scanner`)}
+              className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer" 
+              title="QR Check-in Scanner"
+            >
+              <Scan className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button 
+            type="button" 
+            onClick={() => navigate(`/admin/events/${event.id}/attendees`)}
+            className="p-1.5 rounded-lg text-text-muted hover:text-success hover:bg-white/5 transition-colors cursor-pointer" 
+            title="Attendees / Registration List"
+          >
+            <List className="w-3.5 h-3.5" />
+          </button>
           <button 
             type="button" 
             onClick={() => navigate(`/admin/events/edit/${event.id}`)}

@@ -80,7 +80,7 @@ export function CreateBlog() {
         category: editorState.category as "Tech" | "Tutorial" | "News" | "Lifestyle" | "General" | "Academic",
         author: editorState.author || user?.name || "System Admin",
         featured: editorState.featured || false,
-        status: editorState.status || "published",
+        status: (editorState.status as "published" | "draft") || "published",
         sections: editorState.sections,
         tags: editorState.tags || [],
         image: editorState.image || undefined,

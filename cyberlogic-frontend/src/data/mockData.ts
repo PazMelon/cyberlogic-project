@@ -72,6 +72,15 @@ export interface Event {
   isRegistered?: boolean;
   capacity?: number;
   sections?: ContentSection[];
+  status: 'upcoming' | 'ongoing' | 'completed' | 'closed' | 'postponed';
+  eventMode: 'registration_and_attendance' | 'attendance_only' | 'registration_only';
+  attendanceCapacity?: number;
+  registrationStart?: string;
+  registrationEnd?: string;
+  attendanceStart?: string;
+  attendanceEnd?: string;
+  attendanceCount?: number;
+  isAttended?: boolean;
 }
 
 export interface Resource {

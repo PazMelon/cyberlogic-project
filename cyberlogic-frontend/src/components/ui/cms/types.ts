@@ -58,8 +58,14 @@ export interface CMSBlogState {
   eventEndTime?: string;
   eventLocation?: string;
   eventCapacity?: number;
+  eventMode?: 'registration_and_attendance' | 'attendance_only' | 'registration_only';
+  attendanceCapacity?: number;
+  registrationStart?: string;
+  registrationEnd?: string;
+  attendanceStart?: string;
+  attendanceEnd?: string;
 
-  status?: 'published' | 'draft';
+  status?: 'published' | 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'closed' | 'postponed';
   tags?: string[];
 }
 

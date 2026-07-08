@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Models\EventAttendance;
 use App\Services\AuditLogger;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -52,15 +54,29 @@ class EventController extends Controller
     {
         $user = $request->user();
         
-        // Eager load registrations count
-        $events = Event::withCount('registrations')
+        // Eager load registrations and attendances count
+        $events = Event::withCount(['registrations', 'attendances'])
             ->orderBy('date', 'asc')
             ->get();
 
         $result = $events->map(function (Event $event) use ($user) {
+            // Auto-complete check
+            if ($event->status === 'upcoming') {
+                $eventDateTimeStr = $event->date->format('Y-m-d') . ' ' . $event->end_time;
+                $eventEnd = Carbon::parse($eventDateTimeStr);
+                if ($eventEnd->isPast()) {
+                    $event->status = 'completed';
+                    $event->save();
+                }
+            }
+
             $isRegistered = false;
+            $isAttended = false;
             if ($user) {
                 $isRegistered = $event->registrations()
+                    ->where('user_id', $user->id)
+                    ->exists();
+                $isAttended = $event->attendances()
                     ->where('user_id', $user->id)
                     ->exists();
             }
@@ -79,6 +95,15 @@ class EventController extends Controller
                 'attendees' => $event->registrations_count,
                 'is_registered' => $isRegistered,
                 'sections' => $event->sections ?: [],
+                'status' => $event->status,
+                'event_mode' => $event->event_mode,
+                'attendance_capacity' => $event->attendance_capacity,
+                'registration_start' => $event->registration_start ? substr($event->registration_start, 0, 5) : null,
+                'registration_end' => $event->registration_end ? substr($event->registration_end, 0, 5) : null,
+                'attendance_start' => $event->attendance_start ? substr($event->attendance_start, 0, 5) : null,
+                'attendance_end' => $event->attendance_end ? substr($event->attendance_end, 0, 5) : null,
+                'attendance_count' => $event->attendances_count,
+                'is_attended' => $isAttended,
             ];
         });
 
@@ -91,12 +116,26 @@ class EventController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $event = Event::withCount('registrations')->findOrFail($id);
+        $event = Event::withCount(['registrations', 'attendances'])->findOrFail($id);
         $user = $request->user();
 
+        // Auto-complete check
+        if ($event->status === 'upcoming') {
+            $eventDateTimeStr = $event->date->format('Y-m-d') . ' ' . $event->end_time;
+            $eventEnd = Carbon::parse($eventDateTimeStr);
+            if ($eventEnd->isPast()) {
+                $event->status = 'completed';
+                $event->save();
+            }
+        }
+
         $isRegistered = false;
+        $isAttended = false;
         if ($user) {
             $isRegistered = $event->registrations()
+                ->where('user_id', $user->id)
+                ->exists();
+            $isAttended = $event->attendances()
                 ->where('user_id', $user->id)
                 ->exists();
         }
@@ -115,6 +154,15 @@ class EventController extends Controller
             'attendees' => $event->registrations_count,
             'is_registered' => $isRegistered,
             'sections' => $event->sections ?: [],
+            'status' => $event->status,
+            'event_mode' => $event->event_mode,
+            'attendance_capacity' => $event->attendance_capacity,
+            'registration_start' => $event->registration_start ? substr($event->registration_start, 0, 5) : null,
+            'registration_end' => $event->registration_end ? substr($event->registration_end, 0, 5) : null,
+            'attendance_start' => $event->attendance_start ? substr($event->attendance_start, 0, 5) : null,
+            'attendance_end' => $event->attendance_end ? substr($event->attendance_end, 0, 5) : null,
+            'attendance_count' => $event->attendances_count,
+            'is_attended' => $isAttended,
         ]);
     }
 
@@ -137,6 +185,13 @@ class EventController extends Controller
             'image' => 'nullable|string|max:2048',
             'capacity' => 'nullable|integer|min:1',
             'sections' => 'nullable|array',
+            'status' => 'nullable|string|in:upcoming,ongoing,completed,closed,postponed',
+            'event_mode' => 'required|string|in:registration_and_attendance,attendance_only,registration_only',
+            'attendance_capacity' => 'nullable|integer|min:0',
+            'registration_start' => 'nullable|date_format:H:i',
+            'registration_end' => 'nullable|date_format:H:i',
+            'attendance_start' => 'nullable|date_format:H:i',
+            'attendance_end' => 'nullable|date_format:H:i',
         ]);
 
         // Process sections: sanitize html text blocks for XSS protection
@@ -158,8 +213,15 @@ class EventController extends Controller
             'location' => $validated['location'],
             'type' => $validated['type'],
             'image' => $validated['image'] ?? null,
-            'capacity' => $validated['capacity'] ?? 50,
+            'capacity' => $validated['capacity'] ?? null,
             'sections' => $sections,
+            'status' => $validated['status'] ?? 'upcoming',
+            'event_mode' => $validated['event_mode'],
+            'attendance_capacity' => $validated['attendance_capacity'] ?? null,
+            'registration_start' => $validated['registration_start'] ?? null,
+            'registration_end' => $validated['registration_end'] ?? null,
+            'attendance_start' => $validated['attendance_start'] ?? null,
+            'attendance_end' => $validated['attendance_end'] ?? null,
         ]);
 
         AuditLogger::log('created', 'Event', $event->id, $event->title, null, $request);
@@ -188,6 +250,13 @@ class EventController extends Controller
             'image' => 'nullable|string|max:2048',
             'capacity' => 'nullable|integer|min:1',
             'sections' => 'nullable|array',
+            'status' => 'nullable|string|in:upcoming,ongoing,completed,closed,postponed',
+            'event_mode' => 'required|string|in:registration_and_attendance,attendance_only,registration_only',
+            'attendance_capacity' => 'nullable|integer|min:0',
+            'registration_start' => 'nullable|date_format:H:i',
+            'registration_end' => 'nullable|date_format:H:i',
+            'attendance_start' => 'nullable|date_format:H:i',
+            'attendance_end' => 'nullable|date_format:H:i',
         ]);
 
         // Process sections: sanitize html text blocks for XSS protection
@@ -209,8 +278,15 @@ class EventController extends Controller
             'location' => $validated['location'],
             'type' => $validated['type'],
             'image' => $validated['image'] ?? null,
-            'capacity' => $validated['capacity'] ?? 50,
+            'capacity' => $validated['capacity'] ?? null,
             'sections' => $sections,
+            'status' => $validated['status'] ?? $event->status,
+            'event_mode' => $validated['event_mode'],
+            'attendance_capacity' => $validated['attendance_capacity'] ?? null,
+            'registration_start' => $validated['registration_start'] ?? null,
+            'registration_end' => $validated['registration_end'] ?? null,
+            'attendance_start' => $validated['attendance_start'] ?? null,
+            'attendance_end' => $validated['attendance_end'] ?? null,
         ]);
 
         AuditLogger::log('updated', 'Event', $event->id, $event->title, null, $request);
@@ -252,6 +328,33 @@ class EventController extends Controller
             // Lock event row to prevent race conditions exceeding capacity
             $event = Event::lockForUpdate()->findOrFail($id);
 
+            // Check event mode
+            if ($event->event_mode === 'attendance_only') {
+                return response()->json(['error' => 'Registration is not enabled for this event.'], 400);
+            }
+
+            // Check event status
+            if ($event->status !== 'upcoming') {
+                return response()->json(['error' => "Cannot register. Event status is {$event->status}."], 400);
+            }
+
+            // Check registration timing window
+            $now = now();
+            $eventDateStr = $event->date->format('Y-m-d');
+            
+            if ($event->registration_start) {
+                $registrationStart = Carbon::parse($eventDateStr . ' ' . $event->registration_start);
+                if ($now->lt($registrationStart)) {
+                    return response()->json(['error' => 'Registration has not started yet.'], 400);
+                }
+            }
+            if ($event->registration_end) {
+                $registrationEnd = Carbon::parse($eventDateStr . ' ' . $event->registration_end);
+                if ($now->gt($registrationEnd)) {
+                    return response()->json(['error' => 'Registration has already closed.'], 400);
+                }
+            }
+
             // 1. Check if already registered
             $exists = EventRegistration::where('event_id', $event->id)
                 ->where('user_id', $user->id)
@@ -266,13 +369,15 @@ class EventController extends Controller
             }
 
             // 2. Check capacity
-            $currentCount = $event->registrations()->count();
-            if ($currentCount >= $event->capacity) {
-                return response()->json([
-                    'error' => 'Registration failed. This event is fully booked.',
-                    'attendees' => $currentCount,
-                    'is_registered' => false
-                ], 400);
+            if ($event->capacity !== null) {
+                $currentCount = $event->registrations()->count();
+                if ($currentCount >= $event->capacity) {
+                    return response()->json([
+                        'error' => 'Registration failed. This event is fully booked.',
+                        'attendees' => $currentCount,
+                        'is_registered' => false
+                    ], 400);
+                }
             }
 
             // 3. Create registration
@@ -307,6 +412,10 @@ class EventController extends Controller
 
         $event = Event::findOrFail($id);
 
+        if ($event->status !== 'upcoming') {
+            return response()->json(['error' => "Cannot cancel registration. Event status is {$event->status}."], 400);
+        }
+
         // Delete registration
         EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
@@ -321,6 +430,217 @@ class EventController extends Controller
             'message' => 'Successfully cancelled registration.',
             'attendees' => $event->registrations()->count(),
             'is_registered' => false
+        ]);
+    }
+
+    /**
+     * GET /api/events/{id}/attendance-qr
+     * Generate a signed QR token for the authenticated user for this event.
+     */
+    public function generateQr(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated.'], 401);
+        }
+
+        $event = Event::findOrFail($id);
+
+        if ($event->event_mode === 'registration_only') {
+            return response()->json(['error' => 'Attendance tracking is not enabled for this event.'], 400);
+        }
+
+        // Format: event_id:user_id:timestamp
+        $timestamp = time();
+        $payload = "{$event->id}:{$user->id}:{$timestamp}";
+        $signature = hash_hmac('sha256', $payload, config('app.key'));
+        
+        $token = base64_encode("{$payload}:{$signature}");
+
+        return response()->json([
+            'qr_token' => $token
+        ]);
+    }
+
+    /**
+     * POST /api/events/{id}/check-in
+     * Admin scans QR → validates token → creates attendance record.
+     */
+    public function checkIn(Request $request, $id)
+    {
+        $this->authorizeRbac($request);
+
+        $event = Event::findOrFail($id);
+
+        if ($event->event_mode === 'registration_only') {
+            return response()->json(['error' => 'Attendance tracking is not enabled for this event.'], 400);
+        }
+
+        $validated = $request->validate([
+            'qr_token' => 'required|string',
+        ]);
+
+        $token = base64_decode($validated['qr_token']);
+        if (!$token) {
+            return response()->json(['error' => 'Invalid QR Code format.'], 400);
+        }
+
+        $parts = explode(':', $token);
+        if (count($parts) !== 4) {
+            return response()->json(['error' => 'Invalid QR Code format.'], 400);
+        }
+
+        [$tokenEventId, $tokenUserId, $tokenTimestamp, $signature] = $parts;
+
+        // Verify signature
+        $payload = "{$tokenEventId}:{$tokenUserId}:{$tokenTimestamp}";
+        $expectedSignature = hash_hmac('sha256', $payload, config('app.key'));
+
+        if (!hash_equals($expectedSignature, $signature)) {
+            return response()->json(['error' => 'QR Code signature mismatch.'], 400);
+        }
+
+        if ((int)$tokenEventId !== (int)$event->id) {
+            return response()->json(['error' => 'This QR Code is for a different event.'], 400);
+        }
+
+        if (in_array($event->status, ['completed', 'closed', 'postponed'])) {
+            return response()->json(['error' => "Cannot record attendance for a {$event->status} event."], 400);
+        }
+
+        $user = \App\Models\User::findOrFail($tokenUserId);
+
+        // Verify timing requirements
+        $now = now();
+        $eventDateStr = $event->date->format('Y-m-d');
+        
+        if ($event->attendance_start) {
+            $attendanceStart = Carbon::parse($eventDateStr . ' ' . $event->attendance_start);
+            if ($now->lt($attendanceStart)) {
+                return response()->json(['error' => 'Attendance check-in is not open yet.'], 400);
+            }
+        }
+
+        $status = 'present';
+        if ($event->attendance_end) {
+            $attendanceEnd = Carbon::parse($eventDateStr . ' ' . $event->attendance_end);
+            if ($now->gt($attendanceEnd)) {
+                $status = 'late';
+            }
+        }
+
+        // Check attendance capacity
+        if ($event->attendance_capacity !== null && $event->attendance_capacity > 0) {
+            $currentCount = $event->attendances()->count();
+            if ($currentCount >= $event->attendance_capacity) {
+                $alreadyCheckedIn = $event->attendances()->where('user_id', $user->id)->exists();
+                if (!$alreadyCheckedIn) {
+                    return response()->json(['error' => 'Attendance capacity has been reached.'], 400);
+                }
+            }
+        }
+
+        // Record attendance
+        $attendance = DB::transaction(function () use ($event, $user, $status, $validated, $request) {
+            return EventAttendance::updateOrCreate(
+                [
+                    'event_id' => $event->id,
+                    'user_id' => $user->id,
+                ],
+                [
+                    'status' => $status,
+                    'checked_in_at' => now(),
+                    'checked_in_by' => $request->user()->id,
+                    'qr_token' => $validated['qr_token'],
+                ]
+            );
+        });
+
+        AuditLogger::log('checked_in', 'EventAttendance', $attendance->id, "{$user->name} attended {$event->title}", [
+            'event_id' => $event->id,
+            'user_id' => $user->id,
+            'status' => $status
+        ], $request);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Attendance recorded successfully.',
+            'attendee' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar' => $user->avatar,
+                'status' => $status,
+                'checked_in_at' => $attendance->checked_in_at->toDateTimeString(),
+            ]
+        ]);
+    }
+
+    /**
+     * GET /api/events/{id}/attendees
+     * List all attendance records for an event (admin).
+     */
+    public function attendees(Request $request, $id)
+    {
+        $this->authorizeRbac($request);
+
+        $event = Event::findOrFail($id);
+
+        $attendances = $event->attendances()->with(['user', 'checkedInBy'])->get()->map(function ($att) {
+            return [
+                'id' => $att->id,
+                'user_id' => $att->user->id,
+                'name' => $att->user->name,
+                'email' => $att->user->email,
+                'avatar' => $att->user->avatar,
+                'status' => $att->status,
+                'checked_in_at' => $att->checked_in_at ? $att->checked_in_at->toDateTimeString() : null,
+                'checked_in_by_name' => $att->checkedInBy ? $att->checkedInBy->name : null,
+            ];
+        });
+
+        $registrations = $event->registrations()->with('user')->get()->map(function ($reg) {
+            return [
+                'id' => $reg->id,
+                'user_id' => $reg->user->id,
+                'name' => $reg->user->name,
+                'email' => $reg->user->email,
+                'avatar' => $reg->user->avatar,
+                'registered_at' => $reg->created_at->toDateTimeString(),
+            ];
+        });
+
+        return response()->json([
+            'attendees' => $attendances,
+            'registrations' => $registrations
+        ]);
+    }
+
+    /**
+     * PUT /api/events/{id}/status
+     * Admin changes event status.
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $this->authorizeRbac($request);
+
+        $event = Event::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => 'required|string|in:upcoming,ongoing,completed,closed,postponed',
+        ]);
+
+        $event->update([
+            'status' => $validated['status']
+        ]);
+
+        AuditLogger::log('status_updated', 'Event', $event->id, "Event {$event->title} status changed to {$validated['status']}", [
+            'status' => $validated['status']
+        ], $request);
+
+        return response()->json([
+            'success' => true,
+            'status' => $event->status,
+            'message' => "Event status updated to {$event->status}."
         ]);
     }
 }

@@ -27,6 +27,13 @@ class Event extends Model
         'image',
         'capacity',
         'sections',
+        'status',
+        'event_mode',
+        'attendance_capacity',
+        'registration_start',
+        'registration_end',
+        'attendance_start',
+        'attendance_end',
     ];
 
     /**
@@ -39,6 +46,7 @@ class Event extends Model
         return [
             'date' => 'datetime:Y-m-d',
             'capacity' => 'integer',
+            'attendance_capacity' => 'integer',
             'sections' => 'array',
         ];
     }
@@ -57,5 +65,21 @@ class Event extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'event_registrations');
+    }
+
+    /**
+     * Get the attendance records for this event.
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(EventAttendance::class);
+    }
+
+    /**
+     * Get the users who attended this event.
+     */
+    public function attendedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_attendances');
     }
 }

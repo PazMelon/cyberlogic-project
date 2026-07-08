@@ -79,6 +79,18 @@ function getTemplateLabelAndIcon(t?: ImageTemplate) {
   }
 }
 
+const formatForInput = (dateTimeStr?: string) => {
+  if (!dateTimeStr) return "";
+  const d = new Date(dateTimeStr);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 export default function CMSBlogBuilder({
   state,
   onChange,
@@ -645,35 +657,123 @@ export default function CMSBlogBuilder({
                 </div>
               </div>
 
-              {/* Event Location & Capacity */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                    Location *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={state.eventLocation || ''}
-                    onChange={e => updateState({ eventLocation: e.target.value })}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                    placeholder="e.g. IT Lab 402"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                    Capacity *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={state.eventCapacity || 50}
-                    onChange={e => updateState({ eventCapacity: Number(e.target.value) })}
-                    className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
-                    placeholder="50"
-                  />
-                </div>
+              {/* Event Mode */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                  Event Mode *
+                </label>
+                <select
+                  value={state.eventMode || 'registration_and_attendance'}
+                  onChange={e => updateState({ eventMode: e.target.value as any })}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                >
+                  <option value="registration_and_attendance">Registration & Attendance (Both Participant RSVP & Audience Check-in)</option>
+                  <option value="attendance_only">Attendance Only (No registration, check-in audience via QR only)</option>
+                  <option value="registration_only">Registration Only (RSVP only, no QR codes or check-in)</option>
+                </select>
               </div>
+
+              {/* Event Location */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                  Location *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={state.eventLocation || ''}
+                  onChange={e => updateState({ eventLocation: e.target.value })}
+                  className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  placeholder="e.g. IT Lab 402"
+                />
+              </div>
+
+              {/* Capacities */}
+              <div className="grid grid-cols-2 gap-3">
+                {(state.eventMode !== 'attendance_only') && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Registration Capacity
+                    </label>
+                    <input
+                      type="number"
+                      value={state.eventCapacity !== undefined ? state.eventCapacity : ''}
+                      onChange={e => updateState({ eventCapacity: e.target.value ? Number(e.target.value) : undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                      placeholder="Unlimited if empty"
+                    />
+                  </div>
+                )}
+                {(state.eventMode !== 'registration_only') && (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Attendance Capacity
+                    </label>
+                    <input
+                      type="number"
+                      value={state.attendanceCapacity !== undefined ? state.attendanceCapacity : ''}
+                      onChange={e => updateState({ attendanceCapacity: e.target.value ? Number(e.target.value) : undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                      placeholder="Unlimited if empty"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Timing Windows */}
+              {(state.eventMode !== 'attendance_only') && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Registration Open Time
+                    </label>
+                    <input
+                      type="time"
+                      value={state.registrationStart || ''}
+                      onChange={e => updateState({ registrationStart: e.target.value || undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Registration Close Time
+                    </label>
+                    <input
+                      type="time"
+                      value={state.registrationEnd || ''}
+                      onChange={e => updateState({ registrationEnd: e.target.value || undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {(state.eventMode !== 'registration_only') && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Attendance Open Time
+                    </label>
+                    <input
+                      type="time"
+                      value={state.attendanceStart || ''}
+                      onChange={e => updateState({ attendanceStart: e.target.value || undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
+                      Attendance Close Time (Mark Late After)
+                    </label>
+                    <input
+                      type="time"
+                      value={state.attendanceEnd || ''}
+                      onChange={e => updateState({ attendanceEnd: e.target.value || undefined })}
+                      className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              )}
             </>
           )}
 

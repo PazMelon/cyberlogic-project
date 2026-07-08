@@ -31,6 +31,8 @@ import AnnouncementManagement from "./pages/admin/AnnouncementManagement";
 import CreateAnnouncement from "./pages/admin/CreateAnnouncement";
 import EventManagement from "./pages/admin/EventManagement";
 import CreateEvent from "./pages/admin/CreateEvent";
+import EventAttendanceScanner from "./pages/admin/EventAttendanceScanner";
+import EventAttendeesView from "./pages/admin/EventAttendeesView";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
 import ChatManagement from "./pages/admin/ChatManagement";
@@ -240,6 +242,8 @@ function AppRoutes() {
         <Route path="events" element={<EventManagement />} />
         <Route path="events/create" element={<CreateEvent />} />
         <Route path="events/edit/:id" element={<CreateEvent />} />
+        <Route path="events/:id/scanner" element={<EventAttendanceScanner />} />
+        <Route path="events/:id/attendees" element={<EventAttendeesView />} />
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />
         <Route path="chat" element={<ChatManagement />} />

@@ -32,7 +32,13 @@ export default function CreateEvent() {
     eventStartTime: "",
     eventEndTime: "",
     eventLocation: "",
-    eventCapacity: 50
+    eventCapacity: 50,
+    eventMode: "registration_and_attendance",
+    attendanceCapacity: undefined,
+    registrationStart: undefined,
+    registrationEnd: undefined,
+    attendanceStart: undefined,
+    attendanceEnd: undefined
   });
 
   // Load existing event data if in Edit Mode
@@ -58,7 +64,13 @@ export default function CreateEvent() {
           eventStartTime: match.startTime || "",
           eventEndTime: match.endTime || "",
           eventLocation: match.location || "",
-          eventCapacity: match.capacity || 50
+          eventCapacity: match.capacity !== null && match.capacity !== undefined ? match.capacity : undefined,
+          eventMode: match.eventMode || "registration_and_attendance",
+          attendanceCapacity: match.attendanceCapacity !== null && match.attendanceCapacity !== undefined ? match.attendanceCapacity : undefined,
+          registrationStart: match.registrationStart || undefined,
+          registrationEnd: match.registrationEnd || undefined,
+          attendanceStart: match.attendanceStart || undefined,
+          attendanceEnd: match.attendanceEnd || undefined
         });
       } catch (err) {
         console.error("Failed to load event details:", err);
@@ -96,9 +108,15 @@ export default function CreateEvent() {
         startTime: editorState.eventStartTime,
         endTime: editorState.eventEndTime,
         location: editorState.eventLocation,
-        capacity: editorState.eventCapacity,
+        capacity: editorState.eventMode !== 'attendance_only' ? editorState.eventCapacity : undefined,
         image: editorState.image || undefined,
-        sections: editorState.sections
+        sections: editorState.sections,
+        eventMode: editorState.eventMode,
+        attendanceCapacity: editorState.eventMode !== 'registration_only' ? editorState.attendanceCapacity : undefined,
+        registrationStart: editorState.eventMode !== 'attendance_only' ? editorState.registrationStart : undefined,
+        registrationEnd: editorState.eventMode !== 'attendance_only' ? editorState.registrationEnd : undefined,
+        attendanceStart: editorState.eventMode !== 'registration_only' ? editorState.attendanceStart : undefined,
+        attendanceEnd: editorState.eventMode !== 'registration_only' ? editorState.attendanceEnd : undefined
       };
 
       if (editId) {
