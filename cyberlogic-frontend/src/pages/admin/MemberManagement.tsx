@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { fetchUsers, updateUserRole, approveUser, rejectUser } from "../../utils/api";
 import { Button, Card, DataTable } from "../../components/ui";
+import { useWebSocket } from "../../context/WebSocketContext";
 import type { DirectoryMember } from "../../data/mockData";
 
 // Mock Audit Logs
@@ -104,9 +105,35 @@ export default function MemberManagement() {
     }
   };
 
+  const { subscribe } = useWebSocket();
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribe("admin:member_management", (payload) => {
+      if (payload.event === "registration_pending") {
+        setPending((prev) => {
+          if (prev.some((p) => p.id === payload.user.id)) return prev;
+          return [{ ...payload.user, animate: "animate-row-pulse" }, ...prev];
+        });
+      } else if (payload.event === "registration_approved") {
+        setPending((prev) => prev.filter((p) => p.id !== payload.userId));
+        setMembers((prev) => {
+          if (prev.some((m) => m.id === payload.userId)) return prev;
+          return [{ ...payload.member, animate: "animate-row-pulse" }, ...prev];
+        });
+      } else if (payload.event === "registration_rejected") {
+        setPending((prev) => prev.filter((p) => p.id !== payload.userId));
+        setMembers((prev) => prev.filter((m) => m.id !== payload.userId));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe]);
 
   const filteredBanned = bannedMembers.filter((m) =>
     m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -508,7 +535,7 @@ export default function MemberManagement() {
                   pending.map((member) => (
                     <div
                       key={member.id}
-                      className="glass rounded-xl p-5 border border-border/60 hover:border-amber-500/20 transition-all flex flex-col justify-between"
+                      className={`glass rounded-xl p-5 border border-border/60 hover:border-amber-500/20 transition-all flex flex-col justify-between ${member.animate || ""}`}
                     >
                       <div className="flex items-start gap-4">
                         <img src={member.avatar} alt={member.name} className="w-12 h-12 rounded-full bg-surface-700 object-cover" />

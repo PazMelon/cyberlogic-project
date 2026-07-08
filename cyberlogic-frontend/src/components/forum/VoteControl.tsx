@@ -6,6 +6,7 @@ interface VoteControlProps {
   onVote: (direction: "up" | "down") => void;
   orientation?: "vertical" | "horizontal";
   size?: "sm" | "md";
+  animateClass?: string;
 }
 
 export function VoteControl({
@@ -13,7 +14,8 @@ export function VoteControl({
   userVote,
   onVote,
   orientation = "vertical",
-  size = "md"
+  size = "md",
+  animateClass
 }: VoteControlProps) {
   const isUp = userVote === 1;
   const isDown = userVote === -1;
@@ -40,9 +42,10 @@ export function VoteControl({
         <ChevronUp className={iconSize} />
       </button>
       <span
+        key={score}
         className={`font-bold font-mono ${scoreTextSize} ${
           isUp ? "text-primary" : isDown ? "text-error" : "text-text-primary"
-        }`}
+        } ${animateClass || ""}`}
       >
         {score}
       </span>

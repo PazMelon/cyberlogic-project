@@ -123,7 +123,7 @@ export default function Chat() {
       if (type === "message") {
         setMessages((prev) => {
           if (prev.some((m) => m.id === payload.id)) return prev;
-          return [...prev, payload];
+          return [...prev, { ...payload, animate: "animate-message-arrive" }];
         });
       } else if (type === "reaction_update") {
         const { messageId, reactions } = payload;

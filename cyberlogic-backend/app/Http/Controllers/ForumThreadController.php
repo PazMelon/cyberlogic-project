@@ -263,6 +263,12 @@ class ForumThreadController extends Controller
             AuditLogger::log('unsolved', 'ForumThread', $thread->id, $thread->title, null, $request);
         }
 
+        \App\Services\RealtimeService::broadcast("forums:thread:{$thread->id}", [
+            'event' => 'thread_solved',
+            'solved' => (bool)$thread->is_solved,
+            'solutionCommentId' => $thread->solution_comment_id
+        ]);
+
         return response()->json($thread->load(['user', 'category', 'solutionComment.user']));
     }
 }

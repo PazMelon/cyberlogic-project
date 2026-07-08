@@ -61,7 +61,30 @@ class ForumCommentController extends Controller
             'thread_id' => $threadId
         ], $request);
 
-        return response()->json($comment->load('user'), 201);
+        $loadedComment = $comment->load('user');
+        $commentPayload = [
+            'id' => $loadedComment->id,
+            'threadId' => (int)$threadId,
+            'author' => $loadedComment->user ? $loadedComment->user->name : 'Anonymous',
+            'authorAvatar' => $loadedComment->user ? $loadedComment->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user',
+            'authorRole' => $loadedComment->user ? ucfirst($loadedComment->user->role) : 'Member',
+            'authorId' => $loadedComment->user_id,
+            'parentId' => $loadedComment->parent_id,
+            'content' => $loadedComment->content,
+            'likes' => 0,
+            'createdAt' => 'just now',
+            'isBestAnswer' => false,
+            'userVote' => null,
+            'isSpoiler' => (bool)$loadedComment->is_spoiler,
+            'isRedacted' => (bool)$loadedComment->is_redacted,
+        ];
+
+        \App\Services\RealtimeService::broadcast("forums:thread:{$threadId}", [
+            'event' => 'comment_created',
+            'comment' => $commentPayload
+        ]);
+
+        return response()->json($loadedComment, 201);
     }
 
     /**

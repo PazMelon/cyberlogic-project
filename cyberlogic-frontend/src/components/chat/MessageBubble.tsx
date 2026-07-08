@@ -18,6 +18,7 @@ export interface ChatMessage {
     reacted: boolean;
     userIds?: number[];
   }[];
+  animate?: string;
 }
 
 export interface MessageBubbleProps {
@@ -173,7 +174,7 @@ export default function MessageBubble({
   );
 
   return (
-    <div className={`flex items-start gap-3 p-1 ${isMe ? "justify-end" : "justify-start"}`}>
+    <div className={`flex items-start gap-3 p-1 ${isMe ? "justify-end" : "justify-start"} ${message.animate || ""}`}>
       {!isMe && (
         <img
           src={message.authorAvatar}

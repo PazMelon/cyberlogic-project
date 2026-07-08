@@ -48,7 +48,7 @@ class AuditLogger
                 $userRole = $user->role;
             }
 
-            AuditLog::create([
+            $log = AuditLog::create([
                 'user_id' => $userId,
                 'user_name' => $userName,
                 'user_role' => $userRole,
@@ -58,6 +58,11 @@ class AuditLogger
                 'entity_label' => $entityLabel,
                 'metadata' => $metadata,
                 'ip_address' => $ipAddress,
+            ]);
+
+            \App\Services\RealtimeService::broadcast('admin:audit_logs', [
+                'event' => 'log_created',
+                'log' => $log
             ]);
         } catch (\Throwable $e) {
             Log::error("Failed to write audit log: " . $e->getMessage(), [

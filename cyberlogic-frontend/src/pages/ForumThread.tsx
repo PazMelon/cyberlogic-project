@@ -16,6 +16,7 @@ import {
   Unlock
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useWebSocket } from "../context/WebSocketContext";
 import {
   fetchForumThread,
   fetchForumComments,
@@ -82,6 +83,57 @@ export default function ForumThread() {
   useEffect(() => {
     loadData();
   }, [threadId]);
+
+  const { subscribe } = useWebSocket();
+
+  useEffect(() => {
+    if (!threadId) return;
+
+    const unsubscribe = subscribe(`forums:thread:${threadId}`, (payload) => {
+      if (payload.event === "comment_created") {
+        setComments((prev) => {
+          if (prev.some((c) => c.id === payload.comment.id)) return prev;
+          return [...prev, { ...payload.comment, animate: "animate-message-arrive" }];
+        });
+      } else if (payload.event === "thread_solved") {
+        setThread((prev) =>
+          prev ? { ...prev, solved: payload.solved, solutionCommentId: payload.solutionCommentId } : null
+        );
+        setComments((prev) =>
+          prev.map((c) => ({
+            ...c,
+            isBestAnswer: c.id === payload.solutionCommentId,
+          }))
+        );
+      } else if (payload.event === "thread_voted") {
+        setThread((prev) => {
+          if (!prev) return null;
+          const isUpvote = payload.likes > prev.likes;
+          return {
+            ...prev,
+            likes: payload.likes,
+            voteAnimate: isUpvote ? "animate-vote-up" : "animate-vote-down",
+          };
+        });
+      } else if (payload.event === "comment_voted") {
+        setComments((prev) =>
+          prev.map((c) => {
+            if (c.id !== payload.commentId) return c;
+            const isUpvote = payload.likes > c.likes;
+            return {
+              ...c,
+              likes: payload.likes,
+              voteAnimate: isUpvote ? "animate-vote-up" : "animate-vote-down",
+            };
+          })
+        );
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [threadId, subscribe]);
 
   if (isLoading) {
     return (
@@ -232,6 +284,7 @@ export default function ForumThread() {
                 onVote={handleThreadVoteAction}
                 orientation="vertical"
                 size="md"
+                animateClass={thread.voteAnimate}
               />
             </div>
 
