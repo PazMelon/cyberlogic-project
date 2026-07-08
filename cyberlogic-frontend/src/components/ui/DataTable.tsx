@@ -163,22 +163,22 @@ export function DataTable<T extends Record<string, any>>({
 
         {/* Dynamic Filter Pill Groups */}
         {filterGroups.length > 0 && (
-          <div className="space-y-2.5 bg-surface-900/40 p-4 border border-border/60 rounded-xl">
+          <div className="space-y-2 bg-surface-900/20 p-2 border border-border/40 rounded-2xl">
             {filterGroups.map((group) => {
               const currentValue = activeFilters[group.field] || "All";
               return (
-                <div key={group.field} className="flex flex-wrap items-center gap-1.5 text-xs">
-                  <span className="font-semibold text-text-secondary w-20 flex items-center gap-1">
-                    <Filter className="w-3 h-3 text-primary/70" /> {group.label}:
+                <div key={group.field} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-900/40 p-2.5 rounded-xl border border-border/50">
+                  <span className="font-semibold text-text-secondary w-20 flex items-center gap-1 text-[10px] uppercase tracking-wider select-none flex-shrink-0">
+                    <Filter className="w-3.5 h-3.5 text-primary" /> {group.label}:
                   </span>
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-row overflow-x-auto gap-1.5 pb-1 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
                     <button
                       type="button"
                       onClick={() => handleFilterChange(group.field, "All")}
-                      className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
                         currentValue === "All"
-                          ? "bg-primary/20 text-primary border border-primary/30"
-                          : "bg-surface-800 text-text-muted hover:text-text-secondary border border-transparent"
+                          ? "bg-primary/15 text-primary border-primary/30 shadow-sm"
+                          : "bg-surface-800 text-text-muted border-border hover:bg-surface-700 hover:text-text-primary"
                       }`}
                     >
                       All
@@ -188,10 +188,10 @@ export function DataTable<T extends Record<string, any>>({
                         key={opt.value}
                         type="button"
                         onClick={() => handleFilterChange(group.field, opt.value)}
-                        className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
                           currentValue === opt.value
-                            ? "bg-primary/20 text-primary border border-primary/30"
-                            : "bg-surface-800 text-text-muted hover:text-text-secondary border border-transparent"
+                            ? "bg-primary/15 text-primary border-primary/30 shadow-sm"
+                            : "bg-surface-800 text-text-muted border-border hover:bg-surface-700 hover:text-text-primary"
                         }`}
                       >
                         {opt.label}

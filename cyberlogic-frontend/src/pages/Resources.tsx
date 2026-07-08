@@ -189,17 +189,17 @@ export default function Resources() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 w-full lg:w-auto">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full lg:w-auto">
+            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full lg:max-w-md">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-4 py-2 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
                     activeCategory === cat
-                      ? "bg-primary/10 text-primary border-primary/30"
-                      : "bg-surface-800 text-text-muted border-border hover:border-primary/20 hover:text-text-secondary"
+                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
+                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
                   }`}
                 >
                   {cat}

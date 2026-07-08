@@ -31,8 +31,8 @@ const navSections = [
     items: [
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
-      { icon: Users, label: "Directory", path: "/app/directory" },
       { icon: Newspaper, label: "Blog", path: "/app/blogs" },
+      { icon: Users, label: "Directory", path: "/app/directory" },
     ],
   },
   {
@@ -56,9 +56,8 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`hidden lg:flex flex-col h-screen sticky top-0 bg-surface-900 border-r border-border transition-all duration-300 ${
-        collapsed ? "w-20" : "w-64"
-      }`}
+      className={`hidden lg:flex flex-col h-screen sticky top-0 bg-surface-900 border-r border-border transition-all duration-300 ${collapsed ? "w-20" : "w-64"
+        }`}
     >
       {/* Logo */}
       <div className="flex items-center gap-2 px-5 h-16 border-b border-border flex-shrink-0">
@@ -91,17 +90,15 @@ export default function Sidebar() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                    isActive(item.path)
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive(item.path)
                       ? "bg-gradient-to-r from-primary/15 to-primary/5 text-text-primary border-primary/25 shadow-sm shadow-primary/5"
                       : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                  }`}
+                    }`}
                   title={collapsed ? item.label : undefined}
                 >
                   <item.icon
-                    className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                      isActive(item.path) ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
-                    }`}
+                    className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive(item.path) ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
+                      }`}
                   />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                   {isActive(item.path) && !collapsed && (

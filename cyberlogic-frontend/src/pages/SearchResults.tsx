@@ -96,33 +96,35 @@ export default function SearchResults() {
       {/* Main Layout Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
         {/* Sidebar Filters */}
-        <div className="lg:col-span-1 glass rounded-2xl border border-border p-4 space-y-1 bg-surface-900/40">
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-3 mb-3">
+        <div className="lg:col-span-1 glass rounded-2xl border border-border p-4 bg-surface-900/40 flex flex-col gap-2">
+          <h3 className="text-[10px] font-bold uppercase tracking-wider text-text-muted px-3 mb-1 lg:mb-3 select-none">
             Filter by Category
           </h3>
-          {tabs.map((tab) => {
-            const count = getResultsCount(tab.id);
-            const isActive = typeFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                  isActive
-                    ? "bg-primary/10 text-primary border-primary/20"
-                    : "bg-transparent text-text-muted border-transparent hover:text-text-primary hover:bg-white/5"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                  isActive ? "bg-primary/20 text-primary" : "bg-surface-800 text-text-muted"
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-visible gap-2 lg:gap-1 pb-1.5 lg:pb-0 no-scrollbar scroll-smooth whitespace-nowrap lg:whitespace-normal w-full">
+            {tabs.map((tab) => {
+              const count = getResultsCount(tab.id);
+              const isActive = typeFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`flex items-center justify-between gap-4 lg:gap-0 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all border duration-200 cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/25 shadow-sm shadow-primary/5 flex-shrink-0 lg:flex-shrink"
+                      : "bg-surface-900/40 lg:bg-transparent text-text-muted border-border lg:border-transparent hover:bg-surface-800 lg:hover:bg-white/5 hover:text-text-primary flex-shrink-0 lg:flex-shrink"
+                  }`}
+                >
+                  <span className="mr-2">{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    isActive ? "bg-primary/25 text-primary" : "bg-surface-800 text-text-muted"
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Results List */}

@@ -137,12 +137,26 @@ export default function EventDetail() {
 
   // Timings validation helpers
   const now = new Date();
-  const isRegStarted = item.registrationStart ? now >= new Date(item.registrationStart) : true;
-  const isRegEnded = item.registrationEnd ? now > new Date(item.registrationEnd) : false;
+  
+  const getWindowDateTime = (timeStr?: string) => {
+    if (!timeStr || !item) return null;
+    const [hours, minutes] = timeStr.split(":");
+    const d = new Date(item.date);
+    d.setHours(Number(hours), Number(minutes), 0, 0);
+    return d;
+  };
+
+  const regStart = getWindowDateTime(item.registrationStart);
+  const regEnd = getWindowDateTime(item.registrationEnd);
+  const attStart = getWindowDateTime(item.attendanceStart);
+  const attEnd = getWindowDateTime(item.attendanceEnd);
+
+  const isRegStarted = regStart ? now >= regStart : true;
+  const isRegEnded = regEnd ? now > regEnd : false;
   const isRegOpen = isRegStarted && !isRegEnded;
 
-  const isAttendanceStarted = item.attendanceStart ? now >= new Date(item.attendanceStart) : true;
-  const isAttendanceEnded = item.attendanceEnd ? now > new Date(item.attendanceEnd) : false;
+  const isAttendanceStarted = attStart ? now >= attStart : true;
+  const isAttendanceEnded = attEnd ? now > attEnd : false;
 
   // Disable RSVP buttons
   const isRsvpDisabled = rsvpLoading || item.status !== "upcoming" || !isRegOpen || (!item.isRegistered && isFull);

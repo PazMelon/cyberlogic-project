@@ -79,22 +79,24 @@ export default function Blogs() {
           </div>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-1 glass rounded-xl p-1 overflow-x-auto max-w-full scrollbar-none">
+          <div className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
             <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setActiveCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
-                  activeCategory === cat
-                    ? "bg-primary/15 text-primary"
-                    : "text-text-muted hover:text-text-secondary"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+            <div className="flex items-center gap-1.5">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
+                    activeCategory === cat
+                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/20 shadow-sm"
+                      : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

@@ -154,43 +154,51 @@ export default function Events() {
         </div>
 
         {/* Filter Bars */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3 mb-8">
           {/* Type Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-text-muted mr-1">Category:</span>
-            {eventTypes.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setActiveType(type)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
-                  activeType === type
-                    ? "bg-primary/10 text-primary border-primary/30 font-semibold"
-                    : "bg-surface-800 text-text-muted border-border hover:border-primary/20 hover:text-text-secondary"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-surface-900/35 p-3 rounded-2xl border border-border/60">
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider min-w-[70px] select-none">
+              Category:
+            </span>
+            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
+              {eventTypes.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setActiveType(type)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
+                    activeType === type
+                      ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
+                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Status Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-text-muted mr-1">Status:</span>
-            {statusFilters.map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setActiveStatus(status)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
-                  activeStatus === status
-                    ? "bg-accent/10 text-accent border-accent/30 font-semibold"
-                    : "bg-surface-800 text-text-muted border-border hover:border-accent/20 hover:text-text-secondary"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-surface-900/35 p-3 rounded-2xl border border-border/60">
+            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider min-w-[70px] select-none">
+              Status:
+            </span>
+            <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
+              {statusFilters.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setActiveStatus(status)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
+                    activeStatus === status
+                      ? "bg-gradient-to-r from-accent/15 to-accent/5 text-accent border-accent/30 shadow-sm shadow-accent/10 scale-[1.02]"
+                      : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-accent/20"
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 

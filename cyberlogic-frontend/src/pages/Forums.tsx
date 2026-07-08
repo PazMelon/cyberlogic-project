@@ -84,17 +84,17 @@ export default function Forums() {
             className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
           <button
             type="button"
             onClick={() => {
               setActiveCategory("all");
               setSearchParams({});
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
               activeCategory === "all"
-                ? "border-primary/30 bg-primary/10 text-primary"
-                : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
+                ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
+                : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
             }`}
           >
             All ({totalThreadCount})
@@ -107,10 +107,10 @@ export default function Forums() {
                 setActiveCategory(cat.id);
                 setSearchParams({ category: cat.id });
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border duration-200 cursor-pointer ${
                 activeCategory === cat.id
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border bg-surface-800 text-text-muted hover:border-primary/20"
+                  ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/30 shadow-sm shadow-primary/10 scale-[1.02]"
+                  : "bg-surface-900/40 text-text-muted border-border hover:bg-surface-800 hover:text-text-primary hover:border-primary/20"
               }`}
             >
               {cat.name} ({cat.threadCount})
