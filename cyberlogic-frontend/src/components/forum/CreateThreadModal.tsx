@@ -139,19 +139,20 @@ export function CreateThreadModal({
           </div>
 
           <div className="flex justify-end gap-2.5 pt-2">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2.5 text-sm font-semibold text-text-muted hover:text-text-primary transition-colors rounded-xl bg-surface-900/40 border border-border cursor-pointer"
+              className="px-5 py-2.5"
             >
               Cancel
-            </button>
+            </Button>
             <Button
               type="submit"
               disabled={!title.trim() || !content.trim() || !categoryDbId || isSubmitting}
               variant="primary"
-              className="px-5 py-2.5 text-sm font-semibold"
+              className="px-5 py-2.5"
             >
               {isSubmitting ? "Publishing..." : "Publish Thread"}
             </Button>

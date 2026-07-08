@@ -337,7 +337,7 @@ export default function CreateThread() {
               type="button"
               variant="secondary"
               disabled={isSubmitting}
-              className="px-6"
+              className="px-6 py-2.5"
             >
               Cancel
             </Button>
@@ -346,7 +346,7 @@ export default function CreateThread() {
             type="submit"
             variant="primary"
             isLoading={isSubmitting}
-            className="px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30"
+            className="px-6 py-2.5 shadow-lg shadow-primary/20 hover:shadow-primary/30"
           >
             Publish Thread
           </Button>

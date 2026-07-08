@@ -459,7 +459,7 @@ export default function RoleManagement() {
                   onClick={handleSaveChanges}
                   disabled={isSaving}
                   variant="primary"
-                  className="gap-2 cursor-pointer shadow-md shadow-amber-500/5 hover:shadow-amber-500/10"
+                  className="px-5 py-2.5 gap-2 cursor-pointer shadow-md shadow-amber-500/5 hover:shadow-amber-500/10"
                 >
                   {isSaving ? (
                     <>
