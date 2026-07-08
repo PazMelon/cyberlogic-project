@@ -37,6 +37,7 @@ export default function AttendancePortal() {
   const [scannerActive, setScannerActive] = useState(false);
   const [scanningError, setScanningError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(1);
 
   // Check-in results
   const [checkInStatus, setCheckInStatus] = useState<{
@@ -179,6 +180,15 @@ export default function AttendancePortal() {
         )
         .then(() => {
           setScannerActive(true);
+          const intervalId = setInterval(() => {
+            const video = document.querySelector("#portal-qr-scanner video") as HTMLVideoElement;
+            if (video && video.videoWidth > 0) {
+              const ratio = video.videoWidth / video.videoHeight;
+              setVideoAspectRatio(ratio);
+              clearInterval(intervalId);
+            }
+          }, 100);
+          setTimeout(() => clearInterval(intervalId), 5000);
         })
         .catch((err) => {
           console.error("Failed to start portal scanner:", err);
@@ -200,6 +210,7 @@ export default function AttendancePortal() {
           scanner.clear();
           scannerRef.current = null;
           setScannerActive(false);
+          setVideoAspectRatio(1);
         })
         .catch((err) => {
           console.error("Failed to stop portal scanner:", err);
@@ -352,7 +363,10 @@ export default function AttendancePortal() {
             <Camera className="w-4 h-4 text-primary" /> Visual Scan Gate
           </h3>
 
-          <div className="w-full max-w-[280px] aspect-square rounded-xl overflow-hidden bg-surface-950 border border-border/80 relative flex items-center justify-center shadow-inner">
+          <div 
+            className="w-full max-w-[280px] rounded-xl overflow-hidden bg-surface-950 border border-border/80 relative flex items-center justify-center shadow-inner transition-all duration-300"
+            style={{ aspectRatio: videoAspectRatio }}
+          >
             {/* The canvas target of html5-qrcode */}
             <div id="portal-qr-scanner" className="w-full h-full" />
 

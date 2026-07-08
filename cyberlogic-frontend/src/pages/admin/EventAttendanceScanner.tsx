@@ -17,6 +17,7 @@ export default function EventAttendanceScanner() {
   const [scannerActive, setScannerActive] = useState(false);
   const [scanningError, setScanningError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(1);
 
   // Check-in results
   const [checkInStatus, setCheckInStatus] = useState<{
@@ -118,6 +119,15 @@ export default function EventAttendanceScanner() {
         )
         .then(() => {
           setScannerActive(true);
+          const intervalId = setInterval(() => {
+            const video = document.querySelector("#qr-scanner-element video") as HTMLVideoElement;
+            if (video && video.videoWidth > 0) {
+              const ratio = video.videoWidth / video.videoHeight;
+              setVideoAspectRatio(ratio);
+              clearInterval(intervalId);
+            }
+          }, 100);
+          setTimeout(() => clearInterval(intervalId), 5000);
         })
         .catch((err) => {
           console.error("Failed to start scanner:", err);
@@ -139,6 +149,7 @@ export default function EventAttendanceScanner() {
           scanner.clear();
           scannerRef.current = null;
           setScannerActive(false);
+          setVideoAspectRatio(1);
         })
         .catch((err) => {
           console.error("Failed to stop scanner:", err);
@@ -243,7 +254,10 @@ export default function EventAttendanceScanner() {
           <div className="glass rounded-2xl border border-border overflow-hidden p-6 flex flex-col items-center justify-center min-h-[380px] relative">
             
             {/* The QR Container wrapper */}
-            <div className="w-full max-w-[320px] aspect-square rounded-xl overflow-hidden bg-surface-900 border border-border relative">
+            <div 
+              className="w-full max-w-[320px] rounded-xl overflow-hidden bg-surface-900 border border-border relative transition-all duration-300"
+              style={{ aspectRatio: videoAspectRatio }}
+            >
               {/* The DOM element that html5-qrcode attaches to. Must remain empty in React. */}
               <div 
                 id="qr-scanner-element" 

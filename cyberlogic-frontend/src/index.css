@@ -685,3 +685,12 @@ input[type="datetime-local"] {
   backdrop-filter: blur(16px);
   border: 1px solid rgba(15, 23, 42, 0.08);
 }
+
+/* Force QR scanner video to cover container and scale nicely */
+#portal-qr-scanner video,
+#qr-scanner-element video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: inherit;
+}
