@@ -40,6 +40,7 @@ import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
 import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
+import SearchResults from "./pages/SearchResults";
 import { Shield } from "lucide-react";
 
 /**
@@ -219,6 +220,7 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="blogs/:id" element={<BlogDetail />} />
+        <Route path="search" element={<SearchResults />} />
       </Route>
 
       {/* Admin Routes */}

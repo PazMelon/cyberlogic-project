@@ -13,6 +13,7 @@ use App\Http\Controllers\ForumVoteController;
 use App\Http\Controllers\SiteSettingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\OfficerController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -55,6 +56,9 @@ Route::middleware('auth')->group(function () {
     // Directory endpoints
     Route::get('/api/directory', [DirectoryController::class, 'index']);
     Route::get('/api/directory/{id}', [DirectoryController::class, 'show']);
+
+    // Global Search endpoint
+    Route::get('/api/search', [SearchController::class, 'search']);
 
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);

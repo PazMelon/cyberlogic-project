@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import {
-  Search,
   Bell,
   ChevronDown,
   LogOut,
@@ -16,6 +15,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import GlobalSearch from "./search/GlobalSearch";
 
 export default function Topbar() {
   const { user, logout } = useAuth();
@@ -53,13 +53,8 @@ export default function Topbar() {
         </Link>
 
         {/* Search */}
-        <div className="hidden sm:block relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            placeholder="Search forums, members, resources..."
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-          />
+        <div className="hidden sm:block flex-1 max-w-md">
+          <GlobalSearch />
         </div>
 
         <div className="flex-1" />

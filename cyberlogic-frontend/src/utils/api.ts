@@ -1,5 +1,6 @@
 import { apiRequest } from "../context/AuthContext";
-import type { Announcement, Event, BlogPost } from "../data/mockData";
+import type { Announcement, Event, BlogPost, Resource } from "../data/mockData";
+import { resources } from "../data/mockData";
 
 /**
  * GET /api/announcements
@@ -1718,4 +1719,104 @@ export async function fetchDirectoryMemberById(id: number): Promise<DirectoryMem
     throw new Error("Failed to load member profile details.");
   }
   return res.json();
+}
+
+// ─── Global Search ───────────────────────────────────────────────────────────
+
+export interface SearchResultAnnouncement {
+  id: number;
+  title: string;
+  excerpt: string;
+  category: string;
+  date: string;
+}
+
+export interface SearchResultForum {
+  id: number;
+  title: string;
+  author: string;
+  replyCount: number;
+  likes: number;
+  createdAt: string;
+}
+
+export interface SearchResultProfile {
+  id: number;
+  name: string;
+  avatar: string;
+  role: string;
+  department: string;
+}
+
+export interface SearchResultBlog {
+  id: number;
+  title: string;
+  excerpt: string;
+  category: string;
+  date: string;
+}
+
+export interface SearchResultEvent {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  type: string;
+}
+
+export interface SearchResults {
+  announcements: SearchResultAnnouncement[];
+  forums: SearchResultForum[];
+  profiles: SearchResultProfile[];
+  blogs: SearchResultBlog[];
+  events: SearchResultEvent[];
+  resources: Resource[];
+}
+
+/**
+ * GET /api/search
+ * Queries backend models for announcements, forums, profiles, blogs, and events.
+ * Merges resources from static client-side data.
+ */
+export async function globalSearch(q: string, type = "all"): Promise<SearchResults> {
+  if (!q.trim()) {
+    return {
+      announcements: [],
+      forums: [],
+      profiles: [],
+      blogs: [],
+      events: [],
+      resources: []
+    };
+  }
+
+  const urlParams = new URLSearchParams();
+  urlParams.append("q", q);
+  urlParams.append("type", type);
+
+  const res = await apiRequest(`/api/search?${urlParams.toString()}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch search results from database.");
+  }
+  const data = await res.json();
+
+  // Search resources client-side
+  let filteredResources: Resource[] = [];
+  if (type === "all" || type === "resources") {
+    const query = q.toLowerCase();
+    filteredResources = resources.filter(
+      (r) =>
+        r.title.toLowerCase().includes(query) ||
+        r.description.toLowerCase().includes(query)
+    );
+  }
+
+  return {
+    announcements: data.announcements || [],
+    forums: data.forums || [],
+    profiles: data.profiles || [],
+    blogs: data.blogs || [],
+    events: data.events || [],
+    resources: filteredResources
+  };
 }
