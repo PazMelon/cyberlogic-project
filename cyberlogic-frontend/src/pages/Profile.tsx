@@ -18,25 +18,21 @@ import {
   Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { forumThreads, directoryMembers } from "../data/mockData";
+import { forumThreads } from "../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 import { optimizeAndConvertToWebP } from "../utils/imageOptimizer";
-import { uploadAvatar } from "../utils/api";
+import { uploadAvatar, fetchDirectoryMemberById, type DirectoryMember } from "../utils/api";
 
 export default function Profile() {
   const { user, updateProfile, updatePassword, updateUser } = useAuth();
   const { userId } = useParams();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
-
-  // Find targeted member if userId is passed
-  const targetedMember = userId
-    ? directoryMembers.find((m) => m.id === parseInt(userId, 10))
-    : null;
+  const [targetUser, setTargetUser] = useState<DirectoryMember | null>(null);
 
   // Decide if this is the logged-in user's profile
-  const isOwnProfile = !userId || (targetedMember ? targetedMember.name === user?.name : false);
+  const isOwnProfile = !userId || parseInt(userId, 10) === user?.id;
 
   // Form states for Settings tab
   const [firstName, setFirstName] = useState("");
@@ -108,7 +104,27 @@ export default function Profile() {
     }
   };
 
-  // Sync state if userId or user changes
+  // Fetch targeted member details if not own profile
+  useEffect(() => {
+    const initProfile = async () => {
+      setIsLoading(true);
+      if (!isOwnProfile && userId) {
+        try {
+          const data = await fetchDirectoryMemberById(parseInt(userId, 10));
+          setTargetUser(data);
+        } catch (err) {
+          console.error("Failed to load target user details:", err);
+          setTargetUser(null);
+        }
+      } else {
+        setTargetUser(null);
+      }
+      setIsLoading(false);
+    };
+    initProfile();
+  }, [userId, isOwnProfile]);
+
+  // Sync form state if user or targetUser changes
   useEffect(() => {
     if (isOwnProfile && user) {
       setFirstName(user.first_name || "");
@@ -120,38 +136,31 @@ export default function Profile() {
       setBirthday(user.birthday ? user.birthday.split("T")[0] : "");
       setBio(user.bio || "");
       setExpertise(user.expertise || "");
-    } else if (targetedMember) {
-      const parts = targetedMember.name.split(" ");
+    } else if (targetUser) {
+      const parts = targetUser.name.split(" ");
       setFirstName(parts[0] || "");
       setLastName(parts.slice(1).join(" ") || "");
-      setBio(targetedMember.bio || "No biography provided.");
-      setExpertise(targetedMember.expertise.join(", ") || "");
-      setYearLevel(targetedMember.yearLevel || "");
-      setDepartment(targetedMember.department || "");
-      setAddress("");
-      setBirthday("");
+      setBio(targetUser.bio || "No biography provided.");
+      setExpertise(targetUser.expertise ? targetUser.expertise.join(", ") : "");
+      setYearLevel(targetUser.yearLevel || "");
+      setDepartment(targetUser.department || "");
+      setAddress(targetUser.address || "");
+      setBirthday(targetUser.birthday ? targetUser.birthday.split("T")[0] : "");
     }
-  }, [userId, user, isOwnProfile, targetedMember]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [userId]);
+  }, [userId, user, isOwnProfile, targetUser]);
 
   const activeUser = {
     name: isOwnProfile 
       ? trimFullName(firstName, middleName, lastName) 
-      : (targetedMember?.name || "Unknown User"),
-    avatar: isOwnProfile ? (user?.avatar || "") : (targetedMember?.avatar || ""),
-    role: isOwnProfile ? (user?.role || "Member") : (targetedMember?.role || "Member"),
-    email: isOwnProfile ? (user?.email || "") : (targetedMember?.email || ""),
-    joinedDate: isOwnProfile ? (user?.joinedDate || "2025-09-01") : (targetedMember?.joinedDate || "2025-09-01"),
-    yearLevel: isOwnProfile ? yearLevel : (targetedMember?.yearLevel || ""),
-    department: isOwnProfile ? department : (targetedMember?.department || ""),
-    address: isOwnProfile ? address : "",
-    birthday: isOwnProfile ? birthday : "",
+      : (targetUser?.name || "Unknown User"),
+    avatar: isOwnProfile ? (user?.avatar || "") : (targetUser?.avatar || ""),
+    role: isOwnProfile ? (user?.role || "Member") : (targetUser?.role || "Member"),
+    email: isOwnProfile ? (user?.email || "") : (targetUser?.email || ""),
+    joinedDate: isOwnProfile ? (user?.joinedDate || "2025-09-01") : (targetUser?.joinedDate || "2025-09-01"),
+    yearLevel: isOwnProfile ? yearLevel : (targetUser?.yearLevel || ""),
+    department: isOwnProfile ? department : (targetUser?.department || ""),
+    address: isOwnProfile ? address : (targetUser?.address || ""),
+    birthday: isOwnProfile ? birthday : (targetUser?.birthday || ""),
   };
 
   function trimFullName(f: string, m: string, l: string) {

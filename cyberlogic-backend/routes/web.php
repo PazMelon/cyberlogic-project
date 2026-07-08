@@ -4,6 +4,7 @@ use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\BlogPostController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DirectoryController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\ForumCategoryController;
 use App\Http\Controllers\ForumCommentController;
@@ -50,6 +51,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/api/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/api/user/avatar', [AuthController::class, 'uploadAvatar']);
+
+    // Directory endpoints
+    Route::get('/api/directory', [DirectoryController::class, 'index']);
+    Route::get('/api/directory/{id}', [DirectoryController::class, 'show']);
 
     // User Management actions (Admin/Super Admin only)
     Route::get('/api/users', [AuthController::class, 'index']);

@@ -1678,3 +1678,44 @@ export async function updateUserPermissions(userId: number, permissionIds: numbe
   }
   return res.json();
 }
+
+export interface DirectoryMember {
+  id: number;
+  name: string;
+  avatar: string;
+  status: string;
+  role: string;
+  department: string;
+  badges: string[];
+  expertise: string[];
+  bio: string;
+  yearLevel: string;
+  email: string;
+  joinedDate: string;
+  address?: string;
+  birthday?: string;
+}
+
+/**
+ * GET /api/directory
+ * Retrieve all approved members from the backend database.
+ */
+export async function fetchDirectory(): Promise<DirectoryMember[]> {
+  const res = await apiRequest("/api/directory");
+  if (!res.ok) {
+    throw new Error("Failed to load directory.");
+  }
+  return res.json();
+}
+
+/**
+ * GET /api/directory/{id}
+ * Retrieve public details of a specific member by ID.
+ */
+export async function fetchDirectoryMemberById(id: number): Promise<DirectoryMember> {
+  const res = await apiRequest(`/api/directory/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to load member profile details.");
+  }
+  return res.json();
+}

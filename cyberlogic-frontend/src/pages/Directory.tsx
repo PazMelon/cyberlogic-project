@@ -1,31 +1,34 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
-import { Search, Mail, MapPin, Award, ChevronDown, ChevronUp } from "lucide-react";
-import { directoryMembers } from "../data/mockData";
-import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
-import { Card, Badge, Button } from "../components/ui";
-
-const roleFilters = ["All", "President", "Vice President", "Secretary", "Treasurer", "Tech Lead", "Events Coordinator", "Member", "Alumni"] as const;
-const statusColors: Record<string, string> = {
-  online: "bg-success",
-  offline: "bg-text-muted",
-  away: "bg-warning",
-};
+import { fetchDirectory, type DirectoryMember } from "../utils/api";
+import { DirectoryHeader } from "../components/directory/DirectoryHeader";
+import { DirectoryFilters } from "../components/directory/DirectoryFilters";
+import { DirectoryCard } from "../components/directory/DirectoryCard";
+import { DirectorySkeleton } from "../components/directory/DirectorySkeleton";
 
 export default function Directory() {
+  const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    const loadDirectory = async () => {
+      try {
+        const data = await fetchDirectory();
+        setMembers(data);
+      } catch (err: any) {
+        console.error("Failed to load directory", err);
+        setError("Failed to load member directory. Please check your connection.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadDirectory();
   }, []);
 
-  const filtered = directoryMembers.filter((m) => {
+  const filtered = members.filter((m) => {
     const matchesSearch =
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -34,179 +37,42 @@ export default function Directory() {
     return matchesSearch && matchesRole;
   });
 
-  const onlineCount = directoryMembers.filter((m) => m.status === "online").length;
+  const onlineCount = members.filter((m) => m.status === "online").length;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
-          Member Directory
-        </h1>
-        <p className="text-sm text-text-muted mt-1">
-          {directoryMembers.length} members · {onlineCount} online now
-        </p>
-      </div>
-
-      {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, department, expertise..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-          />
+      {error && (
+        <div className="p-3.5 rounded-xl bg-error/15 border border-error/35 text-xs text-error font-medium animate-fadeIn">
+          {error}
         </div>
-        <div className="relative">
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all appearance-none pr-10 cursor-pointer"
-          >
-            {roleFilters.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
-        </div>
-      </div>
+      )}
 
-      {/* Members Grid */}
+      <DirectoryHeader totalCount={members.length} onlineCount={onlineCount} />
+
+      <DirectoryFilters
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        roleFilter={roleFilter}
+        setRoleFilter={setRoleFilter}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
-          <>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="glass rounded-2xl p-5 space-y-4 animate-pulse">
-                <div className="flex items-center gap-4">
-                  <SkeletonCircle className="w-14 h-14 bg-surface-800" />
-                  <div className="space-y-2 flex-1">
-                    <SkeletonLine widthClass="w-3/4" heightClass="h-4.5" />
-                    <SkeletonLine widthClass="w-1/2" heightClass="h-3" />
-                  </div>
-                </div>
-                <div className="space-y-2 pt-2">
-                  <SkeletonLine widthClass="w-full" heightClass="h-3.5" />
-                  <div className="flex gap-2">
-                    <SkeletonLine widthClass="w-12" heightClass="h-4" />
-                    <SkeletonLine widthClass="w-14" heightClass="h-4" />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </>
+          <DirectorySkeleton />
         ) : (
-          filtered.map((member) => {
-            const isExpanded = expandedId === member.id;
-
-            return (
-              <Card
-                key={member.id}
-                hoverEffect
-                glowColor="primary"
-                className="p-5 flex flex-col justify-between"
-              >
-                <div>
-                  {/* Top Bar: Avatar & Role */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="relative">
-                      <img
-                        src={member.avatar}
-                        alt={member.name}
-                        className="w-14 h-14 rounded-full bg-surface-700 object-cover"
-                      />
-                      <span
-                        className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-950 ${
-                          statusColors[member.status] || "bg-text-muted"
-                        }`}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold text-text-primary truncate">
-                        {member.name}
-                      </h3>
-                      <p className="text-xs text-primary font-medium mt-0.5">
-                        {member.role}
-                      </p>
-                      <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
-                        {member.department}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Badges */}
-                  {member.badges.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {member.badges.map((badge) => (
-                        <Badge
-                          key={badge}
-                          variant="accent"
-                          className="font-bold tracking-wider"
-                        >
-                          <Award className="w-2.5 h-2.5" /> {badge}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Skills/Expertise */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {member.expertise.map((skill) => (
-                      <span
-                        key={skill}
-                        className="px-2 py-0.5 rounded bg-surface-800 border border-border/50 text-[10px] text-text-secondary"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Expanded Bio Info */}
-                  {isExpanded && (
-                    <div className="pt-3 border-t border-border/50 text-xs text-text-secondary space-y-2 mt-2 animate-fadeIn">
-                      <p className="leading-relaxed">{member.bio}</p>
-                      <div className="flex items-center gap-1.5 text-text-muted">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span>Year: {member.yearLevel}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-text-muted">
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>{member.email}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Footer Toolbar: Action Buttons */}
-                <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setExpandedId(isExpanded ? null : member.id)}
-                    className="flex-1 py-1.5 text-xs font-semibold flex items-center justify-center gap-1"
-                    icon={isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    iconPosition="right"
-                  >
-                    {isExpanded ? "Collapse" : "View Bio"}
-                  </Button>
-                  <Link
-                    to={`/app/profile/${member.id}`}
-                    className="px-3 py-1.5 text-center text-xs font-semibold rounded-lg bg-gradient-to-r from-primary to-accent hover:shadow-md hover:shadow-primary/10 text-white transition-all"
-                  >
-                    Profile
-                  </Link>
-                </div>
-              </Card>
-            );
-          })
+          filtered.map((member) => (
+            <DirectoryCard
+              key={member.id}
+              member={member}
+              isExpanded={expandedId === member.id}
+              onToggleExpand={() => setExpandedId(expandedId === member.id ? null : member.id)}
+            />
+          ))
         )}
       </div>
 
       {!isLoading && filtered.length === 0 && (
-        <div className="text-center py-12">
+        <div className="text-center py-12 animate-fadeIn">
           <p className="text-text-muted">No members found matching the criteria.</p>
         </div>
       )}
