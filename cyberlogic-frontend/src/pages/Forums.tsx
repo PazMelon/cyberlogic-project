@@ -145,7 +145,11 @@ export default function Forums() {
           </>
         ) : (
           threads.map((thread) => (
-            <ForumThreadCard key={thread.id} thread={thread} />
+            <ForumThreadCard 
+              key={thread.id} 
+              thread={thread} 
+              showCategory={activeCategory === "all"} 
+            />
           ))
         )}
       </div>

@@ -30,9 +30,10 @@ interface ForumThread {
 interface ForumThreadCardProps {
   thread: ForumThread;
   mode?: "full" | "compact";
+  showCategory?: boolean;
 }
 
-export function ForumThreadCard({ thread, mode = "full" }: ForumThreadCardProps) {
+export function ForumThreadCard({ thread, mode = "full", showCategory = true }: ForumThreadCardProps) {
   const category = defaultCategories.find((c) => c.id === thread.categoryId);
 
   const getCategoryColorVariant = (colorName?: string) => {
@@ -101,7 +102,7 @@ export function ForumThreadCard({ thread, mode = "full" }: ForumThreadCardProps)
                   <CheckCircle className="w-3 h-3" /> Solved
                 </Badge>
               )}
-              {category && (
+              {showCategory && category && (
                 <Badge variant={badgeVariant}>
                   {category.name}
                 </Badge>
