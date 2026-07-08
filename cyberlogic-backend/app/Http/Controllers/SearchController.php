@@ -160,8 +160,30 @@ class SearchController extends Controller
             $results['events'] = [];
         }
 
-        // Resources are filtered on frontend client-side
-        $results['resources'] = [];
+        // 6. Resources
+        if ($type === 'all' || $type === 'resources') {
+            $resources = \App\Models\Resource::where('status', 'approved')
+                ->where(function ($query) use ($q) {
+                    $query->where('title', 'like', "%{$q}%")
+                        ->orWhere('description', 'like', "%{$q}%");
+                })
+                ->limit(5)
+                ->get();
+            $results['resources'] = $resources->map(function ($r) {
+                return [
+                    'id' => $r->id,
+                    'title' => $r->title,
+                    'description' => $r->description,
+                    'category' => $r->category,
+                    'icon' => $r->icon,
+                    'link' => $r->link ?? ($r->file_path ? asset('storage/' . $r->file_path) : '#'),
+                    'downloadCount' => $r->download_count,
+                    'voteScore' => $r->voteScore,
+                ];
+            });
+        } else {
+            $results['resources'] = [];
+        }
 
         return response()->json($results);
     }

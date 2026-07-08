@@ -161,6 +161,7 @@ export default function Profile() {
     department: isOwnProfile ? department : (targetUser?.department || ""),
     address: isOwnProfile ? address : (targetUser?.address || ""),
     birthday: isOwnProfile ? birthday : (targetUser?.birthday || ""),
+    reputation: isOwnProfile ? user?.reputation : targetUser?.reputation,
   };
 
   function trimFullName(f: string, m: string, l: string) {
@@ -808,7 +809,9 @@ export default function Profile() {
                   <div className="grid grid-cols-2 gap-4 py-3 my-4 border-y border-border">
                     <div>
                       <span className="text-[10px] text-text-muted block font-semibold uppercase">Reputation</span>
-                      <span className="text-sm font-bold text-text-primary">1,482 points</span>
+                      <span className="text-sm font-bold text-text-primary">
+                        {((activeUser.reputation as any)?.allTime ?? 0).toLocaleString()} points
+                      </span>
                     </div>
                     <div>
                       <span className="text-[10px] text-text-muted block font-semibold uppercase">Engagement</span>

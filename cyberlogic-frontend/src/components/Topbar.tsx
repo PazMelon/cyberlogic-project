@@ -54,7 +54,21 @@ const memberNavSections = [
   },
 ];
 
-const adminNavSections = [
+interface SidebarNavItem {
+  icon: any;
+  label: string;
+  path: string;
+  badge?: number;
+  permission?: string;
+  superAdminOnly?: boolean;
+}
+
+interface NavSection {
+  title: string;
+  items: SidebarNavItem[];
+}
+
+const adminNavSections: NavSection[] = [
   {
     title: "Overview",
     items: [

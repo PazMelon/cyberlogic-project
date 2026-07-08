@@ -23,7 +23,7 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
-    protected $appends = ['name', 'avatar', 'joinedDate', 'permission_keys'];
+    protected $appends = ['name', 'avatar', 'joinedDate', 'permission_keys', 'reputation'];
 
     /**
      * Get the user's full name.
@@ -154,5 +154,83 @@ class User extends Authenticatable
     public function notifications()
     {
         return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get the resources uploaded by the user.
+     */
+    public function resources()
+    {
+        return $this->hasMany(Resource::class);
+    }
+
+    /**
+     * Calculate reputation score based on starting date.
+     */
+    public function calculateReputationScore(?\Carbon\Carbon $startDate = null): int
+    {
+        $threadIds = $this->forumThreads()->pluck('id');
+        $commentIds = $this->forumComments()->pluck('id');
+        $resourceIds = $this->resources()->pluck('id');
+
+        $threadRep = 0;
+        if ($threadIds->isNotEmpty()) {
+            $query = \App\Models\ForumVote::where('voteable_type', \App\Models\ForumThread::class)
+                ->whereIn('voteable_id', $threadIds);
+            if ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            }
+            $threadRep = (int) $query->selectRaw('SUM(CASE WHEN value = 1 THEN 5 WHEN value = -1 THEN -2 ELSE 0 END) as score')->value('score');
+        }
+
+        $commentRep = 0;
+        if ($commentIds->isNotEmpty()) {
+            $query = \App\Models\ForumVote::where('voteable_type', \App\Models\ForumComment::class)
+                ->whereIn('voteable_id', $commentIds);
+            if ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            }
+            $commentRep = (int) $query->selectRaw('SUM(CASE WHEN value = 1 THEN 3 WHEN value = -1 THEN -1 ELSE 0 END) as score')->value('score');
+        }
+
+        $solutionRep = 0;
+        if ($commentIds->isNotEmpty()) {
+            $query = \App\Models\ForumThread::whereIn('solution_comment_id', $commentIds);
+            if ($startDate) {
+                $query->where('updated_at', '>=', $startDate);
+            }
+            $solutionRep = $query->count() * 25;
+        }
+
+        $resourceRep = 0;
+        if ($resourceIds->isNotEmpty()) {
+            $query = \App\Models\ResourceVote::whereIn('resource_id', $resourceIds);
+            if ($startDate) {
+                $query->where('created_at', '>=', $startDate);
+            }
+            $resourceRep = (int) $query->selectRaw('SUM(CASE WHEN value = 1 THEN 3 WHEN value = -1 THEN -1 ELSE 0 END) as score')->value('score');
+        }
+
+        $resourceApprovalRep = 0;
+        $resQuery = $this->resources()->where('status', 'approved');
+        if ($startDate) {
+            $resQuery->where('updated_at', '>=', $startDate);
+        }
+        $resourceApprovalRep = $resQuery->count() * 10;
+
+        return $threadRep + $commentRep + $solutionRep + $resourceRep + $resourceApprovalRep;
+    }
+
+    /**
+     * Get the user's reputation score structure.
+     */
+    public function getReputationAttribute(): array
+    {
+        return [
+            'week' => $this->calculateReputationScore(now()->subWeek()),
+            'month' => $this->calculateReputationScore(now()->subMonth()),
+            'year' => $this->calculateReputationScore(now()->subYear()),
+            'allTime' => $this->calculateReputationScore(),
+        ];
     }
 }

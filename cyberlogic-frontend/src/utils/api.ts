@@ -1778,6 +1778,10 @@ export interface SearchResults {
  * Queries backend models for announcements, forums, profiles, blogs, and events.
  * Merges resources from static client-side data.
  */
+/**
+ * GET /api/search
+ * Queries backend models for announcements, forums, profiles, blogs, events, and resources.
+ */
 export async function globalSearch(q: string, type = "all"): Promise<SearchResults> {
   if (!q.trim()) {
     return {
@@ -1800,23 +1804,205 @@ export async function globalSearch(q: string, type = "all"): Promise<SearchResul
   }
   const data = await res.json();
 
-  // Search resources client-side
-  let filteredResources: Resource[] = [];
-  if (type === "all" || type === "resources") {
-    const query = q.toLowerCase();
-    filteredResources = resources.filter(
-      (r) =>
-        r.title.toLowerCase().includes(query) ||
-        r.description.toLowerCase().includes(query)
-    );
-  }
-
   return {
     announcements: data.announcements || [],
     forums: data.forums || [],
     profiles: data.profiles || [],
     blogs: data.blogs || [],
     events: data.events || [],
-    resources: filteredResources
+    resources: data.resources || []
   };
 }
+
+export interface ResourceMapped {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string;
+  category: "Tutorials" | "Documents" | "Tools" | "Links";
+  icon: string;
+  link: string | null;
+  file_path: string | null;
+  filePathUrl: string | null;
+  status: "pending" | "approved" | "rejected";
+  downloadCount: number;
+  voteScore: number;
+  userVote: number | null;
+  user?: {
+    id: number;
+    name: string;
+    avatar: string;
+    role: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+function mapResource(r: any): ResourceMapped {
+  return {
+    id: r.id,
+    user_id: r.user_id,
+    title: r.title,
+    description: r.description,
+    category: r.category,
+    icon: r.icon,
+    link: r.link,
+    file_path: r.file_path,
+    filePathUrl: r.filePathUrl ?? null,
+    status: r.status,
+    downloadCount: r.download_count ?? 0,
+    voteScore: r.voteScore ?? 0,
+    userVote: r.userVote ?? null,
+    user: r.user,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  };
+}
+
+/**
+ * GET /api/resources
+ */
+export async function fetchResources(params?: { category?: string; q?: string; status?: string }): Promise<ResourceMapped[]> {
+  const urlParams = new URLSearchParams();
+  if (params?.category) urlParams.append("category", params.category);
+  if (params?.q) urlParams.append("q", params.q);
+  if (params?.status) urlParams.append("status", params.status);
+
+  const res = await apiRequest(`/api/resources?${urlParams.toString()}`);
+  if (!res.ok) {
+    throw new Error("Failed to load resources.");
+  }
+  const data = await res.json();
+  return data.map(mapResource);
+}
+
+/**
+ * GET /api/my-resources
+ */
+export async function fetchMyResources(): Promise<ResourceMapped[]> {
+  const res = await apiRequest("/api/my-resources");
+  if (!res.ok) {
+    throw new Error("Failed to load your resource submissions.");
+  }
+  const data = await res.json();
+  return data.map(mapResource);
+}
+
+/**
+ * POST /api/resources
+ */
+export async function createResource(data: FormData): Promise<ResourceMapped> {
+  const res = await apiRequest("/api/resources", {
+    method: "POST",
+    body: data
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to submit resource.");
+  }
+  const r = await res.json();
+  return mapResource(r);
+}
+
+/**
+ * POST /api/resources/{id} with method spoofing
+ */
+export async function updateResource(id: number, data: FormData): Promise<ResourceMapped> {
+  data.append("_method", "PUT");
+  const res = await apiRequest(`/api/resources/${id}`, {
+    method: "POST",
+    body: data
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to update resource.");
+  }
+  const r = await res.json();
+  return mapResource(r);
+}
+
+/**
+ * DELETE /api/resources/{id}
+ */
+export async function deleteResource(id: number): Promise<void> {
+  const res = await apiRequest(`/api/resources/${id}`, {
+    method: "DELETE"
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete resource.");
+  }
+}
+
+/**
+ * POST /api/resources/{id}/vote
+ */
+export async function voteResource(id: number, value: number): Promise<{ voteScore: number; userVote: number | null }> {
+  const res = await apiRequest(`/api/resources/${id}/vote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ value })
+  });
+  if (!res.ok) {
+    throw new Error("Failed to vote on resource.");
+  }
+  const data = await res.json();
+  return {
+    voteScore: data.vote_score,
+    userVote: data.user_vote
+  };
+}
+
+/**
+ * PUT /api/admin/resources/{id}/approve
+ */
+export async function approveResource(id: number): Promise<ResourceMapped> {
+  const res = await apiRequest(`/api/admin/resources/${id}/approve`, {
+    method: "PUT"
+  });
+  if (!res.ok) {
+    throw new Error("Failed to approve resource.");
+  }
+  const r = await res.json();
+  return mapResource(r);
+}
+
+/**
+ * PUT /api/admin/resources/{id}/reject
+ */
+export async function rejectResource(id: number): Promise<ResourceMapped> {
+  const res = await apiRequest(`/api/admin/resources/${id}/reject`, {
+    method: "PUT"
+  });
+  if (!res.ok) {
+    throw new Error("Failed to reject resource.");
+  }
+  const r = await res.json();
+  return mapResource(r);
+}
+
+export interface ReputationUser {
+  id: number;
+  name: string;
+  avatar: string;
+  role: string;
+  reputation: {
+    week: number;
+    month: number;
+    year: number;
+    allTime: number;
+  };
+}
+
+/**
+ * GET /api/reputation/leaderboard
+ */
+export async function fetchReputationLeaderboard(timeframe: string): Promise<ReputationUser[]> {
+  const res = await apiRequest(`/api/reputation/leaderboard?timeframe=${timeframe}`);
+  if (!res.ok) {
+    throw new Error("Failed to load reputation leaderboard.");
+  }
+  return res.json();
+}
+

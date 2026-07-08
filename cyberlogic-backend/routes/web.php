@@ -14,6 +14,8 @@ use App\Http\Controllers\SiteSettingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\OfficerController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\ResourceController;
+use App\Http\Controllers\ReputationController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -44,6 +46,10 @@ Route::get('/api/forum/categories', [ForumCategoryController::class, 'index']);
 Route::get('/api/forum/threads', [ForumThreadController::class, 'index']);
 Route::get('/api/forum/threads/{id}', [ForumThreadController::class, 'show']);
 Route::get('/api/forum/threads/{threadId}/comments', [ForumCommentController::class, 'index']);
+
+// Public Resource API endpoints
+Route::get('/api/resources', [ResourceController::class, 'index']);
+Route::get('/api/resources/{id}', [ResourceController::class, 'show']);
 
 // Authenticated API endpoints
 Route::middleware('auth')->group(function () {
@@ -128,6 +134,21 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/permissions', [AuthController::class, 'listPermissions']);
     Route::put('/api/users/{id}/position', [AuthController::class, 'updatePosition']);
     Route::put('/api/users/{id}/permissions', [AuthController::class, 'updatePermissions']);
+
+    // Resource endpoints
+    Route::get('/api/my-resources', [ResourceController::class, 'userIndex']);
+    Route::post('/api/resources', [ResourceController::class, 'store']);
+    Route::put('/api/resources/{id}', [ResourceController::class, 'update']);
+    Route::delete('/api/resources/{id}', [ResourceController::class, 'destroy']);
+    Route::post('/api/resources/{id}/vote', [ResourceController::class, 'vote']);
+
+    // Admin resource moderation
+    Route::put('/api/admin/resources/{id}/approve', [ResourceController::class, 'approve']);
+    Route::put('/api/admin/resources/{id}/reject', [ResourceController::class, 'reject']);
+
+    // Reputation endpoints
+    Route::get('/api/reputation/leaderboard', [ReputationController::class, 'leaderboard']);
+    Route::get('/api/reputation/{id}', [ReputationController::class, 'show']);
 });
 
 // Serve storage files programmatically if the symlink is broken/missing
