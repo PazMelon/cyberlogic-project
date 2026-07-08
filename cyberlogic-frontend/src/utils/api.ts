@@ -753,6 +753,11 @@ export interface ForumThreadMapped {
   isRedacted: boolean;
   animate?: string;
   voteAnimate?: string;
+  category?: {
+    name: string;
+    color: string;
+    slug: string;
+  } | null;
 }
 
 export interface ForumCommentMapped {
@@ -847,6 +852,11 @@ export async function fetchForumThreads(params?: {
     id: t.id,
     title: t.title,
     categoryId: t.category?.slug || "general",
+    category: t.category ? {
+      name: t.category.name,
+      color: t.category.color || "primary",
+      slug: t.category.slug
+    } : null,
     author: t.user?.name || "Anonymous",
     authorAvatar: t.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(t.user?.role),
@@ -882,6 +892,11 @@ export async function fetchForumThread(id: number): Promise<ForumThreadMapped> {
     id: t.id,
     title: t.title,
     categoryId: t.category?.slug || "general",
+    category: t.category ? {
+      name: t.category.name,
+      color: t.category.color || "primary",
+      slug: t.category.slug
+    } : null,
     author: t.user?.name || "Anonymous",
     authorAvatar: t.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(t.user?.role),

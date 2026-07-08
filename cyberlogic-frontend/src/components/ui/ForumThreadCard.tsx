@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { MessageSquare, Heart, Eye, Pin, CheckCircle } from "lucide-react";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
+import type { ForumThreadMapped } from "../../utils/api";
 
 const defaultCategories = [
   { id: "general", name: "General Discussion", color: "primary" },
@@ -11,30 +12,18 @@ const defaultCategories = [
   { id: "off-topic", name: "Off-Topic", color: "warning" },
 ];
 
-interface ForumThread {
-  id: number;
-  categoryId: string;
-  title: string;
-  content: string;
-  author: string;
-  authorAvatar: string;
-  replyCount: number;
-  likes: number;
-  views: number;
-  createdAt: string;
-  lastActivity: string;
-  pinned?: boolean;
-  solved?: boolean;
-}
-
 interface ForumThreadCardProps {
-  thread: ForumThread;
+  thread: ForumThreadMapped;
   mode?: "full" | "compact";
   showCategory?: boolean;
 }
 
 export function ForumThreadCard({ thread, mode = "full", showCategory = true }: ForumThreadCardProps) {
-  const category = defaultCategories.find((c) => c.id === thread.categoryId);
+  const dbCategory = thread.category;
+  const mockCategory = defaultCategories.find((c) => c.id === thread.categoryId);
+  
+  const categoryName = dbCategory?.name || mockCategory?.name || "General Discussion";
+  const categoryColor = dbCategory?.color || mockCategory?.color || "primary";
 
   const getCategoryColorVariant = (colorName?: string) => {
     const map: Record<string, "primary" | "accent" | "success" | "warning" | "error" | "info" | "neutral"> = {
@@ -47,7 +36,7 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
     return map[colorName || ""] || "neutral";
   };
 
-  const badgeVariant = getCategoryColorVariant(category?.color);
+  const badgeVariant = getCategoryColorVariant(categoryColor);
 
   if (mode === "compact") {
     return (
@@ -102,9 +91,9 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
                   <CheckCircle className="w-3 h-3" /> Solved
                 </Badge>
               )}
-              {showCategory && category && (
+              {showCategory && (
                 <Badge variant={badgeVariant}>
-                  {category.name}
+                  {categoryName}
                 </Badge>
               )}
             </div>
