@@ -6,12 +6,39 @@ This project is open-source and welcoming contributions from all Cyberlogic memb
 
 ---
 
-## 🛠️ Tech Stack
+## 🛠️ Full-Stack Architecture
 
-- **Core**: React 19 (TypeScript), Vite
-- **Styling**: TailwindCSS 4, CSS Custom Properties (Theme Tokens)
-- **Icons**: Lucide React
-- **Routing**: React Router 7
+The Cyberlogic Club Portal is built as a distributed full-stack application comprising three core modules:
+
+1. **Frontend (`cyberlogic-frontend`)**:
+   - Built with **React 19 (TypeScript)**, **Vite**, and **TailwindCSS 4**.
+   - Fully interactive user interface including the home dashboard, forums, dynamic theme customizer, officer panel, and live chat.
+2. **Backend (`cyberlogic-backend`)**:
+   - Powered by **Laravel (PHP)** providing a RESTful API.
+   - Manages user authentication, membership queues, roles, forum categories, threads, and message persistence in a **MySQL** database.
+3. **Realtime Service (`cyberlogic-realtime`)**:
+   - A lightweight **Node.js** WebSocket server built using the `ws` library.
+   - Interacts with MySQL and the Laravel backend to broadcast real-time events (new chat messages, typing indicators, and message reactions) instantly to active users.
+
+```
+                  ┌───────────────────────────────┐
+                  │   React Frontend (Port 5173)  │
+                  └──────┬─────────────────┬──────┘
+                         │                 │
+              REST APIs  │                 │  WebSockets
+              (Port 8000)│                 │  (Port 3001)
+                         ▼                 ▼
+             ┌──────────────────┐    ┌──────────────────┐
+             │  Laravel Backend ├────► Realtime Service  │
+             └──────────┬───────┘    └─────────┬────────┘
+                        │                      │
+                        │      MySQL DB        │
+                        └──────────┬───────────┘
+                                   ▼
+                       ┌──────────────────────┐
+                       │  Database (3306)     │
+                       └──────────────────────┘
+```
 
 ---
 
@@ -22,18 +49,14 @@ This project is open-source and welcoming contributions from all Cyberlogic memb
 - Allows students to interactively query club information, list active projects, or simulate terminal commands without leaving the page.
 - Fully customizable CLI database file.
 
-### 🔐 2. Split-Screen Authentication
-- Split-screen sign-in and registration pages designed with cyber-aesthetics.
-- Graceful "Back to Homescreen" navigation.
-
-### 👥 3. Member Portal
+### 👥 2. Member Portal
 - **Dashboard**: Home feed showcasing announcements, upcoming events, and resource links.
 - **Forums**: Discussions categories with inline filter pills, search functionality, pinned threads, and solved status.
-- **Real-Time Chat**: Docked edge-to-edge layout designed to prevent overlap and remain locked dynamically to the browser layout.
+- **Real-Time Chat**: Docked edge-to-edge layout designed to prevent overlap and remain locked dynamically to the browser layout, featuring typing indicators and live emoji reactions.
 - **Directory**: Complete searchable, role-tagged, and status-supported list of club members.
 - **Reddit-style Profile**: u/username profile card layout with custom banners, join date (Cake Day), user posts, and achievement badges.
 
-### 🛡️ 4. Officer Admin Panel
+### 🛡️ 3. Officer Admin Panel
 - **Admin Dashboard**: Visual stats cards (members, threads, approvals) and recent activity stream.
 - **Pending Approvals Queue**: Approve/reject new member requests.
 - **Content Management**: Manage announcements, events, resources, and moderation controls for the community forum.
@@ -45,72 +68,123 @@ This project is open-source and welcoming contributions from all Cyberlogic memb
 
 ```
 cyberlogic-project/
-├── cyberlogic-frontend/     # React + Vite + Tailwind frontend application
+├── cyberlogic-backend/      # Laravel PHP API backend
+│   ├── app/                 # Controllers, Models, Middleware
+│   ├── database/            # Migrations, seeders, and factories
+│   └── routes/              # API routes configuration
+├── cyberlogic-frontend/     # React + Vite + Tailwind CSS v4 frontend
 │   ├── src/
-│   │   ├── components/      # Shared components (Sidebar, Topbar, CLI)
-│   │   ├── context/         # Auth & global state management
-│   │   ├── data/            # Mock database schemas and content configuration
-│   │   ├── layouts/         # Layout shells (Public, Member Auth, Admin Layouts)
-│   │   ├── pages/           # Pages (Forums, Directory, Admin Panel, Profile)
-│   │   └── index.css        # Core stylesheet and Tailwind theme variables
-└── README.md                # Project documentation
+│   │   ├── components/      # Shared UI (Sidebar, CLI, Chat, Reactions)
+│   │   ├── context/         # Auth & WebSocket context providers
+│   │   └── pages/           # Pages (Dashboard, Forums, Profile, Admin)
+├── cyberlogic-realtime/     # Node.js WebSocket service
+│   └── src/                 # Server logic, connection handling, database helpers
+├── README.md                # Main project overview & developer startup guide
+└── REALTIME_SETUP_GUIDE.md  # Production deploy & Cloudflare tunnel guide
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-Follow these instructions to set up the project locally on your machine.
+Follow these instructions to set up and run the entire suite locally.
 
 ### Prerequisites
-Make sure you have Node.js installed (v18.x or higher recommended).
-
-### Installation
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/your-username/cyberlogic-project.git
-   cd cyberlogic-project
-   ```
-
-2. **Navigate to the Frontend**:
-   ```bash
-   cd cyberlogic-frontend
-   ```
-
-3. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-
-4. **Run the Development Server**:
-   ```bash
-   npm run dev
-   ```
-   Open your browser and navigate to `http://localhost:5173` (or the port specified in terminal).
-
-5. **Build for Production**:
-   ```bash
-   npm run build
-   ```
+Ensure you have the following installed:
+- **Node.js** (v18.x or higher)
+- **PHP** (v8.2 or higher) & **Composer**
+- **MySQL** (v8.0 or higher) / **Laragon** (recommended for Windows users)
 
 ---
 
-## 🤝 Contribution Guidelines
+### 1. Backend Setup (`cyberlogic-backend`)
 
-All club members are welcome and encouraged to contribute! To get started:
+1. **Navigate to the Backend Directory**:
+   ```bash
+   cd cyberlogic-backend
+   ```
+2. **Install Composer Dependencies**:
+   ```bash
+   composer install
+   ```
+3. **Configure Environment Variables**:
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+   Open `.env` and configure your database settings:
+   ```env
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=cyberlogic-backend
+   DB_USERNAME=root
+   DB_PASSWORD=your_secure_password
+   ```
+   *Note: Ensure `REALTIME_WS_SECRET` matches between the Backend and Realtime services.*
+4. **Generate Application Key**:
+   ```bash
+   php artisan key:generate
+   ```
+5. **Run Migrations & Seed Database**:
+   ```bash
+   php artisan migrate --seed
+   ```
+6. **Start the Laravel Dev Server**:
+   ```bash
+   php artisan serve
+   ```
+   The backend API will run on `http://127.0.0.1:8000`.
 
-1. **Find an Issue**: Check out the issues tab or ask an officer in the `#portal-dev` channel.
-2. **Create a Branch**: Make your feature branch off `main` (e.g., `git checkout -b feature/amazing-feature`).
-3. **Write Clean Code**: Follow TypeScript best practices, reuse variables defined in `index.css`, and avoid hardcoding values.
-4. **Test Your Changes**: Verify that the project builds using `npm run build` with zero compiler errors.
-5. **Open a Pull Request**: Provide a detailed description of your changes and tag a project maintainer for review.
+---
+
+### 2. Realtime Service Setup (`cyberlogic-realtime`)
+
+1. **Navigate to the Realtime Directory**:
+   ```bash
+   cd ../cyberlogic-realtime
+   ```
+2. **Install Node Dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Configure Environment Variables**:
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+   Ensure the database credentials match the Laravel backend configurations, and point `LARAVEL_URL` to `http://127.0.0.1:8000`.
+4. **Start the WebSocket Server**:
+   ```bash
+   npm run dev
+   ```
+   The WebSocket server will start on port `3001` (`ws://localhost:3001`).
+
+---
+
+### 3. Frontend Setup (`cyberlogic-frontend`)
+
+1. **Navigate to the Frontend Directory**:
+   ```bash
+   cd ../cyberlogic-frontend
+   ```
+2. **Install Node Dependencies**:
+   ```bash
+   npm install
+   ```
+3. **Configure Environment Variables**:
+   Create a `.env` file or configure your local settings if needed to reference the backend API (`http://localhost:8000/api`) and the WebSocket server (`ws://localhost:3001`).
+4. **Start the Frontend Application**:
+   ```bash
+   npm run dev
+   ```
+   Open your browser and navigate to `http://localhost:5173`.
 
 ---
 
 ## 🎨 Theme Customization
 
-The portal uses CSS variables for styling. You can customize the look by changing the HSL custom properties under the `@theme` directive in `src/index.css` or using the **Site Settings** page inside the Admin panel:
+The portal uses CSS variables for styling. You can customize the look by changing the HSL custom properties under the `@theme` directive in `cyberlogic-frontend/src/index.css` or using the **Site Settings** page inside the Admin panel:
 
 ```css
 :root {
@@ -119,6 +193,12 @@ The portal uses CSS variables for styling. You can customize the look by changin
   --cl-surface-950: #0a0e1a;  /* Cyber dark background */
 }
 ```
+
+---
+
+## 🌐 Production & Advanced Deployments
+
+For hosting the portal in a production environment with a Cloudflare tunnel and Apache proxy pass routing, please consult the detailed instructions in [REALTIME_SETUP_GUIDE.md](file:///c:/laragon/www/cyberlogic-project/REALTIME_SETUP_GUIDE.md).
 
 ---
 
