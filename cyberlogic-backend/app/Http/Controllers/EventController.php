@@ -562,6 +562,26 @@ class EventController extends Controller
             'status' => $status
         ], $request);
 
+        // Broadcast real-time attendance update via WebSockets
+        try {
+            \App\Services\RealtimeService::broadcast("events:{$event->id}:attendance", [
+                'event_id' => $event->id,
+                'attendee' => [
+                    'id' => $attendance->id,
+                    'user_id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $user->avatar,
+                    'status' => $status,
+                    'checked_in_at' => $attendance->checked_in_at->toDateTimeString(),
+                    'checked_in_by_name' => $request->user()->name,
+                ]
+            ]);
+        } catch (\Throwable $e) {
+            // Silently catch exceptions to not disrupt client check-in response
+            \Illuminate\Support\Facades\Log::error("Realtime attendance broadcast failed: " . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Attendance recorded successfully.',

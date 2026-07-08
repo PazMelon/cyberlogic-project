@@ -242,15 +242,17 @@ export default function EventAttendanceScanner() {
         <div className="lg:col-span-7 flex flex-col space-y-4">
           <div className="glass rounded-2xl border border-border overflow-hidden p-6 flex flex-col items-center justify-center min-h-[380px] relative">
             
-            {/* The QR Container */}
-            <div 
-              id="qr-scanner-element" 
-              className={`w-full max-w-[320px] aspect-square rounded-xl overflow-hidden bg-surface-900 border border-border relative ${
-                scannerActive ? "border-primary/50" : "border-dashed"
-              }`}
-            >
+            {/* The QR Container wrapper */}
+            <div className="w-full max-w-[320px] aspect-square rounded-xl overflow-hidden bg-surface-900 border border-border relative">
+              {/* The DOM element that html5-qrcode attaches to. Must remain empty in React. */}
+              <div 
+                id="qr-scanner-element" 
+                className="w-full h-full"
+              />
+
+              {/* React controlled camera overlay */}
               {!scannerActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3">
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center space-y-3 bg-surface-900">
                   <div className="p-4 bg-primary/10 rounded-full border border-primary/20 text-primary">
                     <Camera className="w-8 h-8" />
                   </div>

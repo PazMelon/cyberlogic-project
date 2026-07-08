@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, Clock, MapPin, Scan, List } from "lucide-react";
+import { Plus, Pencil, Trash2, Clock, MapPin, Scan, List, Copy, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router";
 import { fetchEvents, deleteEvent, formatEventTime, updateEventStatus } from "../../utils/api";
 import { Button, DataTable } from "../../components/ui";
@@ -9,6 +9,12 @@ export default function EventManagement() {
   const navigate = useNavigate();
   const [eventList, setEventList] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleCopyPortalLink = (id: number) => {
+    const portalUrl = `${window.location.origin}/portal/events/${id}/attendance`;
+    navigator.clipboard.writeText(portalUrl);
+    alert("Attendance Portal shareable link copied to clipboard!");
+  };
 
   const loadEvents = async () => {
     try {
@@ -152,14 +158,32 @@ export default function EventManagement() {
       accessor: (event: Event) => (
         <div className="flex items-center justify-end gap-1.5">
           {event.eventMode !== 'registration_only' && (
-            <button 
-              type="button" 
-              onClick={() => navigate(`/admin/events/${event.id}/scanner`)}
-              className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer" 
-              title="QR Check-in Scanner"
-            >
-              <Scan className="w-3.5 h-3.5" />
-            </button>
+            <>
+              <button 
+                type="button" 
+                onClick={() => navigate(`/admin/events/${event.id}/scanner`)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer" 
+                title="QR Check-in Scanner"
+              >
+                <Scan className="w-3.5 h-3.5" />
+              </button>
+              <button 
+                type="button" 
+                onClick={() => handleCopyPortalLink(event.id)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-accent hover:bg-white/5 transition-colors cursor-pointer" 
+                title="Copy Portal Link"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+              <button 
+                type="button" 
+                onClick={() => navigate(`/portal/events/${event.id}/attendance`)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer" 
+                title="Open Dedicated Attendance Portal"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
           <button 
             type="button" 

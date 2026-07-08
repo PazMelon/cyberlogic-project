@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Search, Download, Users, CheckCircle, Clock, AlertCircle, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Search, Download, Users, CheckCircle, Clock, AlertCircle, ShieldAlert, Copy, ExternalLink } from "lucide-react";
 import { fetchEventById, fetchEventAttendees } from "../../utils/api";
 import type { Event } from "../../data/mockData";
 
@@ -33,6 +33,12 @@ export default function EventAttendeesView() {
   const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleCopyPortalLink = () => {
+    const portalUrl = `${window.location.origin}/portal/events/${eventId}/attendance`;
+    navigator.clipboard.writeText(portalUrl);
+    alert("Attendance Portal shareable link copied to clipboard!");
+  };
 
   // Filter/tab states
   const [activeTab, setActiveTab] = useState<"rsvp" | "attendance">("rsvp");
@@ -174,12 +180,32 @@ export default function EventAttendeesView() {
         {/* Quick info / buttons */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {event.eventMode !== "registration_only" && (
-            <Link
-              to={`/admin/events/${eventId}/scanner`}
-              className="px-4 py-2 bg-primary text-white font-semibold text-xs rounded-xl hover:bg-primary-hover transition-all flex items-center gap-1.5"
-            >
-              Open QR Scanner
-            </Link>
+            <>
+              <Link
+                to={`/admin/events/${eventId}/scanner`}
+                className="px-4 py-2 bg-primary text-white font-semibold text-xs rounded-xl hover:bg-primary-hover transition-all flex items-center gap-1.5"
+              >
+                Open QR Scanner
+              </Link>
+              <button
+                type="button"
+                onClick={handleCopyPortalLink}
+                className="px-4 py-2 bg-surface-800 border border-border hover:border-accent/20 hover:text-accent transition-all text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer"
+                title="Copy Portal Link"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copy Portal Link
+              </button>
+              <Link
+                to={`/portal/events/${eventId}/attendance`}
+                target="_blank"
+                className="px-4 py-2 bg-surface-800 border border-border hover:border-primary/20 hover:text-primary transition-all text-xs font-semibold rounded-xl flex items-center gap-1.5"
+                title="Open Dedicated Attendance Portal"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                Open Portal
+              </Link>
+            </>
           )}
           <button
             type="button"

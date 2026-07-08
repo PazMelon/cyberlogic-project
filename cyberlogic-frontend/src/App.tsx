@@ -44,6 +44,8 @@ import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
 import SearchResults from "./pages/SearchResults";
 import { Shield } from "lucide-react";
+import PortalLayout from "./layouts/PortalLayout";
+import AttendancePortal from "./pages/portal/AttendancePortal";
 
 /**
  * Cybernetic Loader for initial session check
@@ -253,6 +255,18 @@ function AppRoutes() {
         <Route path="blogs" element={<BlogManagement />} />
         <Route path="blogs/create" element={<CreateBlog />} />
         <Route path="blogs/edit/:id" element={<CreateBlog />} />
+      </Route>
+
+      {/* Portal Routes */}
+      <Route
+        path="portal"
+        element={
+          <AdminGate>
+            <PortalLayout />
+          </AdminGate>
+        }
+      >
+        <Route path="events/:id/attendance" element={<AttendancePortal />} />
       </Route>
 
       {/* Catch-all redirect */}
