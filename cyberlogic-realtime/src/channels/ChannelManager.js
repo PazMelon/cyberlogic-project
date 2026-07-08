@@ -131,7 +131,7 @@ class ChannelManager {
   broadcastPresence() {
     const presenceList = Array.from(this.onlineUsers.values()).map(p => ({
       ...p.user,
-      status: 'online', // for frontend mapping compatibility
+      status: p.user.status || 'online',
     }));
 
     const message = JSON.stringify({
@@ -180,13 +180,22 @@ class ChannelManager {
         if (channel === 'presence') {
           const presenceList = Array.from(this.onlineUsers.values()).map(p => ({
             ...p.user,
-            status: 'online',
+            status: p.user.status || 'online',
           }));
           this.sendToClient(client, 'presence', 'presence', presenceList);
         }
         // If subscribing to chat, send success ack or do setup
         if (channel.startsWith('chat:')) {
           this.sendToClient(client, channel, 'subscribe_success', { channel });
+        }
+      } else if (type === 'status_update') {
+        const { status } = payload;
+        if (status === 'online' || status === 'away') {
+          const userPresence = this.onlineUsers.get(user.id);
+          if (userPresence) {
+            userPresence.user.status = status;
+            this.broadcastPresence();
+          }
         }
       } else if (type === 'unsubscribe') {
         this.unsubscribe(client, channel);

@@ -4,8 +4,10 @@ import { DirectoryHeader } from "../components/directory/DirectoryHeader";
 import { DirectoryFilters } from "../components/directory/DirectoryFilters";
 import { DirectoryCard } from "../components/directory/DirectoryCard";
 import { DirectorySkeleton } from "../components/directory/DirectorySkeleton";
+import { useWebSocket } from "../context/WebSocketContext";
 
 export default function Directory() {
+  const { onlineUsers } = useWebSocket();
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
@@ -28,7 +30,16 @@ export default function Directory() {
     loadDirectory();
   }, []);
 
-  const filtered = members.filter((m) => {
+  // Map real-time statuses from WebSockets presence channel
+  const membersWithRealtimeStatus = members.map((m) => {
+    const activeUser = onlineUsers.find((u) => u.id === m.id);
+    return {
+      ...m,
+      status: activeUser ? (activeUser.status || "online") : "offline",
+    };
+  });
+
+  const filtered = membersWithRealtimeStatus.filter((m) => {
     const matchesSearch =
       m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,7 +48,7 @@ export default function Directory() {
     return matchesSearch && matchesRole;
   });
 
-  const onlineCount = members.filter((m) => m.status === "online").length;
+  const onlineCount = membersWithRealtimeStatus.filter((m) => m.status === "online" || m.status === "away").length;
 
   return (
     <div className="space-y-6">

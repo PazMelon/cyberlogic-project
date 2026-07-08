@@ -25,6 +25,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useWebSocket } from "../context/WebSocketContext";
 import GlobalSearch from "./search/GlobalSearch";
 
 const memberNavSections = [
@@ -84,6 +85,7 @@ const adminNavSections = [
 
 export default function Topbar() {
   const { user, logout, isAdmin, isSuperAdmin, hasPermission } = useAuth();
+  const { myStatus, updateMyStatus } = useWebSocket();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const location = useLocation();
@@ -165,6 +167,36 @@ export default function Topbar() {
                   <p className="text-sm font-medium text-text-primary">{user?.name}</p>
                   <p className="text-xs text-text-muted">{user?.email}</p>
                 </div>
+                
+                {/* Status Toggle */}
+                <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
+                  <span className="text-xs text-text-muted font-medium">Status</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => updateMyStatus('online')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                        myStatus === 'online'
+                          ? 'bg-success/10 border-success/30 text-success'
+                          : 'bg-surface-800 border-border text-text-muted hover:border-success/20'
+                      }`}
+                    >
+                      Online
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateMyStatus('away')}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
+                        myStatus === 'away'
+                          ? 'bg-warning/10 border-warning/30 text-warning'
+                          : 'bg-surface-800 border-border text-text-muted hover:border-warning/20'
+                      }`}
+                    >
+                      Away
+                    </button>
+                  </div>
+                </div>
+
                 <Link
                   to="/app/profile"
                   onClick={() => setShowDropdown(false)}

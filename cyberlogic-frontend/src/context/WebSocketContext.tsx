@@ -14,6 +14,8 @@ interface WebSocketContextType {
   status: 'connecting' | 'connected' | 'disconnected';
   isConnected: boolean;
   onlineUsers: OnlineUser[];
+  myStatus: 'online' | 'away';
+  updateMyStatus: (status: 'online' | 'away') => void;
   subscribe: (channel: string, callback: (payload: any, type: string) => void) => () => void;
   sendMessage: (type: string, channel: string, payload: any) => void;
 }
@@ -24,6 +26,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [myStatus, setMyStatus] = useState<'online' | 'away'>(() => {
+    return (localStorage.getItem('cl_user_status') as 'online' | 'away') || 'online';
+  });
 
   // 1. Setup Ticket Fetcher on mount AND manage connection lifecycle based on auth state
   useEffect(() => {
@@ -80,6 +85,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // 4. Send current status when connected
+  useEffect(() => {
+    if (status === 'connected') {
+      wsClient.send('status_update', 'presence', { status: myStatus });
+    }
+  }, [status, myStatus]);
+
+  const updateMyStatus = useCallback((newStatus: 'online' | 'away') => {
+    setMyStatus(newStatus);
+    localStorage.setItem('cl_user_status', newStatus);
+    if (status === 'connected') {
+      wsClient.send('status_update', 'presence', { status: newStatus });
+    }
+  }, [status]);
+
   // Stable function references to prevent unnecessary re-renders
   const subscribe = useCallback((channel: string, callback: (payload: any, type: string) => void) => {
     return wsClient.subscribe(channel, callback);
@@ -95,6 +115,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         status,
         isConnected: status === 'connected',
         onlineUsers,
+        myStatus,
+        updateMyStatus,
         subscribe,
         sendMessage,
       }}
