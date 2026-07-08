@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Announcement;
+use App\Models\BlogPost;
 use App\Services\ImageOptimizer;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class AnnouncementController extends Controller
+class BlogPostController extends Controller
 {
     /**
      * RBAC Protection Gate
@@ -18,9 +18,9 @@ class AnnouncementController extends Controller
     private function authorizeRbac(Request $request): void
     {
         $user = $request->user();
-        if (!$user || !$user->hasPermission('manage_announcements')) {
+        if (!$user || !$user->hasPermission('manage_blogs')) {
             abort(response()->json([
-                'error' => 'Forbidden. You do not have permission to manage announcements.'
+                'error' => 'Forbidden. You do not have permission to manage blog posts.'
             ], 403));
         }
     }
@@ -46,31 +46,41 @@ class AnnouncementController extends Controller
     }
 
     /**
-     * GET /api/announcements
-     * Retrieve all announcements.
+     * GET /api/blogs
+     * Retrieve all blog posts.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $announcements = Announcement::orderBy('pinned', 'desc')
-            ->orderBy('id', 'desc')
-            ->get();
+        $query = BlogPost::orderBy('featured', 'desc')
+            ->orderBy('id', 'desc');
 
-        return response()->json($announcements);
+        if ($request->query('status') === 'all') {
+            $user = $request->user();
+            if ($user && $user->hasPermission('manage_blogs')) {
+                // Return all posts for authorized users
+            } else {
+                $query->where('status', 'published');
+            }
+        } else {
+            $query->where('status', 'published');
+        }
+
+        return response()->json($query->get());
     }
 
     /**
-     * GET /api/announcements/{id}
-     * Retrieve a specific announcement.
+     * GET /api/blogs/{id}
+     * Retrieve a specific blog post.
      */
     public function show($id)
     {
-        $announcement = Announcement::findOrFail($id);
-        return response()->json($announcement);
+        $blog = BlogPost::findOrFail($id);
+        return response()->json($blog);
     }
 
     /**
-     * POST /api/announcements
-     * Create a new announcement.
+     * POST /api/blogs
+     * Create a new blog post.
      */
     public function store(Request $request)
     {
@@ -81,11 +91,14 @@ class AnnouncementController extends Controller
             'subtitle' => 'nullable|string|max:255',
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
-            'category' => 'required|string|in:General,Academic,Events',
+            'category' => 'required|string|in:Tech,Tutorial,News,Lifestyle,General,Academic',
             'author' => 'nullable|string|max:255',
-            'pinned' => 'nullable|boolean',
+            'featured' => 'nullable|boolean',
+            'status' => 'nullable|string|in:published,draft',
             'sections' => 'nullable|array',
+            'tags' => 'nullable|array',
             'image' => 'nullable|string|max:2048',
+            'read_time' => 'nullable|string|max:50',
         ]);
 
         // Process sections: sanitize html nodes for XSS protection
@@ -98,46 +111,54 @@ class AnnouncementController extends Controller
             }
         }
 
+        $author = $validated['author'] ?? $request->user()->name;
+
         // Map values
-        $announcement = Announcement::create([
+        $blog = BlogPost::create([
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $validated['author'] ?? 'System Admin',
-            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($validated['author'] ?? 'admin'),
+            'author' => $author,
+            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($author),
             'date' => now()->format('M j, Y'),
-            'pinned' => $validated['pinned'] ?? false,
+            'tags' => $validated['tags'] ?? [],
+            'featured' => $validated['featured'] ?? false,
+            'status' => $validated['status'] ?? 'published',
             'sections' => $sections,
             'image' => $validated['image'] ?? null,
+            'read_time' => $validated['read_time'] ?? '5 min',
         ]);
 
-        AuditLogger::log('created', 'Announcement', $announcement->id, $announcement->title, null, $request);
+        AuditLogger::log('created', 'BlogPost', $blog->id, $blog->title, null, $request);
 
-        return response()->json($announcement, 210); // Created
+        return response()->json($blog, 201); // Created
     }
 
     /**
-     * PUT /api/announcements/{id}
-     * Update an announcement.
+     * PUT /api/blogs/{id}
+     * Update a blog post.
      */
     public function update(Request $request, $id)
     {
         $this->authorizeRbac($request);
 
-        $announcement = Announcement::findOrFail($id);
+        $blog = BlogPost::findOrFail($id);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'subtitle' => 'nullable|string|max:255',
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
-            'category' => 'required|string|in:General,Academic,Events',
+            'category' => 'required|string|in:Tech,Tutorial,News,Lifestyle,General,Academic',
             'author' => 'nullable|string|max:255',
-            'pinned' => 'nullable|boolean',
+            'featured' => 'nullable|boolean',
+            'status' => 'nullable|string|in:published,draft',
             'sections' => 'nullable|array',
+            'tags' => 'nullable|array',
             'image' => 'nullable|string|max:2048',
+            'read_time' => 'nullable|string|max:50',
         ]);
 
         // Process sections: sanitize html nodes for XSS protection
@@ -150,59 +171,63 @@ class AnnouncementController extends Controller
             }
         }
 
-        $announcement->update([
+        $author = $validated['author'] ?? $blog->author;
+
+        $blog->update([
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $validated['author'] ?? $announcement->author,
-            'pinned' => $validated['pinned'] ?? false,
+            'author' => $author,
+            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($author),
+            'tags' => $validated['tags'] ?? $blog->tags,
+            'featured' => $validated['featured'] ?? false,
+            'status' => $validated['status'] ?? $blog->status,
             'sections' => $sections,
-            'image' => $validated['image'] ?? null,
+            'image' => $validated['image'] ?? $blog->image,
+            'read_time' => $validated['read_time'] ?? $blog->read_time,
         ]);
 
-        AuditLogger::log('updated', 'Announcement', $announcement->id, $announcement->title, null, $request);
+        AuditLogger::log('updated', 'BlogPost', $blog->id, $blog->title, null, $request);
 
-        return response()->json($announcement);
+        return response()->json($blog);
     }
 
     /**
-     * DELETE /api/announcements/{id}
-     * Delete an announcement.
+     * DELETE /api/blogs/{id}
+     * Delete a blog post.
      */
     public function destroy(Request $request, $id)
     {
         $this->authorizeRbac($request);
 
-        $announcement = Announcement::findOrFail($id);
-        $annId = $announcement->id;
-        $annTitle = $announcement->title;
-        $announcement->delete();
+        $blog = BlogPost::findOrFail($id);
+        $blogId = $blog->id;
+        $blogTitle = $blog->title;
+        $blog->delete();
 
-        AuditLogger::log('deleted', 'Announcement', $annId, $annTitle, null, $request);
+        AuditLogger::log('deleted', 'BlogPost', $blogId, $blogTitle, null, $request);
 
         return response()->json(['success' => true]);
     }
 
     /**
-     * POST /api/announcements/upload-image
+     * POST /api/blogs/upload-image
      * Securely store an image file under public assets.
      */
     public function uploadImage(Request $request)
     {
         $this->authorizeRbac($request);
 
-        // Server-side size limits & mime-type binary verification (prevents PHP shells masquerading as images)
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,webp,jpg,gif|max:5120',
         ]);
 
         if ($request->file('image')->isValid()) {
-            // Use global optimizer service
-            $path = ImageOptimizer::optimize($request->file('image'), 'announcements');
+            $path = ImageOptimizer::optimize($request->file('image'), 'blogs');
             
-            AuditLogger::log('uploaded', 'Announcement', null, 'Announcement Image', ['path' => $path], $request);
+            AuditLogger::log('uploaded', 'BlogPost', null, 'BlogPost Image', ['path' => $path], $request);
 
             return response()->json([
                 'url' => asset('storage/' . $path)

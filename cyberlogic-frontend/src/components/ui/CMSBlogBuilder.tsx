@@ -693,6 +693,39 @@ export default function CMSBlogBuilder({
             </select>
           </div>
 
+          {/* Status Selection */}
+          {state.status !== undefined && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
+                Status *
+              </label>
+              <select
+                value={state.status}
+                onChange={e => updateState({ status: e.target.value as 'published' | 'draft' })}
+                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+          )}
+
+          {/* Tags Input */}
+          {state.tags !== undefined && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
+                Tags (comma-separated)
+              </label>
+              <input
+                type="text"
+                value={state.tags.join(", ")}
+                onChange={e => updateState({ tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) })}
+                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                placeholder="e.g. tutorial, security, coding"
+              />
+            </div>
+          )}
+
           {/* Featured/Pinned Toggle */}
           <label className="flex items-center gap-3 cursor-pointer p-3 bg-surface-950/40 rounded-xl hover:bg-surface-900/50 transition-all border border-border/40">
             <input

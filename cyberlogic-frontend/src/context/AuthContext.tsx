@@ -8,7 +8,9 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  role: "member" | "officer" | "admin" | "superadmin";
+  role: "member" | "admin" | "superadmin";
+  admin_position: string | null;
+  permission_keys: string[];
   joinedDate: string;
   school_id: string;
   year_level: string;
@@ -24,6 +26,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  hasPermission: (key: string) => boolean;
   isLoading: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   register: (formValues: any) => Promise<void>;
@@ -223,6 +226,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isAdmin: user?.role === "admin" || user?.role === "superadmin",
         isSuperAdmin: user?.role === "superadmin",
+        hasPermission: (key: string) => {
+          if (user?.role === "superadmin") return true;
+          return user?.permission_keys?.includes(key) ?? false;
+        },
         isLoading,
         login,
         register,

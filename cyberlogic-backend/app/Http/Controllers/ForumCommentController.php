@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ForumComment;
 use App\Models\ForumThread;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 
 class ForumCommentController extends Controller
@@ -56,6 +57,10 @@ class ForumCommentController extends Controller
             'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
         ]);
 
+        AuditLogger::log('created', 'ForumComment', $comment->id, substr($comment->content, 0, 50), [
+            'thread_id' => $threadId
+        ], $request);
+
         return response()->json($comment->load('user'), 201);
     }
 
@@ -68,7 +73,7 @@ class ForumCommentController extends Controller
         $comment = ForumComment::findOrFail($id);
 
         $user = $request->user();
-        if ($comment->user_id !== $user->id && ! in_array($user->role, ['admin', 'superadmin'])) {
+        if ($comment->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this comment.'], 403);
         }
 
@@ -84,6 +89,10 @@ class ForumCommentController extends Controller
             'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
         ]);
 
+        AuditLogger::log('updated', 'ForumComment', $comment->id, substr($comment->content, 0, 50), [
+            'thread_id' => $comment->thread_id
+        ], $request);
+
         return response()->json($comment->load('user'));
     }
 
@@ -94,9 +103,12 @@ class ForumCommentController extends Controller
     public function destroy(Request $request, $id)
     {
         $comment = ForumComment::findOrFail($id);
+        $commentId = $comment->id;
+        $commentSnippet = substr($comment->content, 0, 50);
+        $threadId = $comment->thread_id;
 
         $user = $request->user();
-        if ($comment->user_id !== $user->id && ! in_array($user->role, ['admin', 'superadmin'])) {
+        if ($comment->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this comment.'], 403);
         }
 
@@ -110,6 +122,10 @@ class ForumCommentController extends Controller
         }
 
         $comment->delete();
+
+        AuditLogger::log('deleted', 'ForumComment', $commentId, $commentSnippet, [
+            'thread_id' => $threadId
+        ], $request);
 
         return response()->json(['success' => true]);
     }

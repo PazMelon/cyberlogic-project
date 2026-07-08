@@ -14,31 +14,51 @@ import {
   ChevronRight,
   LogOut,
   ArrowLeft,
+  FileText,
+  ScrollText,
+  KeyRound,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const adminNavSections = [
+interface SidebarNavItem {
+  icon: any;
+  label: string;
+  path: string;
+  badge?: number;
+  permission?: string;
+  superAdminOnly?: boolean;
+}
+
+interface NavSection {
+  title: string;
+  items: SidebarNavItem[];
+}
+
+const adminNavSections: NavSection[] = [
   {
     title: "Overview",
     items: [
-      { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
+      { icon: LayoutDashboard, label: "Dashboard", path: "/admin", permission: "view_admin_dashboard" },
     ],
   },
   {
     title: "Management",
     items: [
-      { icon: Users, label: "Members", path: "/admin/members", badge: 3 },
-      { icon: MessagesSquare, label: "Forums", path: "/admin/forums" },
-      { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat" },
-      { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
-      { icon: Calendar, label: "Events", path: "/admin/events" },
-      { icon: BookOpen, label: "Resources", path: "/admin/resources" },
+      { icon: Users, label: "Members", path: "/admin/members", badge: 3, permission: "manage_users" },
+      { icon: MessagesSquare, label: "Forums", path: "/admin/forums", permission: "manage_forums" },
+      { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat", permission: "manage_chat" },
+      { icon: Megaphone, label: "Announcements", path: "/admin/announcements", permission: "manage_announcements" },
+      { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
+      { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },
+      { icon: BookOpen, label: "Resources", path: "/admin/resources", permission: "manage_resources" },
     ],
   },
   {
     title: "System",
     items: [
-      { icon: Palette, label: "Site Settings", path: "/admin/settings" },
+      { icon: Palette, label: "Site Settings", path: "/admin/settings", permission: "manage_settings" },
+      { icon: ScrollText, label: "Audit Logs", path: "/admin/audit-logs", permission: "view_audit_logs" },
+      { icon: KeyRound, label: "Roles & Permissions", path: "/admin/roles", superAdminOnly: true },
     ],
   },
 ];
@@ -46,7 +66,7 @@ const adminNavSections = [
 export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const { logout, user } = useAuth();
+  const { logout, user, hasPermission, isSuperAdmin } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/admin") return location.pathname === "/admin";
@@ -78,50 +98,61 @@ export default function AdminSidebar() {
 
       {/* Nav Sections */}
       <nav className="flex-1 py-6 px-3 space-y-6 overflow-y-auto">
-        {adminNavSections.map((section, idx) => (
-          <div key={section.title} className="space-y-1.5">
-            {!collapsed ? (
-              <span className="text-[10px] font-bold text-text-muted/50 uppercase tracking-widest px-3 mb-2 block">
-                {section.title}
-              </span>
-            ) : (
-              idx > 0 && <div className="border-t border-border/40 mx-2 my-3" />
-            )}
-            <div className="space-y-1">
-              {section.items.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                    isActive(item.path)
-                      ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
-                      : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                  }`}
-                  title={collapsed ? item.label : undefined}
-                >
-                  <item.icon
-                    className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                      isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+        {adminNavSections.map((section, idx) => {
+          // Filter items based on permissions
+          const visibleItems = section.items.filter((item) => {
+            if (item.superAdminOnly) return isSuperAdmin;
+            if (item.permission) return hasPermission(item.permission);
+            return true;
+          });
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={section.title} className="space-y-1.5">
+              {!collapsed ? (
+                <span className="text-[10px] font-bold text-text-muted/50 uppercase tracking-widest px-3 mb-2 block">
+                  {section.title}
+                </span>
+              ) : (
+                idx > 0 && <div className="border-t border-border/40 mx-2 my-3" />
+              )}
+              <div className="space-y-1">
+                {visibleItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
+                      isActive(item.path)
+                        ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
+                        : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
                     }`}
-                  />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {isActive(item.path) && !collapsed && !item.badge && (
-                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  )}
-                </Link>
-              ))}
+                    title={collapsed ? item.label : undefined}
+                  >
+                    <item.icon
+                      className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                        isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                      }`}
+                    />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        {item.badge && (
+                          <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
+                            {item.badge}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {isActive(item.path) && !collapsed && !item.badge && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    )}
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Bottom Section */}
@@ -140,7 +171,7 @@ export default function AdminSidebar() {
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/10 text-amber-400 capitalize">
-                  {user?.role}
+                  {user?.admin_position || user?.role}
                 </span>
               </div>
             </div>

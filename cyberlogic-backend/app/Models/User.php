@@ -7,10 +7,11 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'bio', 'expertise', 'avatar_path', 'status'])]
+#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'admin_position', 'bio', 'expertise', 'avatar_path', 'status'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -22,7 +23,7 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
-    protected $appends = ['name', 'avatar', 'joinedDate'];
+    protected $appends = ['name', 'avatar', 'joinedDate', 'permission_keys'];
 
     /**
      * Get the user's full name.
@@ -64,6 +65,55 @@ class User extends Authenticatable
             'password' => 'hashed',
             'birthday' => 'date',
         ];
+    }
+
+    /**
+     * Get the permissions assigned to this user.
+     */
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'permission_user');
+    }
+
+    /**
+     * Check if the user has a specific permission.
+     * Superadmin always returns true (full access bypass).
+     */
+    public function hasPermission(string $key): bool
+    {
+        if ($this->role === 'superadmin') {
+            return true;
+        }
+
+        return $this->permissions()->where('key', $key)->exists();
+    }
+
+    /**
+     * Check if the user is an admin (admin or superadmin).
+     */
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, ['admin', 'superadmin']);
+    }
+
+    /**
+     * Check if the user is the superadmin.
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'superadmin';
+    }
+
+    /**
+     * Get the user's permission keys as an array (appended to JSON).
+     */
+    public function getPermissionKeysAttribute(): array
+    {
+        if ($this->role === 'superadmin') {
+            return Permission::pluck('key')->toArray();
+        }
+
+        return $this->permissions()->pluck('key')->toArray();
     }
 
     /**

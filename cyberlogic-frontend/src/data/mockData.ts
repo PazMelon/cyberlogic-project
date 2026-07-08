@@ -40,6 +40,24 @@ export interface Announcement {
   image?: string;
 }
 
+export interface BlogPost {
+  id: number;
+  title: string;
+  subtitle?: string;
+  excerpt: string;
+  content: string;
+  category: "Tech" | "Tutorial" | "News" | "Lifestyle" | "General" | "Academic";
+  author: string;
+  authorAvatar: string;
+  date: string;
+  tags: string[];
+  featured: boolean;
+  status: "published" | "draft";
+  sections?: ContentSection[];
+  image?: string;
+  readTime?: string;
+}
+
 export interface Event {
   id: number;
   title: string;

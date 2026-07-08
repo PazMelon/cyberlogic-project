@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ForumCategory;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class ForumCategoryController extends Controller
         $query = ForumCategory::orderBy('sort_order', 'asc');
 
         // Non-admins can only see visible categories
-        if (! $user || ! in_array($user->role, ['admin', 'superadmin'])) {
+        if (! $user || ! $user->hasPermission('manage_forums')) {
             $query->where('is_visible', true);
         }
 
@@ -52,7 +53,7 @@ class ForumCategoryController extends Controller
     public function store(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (! $currentUser->hasPermission('manage_forums')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -82,6 +83,8 @@ class ForumCategoryController extends Controller
 
         $category = ForumCategory::create($validated);
 
+        AuditLogger::log('created', 'ForumCategory', $category->id, $category->name, null, $request);
+
         return response()->json($category, 201);
     }
 
@@ -92,7 +95,7 @@ class ForumCategoryController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (! $currentUser->hasPermission('manage_forums')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -120,6 +123,8 @@ class ForumCategoryController extends Controller
 
         $category->update($validated);
 
+        AuditLogger::log('updated', 'ForumCategory', $category->id, $category->name, null, $request);
+
         return response()->json($category);
     }
 
@@ -130,7 +135,7 @@ class ForumCategoryController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (! $currentUser->hasPermission('manage_forums')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -157,11 +162,18 @@ class ForumCategoryController extends Controller
             ]);
         }
 
+        $catId = $category->id;
+        $catName = $category->name;
+
         // Reassign threads
         DB::transaction(function () use ($category, $general) {
             $category->threads()->update(['category_id' => $general->id]);
             $category->delete();
         });
+
+        AuditLogger::log('deleted', 'ForumCategory', $catId, $catName, [
+            'reassigned_to' => 'general'
+        ], $request);
 
         return response()->json(['message' => 'Category deleted successfully, threads reassigned to General']);
     }
@@ -173,7 +185,7 @@ class ForumCategoryController extends Controller
     public function reorder(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (! $currentUser->hasPermission('manage_forums')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -187,6 +199,10 @@ class ForumCategoryController extends Controller
                 ForumCategory::where('id', $id)->update(['sort_order' => $index + 1]);
             }
         });
+
+        AuditLogger::log('reordered', 'ForumCategory', null, 'Forum Categories Sorting', [
+            'ids' => $validated['ids']
+        ], $request);
 
         return response()->json(['message' => 'Category sorting updated successfully']);
     }

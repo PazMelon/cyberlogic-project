@@ -27,7 +27,7 @@ import {
   type DbChatChannel 
 } from "../../utils/api";
 
-const availableRoles = ["member", "officer", "admin", "superadmin"];
+const availableRoles = ["member", "admin", "superadmin"];
 
 const availableIcons = [
   { value: "Hash", label: "Hash (#)" },

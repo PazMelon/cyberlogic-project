@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChatChannel;
 use App\Models\ChatMessage;
 use App\Models\ChatMessageReaction;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,24 +28,24 @@ class ChatController extends Controller
                     'slug' => 'general',
                     'description' => 'General chat and discussion for all members.',
                     'type' => 'group',
-                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
-                    'write_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                    'allowed_roles' => ['member', 'admin', 'superadmin'],
+                    'write_roles' => ['member', 'admin', 'superadmin'],
                 ],
                 [
                     'name' => 'Announcements',
                     'slug' => 'announcements',
                     'description' => 'Realtime announcement stream and updates.',
                     'type' => 'group',
-                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
-                    'write_roles' => ['officer', 'admin', 'superadmin'],
+                    'allowed_roles' => ['member', 'admin', 'superadmin'],
+                    'write_roles' => ['admin', 'superadmin'],
                 ],
                 [
                     'name' => 'Events',
                     'slug' => 'events',
                     'description' => 'Chat and updates about upcoming club events.',
                     'type' => 'group',
-                    'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
-                    'write_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                    'allowed_roles' => ['member', 'admin', 'superadmin'],
+                    'write_roles' => ['member', 'admin', 'superadmin'],
                 ],
             ];
 
@@ -58,7 +59,7 @@ class ChatController extends Controller
         // Filter based on user role and archive status
         $filtered = $channels->filter(function ($channel) use ($user) {
             // Non-admins can't see archived channels
-            if ($channel->is_archived && ! in_array($user->role, ['admin', 'superadmin'])) {
+            if ($channel->is_archived && !$user->isAdmin()) {
                 return false;
             }
 
@@ -157,6 +158,13 @@ class ChatController extends Controller
             ]);
         }
 
+        $chatMsg = ChatMessage::find($messageId);
+        $msgContent = $chatMsg ? substr($chatMsg->content, 0, 50) : "Message #$messageId";
+        AuditLogger::log('reacted', 'ChatMessage', $messageId, $msgContent, [
+            'emoji' => $emoji,
+            'added' => ! $existing
+        ], $request);
+
         // Get updated list of reactions for this message
         $reactions = ChatMessageReaction::where('message_id', $messageId)
             ->with('user')
@@ -209,7 +217,7 @@ class ChatController extends Controller
     public function store(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser->hasPermission('manage_chat')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -240,6 +248,8 @@ class ChatController extends Controller
 
         $channel = ChatChannel::create($validated);
 
+        AuditLogger::log('created', 'ChatChannel', $channel->id, $channel->name, null, $request);
+
         return response()->json($channel, 201);
     }
 
@@ -249,7 +259,7 @@ class ChatController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser->hasPermission('manage_chat')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -277,6 +287,8 @@ class ChatController extends Controller
 
         $channel->update($validated);
 
+        AuditLogger::log('updated', 'ChatChannel', $channel->id, $channel->name, null, $request);
+
         return response()->json($channel);
     }
 
@@ -286,12 +298,16 @@ class ChatController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         $currentUser = $request->user();
-        if ($currentUser->role !== 'superadmin') {
-            return response()->json(['message' => 'Unauthorized. Superadmin role required.'], 403);
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to delete channels.'], 403);
         }
 
         $channel = ChatChannel::findOrFail($id);
+        $channelId = $channel->id;
+        $channelName = $channel->name;
         $channel->delete();
+
+        AuditLogger::log('deleted', 'ChatChannel', $channelId, $channelName, null, $request);
 
         return response()->json(['message' => 'Channel deleted successfully']);
     }
@@ -302,7 +318,7 @@ class ChatController extends Controller
     public function reorder(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        if (! in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser->hasPermission('manage_chat')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -316,6 +332,10 @@ class ChatController extends Controller
                 ChatChannel::where('id', $id)->update(['sort_order' => $index + 1]);
             }
         });
+
+        AuditLogger::log('reordered', 'ChatChannel', null, 'Chat Channels Sorting', [
+            'ids' => $validated['ids']
+        ], $request);
 
         return response()->json(['message' => 'Channel sorting updated successfully']);
     }

@@ -58,6 +58,9 @@ export interface CMSBlogState {
   eventEndTime?: string;
   eventLocation?: string;
   eventCapacity?: number;
+
+  status?: 'published' | 'draft';
+  tags?: string[];
 }
 
 export const generateId = () => {

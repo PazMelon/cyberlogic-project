@@ -14,6 +14,7 @@ import {
   LogOut,
   Settings,
   Crown,
+  Newspaper,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -31,6 +32,7 @@ const navSections = [
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
       { icon: Users, label: "Directory", path: "/app/directory" },
+      { icon: Newspaper, label: "Blog", path: "/app/blogs" },
     ],
   },
   {

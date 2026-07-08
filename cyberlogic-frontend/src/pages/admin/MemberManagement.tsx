@@ -25,9 +25,8 @@ const initialAuditLogs = [
 
 const labelToRole = (label: string) => {
   const l = label.toLowerCase();
-  if (l === "super admin" || l === "superadmin" || l === "moderator") return "superadmin";
+  if (l === "super admin" || l === "superadmin") return "superadmin";
   if (l === "admin") return "admin";
-  if (l === "officer" || l === "tech lead" || l === "events coordinator") return "officer";
   return "member";
 };
 
@@ -75,7 +74,7 @@ export default function MemberManagement() {
         name: `${u.first_name} ${u.last_name}`,
         email: u.email,
         avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
-        role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : u.role === "officer" ? "Tech Lead" : "Member",
+        role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : "Member",
         department: u.department || "Computer Science",
         yearLevel: u.year_level || "1st Year",
         expertise: ["General Tech"],
@@ -685,9 +684,6 @@ export default function MemberManagement() {
                     className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-amber-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="Member">Member</option>
-                    <option value="Tech Lead">Tech Lead</option>
-                    <option value="Events Coordinator">Events Coordinator</option>
-                    <option value="Moderator">Moderator</option>
                     <option value="Admin">Admin</option>
                     <option value="Super Admin">Super Admin</option>
                   </select>

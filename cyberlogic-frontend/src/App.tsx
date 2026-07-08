@@ -35,6 +35,11 @@ import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
 import ChatManagement from "./pages/admin/ChatManagement";
 import SiteSettings from "./pages/admin/SiteSettings";
+import AuditLogs from "./pages/admin/AuditLogs";
+import Blogs from "./pages/Blogs";
+import BlogDetail from "./pages/BlogDetail";
+import RoleManagement from "./pages/admin/RoleManagement";
+import { BlogManagement, CreateBlog } from "./pages/admin/blog";
 import { Shield } from "lucide-react";
 
 /**
@@ -167,6 +172,8 @@ function AppRoutes() {
         <Route path="resources" element={<Resources />} />
         <Route path="about" element={<About />} />
         <Route path="about/officers/:id" element={<OfficerDetail />} />
+        <Route path="blogs" element={<Blogs />} />
+        <Route path="blogs/:id" element={<BlogDetail />} />
       </Route>
 
       {/* Auth Routes (unauthenticated guests only) */}
@@ -210,6 +217,8 @@ function AppRoutes() {
         <Route path="profile" element={<Profile />} />
         <Route path="profile/:userId" element={<Profile />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="blogs" element={<Blogs />} />
+        <Route path="blogs/:id" element={<BlogDetail />} />
       </Route>
 
       {/* Admin Routes */}
@@ -233,6 +242,11 @@ function AppRoutes() {
         <Route path="forums" element={<ForumModeration />} />
         <Route path="chat" element={<ChatManagement />} />
         <Route path="settings" element={<SiteSettings />} />
+        <Route path="audit-logs" element={<AuditLogs />} />
+        <Route path="roles" element={<RoleManagement />} />
+        <Route path="blogs" element={<BlogManagement />} />
+        <Route path="blogs/create" element={<CreateBlog />} />
+        <Route path="blogs/edit/:id" element={<CreateBlog />} />
       </Route>
 
       {/* Catch-all redirect */}

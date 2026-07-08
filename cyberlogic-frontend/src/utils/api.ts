@@ -1,5 +1,5 @@
 import { apiRequest } from "../context/AuthContext";
-import type { Announcement, Event } from "../data/mockData";
+import type { Announcement, Event, BlogPost } from "../data/mockData";
 
 /**
  * GET /api/announcements
@@ -146,6 +146,164 @@ export async function uploadImageFile(file: File): Promise<string> {
 
   const data = await res.json();
   return data.url; // Returns public storage URL
+}
+
+/**
+ * GET /api/blogs
+ * Retrieve all blog posts. If showAll is true, requests status=all (for management).
+ */
+export async function fetchBlogs(showAll = false): Promise<BlogPost[]> {
+  const url = showAll ? "/api/blogs?status=all" : "/api/blogs";
+  const res = await apiRequest(url);
+  if (!res.ok) {
+    throw new Error("Failed to load blog posts from database.");
+  }
+  const data = await res.json();
+  return data.map((b: any) => ({
+    id: b.id,
+    title: b.title,
+    subtitle: b.subtitle,
+    excerpt: b.excerpt,
+    content: b.content,
+    category: b.category,
+    author: b.author,
+    authorAvatar: b.author_avatar,
+    date: b.date,
+    tags: b.tags || [],
+    featured: !!b.featured,
+    status: b.status,
+    sections: b.sections || [],
+    image: b.image,
+    readTime: b.read_time
+  }));
+}
+
+/**
+ * GET /api/blogs/{id}
+ * Retrieve detailed blog post info.
+ */
+export async function fetchBlogById(id: number): Promise<BlogPost> {
+  const res = await apiRequest(`/api/blogs/${id}`);
+  if (!res.ok) {
+    throw new Error("Blog post not found in database.");
+  }
+  const b = await res.json();
+  return {
+    id: b.id,
+    title: b.title,
+    subtitle: b.subtitle,
+    excerpt: b.excerpt,
+    content: b.content,
+    category: b.category,
+    author: b.author,
+    authorAvatar: b.author_avatar,
+    date: b.date,
+    tags: b.tags || [],
+    featured: !!b.featured,
+    status: b.status,
+    sections: b.sections || [],
+    image: b.image,
+    readTime: b.read_time
+  };
+}
+
+/**
+ * POST /api/blogs
+ * Create a new blog post.
+ */
+export async function createBlog(data: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await apiRequest("/api/blogs", {
+    method: "POST",
+    body: JSON.stringify({
+      title: data.title,
+      subtitle: data.subtitle,
+      excerpt: data.excerpt,
+      content: data.content,
+      category: data.category,
+      author: data.author,
+      featured: data.featured,
+      status: data.status,
+      sections: data.sections,
+      tags: data.tags,
+      image: data.image,
+      read_time: data.readTime
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to publish blog post.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/blogs/{id}
+ * Update an existing blog post.
+ */
+export async function updateBlog(id: number, data: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await apiRequest(`/api/blogs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      title: data.title,
+      subtitle: data.subtitle,
+      excerpt: data.excerpt,
+      content: data.content,
+      category: data.category,
+      author: data.author,
+      featured: data.featured,
+      status: data.status,
+      sections: data.sections,
+      tags: data.tags,
+      image: data.image,
+      read_time: data.readTime
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to update blog post.");
+  }
+
+  return res.json();
+}
+
+/**
+ * DELETE /api/blogs/{id}
+ * Securely delete a blog post.
+ */
+export async function deleteBlog(id: number): Promise<void> {
+  const res = await apiRequest(`/api/blogs/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to delete blog post.");
+  }
+}
+
+/**
+ * POST /api/blogs/upload-image
+ * Uploads an image (JPG, PNG, WEBP) to the Laravel backend for blogs.
+ */
+export async function uploadBlogImageFile(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiRequest("/api/blogs/upload-image", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Image upload rejected by server.");
+  }
+
+  const data = await res.json();
+  return data.url;
 }
 
 /**
@@ -1255,3 +1413,131 @@ export async function updateSiteSettings(settings: Record<string, string>): Prom
   return res.json();
 }
 
+export interface AuditLogEntry {
+  id: number;
+  user_id: number | null;
+  user_name: string;
+  user_role: string;
+  action: string;
+  entity_type: string;
+  entity_id: number | null;
+  entity_label: string | null;
+  metadata: Record<string, any> | null;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+
+export interface AuditLogStats {
+  total_logs: number;
+  logs_today: number;
+  top_actor: string;
+  top_actor_count: number;
+  action_summary: Array<{ action: string; total: number }>;
+}
+
+/**
+ * GET /api/admin/audit-logs
+ * Fetch paginated audit logs with parameters.
+ */
+export async function fetchAuditLogs(params?: {
+  page?: number;
+  per_page?: number;
+  action?: string;
+  entity_type?: string;
+  user_id?: number;
+  date_from?: string;
+  date_to?: string;
+  search?: string;
+}): Promise<PaginatedResponse<AuditLogEntry>> {
+  const urlParams = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, val]) => {
+      if (val !== undefined && val !== null && val !== "") {
+        urlParams.append(key, String(val));
+      }
+    });
+  }
+
+  const res = await apiRequest(`/api/admin/audit-logs?${urlParams.toString()}`);
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to load audit logs.");
+  }
+  return res.json();
+}
+
+/**
+ * GET /api/admin/audit-logs/stats
+ * Fetch audit logs summary statistics.
+ */
+export async function fetchAuditLogStats(): Promise<AuditLogStats> {
+  const res = await apiRequest("/api/admin/audit-logs/stats");
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to load audit log statistics.");
+  }
+  return res.json();
+}
+
+// ─── Permission Management ───────────────────────────────────────────────────
+
+export interface Permission {
+  id: number;
+  key: string;
+  label: string;
+  group: string;
+  description: string | null;
+}
+
+/**
+ * GET /api/permissions
+ * Fetch all available permissions (Superadmin only).
+ */
+export async function fetchPermissions(): Promise<Permission[]> {
+  const res = await apiRequest("/api/permissions");
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to load permissions.");
+  }
+  return res.json();
+}
+
+/**
+ * PUT /api/users/{id}/position
+ * Update an admin user's position title (Superadmin only).
+ */
+export async function updateUserPosition(userId: number, position: string | null): Promise<any> {
+  const res = await apiRequest(`/api/users/${userId}/position`, {
+    method: "PUT",
+    body: JSON.stringify({ admin_position: position }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to update position.");
+  }
+  return res.json();
+}
+
+/**
+ * PUT /api/users/{id}/permissions
+ * Sync an admin user's permissions (Superadmin only).
+ */
+export async function updateUserPermissions(userId: number, permissionIds: number[]): Promise<any> {
+  const res = await apiRequest(`/api/users/${userId}/permissions`, {
+    method: "PUT",
+    body: JSON.stringify({ permission_ids: permissionIds }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to update permissions.");
+  }
+  return res.json();
+}

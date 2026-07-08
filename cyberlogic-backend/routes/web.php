@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\BlogPostController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\EventController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\ForumCommentController;
 use App\Http\Controllers\ForumThreadController;
 use App\Http\Controllers\ForumVoteController;
 use App\Http\Controllers\SiteSettingController;
+use App\Http\Controllers\AuditLogController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,6 +27,9 @@ Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
 
 Route::get('/api/announcements', [AnnouncementController::class, 'index']);
 Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);
+
+Route::get('/api/blogs', [BlogPostController::class, 'index']);
+Route::get('/api/blogs/{id}', [BlogPostController::class, 'show']);
 
 Route::get('/api/events', [EventController::class, 'index']);
 Route::get('/api/events/{id}', [EventController::class, 'show']);
@@ -54,6 +59,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/announcements/{id}', [AnnouncementController::class, 'update'])->middleware('throttle:10,1');
     Route::delete('/api/announcements/{id}', [AnnouncementController::class, 'destroy']);
     Route::post('/api/announcements/upload-image', [AnnouncementController::class, 'uploadImage'])->middleware('throttle:15,1');
+
+    Route::post('/api/blogs', [BlogPostController::class, 'store'])->middleware('throttle:10,1');
+    Route::put('/api/blogs/{id}', [BlogPostController::class, 'update'])->middleware('throttle:10,1');
+    Route::delete('/api/blogs/{id}', [BlogPostController::class, 'destroy']);
+    Route::post('/api/blogs/upload-image', [BlogPostController::class, 'uploadImage'])->middleware('throttle:15,1');
 
     // Secure Event actions
     Route::post('/api/events/{id}/register', [EventController::class, 'register']);
@@ -93,6 +103,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/admin/forum/categories/reorder', [ForumCategoryController::class, 'reorder']);
 
     Route::put('/api/admin/site-settings', [SiteSettingController::class, 'update']);
+    Route::get('/api/admin/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/api/admin/audit-logs/stats', [AuditLogController::class, 'stats']);
+
+    // Permission Management (Superadmin only)
+    Route::get('/api/permissions', [AuthController::class, 'listPermissions']);
+    Route::put('/api/users/{id}/position', [AuthController::class, 'updatePosition']);
+    Route::put('/api/users/{id}/permissions', [AuthController::class, 'updatePermissions']);
 });
 
 // Serve storage files programmatically if the symlink is broken/missing

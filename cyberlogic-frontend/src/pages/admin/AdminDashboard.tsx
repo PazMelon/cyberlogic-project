@@ -14,34 +14,17 @@ import {
   Pin,
   Info,
 } from "lucide-react";
-import { recentAdminActivity } from "../../data/mockData";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 import { Button } from "../../components/ui";
-import { fetchUsers, approveUser, rejectUser } from "../../utils/api";
-
-const activityIcons: Record<string, typeof Users> = {
-  member_joined: UserPlus,
-  announcement_created: Megaphone,
-  event_created: Calendar,
-  thread_pinned: Pin,
-  member_approved: CheckCircle,
-  resource_added: FileText,
-};
-
-const activityColors: Record<string, string> = {
-  member_joined: "text-success bg-success/10",
-  announcement_created: "text-primary bg-primary/10",
-  event_created: "text-accent bg-accent/10",
-  thread_pinned: "text-warning bg-warning/10",
-  member_approved: "text-success bg-success/10",
-  resource_added: "text-info bg-info/10",
-};
+import { fetchUsers, approveUser, rejectUser, fetchAuditLogs } from "../../utils/api";
+import type { AuditLogEntry } from "../../utils/api";
 
 export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalMembersCount, setTotalMembersCount] = useState(150);
   const [pendingMembersCount, setPendingMembersCount] = useState(3);
   const [pendingList, setPendingList] = useState<any[]>([]);
+  const [dashboardLogs, setDashboardLogs] = useState<AuditLogEntry[]>([]);
 
   const loadData = async () => {
     try {
@@ -60,6 +43,14 @@ export default function AdminDashboard() {
         studentId: u.school_id,
       }));
       setPendingList(mappedPending);
+
+      // Load latest 6 audit logs
+      try {
+        const logsRes = await fetchAuditLogs({ per_page: 6 });
+        setDashboardLogs(logsRes.data);
+      } catch (err) {
+        console.error("Failed to load dashboard logs:", err);
+      }
     } catch (e) {
       console.error("Failed to load dashboard statistics:", e);
     } finally {
@@ -245,11 +236,19 @@ export default function AdminDashboard() {
 
         {/* Recent Admin Activities list */}
         <div className="glass rounded-2xl p-5 space-y-4">
-          <div>
-            <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)]">
-              Audit Logs
-            </h2>
-            <p className="text-xs text-text-muted mt-0.5">Recent system actions and logs.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-text-primary font-[family-name:var(--font-heading)]">
+                Audit Logs
+              </h2>
+              <p className="text-xs text-text-muted mt-0.5">Recent system actions and logs.</p>
+            </div>
+            <Link
+              to="/admin/audit-logs"
+              className="text-xs font-semibold text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-1"
+            >
+              View All <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
 
           <div className="space-y-4">
@@ -265,23 +264,74 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </>
+            ) : dashboardLogs.length === 0 ? (
+              <div className="p-6 text-center text-xs text-text-muted">
+                No logs recorded yet.
+              </div>
             ) : (
-              recentAdminActivity.map((activity) => {
-                const Icon = activityIcons[activity.type] || Info;
-                const color = activityColors[activity.type] || "text-text-muted bg-surface-800";
+              dashboardLogs.map((log) => {
+                const getIconForAction = (action: string) => {
+                  if (action === "registered" || action === "login") return UserPlus;
+                  if (action === "approved") return CheckCircle;
+                  if (action === "created") return Megaphone;
+                  if (action === "updated") return FileText;
+                  if (action === "deleted") return Info;
+                  if (action === "pinned" || action === "unpinned") return Pin;
+                  return Info;
+                };
+
+                const getColorForAction = (action: string) => {
+                  if (action === "registered" || action === "login") return "text-success bg-success/10";
+                  if (action === "approved") return "text-success bg-success/10";
+                  if (action === "created") return "text-primary bg-primary/10";
+                  if (action === "updated") return "text-info bg-info/10";
+                  if (action === "deleted") return "text-error bg-error/10";
+                  if (action === "pinned" || action === "unpinned") return "text-warning bg-warning/10";
+                  return "text-text-muted bg-surface-800";
+                };
+
+                const formatTimeAgo = (dateStr: string) => {
+                  const date = new Date(dateStr);
+                  const now = new Date();
+                  const diffMs = now.getTime() - date.getTime();
+                  const diffSec = Math.floor(diffMs / 1000);
+                  const diffMin = Math.floor(diffSec / 60);
+                  const diffHrs = Math.floor(diffMin / 60);
+                  const diffDays = Math.floor(diffHrs / 24);
+
+                  if (diffSec < 60) return "just now";
+                  if (diffMin < 60) return `${diffMin}m ago`;
+                  if (diffHrs < 24) return `${diffHrs}h ago`;
+                  return `${diffDays}d ago`;
+                };
+
+                const getActionDescription = (entry: AuditLogEntry) => {
+                  const actionLabel = entry.action.replace("_", " ");
+                  const typeLabel = entry.entity_type.replace(/([A-Z])/g, " $1").trim();
+                  const target = entry.entity_label ? `"${entry.entity_label}"` : `#${entry.entity_id || ""}`;
+                  
+                  if (entry.action === "login") return "logged in securely";
+                  if (entry.action === "logout") return "logged out from system";
+                  if (entry.action === "password_changed") return "updated account password";
+                  
+                  return `${actionLabel} ${typeLabel} ${target}`.trim();
+                };
+
+                const Icon = getIconForAction(log.action);
+                const color = getColorForAction(log.action);
 
                 return (
-                  <div key={activity.id} className="flex items-start gap-3 text-xs">
+                  <div key={log.id} className="flex items-start gap-3 text-xs">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>
                       <Icon className="w-4 h-4" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-text-primary font-medium leading-tight">
-                        <span className="font-semibold text-text-secondary">{activity.actor}</span>:{" "}
-                        {activity.description}
+                        <span className="font-semibold text-text-secondary">{log.user_name}</span>:{" "}
+                        {getActionDescription(log)}
                       </p>
                       <p className="text-[10px] text-text-muted flex items-center gap-1 mt-1 font-mono">
-                        <Clock className="w-3 h-3" /> {activity.timestamp}
+                        <Clock className="w-3 h-3" /> {formatTimeAgo(log.created_at)}
                       </p>
                     </div>
                   </div>

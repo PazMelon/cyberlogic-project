@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Permission;
 use App\Services\ImageOptimizer;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -44,6 +46,8 @@ class AuthController extends Controller
             'role' => 'member', // Default to standard member
             'status' => 'pending', // Default to pending approval
         ]);
+
+        AuditLogger::log('registered', 'User', $user->id, $user->name, ['email' => $user->email], $request);
 
         return response()->json([
             'message' => 'Registration submitted successfully. Your account is pending review by an administrator or moderator.',
@@ -88,6 +92,8 @@ class AuthController extends Controller
 
         $request->session()->regenerate();
 
+        AuditLogger::log('login', 'User', $user->id, $user->name, null, $request);
+
         return response()->json([
             'user' => $user,
             'message' => 'Login successful.',
@@ -99,6 +105,11 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
+        $user = Auth::user();
+        if ($user) {
+            AuditLogger::log('logout', 'User', $user->id, $user->name, null, $request);
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
@@ -126,7 +137,7 @@ class AuthController extends Controller
     public function index(Request $request)
     {
         $currentUser = $request->user();
-        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
             return response()->json(['error' => 'Forbidden. Access denied.'], 403);
         }
 
@@ -148,7 +159,7 @@ class AuthController extends Controller
         }
 
         $validated = $request->validate([
-            'role' => 'required|string|in:member,officer,admin,superadmin',
+            'role' => 'required|string|in:member,admin,superadmin',
         ]);
 
         $user = User::findOrFail($id);
@@ -160,13 +171,25 @@ class AuthController extends Controller
             ], 400);
         }
 
-        $user->update([
-            'role' => $validated['role']
-        ]);
+        $oldRole = $user->role;
+        $updateData = ['role' => $validated['role']];
+
+        // Clear admin_position and permissions when demoting from admin
+        if ($validated['role'] === 'member') {
+            $updateData['admin_position'] = null;
+            $user->permissions()->detach();
+        }
+
+        $user->update($updateData);
+
+        AuditLogger::log('role_changed', 'User', $user->id, $user->name, [
+            'old_role' => $oldRole,
+            'new_role' => $validated['role']
+        ], $request);
 
         return response()->json([
             'success' => true,
-            'user' => $user
+            'user' => $user->fresh()
         ]);
     }
 
@@ -194,6 +217,10 @@ class AuthController extends Controller
         ]);
 
         $user->update($validated);
+
+        AuditLogger::log('updated', 'User', $user->id, $user->name, [
+            'fields' => array_keys($validated)
+        ], $request);
 
         return response()->json([
             'success' => true,
@@ -227,6 +254,8 @@ class AuthController extends Controller
         $user->update([
             'password' => Hash::make($request->new_password)
         ]);
+
+        AuditLogger::log('password_changed', 'User', $user->id, $user->name, null, $request);
 
         return response()->json([
             'success' => true,
@@ -262,6 +291,8 @@ class AuthController extends Controller
                 'avatar_path' => $path
             ]);
 
+            AuditLogger::log('uploaded', 'User', $user->id, $user->name, ['type' => 'avatar'], $request);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile picture updated successfully.',
@@ -279,7 +310,7 @@ class AuthController extends Controller
     public function approve(Request $request, $id)
     {
         $currentUser = $request->user();
-        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
             return response()->json(['error' => 'Forbidden. Access denied.'], 403);
         }
 
@@ -287,6 +318,8 @@ class AuthController extends Controller
         $user->update([
             'status' => 'approved'
         ]);
+
+        AuditLogger::log('approved', 'User', $user->id, $user->name, null, $request);
 
         // Log mock email notification
         \Illuminate\Support\Facades\Log::info("Email notification: Account registration approved for User: {$user->email} ({$user->name})");
@@ -305,7 +338,7 @@ class AuthController extends Controller
     public function destroy(Request $request, $id)
     {
         $currentUser = $request->user();
-        if (!$currentUser || !in_array($currentUser->role, ['admin', 'superadmin'])) {
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
             return response()->json(['error' => 'Forbidden. Access denied.'], 403);
         }
 
@@ -318,7 +351,10 @@ class AuthController extends Controller
 
         $userName = $user->name;
         $userEmail = $user->email;
+        $userId = $user->id;
         $user->delete();
+
+        AuditLogger::log('deleted', 'User', $userId, $userName, ['email' => $userEmail], $request);
 
         // Log rejection email notification
         \Illuminate\Support\Facades\Log::info("Email notification: Account registration rejected/deleted for User: {$userEmail} ({$userName})");
@@ -327,5 +363,91 @@ class AuthController extends Controller
             'success' => true,
             'message' => "User {$userName} has been rejected and deleted successfully."
         ]);
+    }
+
+    /**
+     * PUT /api/users/{id}/position
+     * Update an admin user's position title (Superadmin only).
+     */
+    public function updatePosition(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || $currentUser->role !== 'superadmin') {
+            return response()->json(['error' => 'Forbidden. Only the Super Admin can assign positions.'], 403);
+        }
+
+        $validated = $request->validate([
+            'admin_position' => 'nullable|string|in:President,Vice President,Secretary,Auditor,Treasurer,PIO,1st Year Representative,2nd Year Representative,3rd Year Representative,4th Year Representative',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if ($user->role !== 'admin') {
+            return response()->json(['error' => 'Positions can only be assigned to admin users.'], 400);
+        }
+
+        $oldPosition = $user->admin_position;
+        $user->update(['admin_position' => $validated['admin_position']]);
+
+        AuditLogger::log('position_changed', 'User', $user->id, $user->name, [
+            'old_position' => $oldPosition,
+            'new_position' => $validated['admin_position'],
+        ], $request);
+
+        return response()->json([
+            'success' => true,
+            'user' => $user->fresh()
+        ]);
+    }
+
+    /**
+     * PUT /api/users/{id}/permissions
+     * Sync an admin user's permissions (Superadmin only).
+     */
+    public function updatePermissions(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || $currentUser->role !== 'superadmin') {
+            return response()->json(['error' => 'Forbidden. Only the Super Admin can assign permissions.'], 403);
+        }
+
+        $validated = $request->validate([
+            'permission_ids' => 'required|array',
+            'permission_ids.*' => 'integer|exists:permissions,id',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if ($user->role === 'superadmin') {
+            return response()->json(['error' => 'Super Admin permissions cannot be modified.'], 400);
+        }
+
+        $user->permissions()->sync($validated['permission_ids']);
+
+        $permissionLabels = Permission::whereIn('id', $validated['permission_ids'])->pluck('label')->toArray();
+
+        AuditLogger::log('permissions_updated', 'User', $user->id, $user->name, [
+            'permissions' => $permissionLabels,
+        ], $request);
+
+        return response()->json([
+            'success' => true,
+            'user' => $user->fresh()
+        ]);
+    }
+
+    /**
+     * GET /api/permissions
+     * List all available permissions (Superadmin only).
+     */
+    public function listPermissions(Request $request)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || $currentUser->role !== 'superadmin') {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $permissions = Permission::orderBy('group')->orderBy('label')->get();
+        return response()->json($permissions);
     }
 }

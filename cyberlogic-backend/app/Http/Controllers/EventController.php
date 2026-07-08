@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\EventRegistration;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -16,9 +17,9 @@ class EventController extends Controller
     private function authorizeRbac(Request $request): void
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, ['admin', 'superadmin', 'officer'])) {
+        if (!$user || !$user->hasPermission('manage_events')) {
             abort(response()->json([
-                'error' => 'Forbidden. Write permissions are restricted to officers and administrators.'
+                'error' => 'Forbidden. You do not have permission to manage events.'
             ], 403));
         }
     }
@@ -161,6 +162,8 @@ class EventController extends Controller
             'sections' => $sections,
         ]);
 
+        AuditLogger::log('created', 'Event', $event->id, $event->title, null, $request);
+
         return response()->json($event, 201);
     }
 
@@ -210,6 +213,8 @@ class EventController extends Controller
             'sections' => $sections,
         ]);
 
+        AuditLogger::log('updated', 'Event', $event->id, $event->title, null, $request);
+
         return response()->json($event);
     }
 
@@ -222,7 +227,11 @@ class EventController extends Controller
         $this->authorizeRbac($request);
 
         $event = Event::findOrFail($id);
+        $eventId = $event->id;
+        $eventTitle = $event->title;
         $event->delete();
+
+        AuditLogger::log('deleted', 'Event', $eventId, $eventTitle, null, $request);
 
         return response()->json(['success' => true]);
     }
@@ -239,7 +248,7 @@ class EventController extends Controller
         }
 
         // Perform capacity verification and registration inside a transaction
-        return DB::transaction(function () use ($user, $id) {
+        return DB::transaction(function () use ($user, $id, $request) {
             // Lock event row to prevent race conditions exceeding capacity
             $event = Event::lockForUpdate()->findOrFail($id);
 
@@ -267,10 +276,14 @@ class EventController extends Controller
             }
 
             // 3. Create registration
-            EventRegistration::create([
+            $registration = EventRegistration::create([
                 'event_id' => $event->id,
                 'user_id' => $user->id,
             ]);
+
+            AuditLogger::log('registered', 'EventRegistration', $registration->id, $event->title, [
+                'event_id' => $event->id
+            ], $request);
 
             return response()->json([
                 'success' => true,
@@ -298,6 +311,10 @@ class EventController extends Controller
         EventRegistration::where('event_id', $event->id)
             ->where('user_id', $user->id)
             ->delete();
+
+        AuditLogger::log('unregistered', 'EventRegistration', null, $event->title, [
+            'event_id' => $event->id
+        ], $request);
 
         return response()->json([
             'success' => true,

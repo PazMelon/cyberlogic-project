@@ -6,6 +6,7 @@ use App\Models\ForumCategory;
 use App\Models\ForumComment;
 use App\Models\ForumThread;
 use App\Services\ImageOptimizer;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 
 class ForumThreadController extends Controller
@@ -122,6 +123,8 @@ class ForumThreadController extends Controller
             'images' => ! empty($imagesPaths) ? $imagesPaths : null,
         ]);
 
+        AuditLogger::log('created', 'ForumThread', $thread->id, $thread->title, null, $request);
+
         return response()->json($thread->load(['user', 'category']), 201);
     }
 
@@ -134,7 +137,7 @@ class ForumThreadController extends Controller
         $thread = ForumThread::findOrFail($id);
 
         $user = $request->user();
-        if ($thread->user_id !== $user->id && ! in_array($user->role, ['admin', 'superadmin'])) {
+        if ($thread->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this thread.'], 403);
         }
 
@@ -150,6 +153,8 @@ class ForumThreadController extends Controller
             'category_id' => $validated['category_id'],
         ]);
 
+        AuditLogger::log('updated', 'ForumThread', $thread->id, $thread->title, null, $request);
+
         return response()->json($thread->load(['user', 'category']));
     }
 
@@ -160,13 +165,17 @@ class ForumThreadController extends Controller
     public function destroy(Request $request, $id)
     {
         $thread = ForumThread::findOrFail($id);
-
+        $threadId = $thread->id;
+        $threadTitle = $thread->title;
+        
         $user = $request->user();
-        if ($thread->user_id !== $user->id && ! in_array($user->role, ['admin', 'superadmin'])) {
+        if ($thread->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this thread.'], 403);
         }
 
         $thread->delete();
+
+        AuditLogger::log('deleted', 'ForumThread', $threadId, $threadTitle, null, $request);
 
         return response()->json(['success' => true]);
     }
@@ -178,12 +187,14 @@ class ForumThreadController extends Controller
     public function togglePin(Request $request, $id)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'superadmin'])) {
+        if (! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. Admin credentials required.'], 403);
         }
 
         $thread = ForumThread::findOrFail($id);
         $thread->update(['is_pinned' => ! $thread->is_pinned]);
+
+        AuditLogger::log($thread->is_pinned ? 'pinned' : 'unpinned', 'ForumThread', $thread->id, $thread->title, null, $request);
 
         return response()->json($thread->load(['user', 'category']));
     }
@@ -195,12 +206,14 @@ class ForumThreadController extends Controller
     public function toggleClose(Request $request, $id)
     {
         $user = $request->user();
-        if (! in_array($user->role, ['admin', 'superadmin'])) {
+        if (! $user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. Admin credentials required.'], 403);
         }
 
         $thread = ForumThread::findOrFail($id);
         $thread->update(['is_closed' => ! $thread->is_closed]);
+
+        AuditLogger::log($thread->is_closed ? 'closed' : 'reopened', 'ForumThread', $thread->id, $thread->title, null, $request);
 
         return response()->json($thread->load(['user', 'category']));
     }
@@ -238,12 +251,16 @@ class ForumThreadController extends Controller
                 'solution_comment_id' => $comment->id,
                 'is_solved' => true,
             ]);
+
+            AuditLogger::log('solved', 'ForumThread', $thread->id, $thread->title, ['comment_id' => $commentId], $request);
         } else {
             // Clear solution
             $thread->update([
                 'solution_comment_id' => null,
                 'is_solved' => false,
             ]);
+
+            AuditLogger::log('unsolved', 'ForumThread', $thread->id, $thread->title, null, $request);
         }
 
         return response()->json($thread->load(['user', 'category', 'solutionComment.user']));

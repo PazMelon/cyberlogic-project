@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ForumComment;
 use App\Models\ForumThread;
 use App\Models\ForumVote;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 
 class ForumVoteController extends Controller
@@ -53,6 +54,12 @@ class ForumVoteController extends Controller
         $thread = ForumThread::findOrFail($id);
         $result = $this->handleVote($thread, $validated['value'], $request->user()->id);
 
+        AuditLogger::log('voted', 'ForumThread', $thread->id, $thread->title, [
+            'value' => $validated['value'],
+            'vote_score' => $result['vote_score'],
+            'user_vote' => $result['user_vote']
+        ], $request);
+
         return response()->json($result);
     }
 
@@ -64,6 +71,12 @@ class ForumVoteController extends Controller
 
         $comment = ForumComment::findOrFail($id);
         $result = $this->handleVote($comment, $validated['value'], $request->user()->id);
+
+        AuditLogger::log('voted', 'ForumComment', $comment->id, substr($comment->content, 0, 50), [
+            'value' => $validated['value'],
+            'vote_score' => $result['vote_score'],
+            'user_vote' => $result['user_vote']
+        ], $request);
 
         return response()->json($result);
     }
