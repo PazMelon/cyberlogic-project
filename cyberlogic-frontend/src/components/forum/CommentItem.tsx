@@ -64,7 +64,7 @@ export function CommentItem({
           isSolution
             ? "border-success bg-success/5 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
             : "border-border/40 bg-surface-900/20"
-        }`}
+        } ${(comment as any).animate || ""}`}
       >
         <img
           src={comment.authorAvatar}
@@ -126,6 +126,7 @@ export function CommentItem({
                 onVote={(direction) => onVote(comment.id, direction)}
                 orientation="horizontal"
                 size="sm"
+                animateClass={(comment as any).voteAnimate}
               />
 
               {/* Reply */}

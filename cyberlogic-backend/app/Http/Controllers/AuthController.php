@@ -49,6 +49,18 @@ class AuthController extends Controller
 
         AuditLogger::log('registered', 'User', $user->id, $user->name, ['email' => $user->email], $request);
 
+        \App\Services\RealtimeService::broadcast('admin:member_management', [
+            'event' => 'registration_pending',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'studentId' => $user->school_id,
+                'department' => $user->department ?: 'N/A',
+                'appliedDate' => $user->created_at->toDateString(),
+            ]
+        ]);
+
         return response()->json([
             'message' => 'Registration submitted successfully. Your account is pending review by an administrator or moderator.',
             'status' => 'pending',
@@ -321,6 +333,26 @@ class AuthController extends Controller
 
         AuditLogger::log('approved', 'User', $user->id, $user->name, null, $request);
 
+        \App\Services\RealtimeService::broadcast('admin:member_management', [
+            'event' => 'registration_approved',
+            'userId' => $user->id,
+            'member' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'avatar' => $user->avatar,
+                'role' => $user->role === 'superadmin' ? 'Super Admin' : ($user->role === 'admin' ? 'Admin' : 'Member'),
+                'department' => $user->department ?: 'N/A',
+                'yearLevel' => $user->year_level ?: 'N/A',
+                'expertise' => ['General Tech'],
+                'badges' => [],
+                'joinedDate' => $user->joinedDate,
+                'status' => 'offline',
+                'bio' => $user->address ? "Located at {$user->address}" : "Registered digital innovation enthusiast.",
+                'studentId' => $user->school_id
+            ]
+        ]);
+
         // Log mock email notification
         \Illuminate\Support\Facades\Log::info("Email notification: Account registration approved for User: {$user->email} ({$user->name})");
 
@@ -355,6 +387,11 @@ class AuthController extends Controller
         $user->delete();
 
         AuditLogger::log('deleted', 'User', $userId, $userName, ['email' => $userEmail], $request);
+
+        \App\Services\RealtimeService::broadcast('admin:member_management', [
+            'event' => 'registration_rejected',
+            'userId' => (int)$id
+        ]);
 
         // Log rejection email notification
         \Illuminate\Support\Facades\Log::info("Email notification: Account registration rejected/deleted for User: {$userEmail} ({$userName})");

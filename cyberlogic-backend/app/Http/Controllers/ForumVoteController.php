@@ -60,6 +60,11 @@ class ForumVoteController extends Controller
             'user_vote' => $result['user_vote']
         ], $request);
 
+        \App\Services\RealtimeService::broadcast("forums:thread:{$thread->id}", [
+            'event' => 'thread_voted',
+            'likes' => $result['vote_score']
+        ]);
+
         return response()->json($result);
     }
 
@@ -77,6 +82,12 @@ class ForumVoteController extends Controller
             'vote_score' => $result['vote_score'],
             'user_vote' => $result['user_vote']
         ], $request);
+
+        \App\Services\RealtimeService::broadcast("forums:thread:{$comment->thread_id}", [
+            'event' => 'comment_voted',
+            'commentId' => $comment->id,
+            'likes' => $result['vote_score']
+        ]);
 
         return response()->json($result);
     }

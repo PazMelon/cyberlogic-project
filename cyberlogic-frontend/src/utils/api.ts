@@ -661,6 +661,8 @@ export interface ForumThreadMapped {
   images: string[] | null;
   isSpoiler: boolean;
   isRedacted: boolean;
+  animate?: string;
+  voteAnimate?: string;
 }
 
 export interface ForumCommentMapped {
@@ -678,6 +680,8 @@ export interface ForumCommentMapped {
   userVote: number | null;
   isSpoiler: boolean;
   isRedacted: boolean;
+  animate?: string;
+  voteAnimate?: string;
 }
 
 // Helper to format relative times
@@ -1563,6 +1567,7 @@ export interface AuditLogEntry {
   metadata: Record<string, any> | null;
   ip_address: string | null;
   created_at: string;
+  animate?: string;
 }
 
 export interface PaginatedResponse<T> {

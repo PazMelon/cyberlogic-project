@@ -26,6 +26,7 @@ import {
 import { fetchAuditLogs, fetchAuditLogStats } from "../../utils/api";
 import type { AuditLogEntry, AuditLogStats } from "../../utils/api";
 import { Button, Card, Badge } from "../../components/ui";
+import { useWebSocket } from "../../context/WebSocketContext";
 
 const actionIcons: Record<string, any> = {
   created: PlusCircle,
@@ -125,6 +126,8 @@ export default function AuditLogs() {
     }
   };
 
+  const { subscribe } = useWebSocket();
+
   useEffect(() => {
     loadLogs();
   }, [page, triggerFetch]);
@@ -132,6 +135,30 @@ export default function AuditLogs() {
   useEffect(() => {
     loadStats();
   }, [triggerFetch]);
+
+  useEffect(() => {
+    const unsubscribe = subscribe("admin:audit_logs", (payload) => {
+      if (payload.event === "log_created") {
+        setLogs((prev) => {
+          if (prev.some((l) => l.id === payload.log.id)) return prev;
+          return [{ ...payload.log, animate: "animate-message-arrive" }, ...prev.slice(0, perPage - 1)];
+        });
+        setTotalLogs((prev) => prev + 1);
+        setStats((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            total_logs: prev.total_logs + 1,
+            logs_today: prev.logs_today + 1,
+          };
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,7 +438,7 @@ export default function AuditLogs() {
 
                   return (
                     <React.Fragment key={log.id}>
-                      <tr className="hover:bg-white/[0.02] transition-colors">
+                      <tr className={`hover:bg-white/[0.02] transition-colors ${log.animate || ""}`}>
                         <td className="p-4 text-center">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center border mx-auto ${colorClass}`} title={log.action}>
                             <Icon className="w-4 h-4" />
