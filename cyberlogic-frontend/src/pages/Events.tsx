@@ -122,10 +122,10 @@ export default function Events() {
           )}
           <div className="flex items-end justify-between">
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
+              <h1 className={`${isPortal ? "text-2xl" : "text-3xl lg:text-4xl"} font-bold font-[family-name:var(--font-heading)] text-text-primary`}>
                 Events
               </h1>
-              <p className="text-text-muted mt-2">
+              <p className={`${isPortal ? "text-sm mt-1" : "mt-2"} text-text-muted`}>
                 Discover and join our workshops, seminars, competitions, and social gatherings.
               </p>
             </div>

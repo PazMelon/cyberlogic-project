@@ -56,10 +56,10 @@ export default function Blogs() {
               <span className="text-text-secondary">Blog</span>
             </div>
           )}
-          <h1 className="text-3xl lg:text-4xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
+          <h1 className={`${isPortal ? "text-2xl" : "text-3xl lg:text-4xl"} font-bold font-[family-name:var(--font-heading)] text-text-primary`}>
             Blog Feed
           </h1>
-          <p className="text-text-muted mt-2">
+          <p className={`${isPortal ? "text-sm mt-1" : "mt-2"} text-text-muted`}>
             Read coding guides, hardware tips, cyber-security writeups, and academic news published by club officers and members.
           </p>
         </div>
