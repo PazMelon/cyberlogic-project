@@ -146,8 +146,8 @@ export default function EventDetail() {
     return d;
   };
 
-  const regStart = getWindowDateTime(item.registrationStart);
-  const regEnd = getWindowDateTime(item.registrationEnd);
+  const regStart = item.registrationStart ? new Date(item.registrationStart) : null;
+  const regEnd = item.registrationEnd ? new Date(item.registrationEnd) : null;
   const attStart = getWindowDateTime(item.attendanceStart);
   const attEnd = getWindowDateTime(item.attendanceEnd);
 
@@ -164,8 +164,8 @@ export default function EventDetail() {
   // Helper text for registration window
   const getRegistrationHelperText = () => {
     if (item.status !== "upcoming") return `RSVP closed. Event is ${item.status}.`;
-    if (!isRegStarted && item.registrationStart) {
-      return `Registration opens on ${new Date(item.registrationStart).toLocaleString()}`;
+    if (!isRegStarted && item.registrationStart && regStart) {
+      return `Registration opens on ${regStart.toLocaleString()}`;
     }
     if (isRegEnded) return "Registration has closed.";
     if (isFull && !item.isRegistered) return "All slots are taken. Stay tuned for future slots.";
@@ -221,7 +221,7 @@ export default function EventDetail() {
           <Clock className="w-6 h-6 text-warning mx-auto" />
           <p className="text-xs text-text-secondary font-semibold">Pass Not Active Yet</p>
           <p className="text-[10px] text-text-muted">
-            Check-in opens on {new Date(item.attendanceStart).toLocaleString()}
+            Check-in opens on {attStart ? attStart.toLocaleString() : "TBD"}
           </p>
         </div>
       );

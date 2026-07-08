@@ -713,14 +713,13 @@ export default function CMSBlogBuilder({
 
                 {/* Timing Windows */}
                 {(state.eventMode !== 'attendance_only') && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                        Registration Open Time
+                        Registration Open Date & Time
                       </label>
                       <input
-                        type="time"
-                        step="900"
+                        type="datetime-local"
                         value={state.registrationStart || ''}
                         onChange={e => updateState({ registrationStart: e.target.value || undefined })}
                         className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
@@ -728,11 +727,10 @@ export default function CMSBlogBuilder({
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-text-secondary uppercase flex items-center gap-1">
-                        Registration Close Time
+                        Registration Close Date & Time
                       </label>
                       <input
-                        type="time"
-                        step="900"
+                        type="datetime-local"
                         value={state.registrationEnd || ''}
                         onChange={e => updateState({ registrationEnd: e.target.value || undefined })}
                         className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"

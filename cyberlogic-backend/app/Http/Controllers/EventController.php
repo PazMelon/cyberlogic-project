@@ -98,8 +98,8 @@ class EventController extends Controller
                 'status' => $event->status,
                 'event_mode' => $event->event_mode,
                 'attendance_capacity' => $event->attendance_capacity,
-                'registration_start' => $event->registration_start ? substr($event->registration_start, 0, 5) : null,
-                'registration_end' => $event->registration_end ? substr($event->registration_end, 0, 5) : null,
+                'registration_start' => $event->registration_start,
+                'registration_end' => $event->registration_end,
                 'attendance_start' => $event->attendance_start ? substr($event->attendance_start, 0, 5) : null,
                 'attendance_end' => $event->attendance_end ? substr($event->attendance_end, 0, 5) : null,
                 'attendance_count' => $event->attendances_count,
@@ -157,8 +157,8 @@ class EventController extends Controller
             'status' => $event->status,
             'event_mode' => $event->event_mode,
             'attendance_capacity' => $event->attendance_capacity,
-            'registration_start' => $event->registration_start ? substr($event->registration_start, 0, 5) : null,
-            'registration_end' => $event->registration_end ? substr($event->registration_end, 0, 5) : null,
+            'registration_start' => $event->registration_start,
+            'registration_end' => $event->registration_end,
             'attendance_start' => $event->attendance_start ? substr($event->attendance_start, 0, 5) : null,
             'attendance_end' => $event->attendance_end ? substr($event->attendance_end, 0, 5) : null,
             'attendance_count' => $event->attendances_count,
@@ -188,8 +188,8 @@ class EventController extends Controller
             'status' => 'nullable|string|in:upcoming,ongoing,completed,closed,postponed',
             'event_mode' => 'required|string|in:registration_and_attendance,attendance_only,registration_only',
             'attendance_capacity' => 'nullable|integer|min:0',
-            'registration_start' => 'nullable|date_format:H:i',
-            'registration_end' => 'nullable|date_format:H:i',
+            'registration_start' => 'nullable|date',
+            'registration_end' => 'nullable|date',
             'attendance_start' => 'nullable|date_format:H:i',
             'attendance_end' => 'nullable|date_format:H:i',
         ]);
@@ -253,8 +253,8 @@ class EventController extends Controller
             'status' => 'nullable|string|in:upcoming,ongoing,completed,closed,postponed',
             'event_mode' => 'required|string|in:registration_and_attendance,attendance_only,registration_only',
             'attendance_capacity' => 'nullable|integer|min:0',
-            'registration_start' => 'nullable|date_format:H:i',
-            'registration_end' => 'nullable|date_format:H:i',
+            'registration_start' => 'nullable|date',
+            'registration_end' => 'nullable|date',
             'attendance_start' => 'nullable|date_format:H:i',
             'attendance_end' => 'nullable|date_format:H:i',
         ]);
@@ -343,13 +343,13 @@ class EventController extends Controller
             $eventDateStr = $event->date->format('Y-m-d');
             
             if ($event->registration_start) {
-                $registrationStart = Carbon::parse($eventDateStr . ' ' . $event->registration_start);
+                $registrationStart = Carbon::parse($event->registration_start);
                 if ($now->lt($registrationStart)) {
                     return response()->json(['error' => 'Registration has not started yet.'], 400);
                 }
             }
             if ($event->registration_end) {
-                $registrationEnd = Carbon::parse($eventDateStr . ' ' . $event->registration_end);
+                $registrationEnd = Carbon::parse($event->registration_end);
                 if ($now->gt($registrationEnd)) {
                     return response()->json(['error' => 'Registration has already closed.'], 400);
                 }

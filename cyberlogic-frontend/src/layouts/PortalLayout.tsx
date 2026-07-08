@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import { Shield, LogOut, LayoutDashboard, User } from "lucide-react";
+import { Shield, LogOut, LayoutDashboard } from "lucide-react";
 
 export default function PortalLayout() {
   const { user, logout } = useAuth();

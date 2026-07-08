@@ -18,6 +18,9 @@ export default function EventAttendanceScanner() {
   const [scanningError, setScanningError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number>(1);
+  const lastScannedTokenRef = useRef<string | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+  const isProcessingRef = useRef<boolean>(false);
 
   // Check-in results
   const [checkInStatus, setCheckInStatus] = useState<{
@@ -54,21 +57,33 @@ export default function EventAttendanceScanner() {
 
   // Handle Scan Success
   const handleScanSuccess = async (decodedText: string) => {
-    if (checkInLoading) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    const now = Date.now();
+    if (decodedText === lastScannedTokenRef.current && now - lastScannedTimeRef.current < 10000) {
+      // Ignore duplicates quietly but reset processing flag after 1.5 seconds
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1500);
+      return;
+    }
     
-    // Temporarily pause/stop scanner to prevent double scans
-    stopScanner();
     setCheckInLoading(true);
     setCheckInStatus(null);
     setScanningError(null);
 
     try {
+      console.log("[Admin Scanner] Processing code:", decodedText);
       const response = await checkInAttendee(eventId, decodedText);
       setCheckInStatus({
         success: true,
         message: response.message,
         user: response.attendee
       });
+      // Record duplicate check
+      lastScannedTokenRef.current = decodedText;
+      lastScannedTimeRef.current = Date.now();
       // Add to recent
       setRecentCheckedIn(prev => [response.attendee, ...prev.slice(0, 4)]);
       // Vibrate if mobile device supports it
@@ -85,10 +100,11 @@ export default function EventAttendanceScanner() {
       }
     } finally {
       setCheckInLoading(false);
-      // Automatically restart scanning after 2.5 seconds
+      // Wait for 3 seconds to show result, then clear and allow next scan
       setTimeout(() => {
-        startScanner();
-      }, 2500);
+        setCheckInStatus(null);
+        isProcessingRef.current = false;
+      }, 3000);
     }
   };
 

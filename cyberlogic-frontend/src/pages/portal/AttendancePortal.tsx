@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router";
 import { Html5Qrcode } from "html5-qrcode";
 import { 
   Camera, AlertCircle, CheckCircle, RefreshCw, Clipboard, Send, 
-  Users, UserCheck, Clock, Search, ArrowRight, ShieldAlert, Sparkles, MapPin, Calendar
+  Users, UserCheck, Clock, Search, ShieldAlert, Sparkles, MapPin, Calendar
 } from "lucide-react";
 import { fetchEventById, fetchEventAttendees, checkInAttendee } from "../../utils/api";
 import { useWebSocket } from "../../context/WebSocketContext";
@@ -38,6 +38,9 @@ export default function AttendancePortal() {
   const [scanningError, setScanningError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number>(1);
+  const lastScannedTokenRef = useRef<string | null>(null);
+  const lastScannedTimeRef = useRef<number>(0);
+  const isProcessingRef = useRef<boolean>(false);
 
   // Check-in results
   const [checkInStatus, setCheckInStatus] = useState<{
@@ -114,9 +117,18 @@ export default function AttendancePortal() {
 
   // Handle Scan Success
   const handleScanSuccess = async (decodedText: string) => {
-    if (checkInLoading) return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    const now = Date.now();
+    if (decodedText === lastScannedTokenRef.current && now - lastScannedTimeRef.current < 10000) {
+      // Ignore duplicates quietly but reset processing flag after 1.5 seconds
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1500);
+      return;
+    }
     
-    stopScanner();
     setCheckInLoading(true);
     setCheckInStatus(null);
     setScanningError(null);
@@ -124,12 +136,16 @@ export default function AttendancePortal() {
     setIsErrorShake(false);
 
     try {
+      console.log("[Portal Scanner] Processing code:", decodedText);
       const response = await checkInAttendee(eventId, decodedText);
       setCheckInStatus({
         success: true,
         message: response.message,
         user: response.attendee
       });
+      // Record duplicate check
+      lastScannedTokenRef.current = decodedText;
+      lastScannedTimeRef.current = Date.now();
       
       setIsSuccessRipple(true);
       if (navigator.vibrate) {
@@ -146,9 +162,12 @@ export default function AttendancePortal() {
       }
     } finally {
       setCheckInLoading(false);
-      // Restart scanner after short delay
+      // Display check-in result for 3 seconds, then clear card and allow next scan
       setTimeout(() => {
-        startScanner();
+        setCheckInStatus(null);
+        setIsSuccessRipple(false);
+        setIsErrorShake(false);
+        isProcessingRef.current = false;
       }, 3000);
     }
   };
@@ -344,7 +363,7 @@ export default function AttendancePortal() {
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-primary/80" />
-              <span>{event.start_time} - {event.end_time}</span>
+              <span>{event.startTime} - {event.endTime}</span>
             </div>
             <div className="flex items-center gap-2 col-span-2">
               <MapPin className="w-4 h-4 text-primary/80 shrink-0" />
