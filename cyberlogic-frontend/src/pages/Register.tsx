@@ -11,6 +11,7 @@ export default function Register() {
     last_name: "",
     email: "",
     school_id: "",
+    department: "Information Technology",
     password: "",
     confirmPassword: "",
     agreedToTerms: false,
@@ -309,6 +310,27 @@ export default function Register() {
                       className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55"
                     />
                   </div>
+                </div>
+
+                {/* Department */}
+                <div>
+                  <label htmlFor="reg-department" className="block text-sm font-medium text-text-secondary mb-1.5">
+                    Department
+                  </label>
+                  <select
+                    id="reg-department"
+                    disabled={isSubmitting}
+                    value={form.department}
+                    onChange={(e) => updateField("department", e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-text-primary text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all disabled:opacity-55 cursor-pointer"
+                  >
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Teacher Education">Teacher Education</option>
+                    <option value="Business Administration">Business Administration</option>
+                    <option value="Criminal Justice Education">Criminal Justice Education</option>
+                    <option value="Hospitality Management">Hospitality Management</option>
+                    <option value="RVM-TTP">RVM-TTP</option>
+                  </select>
                 </div>
 
                 {/* Password */}

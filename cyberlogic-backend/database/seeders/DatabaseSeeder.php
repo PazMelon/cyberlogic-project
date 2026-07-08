@@ -157,47 +157,5 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // Seed mock officers as custom officers
-        $mockOfficers = [
-            [
-                'display_name' => 'Alex Reyes',
-                'display_role' => 'President',
-                'display_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=alex',
-                'display_bio' => '4th year CS student passionate about hardware servicing and open-source software.',
-                'use_profile_info' => false,
-                'sort_order' => 2
-            ],
-            [
-                'display_name' => 'Samantha Cruz',
-                'display_role' => 'Vice President',
-                'display_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=samantha',
-                'display_bio' => 'Specializes in UI/UX design and leads our digital creative projects.',
-                'use_profile_info' => false,
-                'sort_order' => 3
-            ],
-            [
-                'display_name' => 'Miguel Torres',
-                'display_role' => 'Secretary',
-                'display_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=miguel',
-                'display_bio' => 'Keeps everything organized and manages club communications.',
-                'use_profile_info' => false,
-                'sort_order' => 4
-            ],
-            [
-                'display_name' => 'Jessica Lim',
-                'display_role' => 'Treasurer',
-                'display_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=jessica',
-                'display_bio' => 'Handles club finances and sponsors for events.',
-                'use_profile_info' => false,
-                'sort_order' => 5
-            ]
-        ];
-
-        foreach ($mockOfficers as $officerData) {
-            Officer::updateOrCreate(
-                ['display_name' => $officerData['display_name']],
-                $officerData
-            );
-        }
     }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { RotateCcw, Check, Palette, Eye, Shield, Calendar, Settings } from "lucide-react";
+import { RotateCcw, Check, Palette, Eye, Shield, Calendar } from "lucide-react";
 import { applyGlobalTheme } from "../../utils/theme";
 import { fetchSiteSettings, updateSiteSettings } from "../../utils/api";
 import AboutMissionVisionSettings from "../../components/admin/about/AboutMissionVisionSettings";

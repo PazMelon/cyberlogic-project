@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown, Shield, Edit2, Check, UserPlus } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Shield, Edit2, UserPlus } from "lucide-react";
 import { 
   fetchAdminOfficers, 
   createOfficer, 
@@ -58,12 +58,12 @@ export default function AboutOfficerSettings() {
     try {
       if (selectedOfficer) {
         // Update
-        const updated = await updateOfficer(selectedOfficer.id, data);
+        await updateOfficer(selectedOfficer.id, data);
         // Refresh full list to resolve relationships correctly
         await loadOfficers();
       } else {
         // Create
-        const created = await createOfficer(data);
+        await createOfficer(data);
         await loadOfficers();
       }
       setModalOpen(false);

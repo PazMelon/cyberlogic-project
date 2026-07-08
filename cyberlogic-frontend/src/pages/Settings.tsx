@@ -324,11 +324,12 @@ export default function Settings() {
                     className="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
                   >
                     <option value="">Select Dept</option>
-                    <option value="Computer Science">Computer Science</option>
                     <option value="Information Technology">Information Technology</option>
-                    <option value="Computer Engineering">Computer Engineering</option>
-                    <option value="Information Systems">Information Systems</option>
-                    <option value="Other">Other Major</option>
+                    <option value="Teacher Education">Teacher Education</option>
+                    <option value="Business Administration">Business Administration</option>
+                    <option value="Criminal Justice Education">Criminal Justice Education</option>
+                    <option value="Hospitality Management">Hospitality Management</option>
+                    <option value="RVM-TTP">RVM-TTP</option>
                   </select>
                 </div>
                 <div className="space-y-1">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, UserCheck, Shield, Upload } from "lucide-react";
+import { X, UserCheck, Shield } from "lucide-react";
 import { fetchUsers, uploadOfficerAvatar } from "../../../utils/api";
 import type { DbUser, Officer } from "../../../utils/api";
 import ImageUploadZone from "../../ui/cms/ImageUploadZone";

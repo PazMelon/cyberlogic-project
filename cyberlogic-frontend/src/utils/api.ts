@@ -343,6 +343,9 @@ export interface DbUser {
   address?: string;
   birthday?: string;
   status?: "pending" | "approved" | "rejected";
+  admin_position?: string;
+  bio?: string;
+  expertise?: string;
 }
 
 /**

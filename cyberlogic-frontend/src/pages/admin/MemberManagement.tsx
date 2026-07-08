@@ -75,7 +75,7 @@ export default function MemberManagement() {
         email: u.email,
         avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
         role: u.role === "superadmin" ? "Super Admin" : u.role === "admin" ? "Admin" : "Member",
-        department: u.department || "Computer Science",
+        department: u.department || "Information Technology",
         yearLevel: u.year_level || "1st Year",
         expertise: ["General Tech"],
         badges: [],
@@ -91,7 +91,7 @@ export default function MemberManagement() {
         email: u.email,
         avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
         studentId: u.school_id,
-        department: u.department || "Computer Science",
+        department: u.department || "Information Technology",
         appliedDate: u.joinedDate || new Date().toISOString().split("T")[0]
       }));
 
@@ -366,9 +366,12 @@ export default function MemberManagement() {
       label: "Department",
       field: "department",
       options: [
-        { label: "Computer Science", value: "Computer Science" },
         { label: "Information Technology", value: "Information Technology" },
-        { label: "Computer Engineering", value: "Computer Engineering" }
+        { label: "Teacher Education", value: "Teacher Education" },
+        { label: "Business Administration", value: "Business Administration" },
+        { label: "Criminal Justice Education", value: "Criminal Justice Education" },
+        { label: "Hospitality Management", value: "Hospitality Management" },
+        { label: "RVM-TTP", value: "RVM-TTP" }
       ]
     },
     {
