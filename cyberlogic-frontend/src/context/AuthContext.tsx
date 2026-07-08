@@ -19,6 +19,12 @@ export interface User {
   birthday: string;
   bio?: string | null;
   expertise?: string | null;
+  reputation?: {
+    week: number;
+    month: number;
+    year: number;
+    allTime: number;
+  };
 }
 
 interface AuthContextType {

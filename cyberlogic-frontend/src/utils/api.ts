@@ -1,6 +1,5 @@
 import { apiRequest } from "../context/AuthContext";
 import type { Announcement, Event, BlogPost, Resource } from "../data/mockData";
-import { resources } from "../data/mockData";
 
 /**
  * GET /api/announcements
@@ -1695,6 +1694,12 @@ export interface DirectoryMember {
   joinedDate: string;
   address?: string;
   birthday?: string;
+  reputation?: {
+    week: number;
+    month: number;
+    year: number;
+    allTime: number;
+  };
 }
 
 /**

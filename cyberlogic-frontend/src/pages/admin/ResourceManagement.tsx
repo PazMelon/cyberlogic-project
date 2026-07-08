@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Download, ExternalLink, Check, X, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Trash2, Download, ExternalLink, Check, X, Clock, CheckCircle2, XCircle } from "lucide-react";
 import {
   fetchResources,
   approveResource,
@@ -7,7 +7,7 @@ import {
   deleteResource,
   type ResourceMapped,
 } from "../../utils/api";
-import { Button, DataTable } from "../../components/ui";
+import { DataTable } from "../../components/ui";
 
 export default function ResourceManagement() {
   const [resources, setResources] = useState<ResourceMapped[]>([]);

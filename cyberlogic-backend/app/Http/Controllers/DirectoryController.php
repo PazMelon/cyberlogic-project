@@ -112,7 +112,7 @@ class DirectoryController extends Controller
             'bio' => $user->bio ?: 'No bio provided.',
             'joinedDate' => $user->joinedDate,
             'address' => $user->address,
-            'birthday' => $user->birthday ? $user->birthday->format('Y-m-d') : null,
+            'birthday' => $user->birthday ? \Carbon\Carbon::parse($user->birthday)->format('Y-m-d') : null,
         ]);
     }
 }

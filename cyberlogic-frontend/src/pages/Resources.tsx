@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router";
 import {
   ChevronRight,
   Search,
-  Download,
   BookOpen,
   Shield,
   FileText,
