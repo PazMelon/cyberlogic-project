@@ -26,6 +26,7 @@ import {
   type ResourceMapped,
 } from "../utils/api";
 import SubmitResourceModal from "../components/resources/SubmitResourceModal";
+import { useDragScroll } from "../utils/scroll";
 
 const categories = ["All", "Tutorials", "Documents", "Tools", "Links"] as const;
 
@@ -52,6 +53,7 @@ export default function Resources() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "my">("all");
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const categoriesScrollRef = useDragScroll();
 
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
@@ -198,7 +200,7 @@ export default function Resources() {
             />
           </div>
 
-          <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+          <div ref={categoriesScrollRef} className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
             <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
             <div className="flex items-center gap-1.5">
               {categories.map((cat) => (

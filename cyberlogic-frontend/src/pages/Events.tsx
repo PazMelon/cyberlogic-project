@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { fetchEvents, registerForEvent, unregisterFromEvent, formatEventTime } from "../utils/api";
 import type { Event } from "../data/mockData";
+import { useDragScroll } from "../utils/scroll";
 
 const eventTypes = ["All", "Workshop", "Seminar", "Competition", "Social", "Meeting"] as const;
 const statusFilters = ["All", "Upcoming", "Ongoing", "Completed", "Closed", "Postponed"] as const;
@@ -32,6 +33,8 @@ export default function Events() {
   const [activeStatus, setActiveStatus] = useState<string>("All");
   const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const categoryScrollRef = useDragScroll();
+  const statusScrollRef = useDragScroll();
   
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
@@ -175,7 +178,7 @@ export default function Events() {
 
           <div className="flex flex-col md:flex-row gap-3 flex-1 lg:justify-end overflow-hidden w-full lg:w-auto">
             {/* Category Filter */}
-            <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+            <div ref={categoryScrollRef} className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
               <Filter className="w-3.5 h-3.5 text-text-muted mx-1.5 flex-shrink-0" />
               <div className="flex items-center gap-1">
                 {eventTypes.map((type) => (
@@ -196,7 +199,7 @@ export default function Events() {
             </div>
 
             {/* Status Filter */}
-            <div className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+            <div ref={statusScrollRef} className="flex items-center gap-1.5 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
               <Clock className="w-3.5 h-3.5 text-text-muted mx-1.5 flex-shrink-0" />
               <div className="flex items-center gap-1">
                 {statusFilters.map((status) => (

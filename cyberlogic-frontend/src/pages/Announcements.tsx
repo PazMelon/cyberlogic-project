@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router";
 import { ChevronRight, Pin, Search, Filter } from "lucide-react";
 import { fetchAnnouncements } from "../utils/api";
 import type { Announcement } from "../data/mockData";
+import { useDragScroll } from "../utils/scroll";
 
 const categories = ["All", "General", "Academic", "Events"] as const;
 
@@ -13,6 +14,7 @@ export default function Announcements() {
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
+  const categoriesScrollRef = useDragScroll();
 
   useEffect(() => {
     async function loadData() {
@@ -73,7 +75,7 @@ export default function Announcements() {
           </div>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+          <div ref={categoriesScrollRef} className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
             <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
             <div className="flex items-center gap-1.5">
               {categories.map((cat) => (

@@ -5,6 +5,7 @@ import { fetchBlogs } from "../utils/api";
 import { BlogCard } from "../components/ui";
 import { SkeletonCard } from "../components/Skeleton";
 import type { BlogPost } from "../data/mockData";
+import { useDragScroll } from "../utils/scroll";
 
 export default function Blogs() {
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
@@ -13,6 +14,7 @@ export default function Blogs() {
   const [activeCategory, setActiveCategory] = useState("All");
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
+  const categoriesScrollRef = useDragScroll();
 
   const categories = ["All", "Tech", "Tutorial", "News", "Lifestyle", "General", "Academic"] as const;
 
@@ -78,7 +80,7 @@ export default function Blogs() {
           </div>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+          <div ref={categoriesScrollRef} className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
             <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
             <div className="flex items-center gap-1.5">
               {categories.map((cat) => (

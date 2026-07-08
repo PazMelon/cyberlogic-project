@@ -11,6 +11,7 @@ import type {
 } from "../utils/api";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
+import { useDragScroll } from "../utils/scroll";
 
 export default function Forums() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -21,6 +22,7 @@ export default function Forums() {
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
+  const categoriesScrollRef = useDragScroll();
 
   // Sync state if URL param changes
   useEffect(() => {
@@ -84,7 +86,7 @@ export default function Forums() {
             className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
           />
         </div>
-        <div className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
+        <div ref={categoriesScrollRef} className="flex flex-row overflow-x-auto gap-2 pb-1.5 sm:pb-0 no-scrollbar scroll-smooth whitespace-nowrap w-full">
           <button
             type="button"
             onClick={() => {

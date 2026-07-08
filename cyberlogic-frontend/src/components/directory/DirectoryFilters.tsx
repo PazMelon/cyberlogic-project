@@ -1,4 +1,5 @@
 import { Search, Filter } from "lucide-react";
+import { useDragScroll } from "../../utils/scroll";
 
 const roleFilters = [
   "All",
@@ -25,6 +26,8 @@ export function DirectoryFilters({
   roleFilter,
   setRoleFilter,
 }: DirectoryFiltersProps) {
+  const rolesScrollRef = useDragScroll();
+
   return (
     <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between mb-6 animate-fadeIn">
       {/* Search Bar */}
@@ -40,7 +43,7 @@ export function DirectoryFilters({
       </div>
 
       {/* Role Filter Pills */}
-      <div className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
+      <div ref={rolesScrollRef} className="flex items-center gap-1 bg-surface-900/35 border border-border/60 rounded-xl p-1 overflow-x-auto max-w-full no-scrollbar">
         <Filter className="w-4 h-4 text-text-muted mx-2 flex-shrink-0" />
         <div className="flex items-center gap-1.5">
           {roleFilters.map((role) => (
