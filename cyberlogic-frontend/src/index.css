@@ -574,3 +574,26 @@ body {
 .animate-row-pulse {
   animation: rowFlash 2s ease-in-out;
 }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Automatically adjust calendar/clock icon colors for date/time inputs based on active theme */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+:root[data-theme^="light-"] input[type="date"],
+:root[data-theme^="light-"] input[type="time"],
+:root[data-theme^="light-"] input[type="datetime-local"] {
+  color-scheme: light;
+}
