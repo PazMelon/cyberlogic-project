@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, MessageSquare } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router";
 import {
   fetchForumCategories,
@@ -149,8 +149,42 @@ export default function Forums() {
       </div>
 
       {!isLoading && threads.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-text-muted">No threads found.</p>
+        <div className="flex flex-col items-center justify-center text-center py-12 max-w-md mx-auto animate-fadeIn space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shadow-lg shadow-primary/5 animate-pulse-glow">
+            <MessageSquare className="w-8 h-8 animate-pulse text-primary" />
+          </div>
+          
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-text-primary font-[family-name:var(--font-heading)]">
+              {searchQuery ? "No matching threads" : "Quiet in this category"}
+            </h3>
+            <p className="text-sm text-text-secondary leading-relaxed">
+              {searchQuery 
+                ? `We couldn't find any threads matching "${searchQuery}". Try searching with different keywords.`
+                : "No discussions have been started here yet. Be the pioneer and launch the first topic!"
+              }
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-wrap justify-center gap-3">
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="px-4 py-2 rounded-xl bg-surface-800 border border-border text-xs font-semibold text-text-primary hover:bg-surface-700 hover:border-primary/30 transition-all cursor-pointer"
+              >
+                Clear Search
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate("/app/forums/create")}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Start a Conversation
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

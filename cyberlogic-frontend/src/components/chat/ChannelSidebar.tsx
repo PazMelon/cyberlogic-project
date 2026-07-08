@@ -107,13 +107,13 @@ export default function ChannelSidebar({
           <button
             type="button"
             onClick={() => toggleGroupCollapse(groupName)}
-            className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors cursor-pointer text-left"
+            className="w-full flex items-center justify-between px-2 py-1.5 text-xs font-bold uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors cursor-pointer text-left"
           >
             <span className="truncate">{groupName}</span>
             {isCollapsed ? (
-              <ChevronRight className="w-3 h-3 flex-shrink-0" />
+              <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" />
             ) : (
-              <ChevronDown className="w-3 h-3 flex-shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
             )}
           </button>
 
@@ -126,13 +126,13 @@ export default function ChannelSidebar({
                   setActiveChannel(ch.slug);
                   if (onChannelSelect) onChannelSelect();
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   activeChannel === ch.slug
                     ? "bg-primary/10 text-primary font-semibold"
                     : "text-text-muted hover:text-text-primary hover:bg-white/5"
                 }`}
               >
-                <ChannelIcon iconName={ch.icon} className="w-3.5 h-3.5 flex-shrink-0 opacity-60" />
+                <ChannelIcon iconName={ch.icon} className="w-4 h-4 flex-shrink-0 opacity-60" />
                 <span className="truncate flex-1 text-left">{ch.name}</span>
               </button>
             ))}
@@ -144,7 +144,7 @@ export default function ChannelSidebar({
   return (
     <div className={className || "w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col h-full"}>
       <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-text-primary font-[family-name:var(--font-heading)]">
+        <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)]">
           Channels
         </h2>
         <span
