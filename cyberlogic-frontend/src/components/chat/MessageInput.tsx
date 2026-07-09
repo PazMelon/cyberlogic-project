@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Smile, Send, Sparkles, X, CornerUpLeft } from "lucide-react";
 import GifLibraryPicker from "./GifLibraryPicker";
-import EmojiSearchPicker from "./EmojiSearchPicker";
 
 export interface MessageInputProps {
   messageText: string;

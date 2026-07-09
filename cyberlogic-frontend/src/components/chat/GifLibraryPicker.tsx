@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Image as ImageIcon, Plus, Search, Loader2, Sparkles, Folder, Check } from "lucide-react";
+import { Image as ImageIcon, Plus, Search, Loader2, Sparkles, Check } from "lucide-react";
 import { apiRequest } from "../../context/AuthContext";
 
 interface SavedGif {
