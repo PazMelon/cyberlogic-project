@@ -54,8 +54,8 @@ class EventController extends Controller
     {
         $user = $request->user();
         
-        // Eager load registrations and attendances count
-        $events = Event::withCount(['registrations', 'attendances'])
+        // Eager load registrations and attendances count and creator user
+        $events = Event::with('user')->withCount(['registrations', 'attendances'])
             ->orderBy('date', 'asc')
             ->get();
 
@@ -83,6 +83,8 @@ class EventController extends Controller
 
             return [
                 'id' => $event->id,
+                'user_id' => $event->user_id,
+                'user' => $event->user,
                 'title' => $event->title,
                 'description' => $event->description,
                 'date' => $event->date->format('Y-m-d'),
@@ -116,7 +118,7 @@ class EventController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $event = Event::withCount(['registrations', 'attendances'])->findOrFail($id);
+        $event = Event::with('user')->withCount(['registrations', 'attendances'])->findOrFail($id);
         $user = $request->user();
 
         // Auto-complete check
@@ -142,6 +144,8 @@ class EventController extends Controller
 
         return response()->json([
             'id' => $event->id,
+            'user_id' => $event->user_id,
+            'user' => $event->user,
             'title' => $event->title,
             'description' => $event->description,
             'date' => $event->date->format('Y-m-d'),
@@ -182,6 +186,7 @@ class EventController extends Controller
             'end_time' => 'required|date_format:H:i',
             'location' => 'required|string|max:255',
             'type' => 'required|string|in:Workshop,Seminar,Competition,Social,Meeting',
+            'user_id' => 'nullable|integer|exists:users,id',
             'image' => 'nullable|string|max:2048',
             'capacity' => 'nullable|integer|min:1',
             'sections' => 'nullable|array',
@@ -204,7 +209,15 @@ class EventController extends Controller
             }
         }
 
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? $currentUser->id;
+        } else {
+            $targetUserId = $currentUser->id;
+        }
+
         $event = Event::create([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'description' => $validated['description'],
             'date' => $validated['date'],
@@ -247,6 +260,7 @@ class EventController extends Controller
             'end_time' => 'required|date_format:H:i',
             'location' => 'required|string|max:255',
             'type' => 'required|string|in:Workshop,Seminar,Competition,Social,Meeting',
+            'user_id' => 'nullable|integer|exists:users,id',
             'image' => 'nullable|string|max:2048',
             'capacity' => 'nullable|integer|min:1',
             'sections' => 'nullable|array',
@@ -269,7 +283,15 @@ class EventController extends Controller
             }
         }
 
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? ($event->user_id ?? $currentUser->id);
+        } else {
+            $targetUserId = $event->user_id ?? $currentUser->id;
+        }
+
         $event->update([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'description' => $validated['description'],
             'date' => $validated['date'],

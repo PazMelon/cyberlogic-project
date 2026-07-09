@@ -51,7 +51,8 @@ class AnnouncementController extends Controller
      */
     public function index()
     {
-        $announcements = Announcement::orderBy('pinned', 'desc')
+        $announcements = Announcement::with('user')
+            ->orderBy('pinned', 'desc')
             ->orderBy('id', 'desc')
             ->get();
 
@@ -64,7 +65,7 @@ class AnnouncementController extends Controller
      */
     public function show($id)
     {
-        $announcement = Announcement::findOrFail($id);
+        $announcement = Announcement::with('user')->findOrFail($id);
         return response()->json($announcement);
     }
 
@@ -82,7 +83,7 @@ class AnnouncementController extends Controller
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
             'category' => 'required|string|in:General,Academic,Events',
-            'author' => 'nullable|string|max:255',
+            'user_id' => 'nullable|integer|exists:users,id',
             'pinned' => 'nullable|boolean',
             'sections' => 'nullable|array',
             'image' => 'nullable|string|max:2048',
@@ -98,15 +99,28 @@ class AnnouncementController extends Controller
             }
         }
 
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? $currentUser->id;
+            $targetUser = \App\Models\User::find($targetUserId) ?: $currentUser;
+            $authorName = $targetUser->name;
+            $authorAvatar = $targetUser->avatar;
+        } else {
+            $targetUserId = $currentUser->id;
+            $authorName = $currentUser->name;
+            $authorAvatar = $currentUser->avatar;
+        }
+
         // Map values
         $announcement = Announcement::create([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $validated['author'] ?? 'System Admin',
-            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($validated['author'] ?? 'admin'),
+            'author' => $authorName,
+            'author_avatar' => $authorAvatar,
             'date' => now()->format('M j, Y'),
             'pinned' => $validated['pinned'] ?? false,
             'sections' => $sections,
@@ -115,7 +129,7 @@ class AnnouncementController extends Controller
 
         AuditLogger::log('created', 'Announcement', $announcement->id, $announcement->title, null, $request);
 
-        return response()->json($announcement, 210); // Created
+        return response()->json($announcement, 201); // Created
     }
 
     /**
@@ -134,7 +148,7 @@ class AnnouncementController extends Controller
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
             'category' => 'required|string|in:General,Academic,Events',
-            'author' => 'nullable|string|max:255',
+            'user_id' => 'nullable|integer|exists:users,id',
             'pinned' => 'nullable|boolean',
             'sections' => 'nullable|array',
             'image' => 'nullable|string|max:2048',
@@ -150,13 +164,27 @@ class AnnouncementController extends Controller
             }
         }
 
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? ($announcement->user_id ?? $currentUser->id);
+            $targetUser = \App\Models\User::find($targetUserId) ?: $currentUser;
+            $authorName = $targetUser->name;
+            $authorAvatar = $targetUser->avatar;
+        } else {
+            $targetUserId = $announcement->user_id ?: $currentUser->id;
+            $authorName = $announcement->author;
+            $authorAvatar = $announcement->author_avatar;
+        }
+
         $announcement->update([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $validated['author'] ?? $announcement->author,
+            'author' => $authorName,
+            'author_avatar' => $authorAvatar,
             'pinned' => $validated['pinned'] ?? false,
             'sections' => $sections,
             'image' => $validated['image'] ?? null,

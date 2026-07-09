@@ -15,6 +15,7 @@ class Announcement extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'user_id',
         'title',
         'subtitle',
         'excerpt',
@@ -39,5 +40,13 @@ class Announcement extends Model
             'pinned' => 'boolean',
             'sections' => 'array', // automatically serialize/deserialize JSON blocks
         ];
+    }
+
+    /**
+     * Get the user who authored this announcement.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

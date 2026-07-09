@@ -17,6 +17,7 @@ class Event extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'user_id',
         'title',
         'description',
         'date',
@@ -49,6 +50,14 @@ class Event extends Model
             'attendance_capacity' => 'integer',
             'sections' => 'array',
         ];
+    }
+
+    /**
+     * Get the user who organized / created the event.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 
     /**

@@ -1,5 +1,5 @@
 import { Megaphone, Pin } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Badge } from "./Badge";
 import { Card } from "./Card";
 
@@ -26,6 +26,7 @@ export function AnnouncementCard({
   layout = "default",
   index = 0,
 }: AnnouncementCardProps) {
+  const navigate = useNavigate();
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
   const detailUrl = isPortal ? `/app/announcements/${announcement.id}` : `/announcements/${announcement.id}`;
@@ -37,6 +38,18 @@ export function AnnouncementCard({
   };
 
   const selectedVariant = categoryVariants[announcement.category] || "neutral";
+
+  const authorAvatar = (announcement as any).user?.avatar || announcement.authorAvatar;
+  const authorName = (announcement as any).user?.name || announcement.author;
+  const authorUserId = (announcement as any).userId || (announcement as any).user?.id;
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    if (authorUserId) {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(`/app/profile/${authorUserId}`);
+    }
+  };
 
   if (layout === "compact") {
     return (
@@ -84,13 +97,16 @@ export function AnnouncementCard({
 
         {/* Author + Date footer */}
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-          <div className="flex items-center gap-3">
+          <div
+            onClick={handleAuthorClick}
+            className={`flex items-center gap-3 ${authorUserId ? "cursor-pointer hover:opacity-80" : ""}`}
+          >
             <img
-              src={announcement.authorAvatar}
-              alt={announcement.author}
+              src={authorAvatar}
+              alt={authorName}
               className="w-7 h-7 rounded-full bg-surface-700 object-cover"
             />
-            <span className="text-xs font-medium text-text-secondary">{announcement.author}</span>
+            <span className="text-xs font-medium text-text-secondary">{authorName}</span>
           </div>
           <time className="text-xs text-text-muted">{announcement.date}</time>
         </div>

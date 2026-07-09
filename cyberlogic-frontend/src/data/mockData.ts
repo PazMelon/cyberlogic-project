@@ -27,6 +27,8 @@ export type {
 
 export interface Announcement {
   id: number;
+  userId?: number;
+  user?: any;
   title: string;
   subtitle?: string;
   excerpt: string;
@@ -42,6 +44,8 @@ export interface Announcement {
 
 export interface BlogPost {
   id: number;
+  userId?: number;
+  user?: any;
   title: string;
   subtitle?: string;
   excerpt: string;
@@ -60,6 +64,8 @@ export interface BlogPost {
 
 export interface Event {
   id: number;
+  userId?: number;
+  user?: any;
   title: string;
   description: string;
   date: string;

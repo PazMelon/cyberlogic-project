@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router";
 import { FileText, ArrowLeft } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import { fetchEventById, createEvent, updateEvent } from "../../utils/api";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
-import type { Event } from "../../data/mockData";
 
 export default function CreateEvent() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +20,9 @@ export default function CreateEvent() {
     subtitle: "",
     excerpt: "", // maps to short description
     content: "", // intro text
-    author: "System",
+    author: user?.name || "System Admin",
+    authorAvatar: user?.avatar,
+    userId: user?.id,
     category: "Workshop", // maps to Event type
     image: "", // cover image
     readTime: "",
@@ -53,7 +56,9 @@ export default function CreateEvent() {
           subtitle: "",
           excerpt: match.description || "",
           content: "",
-          author: "System",
+          author: match.user?.name || user?.name || "System Admin",
+          authorAvatar: match.user?.avatar || user?.avatar,
+          userId: match.userId || match.user?.id || user?.id,
           category: match.type || "Workshop",
           image: match.image || "",
           readTime: "",
@@ -81,7 +86,7 @@ export default function CreateEvent() {
       }
     }
     loadData();
-  }, [editId, navigate]);
+  }, [editId, navigate, user?.name]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +105,7 @@ export default function CreateEvent() {
     setIsSubmitting(true);
 
     try {
-      const payload: Partial<Event> = {
+      const payload: any = {
         title: editorState.title,
         description: editorState.excerpt, // maps excerpt to description
         type: editorState.category as "Workshop" | "Seminar" | "Competition" | "Social" | "Meeting",
@@ -116,7 +121,8 @@ export default function CreateEvent() {
         registrationStart: editorState.eventMode !== 'attendance_only' ? editorState.registrationStart : undefined,
         registrationEnd: editorState.eventMode !== 'attendance_only' ? editorState.registrationEnd : undefined,
         attendanceStart: editorState.eventMode !== 'registration_only' ? editorState.attendanceStart : undefined,
-        attendanceEnd: editorState.eventMode !== 'registration_only' ? editorState.attendanceEnd : undefined
+        attendanceEnd: editorState.eventMode !== 'registration_only' ? editorState.attendanceEnd : undefined,
+        user_id: editorState.userId
       };
 
       if (editId) {
@@ -171,6 +177,7 @@ export default function CreateEvent() {
           saving={isSubmitting}
           saveLabel={editId ? "Update Event" : "Publish Event"}
           titleLabel={editId ? "Edit Event Info" : "New Event Info"}
+          isSuperAdmin={user?.role === "superadmin"}
         />
       )}
     </div>

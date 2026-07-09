@@ -387,10 +387,24 @@ export default function EventDetail() {
                     </div>
                   )}
 
-                  {/* QR Pass Section */}
-                  {item.eventMode !== "registration_only" && (
-                    <div className="pt-4 border-t border-border/60 space-y-3">
-                      {renderQrTicket()}
+                  {/* Organizer Section */}
+                  {item.user && (
+                    <div className="pt-4 border-t border-border/60">
+                      <p className="text-xs font-semibold text-text-muted mb-2">Organizer</p>
+                      <Link
+                        to={`/app/profile/${item.user.id}`}
+                        className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-xl transition-all"
+                      >
+                        <img
+                          src={item.user.avatar}
+                          alt={item.user.name}
+                          className="w-8 h-8 rounded-full object-cover border border-border/40"
+                        />
+                        <div>
+                          <p className="text-xs font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
+                          <p className="text-[10px] text-text-muted">{item.user.role || "Officer"}</p>
+                        </div>
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -540,14 +554,36 @@ export default function EventDetail() {
             )}
           </div>
 
-          {/* Right sidebar on public view containing QR Code if registered */}
-          {item.eventMode !== "registration_only" && item.eventMode !== "attendance_only" && item.isRegistered && (
-            <div className="md:col-span-4">
-              <div className="sticky top-24 p-5 glass rounded-2xl border border-border space-y-4">
+          {/* Right sidebar on public view containing QR Code if registered & Organizer info */}
+          <div className="md:col-span-4 space-y-6">
+            {item.eventMode !== "registration_only" && item.eventMode !== "attendance_only" && item.isRegistered && (
+              <div className="p-5 glass rounded-2xl border border-border space-y-4">
                 {renderQrTicket()}
               </div>
-            </div>
-          )}
+            )}
+            
+            {item.user && (
+              <div className="p-5 glass rounded-2xl border border-border space-y-3">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Organizer</h3>
+                <Link
+                  to={`/app/profile/${item.user.id}`}
+                  className="flex items-center gap-3 hover:bg-white/5 p-2 rounded-xl transition-all block"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={item.user.avatar}
+                      alt={item.user.name}
+                      className="w-10 h-10 rounded-full object-cover border border-border/40"
+                    />
+                    <div>
+                      <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
+                      <p className="text-xs text-text-muted">{item.user.role || "Officer"}</p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

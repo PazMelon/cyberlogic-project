@@ -14,6 +14,8 @@ export async function fetchAnnouncements(): Promise<Announcement[]> {
   // Map snake_case author_avatar database field to camelCase authorAvatar frontend expects
   return data.map((a: any) => ({
     id: a.id,
+    userId: a.user_id,
+    user: a.user,
     title: a.title,
     subtitle: a.subtitle,
     excerpt: a.excerpt,
@@ -40,6 +42,8 @@ export async function fetchAnnouncementById(id: number): Promise<Announcement> {
   const a = await res.json();
   return {
     id: a.id,
+    userId: a.user_id,
+    user: a.user,
     title: a.title,
     subtitle: a.subtitle,
     excerpt: a.excerpt,
@@ -161,6 +165,8 @@ export async function fetchBlogs(showAll = false): Promise<BlogPost[]> {
   const data = await res.json();
   return data.map((b: any) => ({
     id: b.id,
+    userId: b.user_id,
+    user: b.user,
     title: b.title,
     subtitle: b.subtitle,
     excerpt: b.excerpt,
@@ -190,6 +196,8 @@ export async function fetchBlogById(id: number): Promise<BlogPost> {
   const b = await res.json();
   return {
     id: b.id,
+    userId: b.user_id,
+    user: b.user,
     title: b.title,
     subtitle: b.subtitle,
     excerpt: b.excerpt,
@@ -424,6 +432,8 @@ export async function fetchEvents(): Promise<Event[]> {
   const data = await res.json();
   return data.map((e: any) => ({
     id: e.id,
+    userId: e.user_id,
+    user: e.user,
     title: e.title,
     description: e.description,
     date: e.date,
@@ -460,6 +470,8 @@ export async function fetchEventById(id: number): Promise<Event> {
   const e = await res.json();
   return {
     id: e.id,
+    userId: e.user_id,
+    user: e.user,
     title: e.title,
     description: e.description,
     date: e.date,

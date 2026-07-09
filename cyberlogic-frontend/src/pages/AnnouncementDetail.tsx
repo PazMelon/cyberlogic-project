@@ -60,6 +60,10 @@ export default function AnnouncementDetail() {
     Events: "bg-accent/10 text-accent border border-accent/20",
   };
 
+  const authorAvatar = (item as any).user?.avatar || item.authorAvatar;
+  const authorName = (item as any).user?.name || item.author;
+  const authorUserId = (item as any).userId || (item as any).user?.id;
+
   if (isPortal) {
     return (
       <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
@@ -142,17 +146,34 @@ export default function AnnouncementDetail() {
                     Post Information
                   </h3>
                   
-                  <div className="flex items-center gap-3 py-3 border-b border-border/50">
-                    <img
-                      src={item.authorAvatar}
-                      alt={item.author}
-                      className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
-                    />
-                    <div>
-                      <p className="text-xs text-text-muted">Author</p>
-                      <p className="text-sm font-bold text-text-primary">{item.author}</p>
+                  {authorUserId ? (
+                    <Link
+                      to={`/app/profile/${authorUserId}`}
+                      className="flex items-center gap-3 py-3 border-b border-border/50 hover:opacity-80 transition-opacity"
+                    >
+                      <img
+                        src={authorAvatar}
+                        alt={authorName}
+                        className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+                      />
+                      <div>
+                        <p className="text-xs text-text-muted">Author</p>
+                        <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{authorName}</p>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 py-3 border-b border-border/50">
+                      <img
+                        src={authorAvatar}
+                        alt={authorName}
+                        className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+                      />
+                      <div>
+                        <p className="text-xs text-text-muted">Author</p>
+                        <p className="text-sm font-bold text-text-primary">{authorName}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="space-y-3 pt-1">
                     <div className="flex items-center gap-2 text-sm text-text-secondary">
@@ -224,14 +245,31 @@ export default function AnnouncementDetail() {
 
           {/* Author Card & Date info */}
           <div className="flex items-center gap-3 pt-4 border-t border-border/60">
-            <img
-              src={item.authorAvatar}
-              alt={item.author}
-              className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
-            />
+            {authorUserId ? (
+              <Link to={`/app/profile/${authorUserId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+                <img
+                  src={authorAvatar}
+                  alt={authorName}
+                  className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+                />
+              </Link>
+            ) : (
+              <img
+                src={authorAvatar}
+                alt={authorName}
+                className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+              />
+            )}
             <div className="flex-1">
               <p className="text-sm font-semibold text-text-primary flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-text-muted" /> {item.author}
+                <User className="w-3.5 h-3.5 text-text-muted" />
+                {authorUserId ? (
+                  <Link to={`/app/profile/${authorUserId}`} className="hover:text-primary transition-colors">
+                    {authorName}
+                  </Link>
+                ) : (
+                  authorName
+                )}
               </p>
               <p className="text-xs text-text-muted flex items-center gap-1 mt-0.5">
                 <Calendar className="w-3.5 h-3.5" /> Published on {item.date}

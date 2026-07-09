@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { MessageSquare, Shield, CheckCircle, Trash2, Edit3 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import type { ForumCommentMapped } from "../../utils/api";
@@ -66,17 +67,19 @@ export function CommentItem({
             : "border-border/40 bg-surface-900/20"
         } ${(comment as any).animate || ""}`}
       >
-        <img
-          src={comment.authorAvatar}
-          alt={comment.author}
-          className="w-8 h-8 rounded-full bg-surface-700 flex-shrink-0 mt-0.5 object-cover"
-        />
+        <Link to={`/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
+          <img
+            src={comment.authorAvatar}
+            alt={comment.author}
+            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border/30"
+          />
+        </Link>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-text-secondary">
+              <Link to={`/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
                 u/{comment.author.toLowerCase().replace(/\s+/g, "")}
-              </span>
+              </Link>
               {comment.authorRole !== "Member" && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 text-[9px] font-bold rounded bg-primary/10 text-primary border border-primary/20">
                   <Shield className="w-2.5 h-2.5" /> {comment.authorRole}

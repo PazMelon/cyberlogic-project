@@ -51,7 +51,8 @@ class BlogPostController extends Controller
      */
     public function index(Request $request)
     {
-        $query = BlogPost::orderBy('featured', 'desc')
+        $query = BlogPost::with('user')
+            ->orderBy('featured', 'desc')
             ->orderBy('id', 'desc');
 
         if ($request->query('status') === 'all') {
@@ -74,7 +75,7 @@ class BlogPostController extends Controller
      */
     public function show($id)
     {
-        $blog = BlogPost::findOrFail($id);
+        $blog = BlogPost::with('user')->findOrFail($id);
         return response()->json($blog);
     }
 
@@ -92,7 +93,7 @@ class BlogPostController extends Controller
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
             'category' => 'required|string|in:Tech,Tutorial,News,Lifestyle,General,Academic',
-            'author' => 'nullable|string|max:255',
+            'user_id' => 'nullable|integer|exists:users,id',
             'featured' => 'nullable|boolean',
             'status' => 'nullable|string|in:published,draft',
             'sections' => 'nullable|array',
@@ -111,17 +112,28 @@ class BlogPostController extends Controller
             }
         }
 
-        $author = $validated['author'] ?? $request->user()->name;
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? $currentUser->id;
+            $targetUser = \App\Models\User::find($targetUserId) ?: $currentUser;
+            $authorName = $targetUser->name;
+            $authorAvatar = $targetUser->avatar;
+        } else {
+            $targetUserId = $currentUser->id;
+            $authorName = $currentUser->name;
+            $authorAvatar = $currentUser->avatar;
+        }
 
         // Map values
         $blog = BlogPost::create([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $author,
-            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($author),
+            'author' => $authorName,
+            'author_avatar' => $authorAvatar,
             'date' => now()->format('M j, Y'),
             'tags' => $validated['tags'] ?? [],
             'featured' => $validated['featured'] ?? false,
@@ -152,7 +164,7 @@ class BlogPostController extends Controller
             'excerpt' => 'required|string|max:1000',
             'content' => 'nullable|string',
             'category' => 'required|string|in:Tech,Tutorial,News,Lifestyle,General,Academic',
-            'author' => 'nullable|string|max:255',
+            'user_id' => 'nullable|integer|exists:users,id',
             'featured' => 'nullable|boolean',
             'status' => 'nullable|string|in:published,draft',
             'sections' => 'nullable|array',
@@ -171,16 +183,27 @@ class BlogPostController extends Controller
             }
         }
 
-        $author = $validated['author'] ?? $blog->author;
+        $currentUser = $request->user();
+        if ($currentUser->role === 'superadmin') {
+            $targetUserId = $validated['user_id'] ?? ($blog->user_id ?? $currentUser->id);
+            $targetUser = \App\Models\User::find($targetUserId) ?: $currentUser;
+            $authorName = $targetUser->name;
+            $authorAvatar = $targetUser->avatar;
+        } else {
+            $targetUserId = $blog->user_id ?: $currentUser->id;
+            $authorName = $blog->author;
+            $authorAvatar = $blog->author_avatar;
+        }
 
         $blog->update([
+            'user_id' => $targetUserId,
             'title' => $validated['title'],
             'subtitle' => $validated['subtitle'] ?? null,
             'excerpt' => $validated['excerpt'],
             'content' => $validated['content'] ?? '',
             'category' => $validated['category'],
-            'author' => $author,
-            'author_avatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($author),
+            'author' => $authorName,
+            'author_avatar' => $authorAvatar,
             'tags' => $validated['tags'] ?? $blog->tags,
             'featured' => $validated['featured'] ?? false,
             'status' => $validated['status'] ?? $blog->status,

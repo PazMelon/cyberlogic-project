@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useParams } from "react-router";
 import { FileText, ArrowLeft } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import { fetchAnnouncementById, createAnnouncement, updateAnnouncement } from "../../utils/api";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
-import type { Announcement } from "../../data/mockData";
 
 export default function CreateAnnouncement() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,7 +20,9 @@ export default function CreateAnnouncement() {
     subtitle: "",
     excerpt: "",
     content: "", // intro text
-    author: "System Admin",
+    author: user?.name || "System Admin",
+    authorAvatar: user?.avatar,
+    userId: user?.id,
     category: "General",
     image: "", // cover image
     readTime: "5 min",
@@ -41,7 +44,9 @@ export default function CreateAnnouncement() {
           subtitle: match.subtitle || "",
           excerpt: match.excerpt || "",
           content: match.content || "",
-          author: match.author || "System Admin",
+          author: match.author || user?.name || "System Admin",
+          authorAvatar: match.authorAvatar || (match as any).author_avatar || user?.avatar,
+          userId: match.userId || (match as any).user_id || user?.id,
           category: match.category || "General",
           image: match.image || "",
           readTime: "5 min",
@@ -57,7 +62,7 @@ export default function CreateAnnouncement() {
       }
     }
     loadData();
-  }, [editId, navigate]);
+  }, [editId, navigate, user?.name]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,13 +71,14 @@ export default function CreateAnnouncement() {
     setIsSubmitting(true);
 
     try {
-      const payload: Partial<Announcement> = {
+      const payload: any = {
         title: editorState.title,
         subtitle: editorState.subtitle || undefined,
         excerpt: editorState.excerpt,
         content: editorState.content || "",
         category: editorState.category as "General" | "Academic" | "Events",
-        author: editorState.author || "System Admin",
+        author: editorState.author || user?.name || "System Admin",
+        user_id: editorState.userId,
         pinned: editorState.featured || false,
         sections: editorState.sections,
         image: editorState.image || undefined
@@ -130,6 +136,7 @@ export default function CreateAnnouncement() {
           saving={isSubmitting}
           saveLabel={editId ? "Update Announcement" : "Publish Announcement"}
           titleLabel={editId ? "Edit Announcement Info" : "New Announcement Info"}
+          isSuperAdmin={user?.role === "superadmin"}
         />
       )}
     </div>

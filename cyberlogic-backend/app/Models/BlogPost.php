@@ -15,6 +15,7 @@ class BlogPost extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'user_id',
         'title',
         'subtitle',
         'excerpt',
@@ -43,5 +44,13 @@ class BlogPost extends Model
             'sections' => 'array', // automatically serialize/deserialize JSON blocks
             'tags' => 'array',
         ];
+    }
+
+    /**
+     * Get the user who authored the blog post.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

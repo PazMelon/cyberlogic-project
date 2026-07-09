@@ -350,11 +350,12 @@ export default function ForumThread() {
                     <Lock className="w-2.5 h-2.5" /> Closed
                   </span>
                 )}
+
                 <span className="text-[10px] text-text-muted">
                   Posted by{" "}
-                  <span className="font-medium text-text-secondary">
+                  <Link to={`/app/profile/${thread.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
                     u/{thread.author.toLowerCase().replace(/\s+/g, "")}
-                  </span>
+                  </Link>
                 </span>
                 <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
               </div>

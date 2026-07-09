@@ -5,7 +5,6 @@ import { fetchBlogById, createBlog, updateBlog } from "../../../utils/api";
 import CMSBlogBuilder, { generateId } from "../../../components/ui/CMSBlogBuilder";
 import { BlogHeader } from "./BlogHeader";
 import type { CMSBlogState } from "../../../components/ui/CMSBlogBuilder";
-import type { BlogPost } from "../../../data/mockData";
 
 export function CreateBlog() {
   const navigate = useNavigate();
@@ -22,6 +21,8 @@ export function CreateBlog() {
     excerpt: "",
     content: "", // intro text
     author: user?.name || "System Admin",
+    authorAvatar: user?.avatar,
+    userId: user?.id,
     category: "Tech",
     image: "", // cover image
     readTime: "5 min",
@@ -46,6 +47,8 @@ export function CreateBlog() {
           excerpt: match.excerpt || "",
           content: match.content || "",
           author: match.author || user?.name || "System Admin",
+          authorAvatar: match.authorAvatar || (match as any).author_avatar || user?.avatar,
+          userId: match.userId || (match as any).user_id || user?.id,
           category: match.category || "Tech",
           image: match.image || "",
           readTime: match.readTime || "5 min",
@@ -72,13 +75,14 @@ export function CreateBlog() {
     setIsSubmitting(true);
 
     try {
-      const payload: Partial<BlogPost> = {
+      const payload: any = {
         title: editorState.title,
         subtitle: editorState.subtitle || undefined,
         excerpt: editorState.excerpt,
         content: editorState.content || "",
         category: editorState.category as "Tech" | "Tutorial" | "News" | "Lifestyle" | "General" | "Academic",
         author: editorState.author || user?.name || "System Admin",
+        user_id: editorState.userId,
         featured: editorState.featured || false,
         status: (editorState.status as "published" | "draft") || "published",
         sections: editorState.sections,
@@ -125,6 +129,7 @@ export function CreateBlog() {
           saving={isSubmitting}
           saveLabel={editId ? "Update Blog" : "Publish Blog"}
           titleLabel={editId ? "Edit Blog Info" : "New Blog Info"}
+          isSuperAdmin={user?.role === "superadmin"}
         />
       )}
     </div>

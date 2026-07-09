@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Type,
   Image as ImageIcon,
@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Button, Card } from "../ui";
 import BlogContentRenderer from "../common/BlogContentRenderer";
+import { fetchDirectory } from "../../utils/api";
 
 // Reusable Subcomponents and Types
 import type { CMSBlogState, ContentSection, ImageTemplate, SectionType } from "./cms/types";
@@ -47,6 +48,7 @@ interface CMSBlogBuilderProps {
   saving?: boolean;
   saveLabel?: string;
   titleLabel?: string;
+  isSuperAdmin?: boolean;
 }
 
 const SECTION_TYPES: { type: SectionType; label: string; icon: React.ElementType }[] = [
@@ -89,13 +91,32 @@ export default function CMSBlogBuilder({
   onCancel,
   saving = false,
   saveLabel = "Publish Article",
-  titleLabel = "CMS Blog Builder"
+  titleLabel = "CMS Blog Builder",
+  isSuperAdmin = false
 }: CMSBlogBuilderProps) {
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  const [members, setMembers] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  useEffect(() => {
+    if (isSuperAdmin) {
+      const loadMembers = async () => {
+        try {
+          const data = await fetchDirectory();
+          setMembers(data);
+        } catch (err) {
+          console.error("Failed to load directory for author search:", err);
+        }
+      };
+      loadMembers();
+    }
+  }, [isSuperAdmin]);
 
   const toggleCollapse = (id: string) => {
     setCollapsedSections(prev => ({ ...prev, [id]: !prev[id] }));
@@ -769,6 +790,81 @@ export default function CMSBlogBuilder({
                 )}
               </>
             )}
+
+            {/* Author Selection */}
+            <div className="space-y-1.5 relative">
+              <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
+                <User size={12} /> Author Profile
+              </label>
+              {isSuperAdmin ? (
+                <>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchTerm !== "" ? searchTerm : (state.author || "")}
+                      placeholder="Search author profile..."
+                      onChange={e => {
+                        setSearchTerm(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all pr-8"
+                    />
+                    {state.authorAvatar && (
+                      <img
+                        src={state.authorAvatar}
+                        alt=""
+                        className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full object-cover border border-border"
+                      />
+                    )}
+                  </div>
+                  {showDropdown && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-surface-900 border border-border/85 rounded-xl shadow-xl scrollbar-thin">
+                      {members
+                        .filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase()))
+                        .map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              updateState({
+                                userId: m.id,
+                                author: m.name,
+                                authorAvatar: m.avatar,
+                              });
+                              setSearchTerm(m.name);
+                              setShowDropdown(false);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-medium hover:bg-white/5 transition-all text-text-primary flex items-center gap-2 cursor-pointer"
+                          >
+                            <img src={m.avatar} alt={m.name} className="w-5 h-5 rounded-full object-cover" />
+                            <div>
+                              <p className="font-semibold text-text-primary">{m.name}</p>
+                              <p className="text-[9px] text-text-muted">{m.role} · {m.department}</p>
+                            </div>
+                          </button>
+                        ))}
+                      {members.filter(m => m.name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
+                        <div className="p-3 text-xs text-text-muted italic text-center">No profiles found</div>
+                      )}
+                    </div>
+                  )}
+                  {/* Click outside overlay */}
+                  {showDropdown && (
+                    <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+                  )}
+                </>
+              ) : (
+                <div className="px-3 py-2 rounded-xl bg-surface-800/40 border border-border/40 text-sm text-text-muted flex items-center gap-2">
+                  {state.authorAvatar ? (
+                    <img src={state.authorAvatar} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  ) : (
+                    <User size={14} className="text-text-muted" />
+                  )}
+                  <span>{state.author || "System Admin"}</span>
+                </div>
+              )}
+            </div>
 
             {/* Category */}
             <div className="space-y-1.5">

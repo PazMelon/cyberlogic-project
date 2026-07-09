@@ -286,16 +286,19 @@ export default function Resources() {
 
                   {/* Submitter info */}
                   {resource.user && (
-                    <div className="flex items-center gap-2 mb-4">
+                    <Link
+                      to={`/app/profile/${resource.user.id}`}
+                      className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity w-fit"
+                    >
                       <img
                         src={resource.user.avatar}
                         alt={resource.user.name}
                         className="w-5 h-5 rounded-full object-cover border border-border"
                       />
                       <span className="text-xs text-text-muted">
-                        Submitted by <span className="text-text-secondary font-medium">{resource.user.name}</span>
+                        Submitted by <span className="text-text-secondary font-medium hover:text-primary transition-colors">{resource.user.name}</span>
                       </span>
-                    </div>
+                    </Link>
                   )}
                 </div>
 

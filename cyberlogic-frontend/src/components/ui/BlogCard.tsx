@@ -1,5 +1,5 @@
 
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { Star, Clock } from "lucide-react";
 import { Badge } from "./Badge";
 import { Card } from "./Card";
@@ -11,6 +11,7 @@ interface BlogCardProps {
 }
 
 export function BlogCard({ blog, index = 0 }: BlogCardProps) {
+  const navigate = useNavigate();
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
   const detailUrl = isPortal ? `/app/blogs/${blog.id}` : `/blogs/${blog.id}`;
@@ -42,6 +43,18 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
       return url;
     }
     return `https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60&sig=${encodeURIComponent(url)}`;
+  };
+
+  const authorAvatar = (blog as any).user?.avatar || blog.authorAvatar;
+  const authorName = (blog as any).user?.name || blog.author;
+  const authorUserId = (blog as any).userId || (blog as any).user?.id;
+
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    if (authorUserId) {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(`/app/profile/${authorUserId}`);
+    }
   };
 
   return (
@@ -110,13 +123,16 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
 
         {/* Footer info: Author + Publish Date */}
         <div className="px-5 pb-5 pt-3 border-t border-border/40 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div
+            onClick={handleAuthorClick}
+            className={`flex items-center gap-2 ${authorUserId ? "cursor-pointer hover:opacity-80" : ""}`}
+          >
             <img
-              src={blog.authorAvatar}
-              alt={blog.author}
+              src={authorAvatar}
+              alt={authorName}
               className="w-6 h-6 rounded-full bg-surface-700 object-cover border border-border/60"
             />
-            <span className="text-[11px] font-medium text-text-secondary">{blog.author}</span>
+            <span className="text-[11px] font-medium text-text-secondary">{authorName}</span>
           </div>
           <time className="text-[10px] text-text-muted">{blog.date}</time>
         </div>

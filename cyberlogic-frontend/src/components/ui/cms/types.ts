@@ -46,6 +46,8 @@ export interface CMSBlogState {
   excerpt: string;
   content: string; // intro text
   author: string;
+  authorAvatar?: string;
+  userId?: number;
   category: string;
   image?: string; // cover image URL
   readTime?: string;
