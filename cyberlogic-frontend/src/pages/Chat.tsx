@@ -22,6 +22,9 @@ export default function Chat() {
   const [messageText, setMessageText] = useState("");
   const [showMembers, setShowMembers] = useState(false);
   const [showMobileChannels, setShowMobileChannels] = useState(false);
+
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const [isFetchingMoreMessages, setIsFetchingMoreMessages] = useState(false);
   
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -104,10 +107,14 @@ export default function Chat() {
     async function loadHistory() {
       try {
         setMessagesLoading(true);
+        setHasMoreMessages(true);
         const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages`);
         if (res.ok) {
           const data: ChatMessage[] = await res.json();
           setMessages(data);
+          if (data.length < 50) {
+            setHasMoreMessages(false);
+          }
         }
       } catch (err) {
         console.error("Failed to load chat history:", err);
@@ -182,6 +189,31 @@ export default function Chat() {
     };
   }, [activeChannel, subscribe, currentUser]);
 
+  // Load older history
+  async function loadMoreHistory() {
+    if (isFetchingMoreMessages || !hasMoreMessages || messages.length === 0) return;
+    try {
+      setIsFetchingMoreMessages(true);
+      const oldestId = messages[0].id;
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages?before_id=${oldestId}`);
+      if (res.ok) {
+        const data: ChatMessage[] = await res.json();
+        if (data.length === 0) {
+          setHasMoreMessages(false);
+        } else {
+          setMessages((prev) => [...data, ...prev]);
+          if (data.length < 50) {
+            setHasMoreMessages(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load more chat history:", err);
+    } finally {
+      setIsFetchingMoreMessages(false);
+    }
+  }
+
   // Clean up timers on unmount
   useEffect(() => {
     return () => {
@@ -192,7 +224,7 @@ export default function Chat() {
     };
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setMessageText(val);
 
@@ -323,6 +355,9 @@ export default function Chat() {
             activePickerId={activeReactionPickerMessageId}
             setActivePickerId={setActiveReactionPickerMessageId}
             onOpenFullPicker={setActiveFullPickerMessageId}
+            onLoadMore={loadMoreHistory}
+            hasMore={hasMoreMessages}
+            isFetchingMore={isFetchingMoreMessages}
           />
 
           {/* Members Sidebar Panel */}

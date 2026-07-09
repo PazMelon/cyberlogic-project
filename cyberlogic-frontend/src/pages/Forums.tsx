@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Plus, MessageSquare } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router";
 import {
@@ -24,31 +24,80 @@ export default function Forums() {
   const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
   const categoriesScrollRef = useDragScroll();
 
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const observerRef = useRef<HTMLDivElement | null>(null);
+
   // Sync state if URL param changes
   useEffect(() => {
     setActiveCategory(categoryParam);
   }, [categoryParam]);
 
-  // Load categories and threads from APIs
-  const loadData = async () => {
+  // Load categories
+  useEffect(() => {
+    async function loadCats() {
+      try {
+        const catsData = await fetchForumCategories();
+        setCategories(catsData);
+      } catch (err) {
+        console.error("Failed to load categories:", err);
+      }
+    }
+    loadCats();
+  }, []);
+
+  // Load threads
+  const loadData = async (initial = true) => {
     try {
-      setIsLoading(true);
-      const [catsData, threadsData] = await Promise.all([
-        fetchForumCategories(),
-        fetchForumThreads({ category: categoryParam, q: searchQuery })
-      ]);
-      setCategories(catsData);
-      setThreads(threadsData);
+      if (initial) {
+        setIsLoading(true);
+        const res = await fetchForumThreads({ category: categoryParam, q: searchQuery, page: 1, limit: 10 });
+        if (res && res.data) {
+          setThreads(res.data);
+          setHasMore(res.has_more);
+          setPage(1);
+        } else {
+          setThreads(res || []);
+          setHasMore(false);
+        }
+      } else {
+        setIsFetchingMore(true);
+        const nextPage = page + 1;
+        const res = await fetchForumThreads({ category: categoryParam, q: searchQuery, page: nextPage, limit: 10 });
+        if (res && res.data) {
+          setThreads((prev) => [...prev, ...res.data]);
+          setHasMore(res.has_more);
+          setPage(nextPage);
+        } else {
+          setHasMore(false);
+        }
+      }
     } catch (err) {
-      console.error("Failed to load forum data:", err);
+      console.error("Failed to load threads:", err);
     } finally {
       setIsLoading(false);
+      setIsFetchingMore(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
   }, [categoryParam, searchQuery]);
+
+  // Observer effect
+  useEffect(() => {
+    if (!hasMore || isLoading || isFetchingMore) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadData(false);
+      }
+    }, { threshold: 0.1 });
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, isFetchingMore, page, categoryParam, searchQuery]);
 
   // Get total thread count across all categories
   const totalThreadCount = categories.reduce((sum, c) => sum + c.threadCount, 0);
@@ -144,13 +193,20 @@ export default function Forums() {
             ))}
           </>
         ) : (
-          threads.map((thread) => (
-            <ForumThreadCard 
-              key={thread.id} 
-              thread={thread} 
-              showCategory={activeCategory === "all"} 
-            />
-          ))
+          <>
+            {threads.map((thread) => (
+              <ForumThreadCard 
+                key={thread.id} 
+                thread={thread} 
+                showCategory={activeCategory === "all"} 
+              />
+            ))}
+            {hasMore && (
+              <div ref={observerRef} className="flex justify-center py-4">
+                <div className="w-6 h-6 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+              </div>
+            )}
+          </>
         )}
       </div>
 

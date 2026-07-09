@@ -865,20 +865,27 @@ export async function fetchForumThreads(params?: {
   q?: string;
   sort?: string;
   userId?: number;
-}): Promise<ForumThreadMapped[]> {
+  page?: number;
+  limit?: number;
+}): Promise<any> {
   const urlParams = new URLSearchParams();
   if (params?.category) urlParams.append("category", params.category);
   if (params?.q) urlParams.append("q", params.q);
   if (params?.sort) urlParams.append("sort", params.sort);
   if (params?.userId) urlParams.append("user_id", String(params.userId));
+  if (params?.page) urlParams.append("page", String(params.page));
+  if (params?.limit) urlParams.append("limit", String(params.limit));
 
   const queryString = urlParams.toString();
   const res = await apiRequest(`/api/forum/threads?${queryString}`);
   if (!res.ok) {
     throw new Error("Failed to load forum threads.");
   }
-  const data: any[] = await res.json();
-  return data.map((t) => ({
+  const json = await res.json();
+  const isPaginated = !Array.isArray(json) && json && Array.isArray(json.data);
+  const items = isPaginated ? json.data : json;
+
+  const mapped = items.map((t: any) => ({
     id: t.id,
     title: t.title,
     categoryId: t.category?.slug || "general",
@@ -908,6 +915,17 @@ export async function fetchForumThreads(params?: {
     isRedacted: !!t.is_redacted,
     poll: mapPoll(t.poll)
   }));
+
+  if (isPaginated) {
+    return {
+      data: mapped,
+      current_page: json.current_page,
+      last_page: json.last_page,
+      total: json.total,
+      has_more: !!json.has_more
+    };
+  }
+  return mapped;
 }
 
 /**

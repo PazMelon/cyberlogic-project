@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { Hash } from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../Skeleton";
 import MessageBubble from "./MessageBubble";
@@ -21,6 +21,9 @@ export interface MessageStreamProps {
   activePickerId: number | null;
   setActivePickerId: (id: number | null) => void;
   onOpenFullPicker: (messageId: number) => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isFetchingMore?: boolean;
 }
 
 export default function MessageStream({
@@ -33,22 +36,69 @@ export default function MessageStream({
   activePickerId,
   setActivePickerId,
   onOpenFullPicker,
+  onLoadMore,
+  hasMore = false,
+  isFetchingMore = false,
 }: MessageStreamProps) {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastFirstMessageIdRef = useRef<number | null>(null);
+  const lastLastMessageIdRef = useRef<number | null>(null);
+  const prevScrollHeightRef = useRef<number>(0);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (containerRef.current) {
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+  // Scroll position stabilizer
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const firstMsg = messages[0];
+    const lastMsg = messages[messages.length - 1];
+
+    // Case 1: Channel changed or initial load (no previous message IDs tracked yet)
+    if (lastFirstMessageIdRef.current === null || (lastFirstMessageIdRef.current !== firstMsg?.id && lastLastMessageIdRef.current !== lastMsg?.id)) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [messages, messagesLoading, typingUsers]);
+    // Case 2: Historical messages prepended (first ID changed, but last ID stayed the same)
+    else if (firstMsg && lastMsg && lastFirstMessageIdRef.current !== firstMsg.id && lastLastMessageIdRef.current === lastMsg.id) {
+      const scrollHeightDiff = container.scrollHeight - prevScrollHeightRef.current;
+      container.scrollTop = scrollHeightDiff;
+    }
+    // Case 3: New message added to bottom
+    else if (lastMsg && lastLastMessageIdRef.current !== lastMsg.id) {
+      // Only scroll to bottom if user was already near the bottom (within 250px)
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
+      if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    lastFirstMessageIdRef.current = firstMsg?.id || null;
+    lastLastMessageIdRef.current = lastMsg?.id || null;
+    prevScrollHeightRef.current = container.scrollHeight;
+  }, [messages, messagesLoading]);
+
+  // Handle scrolling to the top to load more older messages
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container || !onLoadMore || !hasMore || messagesLoading || isFetchingMore) return;
+
+    if (container.scrollTop < 50) {
+      prevScrollHeightRef.current = container.scrollHeight;
+      onLoadMore();
+    }
+  };
 
   return (
     <div
       ref={containerRef}
+      onScroll={handleScroll}
       className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4"
     >
+      {isFetchingMore && (
+        <div className="flex justify-center py-2 animate-fadeIn">
+          <div className="w-5 h-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        </div>
+      )}
+
       {messagesLoading ? (
         <div className="space-y-5 animate-pulse">
           {[1, 2, 3].map((i) => (
@@ -118,8 +168,6 @@ export default function MessageStream({
           </span>
         </div>
       )}
-
-      <div ref={messagesEndRef} />
     </div>
   );
 }

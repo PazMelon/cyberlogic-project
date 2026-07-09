@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Search,
-  ChevronLeft,
-  ChevronRight,
   RefreshCw,
   Clock,
   Shield,
@@ -25,7 +23,7 @@ import {
 } from "lucide-react";
 import { fetchAuditLogs, fetchAuditLogStats } from "../../utils/api";
 import type { AuditLogEntry, AuditLogStats } from "../../utils/api";
-import { Button, Card, Badge } from "../../components/ui";
+import { Button, Card, Badge, DataTable } from "../../components/ui";
 import { useWebSocket } from "../../context/WebSocketContext";
 
 const actionIcons: Record<string, any> = {
@@ -85,7 +83,7 @@ export default function AuditLogs() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
-  const [perPage] = useState(20);
+  const [perPage, setPerPage] = useState(20);
   const [totalPages, setTotalPages] = useState(1);
   const [totalLogs, setTotalLogs] = useState(0);
 
@@ -203,6 +201,138 @@ export default function AuditLogs() {
     if (role === "system") return "neutral";
     return "primary";
   };
+
+  const auditLogColumns = [
+    {
+      header: "Action",
+      accessor: (log: AuditLogEntry) => {
+        const Icon = actionIcons[log.action] || SlidersHorizontal;
+        const colorClass = actionColors[log.action] || "text-text-muted bg-surface-800 border-border";
+        return (
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center border mx-auto ${colorClass}`} title={log.action}>
+            <Icon className="w-4 h-4" />
+          </div>
+        );
+      },
+      className: "w-12 text-center"
+    },
+    {
+      header: "Actor",
+      accessor: (log: AuditLogEntry) => (
+        <div className="flex items-center gap-2.5">
+          <div className="flex flex-col">
+            <span className="font-semibold text-text-primary truncate max-w-[160px]" title={log.user_name}>
+              {log.user_name}
+            </span>
+            <div className="mt-0.5">
+              <Badge variant={getRoleBadgeVariant(log.user_role)} size="xs" uppercase={true}>
+                {log.user_role}
+              </Badge>
+            </div>
+          </div>
+        </div>
+      ),
+      className: "w-52"
+    },
+    {
+      header: "Description",
+      accessor: (log: AuditLogEntry) => (
+        <span className="text-text-primary font-medium leading-relaxed">
+          {getActionDescription(log)}
+        </span>
+      )
+    },
+    {
+      header: "IP Address",
+      accessor: (log: AuditLogEntry) => (
+        <span className="font-mono text-text-muted select-all">
+          {log.ip_address || "127.0.0.1"}
+        </span>
+      ),
+      className: "w-32"
+    },
+    {
+      header: "Timestamp",
+      accessor: (log: AuditLogEntry) => (
+        <div className="flex items-center gap-1.5 text-text-muted whitespace-nowrap" title={new Date(log.created_at).toLocaleString()}>
+          <Clock className="w-3.5 h-3.5 opacity-60" />
+          <span>
+            {new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+      ),
+      className: "w-36"
+    },
+    {
+      header: "Detail",
+      accessor: (log: AuditLogEntry) => {
+        const isExpanded = expandedLogId === log.id;
+        return (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+            className="px-2 py-1 text-[10px] tracking-wide cursor-pointer mx-auto block"
+          >
+            {isExpanded ? "Inspect" : "Inspect"}
+          </Button>
+        );
+      },
+      className: "w-20 text-center"
+    }
+  ];
+
+  const expandedRowIds = useMemo(() => {
+    return expandedLogId !== null ? { [expandedLogId]: true } : {};
+  }, [expandedLogId]);
+
+  const renderExpandedLog = (log: AuditLogEntry) => {
+    return (
+      <div className="rounded-xl border border-border/60 bg-surface-950 p-4 space-y-3 font-mono text-[11px] leading-relaxed">
+        <div className="flex items-center justify-between border-b border-border/30 pb-2 mb-2">
+          <span className="text-text-muted font-semibold flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+            <Terminal className="w-3.5 h-3.5 text-amber-500" />
+            Log # {log.id} Payload Detail
+          </span>
+          <span className="text-text-muted text-[10px] select-all">IP: {log.ip_address || "127.0.0.1"}</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <div className="flex gap-2">
+              <span className="text-text-muted font-bold w-24 flex-shrink-0">Action:</span>
+              <span className="text-amber-500 font-semibold">{log.action}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity Type:</span>
+              <span className="text-accent font-semibold">{log.entity_type}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity ID:</span>
+              <span className="text-text-primary">{log.entity_id || "null"}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity Label:</span>
+              <span className="text-text-primary break-all">{log.entity_label || "null"}</span>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="text-text-muted font-bold mb-1">Metadata:</div>
+            {log.metadata ? (
+              <pre className="bg-surface-900 border border-border/40 p-2.5 rounded-lg text-text-secondary max-h-48 overflow-y-auto whitespace-pre-wrap select-all font-mono leading-relaxed">
+                {formatMetadata(log.metadata)}
+              </pre>
+            ) : (
+              <span className="text-text-muted italic">No extra metadata payload captured</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  useMemo(() => {
+    // Empty search query/page synchronization if needed, but we do standard component hooks
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -385,186 +515,27 @@ export default function AuditLogs() {
       </Card>
 
       {/* Audit Log Table Section */}
-      <Card className="overflow-hidden border border-border bg-surface-900/10">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-border bg-surface-950/60 font-semibold text-text-muted">
-                <th className="p-4 w-12 text-center">Action</th>
-                <th className="p-4 w-52">Actor</th>
-                <th className="p-4">Description</th>
-                <th className="p-4 w-32">IP Address</th>
-                <th className="p-4 w-36">Timestamp</th>
-                <th className="p-4 w-20 text-center">Detail</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60">
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={idx} className="animate-pulse">
-                    <td className="p-4">
-                      <div className="w-8 h-8 rounded-lg bg-surface-800 mx-auto" />
-                    </td>
-                    <td className="p-4">
-                      <div className="h-4 w-32 bg-surface-800 rounded" />
-                    </td>
-                    <td className="p-4">
-                      <div className="h-4 w-3/4 bg-surface-800 rounded" />
-                    </td>
-                    <td className="p-4">
-                      <div className="h-4 w-20 bg-surface-800 rounded" />
-                    </td>
-                    <td className="p-4">
-                      <div className="h-4 w-24 bg-surface-800 rounded" />
-                    </td>
-                    <td className="p-4">
-                      <div className="h-6 w-12 bg-surface-800 rounded mx-auto" />
-                    </td>
-                  </tr>
-                ))
-              ) : logs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-12 text-center text-text-muted">
-                    <Clock className="w-10 h-10 text-text-muted/40 mx-auto mb-3" />
-                    <p className="font-semibold text-sm">No Audit Logs Found</p>
-                    <p className="text-xs mt-1">Try resetting your filters or adjusting your date range.</p>
-                  </td>
-                </tr>
-              ) : (
-                logs.map((log) => {
-                  const Icon = actionIcons[log.action] || SlidersHorizontal;
-                  const colorClass = actionColors[log.action] || "text-text-muted bg-surface-800 border-border";
-                  const isExpanded = expandedLogId === log.id;
-
-                  return (
-                    <React.Fragment key={log.id}>
-                      <tr className={`hover:bg-white/[0.02] transition-colors ${log.animate || ""}`}>
-                        <td className="p-4 text-center">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center border mx-auto ${colorClass}`} title={log.action}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex flex-col">
-                              <span className="font-semibold text-text-primary truncate max-w-[160px]" title={log.user_name}>
-                                {log.user_name}
-                              </span>
-                              <div className="mt-0.5">
-                                <Badge variant={getRoleBadgeVariant(log.user_role)} size="xs" uppercase={true}>
-                                  {log.user_role}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-4 text-text-primary font-medium leading-relaxed">
-                          {getActionDescription(log)}
-                        </td>
-                        <td className="p-4 font-mono text-text-muted select-all">
-                          {log.ip_address || "127.0.0.1"}
-                        </td>
-                        <td className="p-4 text-text-muted whitespace-nowrap">
-                          <div className="flex items-center gap-1.5" title={new Date(log.created_at).toLocaleString()}>
-                            <Clock className="w-3.5 h-3.5 opacity-60" />
-                            <span>{new Date(log.created_at).toLocaleDateString()} {new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                        </td>
-                        <td className="p-4 text-center">
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
-                            className="px-2 py-1 text-[10px] tracking-wide cursor-pointer"
-                          >
-                            {isExpanded ? "Hide" : "Inspect"}
-                          </Button>
-                        </td>
-                      </tr>
-                      {isExpanded && (
-                        <tr className="bg-surface-950/40">
-                          <td colSpan={6} className="p-4 border-t border-b border-border/40">
-                            <div className="rounded-xl border border-border/60 bg-surface-950 p-4 space-y-3 font-mono text-[11px] leading-relaxed">
-                              <div className="flex items-center justify-between border-b border-border/30 pb-2 mb-2">
-                                <span className="text-text-muted font-semibold flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-                                  <Terminal className="w-3.5 h-3.5 text-amber-500" />
-                                  Log # {log.id} Payload Detail
-                                </span>
-                                <span className="text-text-muted text-[10px] select-all">IP: {log.ip_address || "127.0.0.1"}</span>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                  <div className="flex gap-2">
-                                    <span className="text-text-muted font-bold w-24 flex-shrink-0">Action:</span>
-                                    <span className="text-amber-500 font-semibold">{log.action}</span>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity Type:</span>
-                                    <span className="text-accent font-semibold">{log.entity_type}</span>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity ID:</span>
-                                    <span className="text-text-primary">{log.entity_id || "null"}</span>
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <span className="text-text-muted font-bold w-24 flex-shrink-0">Entity Label:</span>
-                                    <span className="text-text-primary break-all">{log.entity_label || "null"}</span>
-                                  </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                  <div className="text-text-muted font-bold mb-1">Metadata:</div>
-                                  {log.metadata ? (
-                                    <pre className="bg-surface-900 border border-border/40 p-2.5 rounded-lg text-text-secondary max-h-48 overflow-y-auto whitespace-pre-wrap select-all font-mono leading-relaxed">
-                                      {formatMetadata(log.metadata)}
-                                    </pre>
-                                  ) : (
-                                    <span className="text-text-muted italic">No extra metadata payload captured</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        {!isLoading && totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-border bg-surface-950/60 p-4">
-            <div className="text-[11px] text-text-muted">
-              Showing page <span className="font-semibold text-text-secondary">{page}</span> of{" "}
-              <span className="font-semibold text-text-secondary">{totalPages}</span> (
-              <span className="font-semibold text-text-secondary">{totalLogs}</span> entries total)
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={page === 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-2 py-1 flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Previous
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="px-2 py-1 flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                Next <ChevronRight className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      <DataTable
+        data={logs}
+        columns={auditLogColumns}
+        enablePagination={true}
+        serverSide={true}
+        totalItems={totalLogs}
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={(p) => setPage(p)}
+        onItemsPerPageChange={(limit) => {
+          setPerPage(limit);
+          setPage(1);
+        }}
+        itemsPerPageOptions={[5, 10, 20, 50]}
+        defaultItemsPerPage={20}
+        expandedRowIds={expandedRowIds}
+        renderExpandedRow={renderExpandedLog}
+        showSearch={false}
+        showFilters={false}
+        emptyStateText="No Audit Logs Found"
+      />
     </div>
   );
 }

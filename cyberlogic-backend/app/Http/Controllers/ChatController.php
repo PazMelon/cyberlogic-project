@@ -80,13 +80,19 @@ class ChatController extends Controller
     public function messages(string $slug): JsonResponse
     {
         $channel = ChatChannel::where('slug', $slug)->firstOrFail();
+        $beforeId = request()->query('before_id');
 
         // Get last 50 messages, ordered oldest to newest for the chat stream
-        $messages = ChatMessage::where('channel_id', $channel->id)
+        $query = ChatMessage::where('channel_id', $channel->id)
             ->with(['user', 'reactions.user'])
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get()
+            ->orderBy('id', 'desc')
+            ->limit(50);
+
+        if ($beforeId) {
+            $query->where('id', '<', (int) $beforeId);
+        }
+
+        $messages = $query->get()
             ->reverse()
             ->values();
 

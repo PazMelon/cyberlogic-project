@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Search, Download, Users, CheckCircle, Clock, AlertCircle, ShieldAlert, Copy, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, Users, CheckCircle, Clock, AlertCircle, Copy, ExternalLink } from "lucide-react";
 import { fetchEventById, fetchEventAttendees } from "../../utils/api";
 import type { Event } from "../../data/mockData";
+import { DataTable } from "../../components/ui";
 
 interface AttendeeRecord {
   id: number;
@@ -28,6 +29,98 @@ export default function EventAttendeesView() {
   const { id } = useParams();
   const eventId = Number(id);
 
+  const rsvpColumns = [
+    {
+      header: "User",
+      accessor: (reg: any) => (
+        <div className="flex items-center gap-3">
+          <img src={reg.avatar} alt={reg.name} className="w-8 h-8 rounded-full border border-border" />
+          <span className="text-text-primary font-bold">{reg.name}</span>
+        </div>
+      ),
+      sortable: true,
+      sortKey: "name" as any
+    },
+    {
+      header: "Email",
+      accessor: "email" as any,
+      sortable: true
+    },
+    {
+      header: "Registered At",
+      accessor: (reg: any) => (
+        <div className="flex items-center gap-1.5 text-text-muted">
+          <Clock className="w-3.5 h-3.5" />
+          {reg.registered_at}
+        </div>
+      ),
+      sortable: true,
+      sortKey: "registered_at" as any
+    }
+  ];
+
+  const attendanceColumns = [
+    {
+      header: "User",
+      accessor: (att: any) => (
+        <div className="flex items-center gap-3">
+          <img src={att.avatar} alt={att.name} className="w-8 h-8 rounded-full border border-border" />
+          <span className="text-text-primary font-bold">{att.name}</span>
+        </div>
+      ),
+      sortable: true,
+      sortKey: "name" as any
+    },
+    {
+      header: "Email",
+      accessor: "email" as any,
+      sortable: true
+    },
+    {
+      header: "Check-in Status",
+      accessor: (att: any) => (
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+          att.status === 'late'
+            ? 'bg-warning/15 border-warning/30 text-warning'
+            : 'bg-success/15 border-success/30 text-success'
+        }`}>
+          <CheckCircle className="w-3 h-3" />
+          {att.status === 'late' ? 'Late Check-in' : 'Present'}
+        </span>
+      ),
+      sortable: true,
+      sortKey: "status" as any
+    },
+    {
+      header: "Scanned At",
+      accessor: (att: any) => (
+        <div className="flex items-center gap-1.5 text-text-muted">
+          <Clock className="w-3.5 h-3.5" />
+          {att.checked_in_at}
+        </div>
+      ),
+      sortable: true,
+      sortKey: "checked_in_at" as any
+    },
+    {
+      header: "Scanned By",
+      accessor: (att: any) => <span className="text-text-secondary font-semibold">{att.checked_in_by_name || "N/A"}</span>,
+      sortable: true,
+      sortKey: "checked_in_by_name" as any
+    }
+  ];
+
+  const attendanceFilters = [
+    {
+      label: "Status",
+      field: "status",
+      options: [
+        { label: "Present (On Time)", value: "present" },
+        { label: "Late Check-in", value: "late" }
+      ]
+    }
+  ];
+
   const [event, setEvent] = useState<Event | null>(null);
   const [attendees, setAttendees] = useState<AttendeeRecord[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationRecord[]>([]);
@@ -42,8 +135,6 @@ export default function EventAttendeesView() {
 
   // Filter/tab states
   const [activeTab, setActiveTab] = useState<"rsvp" | "attendance">("rsvp");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [attendanceFilter, setAttendanceFilter] = useState<"all" | "present" | "late">("all");
 
   useEffect(() => {
     async function loadData() {
@@ -80,7 +171,7 @@ export default function EventAttendeesView() {
 
     if (activeTab === "rsvp") {
       headers = ["User ID", "Name", "Email", "Registration Date"];
-      rows = filteredRegistrations.map(reg => [
+      rows = registrations.map(reg => [
         reg.user_id.toString(),
         reg.name,
         reg.email,
@@ -89,7 +180,7 @@ export default function EventAttendeesView() {
       filename = `event_${event.id}_registrations.csv`;
     } else {
       headers = ["User ID", "Name", "Email", "Status", "Checked-in At", "Checked-in By"];
-      rows = filteredAttendees.map(att => [
+      rows = attendees.map(att => [
         att.user_id.toString(),
         att.name,
         att.email,
@@ -115,21 +206,6 @@ export default function EventAttendeesView() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const filteredRegistrations = registrations.filter(
-    (reg) =>
-      reg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reg.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredAttendees = attendees.filter((att) => {
-    const matchesSearch =
-      att.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      att.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter =
-      attendanceFilter === "all" || att.status === attendanceFilter;
-    return matchesSearch && matchesFilter;
-  });
 
   if (loading) {
     return (
@@ -222,10 +298,7 @@ export default function EventAttendeesView() {
       {event.eventMode === "registration_and_attendance" && (
         <div className="flex border-b border-border/50">
           <button
-            onClick={() => {
-              setActiveTab("rsvp");
-              setSearchQuery("");
-            }}
+            onClick={() => setActiveTab("rsvp")}
             className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === "rsvp"
                 ? "border-primary text-primary"
@@ -235,10 +308,7 @@ export default function EventAttendeesView() {
             Registered Participants ({registrations.length})
           </button>
           <button
-            onClick={() => {
-              setActiveTab("attendance");
-              setSearchQuery("");
-            }}
+            onClick={() => setActiveTab("attendance")}
             className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === "attendance"
                 ? "border-primary text-primary"
@@ -250,124 +320,22 @@ export default function EventAttendeesView() {
         </div>
       )}
 
-      {/* Search & Filter Toolbar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-surface-900/40 p-4 rounded-2xl border border-border">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={`Search by name or email...`}
-            className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-850 border border-border text-xs text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-          />
-        </div>
-
-        {/* Filter (Only for Checked-in tab) */}
-        {activeTab === "attendance" && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-medium">Status:</span>
-            <select
-              value={attendanceFilter}
-              onChange={(e) => setAttendanceFilter(e.target.value as any)}
-              className="px-3 py-1.5 rounded-xl bg-surface-850 border border-border text-xs text-text-primary focus:outline-none cursor-pointer"
-            >
-              <option value="all">All Check-ins</option>
-              <option value="present">On Time</option>
-              <option value="late">Late Check-ins</option>
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Table grid */}
-      <div className="glass rounded-2xl border border-border overflow-hidden">
-        {activeTab === "rsvp" ? (
-          /* RSVP Registered Participants list */
-          filteredRegistrations.length === 0 ? (
-            <div className="text-center py-16 text-text-muted space-y-2">
-              <ShieldAlert className="w-8 h-8 mx-auto text-text-muted/65" />
-              <p className="text-xs italic">No registered participants found.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-surface-900/60 border-b border-border/80 text-text-muted font-bold uppercase tracking-wider">
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4">Email</th>
-                    <th className="px-6 py-4">Registered At</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40 font-medium">
-                  {filteredRegistrations.map((reg) => (
-                    <tr key={reg.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        <img src={reg.avatar} alt={reg.name} className="w-8 h-8 rounded-full border border-border" />
-                        <span className="text-text-primary font-bold">{reg.name}</span>
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary">{reg.email}</td>
-                      <td className="px-6 py-4 text-text-muted flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        {reg.registered_at}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        ) : (
-          /* Checked-in Attendance list */
-          filteredAttendees.length === 0 ? (
-            <div className="text-center py-16 text-text-muted space-y-2">
-              <ShieldAlert className="w-8 h-8 mx-auto text-text-muted/65" />
-              <p className="text-xs italic">No checked-in attendees found.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-surface-900/60 border-b border-border/80 text-text-muted font-bold uppercase tracking-wider">
-                    <th className="px-6 py-4">User</th>
-                    <th className="px-6 py-4">Email</th>
-                    <th className="px-6 py-4">Check-in Status</th>
-                    <th className="px-6 py-4">Scanned At</th>
-                    <th className="px-6 py-4">Scanned By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40 font-medium">
-                  {filteredAttendees.map((att) => (
-                    <tr key={att.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        <img src={att.avatar} alt={att.name} className="w-8 h-8 rounded-full border border-border" />
-                        <span className="text-text-primary font-bold">{att.name}</span>
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary">{att.email}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                          att.status === 'late'
-                            ? 'bg-warning/15 border-warning/30 text-warning'
-                            : 'bg-success/15 border-success/30 text-success'
-                        }`}>
-                          <CheckCircle className="w-3 h-3" />
-                          {att.status === 'late' ? 'Late Check-in' : 'Present'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-text-muted flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        {att.checked_in_at}
-                      </td>
-                      <td className="px-6 py-4 text-text-secondary font-semibold">{att.checked_in_by_name || "N/A"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        )}
-      </div>
+      {activeTab === "rsvp" ? (
+        <DataTable
+          data={registrations}
+          columns={rsvpColumns}
+          searchPlaceholder="Search registered participants by name, email..."
+          emptyStateText="No registered participants found."
+        />
+      ) : (
+        <DataTable
+          data={attendees}
+          columns={attendanceColumns}
+          filterGroups={attendanceFilters}
+          searchPlaceholder="Search checked-in attendees by name, email..."
+          emptyStateText="No checked-in attendees found."
+        />
+      )}
     </div>
   );
 }

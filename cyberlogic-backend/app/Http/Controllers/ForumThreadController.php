@@ -68,10 +68,21 @@ class ForumThreadController extends Controller
         } elseif ($sort === 'oldest') {
             $query->orderBy('is_pinned', 'desc')
                 ->orderBy('created_at', 'asc');
-        } else {
-            // Default: newest
-            $query->orderBy('is_pinned', 'desc')
-                ->orderBy('created_at', 'desc');
+        }
+
+        if ($request->has('page') || $request->has('limit')) {
+            $limit = (int) $request->input('limit', 10);
+            $page = (int) $request->input('page', 1);
+            $offset = ($page - 1) * $limit;
+            $total = $query->count();
+            $items = $query->skip($offset)->take($limit)->get();
+            return response()->json([
+                'data' => $items,
+                'current_page' => $page,
+                'last_page' => (int) ceil($total / $limit),
+                'total' => $total,
+                'has_more' => $page < ceil($total / $limit)
+            ]);
         }
 
         return response()->json($query->get());
