@@ -84,27 +84,21 @@ class Officer extends Model
         return 'https://api.dicebear.com/9.x/avataaars/svg?seed=' . urlencode($seedName);
     }
 
-    public function getEmailAttribute(): string
+    public function getEmailAttribute(): ?string
     {
         if ($this->use_profile_info && $this->user) {
             return $this->user->email;
         }
-        return $this->display_email ?? ($this->name ? strtolower(str_replace(' ', '', $this->name)) . '@srcb.edu.ph' : '');
+        return $this->display_email ?: null;
     }
 
-    public function getGithubAttribute(): string
+    public function getGithubAttribute(): ?string
     {
-        if ($this->use_profile_info && $this->user) {
-            return 'github.com/' . strtolower(str_replace(' ', '', $this->user->name));
-        }
-        return $this->display_github ?? ($this->name ? 'github.com/' . strtolower(str_replace(' ', '', $this->name)) : '');
+        return $this->display_github ?: null;
     }
 
-    public function getLinkedinAttribute(): string
+    public function getLinkedinAttribute(): ?string
     {
-        if ($this->use_profile_info && $this->user) {
-            return 'linkedin.com/in/' . strtolower(str_replace(' ', '', $this->user->name));
-        }
-        return $this->display_linkedin ?? ($this->name ? 'linkedin.com/in/' . strtolower(str_replace(' ', '', $this->name)) : '');
+        return $this->display_linkedin ?: null;
     }
 }

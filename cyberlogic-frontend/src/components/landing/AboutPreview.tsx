@@ -35,25 +35,13 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
 
   const activeLoading = isLoading || localLoading;
 
-  // Resolve skills from linked user expertise, or fallback to role defaults
+  // Resolve skills from linked user expertise
   const getSkills = (officer: Officer | null) => {
     if (!officer) return [];
     if (officer.user?.expertise) {
-      return officer.user.expertise.split(",").map((s: string) => s.trim());
+      return officer.user.expertise.split(",").map((s: string) => s.trim()).filter(Boolean);
     }
-    const r = officer.role.toLowerCase();
-    if (r.includes("president") && !r.includes("vice")) {
-      return ["Cybersecurity", "Network Architecture", "Leadership"];
-    } else if (r.includes("vice president")) {
-      return ["UI/UX Design", "Frontend Development", "Graphic Design"];
-    } else if (r.includes("secretary")) {
-      return ["Technical Writing", "Communications", "Project Management"];
-    } else if (r.includes("treasurer")) {
-      return ["Financial Planning", "Sponsorships", "Event Logistics"];
-    } else if (r.includes("tech") || r.includes("lead")) {
-      return ["Full-Stack Dev", "DevOps", "Cybersecurity Audit"];
-    }
-    return ["Event Management", "Public Relations", "Marketing"];
+    return [];
   };
 
   return (
@@ -146,14 +134,18 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
                     <TerminalIcon className="w-3.5 h-3.5 text-primary" /> Area of Expertise
                   </span>
                   <div className="flex flex-wrap justify-center md:justify-start gap-1.5">
-                    {getSkills(activeOfficer).map((skill: string) => (
-                      <span
-                        key={skill}
-                        className="px-2.5 py-0.5 rounded-lg bg-surface-900 border border-border text-[10px] font-medium text-text-secondary hover:border-primary/20 transition-all"
-                      >
-                        {skill}
-                      </span>
-                    ))}
+                    {getSkills(activeOfficer).length > 0 ? (
+                      getSkills(activeOfficer).map((skill: string) => (
+                        <span
+                          key={skill}
+                          className="px-2.5 py-0.5 rounded-lg bg-surface-900 border border-border text-[10px] font-medium text-text-secondary hover:border-primary/20 transition-all"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-text-muted italic">No area of expertise configured.</span>
+                    )}
                   </div>
                 </div>
 
@@ -170,7 +162,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
                   )}
                   {activeOfficer.github && (
                     <a
-                      href={`https://${activeOfficer.github}`}
+                      href={activeOfficer.github.startsWith("http") ? activeOfficer.github : `https://${activeOfficer.github}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors group/link"
@@ -183,7 +175,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
                   )}
                   {activeOfficer.linkedin && (
                     <a
-                      href={`https://${activeOfficer.linkedin}`}
+                      href={activeOfficer.linkedin.startsWith("http") ? activeOfficer.linkedin : `https://${activeOfficer.linkedin}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors group/link"
