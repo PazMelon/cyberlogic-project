@@ -148,7 +148,7 @@ export default function AnnouncementDetail() {
                 <img
                   src={resolveCmsUrl(item.image)}
                   alt={item.title}
-                  onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+                  onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
                   className="w-full h-full object-cover cursor-zoom-in"
                 />
               </div>
@@ -335,7 +335,7 @@ export default function AnnouncementDetail() {
             <img
               src={resolveCmsUrl(item.image)}
               alt={item.title}
-              onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+              onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
               className="w-full h-full object-cover cursor-zoom-in"
             />
           </div>

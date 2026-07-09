@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchEvents, registerForEvent, unregisterFromEvent, formatEventTime } from "../utils/api";
+import { useDialog } from "../utils/useDialog";
 import type { Event } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
 
@@ -24,6 +25,7 @@ const statusFilters = ["All", "Upcoming", "Ongoing", "Completed", "Closed", "Pos
 export default function Events() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { showAlert } = useDialog();
   const [eventList, setEventList] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +85,11 @@ export default function Events() {
         );
       }
     } catch (err: any) {
-      alert(err.message || "An error occurred updating your registration.");
+      showAlert({
+        title: "Registration Interrupted",
+        message: err.message || "An error occurred updating your registration.",
+        type: "error",
+      });
     } finally {
       setRsvpLoadingId(null);
     }

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Target, Eye, Heart, Check, Save } from "lucide-react";
 import { fetchSiteSettings, updateSiteSettings } from "../../../utils/api";
+import { useDialog } from "../../../utils/useDialog";
 
 export default function AboutMissionVisionSettings() {
+  const { showAlert } = useDialog();
   const [mission, setMission] = useState("");
   const [vision, setVision] = useState("");
   const [values, setValues] = useState("");
@@ -39,7 +41,11 @@ export default function AboutMissionVisionSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert("Failed to save settings.");
+      showAlert({
+        title: "Save Failed",
+        message: "Failed to save settings.",
+        type: "error",
+      });
     } finally {
       setIsSaving(false);
     }

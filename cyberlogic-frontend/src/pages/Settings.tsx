@@ -10,9 +10,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { applyGlobalTheme } from "../utils/theme";
+import { useDialog } from "../utils/useDialog";
 
 export default function Settings() {
   const { user, updateProfile, updatePassword } = useAuth();
+  const { showAlert, showConfirm } = useDialog();
 
   // Profile Details Form States
   const [firstName, setFirstName] = useState("");
@@ -686,9 +688,19 @@ export default function Settings() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm("Are you absolutely sure you want to deactivate your Cyberlogic Portal account? This operation is irreversible.")) {
-                    alert("Account deactivation requested. Please coordinate with a Club Administrator to finalize deletion.");
+                onClick={async () => {
+                  const confirmed = await showConfirm({
+                    title: "Deactivate Account",
+                    message: "Are you absolutely sure you want to deactivate your Cyberlogic Portal account? This operation is irreversible.",
+                    type: "danger",
+                    confirmText: "Deactivate",
+                  });
+                  if (confirmed) {
+                    showAlert({
+                      title: "Request Submitted",
+                      message: "Account deactivation requested. Please coordinate with a Club Administrator to finalize deletion.",
+                      type: "info",
+                    });
                   }
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-error hover:bg-error/90 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"

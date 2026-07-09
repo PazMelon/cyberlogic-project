@@ -3,10 +3,12 @@ import { Plus, Pin, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { fetchAnnouncements, deleteAnnouncement, updateAnnouncement } from "../../utils/api";
 import { Button, DataTable } from "../../components/ui";
+import { useDialog } from "../../utils/useDialog";
 import type { Announcement } from "../../data/mockData";
 
 export default function AnnouncementManagement() {
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useDialog();
   const [announcementList, setAnnouncementList] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,12 +34,23 @@ export default function AnnouncementManagement() {
   };
 
   const handleDeleteAnnouncement = async (id: number) => {
-    if (confirm("Are you sure you want to delete this announcement?")) {
+    const confirmed = await showConfirm({
+      title: "Delete Announcement",
+      message: "Are you sure you want to delete this announcement?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         await deleteAnnouncement(id);
         setAnnouncementList((prev) => prev.filter((a) => a.id !== id));
       } catch (err: any) {
-        alert(err.message || "Failed to delete announcement.");
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete announcement.",
+          type: "error",
+        });
       }
     }
   };
@@ -52,7 +65,11 @@ export default function AnnouncementManagement() {
         prev.map((a) => (a.id === announcement.id ? { ...a, pinned: !a.pinned } : a))
       );
     } catch (err: any) {
-      alert(err.message || "Failed to update pinned state.");
+      showAlert({
+        title: "Pin Update Failed",
+        message: err.message || "Failed to update pinned state.",
+        type: "error",
+      });
     }
   };
 

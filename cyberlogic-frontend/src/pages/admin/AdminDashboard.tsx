@@ -17,9 +17,11 @@ import {
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 import { Button } from "../../components/ui";
 import { fetchUsers, approveUser, rejectUser, fetchAuditLogs } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import type { AuditLogEntry } from "../../utils/api";
 
 export default function AdminDashboard() {
+  const { showAlert, showConfirm } = useDialog();
   const [isLoading, setIsLoading] = useState(true);
   const [totalMembersCount, setTotalMembersCount] = useState(150);
   const [pendingMembersCount, setPendingMembersCount] = useState(3);
@@ -69,20 +71,36 @@ export default function AdminDashboard() {
       setPendingMembersCount((prev) => Math.max(0, prev - 1));
       setTotalMembersCount((prev) => prev + 1);
     } catch (err: any) {
-      alert(err.message || "Failed to approve user registration.");
+      showAlert({
+        title: "Approval Failed",
+        message: err.message || "Failed to approve user registration.",
+        type: "error",
+      });
     }
   };
 
   const handleReject = async (id: number) => {
     const userToReject = pendingList.find((p) => p.id === id);
     if (!userToReject) return;
-    if (confirm(`Are you sure you want to reject and delete ${userToReject.name}'s request?`)) {
+
+    const confirmed = await showConfirm({
+      title: "Reject Request",
+      message: `Are you sure you want to reject and delete ${userToReject.name}'s request?`,
+      type: "danger",
+      confirmText: "Reject",
+    });
+
+    if (confirmed) {
       try {
         await rejectUser(id);
         setPendingList((prev) => prev.filter((p) => p.id !== id));
         setPendingMembersCount((prev) => Math.max(0, prev - 1));
       } catch (err: any) {
-        alert(err.message || "Failed to reject registration request.");
+        showAlert({
+          title: "Rejection Failed",
+          message: err.message || "Failed to reject registration request.",
+          type: "error",
+        });
       }
     }
   };

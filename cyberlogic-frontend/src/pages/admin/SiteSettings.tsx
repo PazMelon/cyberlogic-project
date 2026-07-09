@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { RotateCcw, Check, Palette, Eye, Shield, Calendar } from "lucide-react";
 import { applyGlobalTheme } from "../../utils/theme";
 import { fetchSiteSettings, updateSiteSettings } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import AboutMissionVisionSettings from "../../components/admin/about/AboutMissionVisionSettings";
 import AboutHistorySettings from "../../components/admin/about/AboutHistorySettings";
 import AboutOfficerSettings from "../../components/admin/about/AboutOfficerSettings";
@@ -20,6 +21,7 @@ const availableThemes = [
 ];
 
 export default function SiteSettings() {
+  const { showAlert } = useDialog();
   const [activeTab, setActiveTab] = useState<"theme" | "about_mv" | "about_history" | "about_officers">("theme");
   const [defaultTheme, setDefaultTheme] = useState("cyberpunk");
   const [saved, setSaved] = useState(false);
@@ -56,7 +58,11 @@ export default function SiteSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert("Failed to reset settings.");
+      showAlert({
+        title: "Reset Failed",
+        message: "Failed to reset settings.",
+        type: "error",
+      });
     }
   };
 
@@ -66,7 +72,11 @@ export default function SiteSettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err: any) {
-      alert(err.message || "Failed to save settings.");
+      showAlert({
+        title: "Save Failed",
+        message: err.message || "Failed to save settings.",
+        type: "error",
+      });
     }
   };
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button, Card, DataTable } from "../../components/ui";
 import { apiRequest } from "../../context/AuthContext";
+import { useDialog } from "../../utils/useDialog";
 import { 
   createForumCategory, 
   updateForumCategory, 
@@ -45,6 +46,7 @@ const availableIcons = [
 ];
 
 export default function ForumModeration() {
+  const { showAlert, showConfirm } = useDialog();
   const [threadList, setThreadList] = useState<any[]>([]);
   const [categoriesList, setCategoriesList] = useState<DbForumCategory[]>([]);
   const [isLoadingThreads, setIsLoadingThreads] = useState(true);
@@ -181,13 +183,24 @@ export default function ForumModeration() {
   };
 
   const handleDeleteCategory = async (id: number) => {
-    if (confirm("Are you sure you want to delete this category? All posts in it will be recategorized as General Discussion.")) {
+    const confirmed = await showConfirm({
+      title: "Delete Category",
+      message: "Are you sure you want to delete this category? All posts in it will be recategorized as General Discussion.",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         await deleteForumCategory(id);
         loadCategories();
         loadThreads(); // Reload threads to reflect re-categorization
       } catch (err: any) {
-        alert(err.message || "Failed to delete category.");
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete category.",
+          type: "error",
+        });
       }
     }
   };
@@ -250,7 +263,14 @@ export default function ForumModeration() {
   };
 
   const handleDeleteThread = async (id: number) => {
-    if (confirm("Are you sure you want to delete this thread? This cannot be undone.")) {
+    const confirmed = await showConfirm({
+      title: "Delete Thread",
+      message: "Are you sure you want to delete this thread? This cannot be undone.",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         const res = await apiRequest(`/api/forum/threads/${id}`, { method: "DELETE" });
         if (res.ok) {

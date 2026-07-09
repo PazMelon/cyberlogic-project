@@ -12,9 +12,11 @@ import {
 } from "lucide-react";
 import { fetchForumCategories, createForumThread, type ForumCategoryMapped } from "../utils/api";
 import { Button } from "../components/ui";
+import { useDialog } from "../utils/useDialog";
 
 export default function CreateThread() {
   const navigate = useNavigate();
+  const { showAlert } = useDialog();
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [isLoadingCats, setIsLoadingCats] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +39,11 @@ export default function CreateThread() {
 
   const handleAddPollOption = () => {
     if (pollOptions.length >= 10) {
-      alert("You can add a maximum of 10 options.");
+      showAlert({
+        title: "Limit Exceeded",
+        message: "You can add a maximum of 10 options.",
+        type: "warning",
+      });
       return;
     }
     setPollOptions([...pollOptions, ""]);
@@ -45,7 +51,11 @@ export default function CreateThread() {
 
   const handleRemovePollOption = (index: number) => {
     if (pollOptions.length <= 2) {
-      alert("A poll must have at least 2 options.");
+      showAlert({
+        title: "Minimum Required",
+        message: "A poll must have at least 2 options.",
+        type: "warning",
+      });
       return;
     }
     const newOpts = [...pollOptions];
@@ -90,7 +100,11 @@ export default function CreateThread() {
     
     // Max 5 images
     if (selectedFiles.length + files.length > 5) {
-      alert("You can upload a maximum of 5 images.");
+      showAlert({
+        title: "Upload Limit",
+        message: "You can upload a maximum of 5 images.",
+        type: "warning",
+      });
       return;
     }
 
@@ -99,7 +113,11 @@ export default function CreateThread() {
 
     files.forEach((file) => {
       if (!file.type.startsWith("image/")) {
-        alert("Only image files are allowed.");
+        showAlert({
+          title: "Unsupported Format",
+          message: "Only image files are allowed.",
+          type: "warning",
+        });
         return;
       }
       newFiles.push(file);

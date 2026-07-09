@@ -7,10 +7,12 @@ import {
   deleteOfficer, 
   reorderOfficers 
 } from "../../../utils/api";
+import { useDialog } from "../../../utils/useDialog";
 import type { Officer } from "../../../utils/api";
 import OfficerEditModal from "./OfficerEditModal";
 
 export default function AboutOfficerSettings() {
+  const { showAlert, showConfirm } = useDialog();
   const [officers, setOfficers] = useState<Officer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
@@ -44,12 +46,23 @@ export default function AboutOfficerSettings() {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to remove this officer?")) {
+    const confirmed = await showConfirm({
+      title: "Remove Officer",
+      message: "Are you sure you want to remove this officer?",
+      type: "danger",
+      confirmText: "Remove",
+    });
+
+    if (confirmed) {
       try {
         await deleteOfficer(id);
         setOfficers((prev) => prev.filter((o) => o.id !== id));
       } catch (err) {
-        alert("Failed to remove officer.");
+        showAlert({
+          title: "Removal Failed",
+          message: "Failed to remove officer.",
+          type: "error",
+        });
       }
     }
   };
@@ -68,7 +81,11 @@ export default function AboutOfficerSettings() {
       }
       setModalOpen(false);
     } catch (err: any) {
-      alert(err.message || "Failed to save officer.");
+      showAlert({
+        title: "Save Failed",
+        message: err.message || "Failed to save officer.",
+        type: "error",
+      });
     }
   };
 
@@ -87,7 +104,11 @@ export default function AboutOfficerSettings() {
       const ids = updated.map((o) => o.id);
       await reorderOfficers(ids);
     } catch (err) {
-      alert("Failed to update officer ordering.");
+      showAlert({
+        title: "Reorder Failed",
+        message: "Failed to update officer ordering.",
+        type: "error",
+      });
       loadOfficers(); // Reload to restore previous state
     } finally {
       setIsSavingOrder(false);
@@ -109,7 +130,11 @@ export default function AboutOfficerSettings() {
       const ids = updated.map((o) => o.id);
       await reorderOfficers(ids);
     } catch (err) {
-      alert("Failed to update officer ordering.");
+      showAlert({
+        title: "Reorder Failed",
+        message: "Failed to update officer ordering.",
+        type: "error",
+      });
       loadOfficers();
     } finally {
       setIsSavingOrder(false);

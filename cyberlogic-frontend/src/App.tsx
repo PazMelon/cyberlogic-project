@@ -4,6 +4,7 @@ import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { fetchSiteSettings } from "./utils/api";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import { DialogProvider } from "./context/DialogContext";
 import PublicLayout from "./layouts/PublicLayout";
 import AuthLayout from "./layouts/AuthLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -46,6 +47,7 @@ import SearchResults from "./pages/SearchResults";
 import { Shield } from "lucide-react";
 import PortalLayout from "./layouts/PortalLayout";
 import AttendancePortal from "./pages/portal/AttendancePortal";
+import { NotFound, Forbidden, ServerError } from "./pages/errors";
 
 /**
  * Cybernetic Loader for initial session check
@@ -98,7 +100,7 @@ function AdminGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/app" replace />;
+    return <Navigate to="/403" replace />;
   }
 
   return <>{children}</>;
@@ -269,8 +271,12 @@ function AppRoutes() {
         <Route path="events/:id/attendance" element={<AttendancePortal />} />
       </Route>
 
-      {/* Catch-all redirect */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Error Routes */}
+      <Route path="403" element={<Forbidden />} />
+      <Route path="500" element={<ServerError />} />
+
+      {/* Catch-all route */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
@@ -279,9 +285,11 @@ export default function App() {
   return (
     <AuthProvider>
       <WebSocketProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <DialogProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </DialogProvider>
       </WebSocketProvider>
     </AuthProvider>
   );

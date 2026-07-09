@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthContext";
 import { fetchUsers, updateUserRole, approveUser, rejectUser } from "../../utils/api";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useWebSocket } from "../../context/WebSocketContext";
+import { useDialog } from "../../utils/useDialog";
 import type { DirectoryMember } from "../../data/mockData";
 
 // Mock Audit Logs
@@ -32,6 +33,7 @@ const labelToRole = (label: string) => {
 
 export default function MemberManagement() {
   const { isSuperAdmin } = useAuth();
+  const { showAlert, showConfirm } = useDialog();
   const [activeTab, setActiveTab] = useState<"directory" | "pending" | "suspensions" | "audit">("directory");
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [pending, setPending] = useState<any[]>([]);
@@ -176,7 +178,11 @@ export default function MemberManagement() {
       };
       setAuditLogs([newLog, ...auditLogs]);
     } catch (err: any) {
-      alert(err.message || "Failed to approve member registration.");
+      showAlert({
+        title: "Approval Failed",
+        message: err.message || "Failed to approve member registration.",
+        type: "error",
+      });
     }
   };
 
@@ -184,7 +190,14 @@ export default function MemberManagement() {
     const rejectedUser = pending.find((p) => p.id === id);
     if (!rejectedUser) return;
 
-    if (confirm(`Are you sure you want to reject and delete ${rejectedUser.name}'s request?`)) {
+    const confirmed = await showConfirm({
+      title: "Reject Request",
+      message: `Are you sure you want to reject and delete ${rejectedUser.name}'s request?`,
+      type: "danger",
+      confirmText: "Reject",
+    });
+
+    if (confirmed) {
       try {
         await rejectUser(id);
         setPending(pending.filter((p) => p.id !== id));
@@ -197,7 +210,11 @@ export default function MemberManagement() {
         };
         setAuditLogs([newLog, ...auditLogs]);
       } catch (err: any) {
-        alert(err.message || "Failed to reject registration request.");
+        showAlert({
+          title: "Rejection Failed",
+          message: err.message || "Failed to reject registration request.",
+          type: "error",
+        });
       }
     }
   };
@@ -243,7 +260,11 @@ export default function MemberManagement() {
         };
         setAuditLogs([newLog, ...auditLogs]);
       } catch (err: any) {
-        alert(err.message || "Failed to suspend user.");
+        showAlert({
+          title: "Suspension Failed",
+          message: err.message || "Failed to suspend user.",
+          type: "error",
+        });
         return;
       }
     } else {
@@ -264,7 +285,11 @@ export default function MemberManagement() {
         };
         setAuditLogs([newLog, ...auditLogs]);
       } catch (err: any) {
-        alert(err.message || "Failed to update member role in backend database.");
+        showAlert({
+          title: "Role Update Failed",
+          message: err.message || "Failed to update member role in backend database.",
+          type: "error",
+        });
         return;
       }
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, ArrowUp, ArrowDown, Check, Save, Edit2, Calendar } from "lucide-react";
 import { fetchSiteSettings, updateSiteSettings } from "../../../utils/api";
+import { useDialog } from "../../../utils/useDialog";
 
 interface TimelineEvent {
   year: string;
@@ -42,6 +43,7 @@ const defaultTimeline: TimelineEvent[] = [
 ];
 
 export default function AboutHistorySettings() {
+  const { showAlert, showConfirm } = useDialog();
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -87,7 +89,11 @@ export default function AboutHistorySettings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
-      alert("Failed to save history settings.");
+      showAlert({
+        title: "Save Failed",
+        message: "Failed to save history settings.",
+        type: "error",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -142,8 +148,15 @@ export default function AboutHistorySettings() {
     setDescInput("");
   };
 
-  const handleDelete = (index: number) => {
-    if (confirm("Are you sure you want to delete this event?")) {
+  const handleDelete = async (index: number) => {
+    const confirmed = await showConfirm({
+      title: "Delete Event",
+      message: "Are you sure you want to delete this event?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       setEvents((prev) => prev.filter((_, idx) => idx !== index));
       if (editingIndex === index) {
         handleCancelForm();

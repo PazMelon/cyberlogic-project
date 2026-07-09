@@ -3,6 +3,7 @@ import { useNavigate, Link, useParams } from "react-router";
 import { FileText, ArrowLeft } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchEventById, createEvent, updateEvent } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
 
@@ -10,6 +11,7 @@ export default function CreateEvent() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { showAlert } = useDialog();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -79,7 +81,11 @@ export default function CreateEvent() {
         });
       } catch (err) {
         console.error("Failed to load event details:", err);
-        alert("Failed to load event details from backend database.");
+        showAlert({
+          title: "Load Failed",
+          message: "Failed to load event details from backend database.",
+          type: "error",
+        });
         navigate("/admin/events");
       } finally {
         setIsLoading(false);
@@ -98,7 +104,11 @@ export default function CreateEvent() {
       !editorState.eventEndTime || 
       !editorState.eventLocation
     ) {
-      alert("Please fill in all required fields marked with *");
+      showAlert({
+        title: "Required Fields",
+        message: "Please fill in all required fields marked with *",
+        type: "warning",
+      });
       return;
     }
 
@@ -135,7 +145,11 @@ export default function CreateEvent() {
       navigate("/admin/events");
     } catch (err: any) {
       console.error("Failed to save event:", err);
-      alert(err.message || "Failed to save event to database.");
+      showAlert({
+        title: "Save Failed",
+        message: err.message || "Failed to save event to database.",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }

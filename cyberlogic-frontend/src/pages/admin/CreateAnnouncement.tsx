@@ -3,6 +3,7 @@ import { useNavigate, Link, useParams } from "react-router";
 import { FileText, ArrowLeft } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchAnnouncementById, createAnnouncement, updateAnnouncement } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
 
@@ -10,6 +11,7 @@ export default function CreateAnnouncement() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { showAlert } = useDialog();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,7 +57,11 @@ export default function CreateAnnouncement() {
         });
       } catch (err) {
         console.error("Failed to load announcement details:", err);
-        alert("Failed to load announcement detail from backend database.");
+        showAlert({
+          title: "Load Failed",
+          message: "Failed to load announcement detail from backend database.",
+          type: "error",
+        });
         navigate("/admin/announcements");
       } finally {
         setIsLoading(false);
@@ -94,7 +100,11 @@ export default function CreateAnnouncement() {
       navigate("/admin/announcements");
     } catch (err: any) {
       console.error("Failed to save announcement:", err);
-      alert(err.message || "Failed to save announcement to database.");
+      showAlert({
+        title: "Save Failed",
+        message: err.message || "Failed to save announcement to database.",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }

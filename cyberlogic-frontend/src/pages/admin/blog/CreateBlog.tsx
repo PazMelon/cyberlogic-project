@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchBlogById, createBlog, updateBlog } from "../../../utils/api";
+import { useDialog } from "../../../utils/useDialog";
 import CMSBlogBuilder, { generateId } from "../../../components/ui/CMSBlogBuilder";
 import { BlogHeader } from "./BlogHeader";
 import type { CMSBlogState } from "../../../components/ui/CMSBlogBuilder";
@@ -10,6 +11,7 @@ export function CreateBlog() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { showAlert } = useDialog();
   const editId = id ? Number(id) : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,7 +61,11 @@ export function CreateBlog() {
         });
       } catch (err) {
         console.error("Failed to load blog post details:", err);
-        alert("Failed to load blog details from database.");
+        showAlert({
+          title: "Load Failed",
+          message: "Failed to load blog details from database.",
+          type: "error",
+        });
         navigate("/admin/blogs");
       } finally {
         setIsLoading(false);
@@ -101,7 +107,11 @@ export function CreateBlog() {
       navigate("/admin/blogs");
     } catch (err: any) {
       console.error("Failed to save blog post:", err);
-      alert(err.message || "Failed to save blog post to database.");
+      showAlert({
+        title: "Save Failed",
+        message: err.message || "Failed to save blog post to database.",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }

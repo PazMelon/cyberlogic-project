@@ -6,3 +6,4 @@ export * from "./EventCard";
 export * from "./AnnouncementCard";
 export * from "./DataTable";
 export * from "./BlogCard";
+export * from "./Dialog";

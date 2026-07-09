@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
+import { useDialog } from "../../utils/useDialog";
 import { 
   createChatChannel, 
   updateChatChannel, 
@@ -63,6 +64,7 @@ const ChannelIcon = ({ iconName, className }: { iconName?: string | null; classN
 
 export default function ChatManagement() {
   const { user: currentUser } = useAuth();
+  const { showAlert, showConfirm } = useDialog();
   const [channels, setChannels] = useState<DbChatChannel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -166,16 +168,31 @@ export default function ChatManagement() {
 
   const handleDelete = async (id: number) => {
     if (currentUser?.role !== "superadmin") {
-      alert("Only the superadmin can delete chat channels.");
+      showAlert({
+        title: "Access Denied",
+        message: "Only the superadmin can delete chat channels.",
+        type: "error",
+      });
       return;
     }
 
-    if (confirm("Are you sure you want to permanently delete this chat channel and all of its messages? This cannot be undone.")) {
+    const confirmed = await showConfirm({
+      title: "Delete Channel",
+      message: "Are you sure you want to permanently delete this chat channel and all of its messages? This cannot be undone.",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         await deleteChatChannel(id);
         loadChannels();
       } catch (err: any) {
-        alert(err.message || "Failed to delete channel.");
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete channel.",
+          type: "error",
+        });
       }
     }
   };

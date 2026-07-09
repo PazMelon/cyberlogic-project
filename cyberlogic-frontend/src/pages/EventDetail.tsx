@@ -3,6 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from "react-router";
 import { ChevronLeft, Calendar, Clock, MapPin, Users, Check, CalendarCheck, QrCode, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchEventById, registerForEvent, unregisterFromEvent, formatEventTime, fetchAttendanceQr } from "../utils/api";
+import { useDialog } from "../utils/useDialog";
 import type { Event } from "../data/mockData";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { QRCodeSVG } from "qrcode.react";
@@ -14,6 +15,7 @@ export default function EventDetail() {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
+  const { showAlert } = useDialog();
 
   const [item, setItem] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,11 @@ export default function EventDetail() {
         }
       }
     } catch (err: any) {
-      alert(err.message || "Failed to update registration state.");
+      showAlert({
+        title: "Registration Interrupted",
+        message: err.message || "Failed to update registration state.",
+        type: "error",
+      });
     } finally {
       setRsvpLoading(false);
     }
@@ -337,7 +343,7 @@ export default function EventDetail() {
                 <img
                   src={resolveCmsUrl(item.image)}
                   alt={item.title}
-                  onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+                  onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
                   className="w-full h-full object-cover cursor-zoom-in"
                 />
               </div>
@@ -583,7 +589,7 @@ export default function EventDetail() {
             <img
               src={resolveCmsUrl(item.image)}
               alt={item.title}
-              onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+              onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
               className="w-full h-full object-cover cursor-zoom-in"
             />
           </div>

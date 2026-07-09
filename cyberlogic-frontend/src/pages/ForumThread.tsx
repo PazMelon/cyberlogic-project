@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
+import { useDialog } from "../utils/useDialog";
 import {
   fetchForumThread,
   fetchForumComments,
@@ -50,6 +51,7 @@ import {
 export default function ForumThread() {
   const { threadId } = useParams();
   const { user } = useAuth();
+  const { showAlert } = useDialog();
 
   const [thread, setThread] = useState<ForumThreadMapped | null>(null);
   const [comments, setComments] = useState<ForumCommentMapped[]>([]);
@@ -263,7 +265,11 @@ export default function ForumThread() {
   const handleVotePoll = async (optionId: number) => {
     if (!thread || !thread.poll || isVotingPoll) return;
     if (!user) {
-      alert("You must be logged in to vote.");
+      showAlert({
+        title: "Authentication Required",
+        message: "You must be logged in to vote.",
+        type: "warning",
+      });
       return;
     }
     try {
@@ -274,7 +280,11 @@ export default function ForumThread() {
         poll: updatedPoll
       });
     } catch (err: any) {
-      alert(err.message || "Failed to submit vote.");
+      showAlert({
+        title: "Vote Failed",
+        message: err.message || "Failed to submit vote.",
+        type: "error",
+      });
     } finally {
       setIsVotingPoll(false);
     }
@@ -289,7 +299,11 @@ export default function ForumThread() {
         poll: updatedPoll
       });
     } catch (err: any) {
-      alert(err.message || "Failed to close poll.");
+      showAlert({
+        title: "Failed to Close Poll",
+        message: err.message || "Failed to close poll.",
+        type: "error",
+      });
     }
   };
 

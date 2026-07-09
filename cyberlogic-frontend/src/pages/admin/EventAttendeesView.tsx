@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router";
 import { ArrowLeft, Download, Users, CheckCircle, Clock, AlertCircle, Copy, ExternalLink } from "lucide-react";
 import { fetchEventById, fetchEventAttendees } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import type { Event } from "../../data/mockData";
 import { DataTable } from "../../components/ui";
 
@@ -28,6 +29,7 @@ interface RegistrationRecord {
 export default function EventAttendeesView() {
   const { id } = useParams();
   const eventId = Number(id);
+  const { showAlert } = useDialog();
 
   const rsvpColumns = [
     {
@@ -130,7 +132,11 @@ export default function EventAttendeesView() {
   const handleCopyPortalLink = () => {
     const portalUrl = `${window.location.origin}/portal/events/${eventId}/attendance`;
     navigator.clipboard.writeText(portalUrl);
-    alert("Attendance Portal shareable link copied to clipboard!");
+    showAlert({
+      title: "Link Copied",
+      message: "Attendance Portal shareable link copied to clipboard!",
+      type: "success",
+    });
   };
 
   // Filter/tab states

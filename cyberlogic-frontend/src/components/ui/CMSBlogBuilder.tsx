@@ -1058,7 +1058,7 @@ export default function CMSBlogBuilder({
                   <img
                     src={resolveCmsUrl(state.image)}
                     alt="Cover Preview"
-                    onClick={() => handleImageClick(resolveCmsUrl(state.image))}
+                    onClick={() => handleImageClick(resolveCmsUrl(state.image as string))}
                     className="w-full h-full object-cover cursor-zoom-in"
                   />
                 </div>

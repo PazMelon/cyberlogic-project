@@ -3,11 +3,13 @@ import { Plus, Star, Pencil, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { fetchBlogs, deleteBlog, updateBlog } from "../../../utils/api";
 import { Button, DataTable } from "../../../components/ui";
+import { useDialog } from "../../../utils/useDialog";
 import { BlogStatusBadge } from "./BlogStatusBadge";
 import type { BlogPost } from "../../../data/mockData";
 
 export function BlogManagement() {
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useDialog();
   const [blogList, setBlogList] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -37,12 +39,23 @@ export function BlogManagement() {
   };
 
   const handleDeleteBlog = async (id: number) => {
-    if (confirm("Are you sure you want to delete this blog post?")) {
+    const confirmed = await showConfirm({
+      title: "Delete Blog Post",
+      message: "Are you sure you want to delete this blog post?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         await deleteBlog(id);
         setBlogList((prev) => prev.filter((b) => b.id !== id));
       } catch (err: any) {
-        alert(err.message || "Failed to delete blog post.");
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete blog post.",
+          type: "error",
+        });
       }
     }
   };
@@ -57,7 +70,11 @@ export function BlogManagement() {
         prev.map((b) => (b.id === blog.id ? { ...b, featured: !b.featured } : b))
       );
     } catch (err: any) {
-      alert(err.message || "Failed to update featured state.");
+      showAlert({
+        title: "Featured Update Failed",
+        message: err.message || "Failed to update featured state.",
+        type: "error",
+      });
     }
   };
 

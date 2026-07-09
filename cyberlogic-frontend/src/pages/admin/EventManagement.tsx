@@ -3,17 +3,23 @@ import { Plus, Pencil, Trash2, Clock, MapPin, Scan, List, Copy, ExternalLink } f
 import { useNavigate } from "react-router";
 import { fetchEvents, deleteEvent, formatEventTime, updateEventStatus } from "../../utils/api";
 import { Button, DataTable } from "../../components/ui";
+import { useDialog } from "../../utils/useDialog";
 import type { Event } from "../../data/mockData";
 
 export default function EventManagement() {
   const navigate = useNavigate();
+  const { showAlert, showConfirm } = useDialog();
   const [eventList, setEventList] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const handleCopyPortalLink = (id: number) => {
     const portalUrl = `${window.location.origin}/portal/events/${id}/attendance`;
     navigator.clipboard.writeText(portalUrl);
-    alert("Attendance Portal shareable link copied to clipboard!");
+    showAlert({
+      title: "Link Copied",
+      message: "Attendance Portal shareable link copied to clipboard!",
+      type: "success",
+    });
   };
 
   const loadEvents = async () => {
@@ -34,12 +40,23 @@ export default function EventManagement() {
 
 
   const handleDeleteEvent = async (id: number) => {
-    if (confirm("Are you sure you want to delete this event?")) {
+    const confirmed = await showConfirm({
+      title: "Delete Event",
+      message: "Are you sure you want to delete this event?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
       try {
         await deleteEvent(id);
         setEventList(eventList.filter((e) => e.id !== id));
       } catch (err: any) {
-        alert(err.message || "Failed to delete event.");
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete event.",
+          type: "error",
+        });
       }
     }
   };
@@ -49,7 +66,11 @@ export default function EventManagement() {
       await updateEventStatus(id, status);
       setEventList(prev => prev.map(e => e.id === id ? { ...e, status: status as any } : e));
     } catch (err: any) {
-      alert(err.message || "Failed to update event status.");
+      showAlert({
+        title: "Update Failed",
+        message: err.message || "Failed to update event status.",
+        type: "error",
+      });
     }
   };
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { MessageSquare, Shield, CheckCircle, Trash2, Edit3 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { useDialog } from "../../utils/useDialog";
 import type { ForumCommentMapped } from "../../utils/api";
 import { VoteControl } from "./VoteControl";
 import { CommentForm } from "./CommentForm";
@@ -38,6 +39,7 @@ export function CommentItem({
   depth = 0
 }: CommentItemProps) {
   const { user } = useAuth();
+  const { showConfirm } = useDialog();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
 
@@ -174,8 +176,14 @@ export function CommentItem({
               {(isOwner || isAdmin) && (
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm("Are you sure you want to delete this comment?")) {
+                  onClick={async () => {
+                    const confirmed = await showConfirm({
+                      title: "Delete Comment",
+                      message: "Are you sure you want to delete this comment?",
+                      type: "danger",
+                      confirmText: "Delete",
+                    });
+                    if (confirmed) {
                       onDelete(comment.id);
                     }
                   }}

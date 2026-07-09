@@ -7,9 +7,11 @@ import {
   deleteResource,
   type ResourceMapped,
 } from "../../utils/api";
+import { useDialog } from "../../utils/useDialog";
 import { DataTable } from "../../components/ui";
 
 export default function ResourceManagement() {
+  const { showConfirm } = useDialog();
   const [resources, setResources] = useState<ResourceMapped[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -53,7 +55,13 @@ export default function ResourceManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this resource?")) return;
+    const confirmed = await showConfirm({
+      title: "Delete Resource",
+      message: "Are you sure you want to delete this resource?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
     try {
       await deleteResource(id);
       loadResources();
