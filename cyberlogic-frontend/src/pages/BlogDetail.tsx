@@ -3,7 +3,8 @@ import { useParams, Link, useLocation } from "react-router";
 import { ChevronLeft, Calendar, Clock, Star, Tag, User } from "lucide-react";
 import { fetchBlogById } from "../utils/api";
 import type { BlogPost } from "../data/mockData";
-import BlogContentRenderer from "../components/common/BlogContentRenderer";
+import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
+import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
 
 export default function BlogDetail() {
   const { id } = useParams();
@@ -13,6 +14,8 @@ export default function BlogDetail() {
   const [item, setItem] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   useEffect(() => {
     async function loadDetail() {
@@ -65,18 +68,47 @@ export default function BlogDetail() {
 
   // Fallback image seed parser
   const resolveCoverImage = (url?: string) => {
-    if (!url) {
-      return "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80";
-    }
-    if (url.startsWith("http://") || url.startsWith("https://")) {
-      return url;
-    }
-    return `https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&auto=format&fit=crop&q=80&sig=${encodeURIComponent(url)}`;
+    return resolveCmsUrl(url || "");
   };
 
   const authorAvatar = (item as any).user?.avatar || item.authorAvatar;
   const authorName = (item as any).user?.name || item.author;
   const authorUserId = (item as any).userId || (item as any).user?.id;
+
+  // Gather all images for the fullscreen viewer gallery
+  const allImages: string[] = [];
+  if (item) {
+    if (item.image) {
+      allImages.push(resolveCmsUrl(item.image));
+    }
+    if (item.sections) {
+      let sections: any[] = [];
+      if (typeof item.sections === "string") {
+        try {
+          sections = JSON.parse(item.sections);
+        } catch {}
+      } else if (Array.isArray(item.sections)) {
+        sections = item.sections;
+      }
+      sections.forEach((sec: any) => {
+        if (sec.type === "image" && sec.images) {
+          sec.images.forEach((img: any) => {
+            if (img.url) {
+              allImages.push(resolveCmsUrl(img.url));
+            }
+          });
+        }
+      });
+    }
+  }
+
+  const handleImageClick = (url: string) => {
+    const idx = allImages.indexOf(url);
+    if (idx !== -1) {
+      setActiveImageIndex(idx);
+      setIsViewerOpen(true);
+    }
+  };
 
   if (isPortal) {
     return (
@@ -123,7 +155,8 @@ export default function BlogDetail() {
               <img
                 src={resolveCoverImage(item.image)}
                 alt={item.title}
-                className="w-full h-full object-cover"
+                onClick={() => handleImageClick(resolveCoverImage(item.image))}
+                className="w-full h-full object-cover cursor-zoom-in"
               />
             </div>
 
@@ -139,7 +172,7 @@ export default function BlogDetail() {
               {/* Dynamically Render CMS Blog Sections */}
               {item.sections && item.sections.length > 0 ? (
                 <div className="pt-6 border-t border-border/30 prose prose-invert max-w-none">
-                  <BlogContentRenderer content={item.sections} />
+                  <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
                 </div>
               ) : (
                 <div className="text-xs text-text-muted py-2 italic">
@@ -240,6 +273,14 @@ export default function BlogDetail() {
 
         </div>
 
+        {allImages.length > 0 && (
+          <FullscreenImageViewer
+            images={allImages}
+            initialIndex={activeImageIndex}
+            isOpen={isViewerOpen}
+            onClose={() => setIsViewerOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -326,7 +367,8 @@ export default function BlogDetail() {
           <img
             src={resolveCoverImage(item.image)}
             alt={item.title}
-            className="w-full h-full object-cover"
+            onClick={() => handleImageClick(resolveCoverImage(item.image))}
+            className="w-full h-full object-cover cursor-zoom-in"
           />
         </div>
 
@@ -343,7 +385,7 @@ export default function BlogDetail() {
           {/* Dynamically Render CMS Blog Sections */}
           {item.sections && item.sections.length > 0 ? (
             <div className="pt-6 border-t border-border/30 prose prose-invert max-w-none">
-              <BlogContentRenderer content={item.sections} />
+              <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
             </div>
           ) : (
             <div className="text-xs text-text-muted py-6 italic">
@@ -372,6 +414,15 @@ export default function BlogDetail() {
         </div>
 
       </div>
+      
+      {allImages.length > 0 && (
+        <FullscreenImageViewer
+          images={allImages}
+          initialIndex={activeImageIndex}
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -4,19 +4,36 @@ import type { ContentSection, ImageTemplate } from "../../data/mockData";
 
 interface BlogContentRendererProps {
   content: string | ContentSection[];
+  onImageClick?: (url: string) => void;
 }
+
+/**
+ * Helper to resolve standard or mock image URLs.
+ */
+export const resolveCmsUrl = (url: string) => {
+  if (!url) return "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=60";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60&sig=${encodeURIComponent(url)}`;
+};
 
 /**
  * 1. Template Layout Renderer for Images
  */
-function ImageTemplateGrid({ template, images }: { template: ImageTemplate; images: { url: string; alt: string }[] }) {
+function ImageTemplateGrid({
+  template,
+  images,
+  onImageClick,
+}: {
+  template: ImageTemplate;
+  images: { url: string; alt: string }[];
+  onImageClick?: (url: string) => void;
+}) {
   if (!images || images.length === 0) return null;
 
-  // Smart image seed parser to support easy Dicebear/Unsplash mockup triggers
-  const resolveUrl = (url: string) => {
-    if (!url) return "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop&q=60";
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    return `https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600&auto=format&fit=crop&q=60&sig=${encodeURIComponent(url)}`;
+  const handleImageClick = (url: string) => {
+    if (onImageClick) {
+      onImageClick(resolveCmsUrl(url));
+    }
   };
 
   switch (template) {
@@ -24,9 +41,10 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
       return (
         <div className="relative overflow-hidden rounded-2xl border border-border/80 shadow-md group">
           <img
-            src={resolveUrl(images[0]?.url)}
+            src={resolveCmsUrl(images[0]?.url)}
             alt={images[0]?.alt || "Visual content"}
-            className="w-full max-h-[480px] object-cover transition-transform duration-500 group-hover:scale-105"
+            onClick={() => handleImageClick(images[0]?.url)}
+            className="w-full max-h-[480px] object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
           />
         </div>
       );
@@ -37,9 +55,10 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
           {images.slice(0, 2).map((img, idx) => (
             <div key={idx} className="relative overflow-hidden rounded-2xl border border-border/80 shadow-sm group h-[260px]">
               <img
-                src={resolveUrl(img.url)}
+                src={resolveCmsUrl(img.url)}
                 alt={img.alt || `Side image ${idx + 1}`}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                onClick={() => handleImageClick(img.url)}
+                className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
               />
             </div>
           ))}
@@ -52,25 +71,28 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
           {/* Main big block */}
           <div className="md:col-span-8 md:row-span-2 relative overflow-hidden rounded-2xl border border-border/80 shadow-md group h-[340px]">
             <img
-              src={resolveUrl(images[0]?.url)}
+              src={resolveCmsUrl(images[0]?.url)}
               alt={images[0]?.alt || "Bento main"}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onClick={() => handleImageClick(images[0]?.url)}
+              className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
             />
           </div>
           {/* Top small stack */}
           <div className="md:col-span-4 relative overflow-hidden rounded-2xl border border-border/80 shadow-sm group h-[162px]">
             <img
-              src={resolveUrl(images[1]?.url)}
+              src={resolveCmsUrl(images[1]?.url)}
               alt={images[1]?.alt || "Bento secondary"}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onClick={() => handleImageClick(images[1]?.url)}
+              className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
             />
           </div>
           {/* Bottom small stack */}
           <div className="md:col-span-4 relative overflow-hidden rounded-2xl border border-border/80 shadow-sm group h-[162px]">
             <img
-              src={resolveUrl(images[2]?.url)}
+              src={resolveCmsUrl(images[2]?.url)}
               alt={images[2]?.alt || "Bento tertiary"}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onClick={() => handleImageClick(images[2]?.url)}
+              className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
             />
           </div>
         </div>
@@ -82,9 +104,10 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
           {images.slice(0, 4).map((img, idx) => (
             <div key={idx} className="relative overflow-hidden rounded-2xl border border-border/80 shadow-sm group h-[220px]">
               <img
-                src={resolveUrl(img.url)}
+                src={resolveCmsUrl(img.url)}
                 alt={img.alt || `Grid image ${idx + 1}`}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                onClick={() => handleImageClick(img.url)}
+                className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
               />
             </div>
           ))}
@@ -99,9 +122,10 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
             return (
               <div key={idx} className={`relative overflow-hidden rounded-2xl border border-border/80 shadow-sm group h-[150px] ${spanClass}`}>
                 <img
-                  src={resolveUrl(img.url)}
+                  src={resolveCmsUrl(img.url)}
                   alt={img.alt || `Gallery image ${idx + 1}`}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  onClick={() => handleImageClick(img.url)}
+                  className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
             );
@@ -113,22 +137,29 @@ function ImageTemplateGrid({ template, images }: { template: ImageTemplate; imag
       return (
         <div className="relative overflow-hidden rounded-2xl border border-border/80 shadow-md group h-[220px]">
           <img
-            src={resolveUrl(images[0]?.url)}
+            src={resolveCmsUrl(images[0]?.url)}
             alt={images[0]?.alt || "Cinematic banner"}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onClick={() => handleImageClick(images[0]?.url)}
+            className="w-full h-full object-cover cursor-zoom-in transition-transform duration-500 group-hover:scale-105"
           />
         </div>
       );
 
     case "carousel":
-      return <CarouselLayout images={images} resolveUrl={resolveUrl} />;
+      return <CarouselLayout images={images} onImageClick={onImageClick} />;
 
     default:
       return null;
   }
 }
 
-function CarouselLayout({ images, resolveUrl }: { images: { url: string; alt?: string }[]; resolveUrl: (u: string) => string }) {
+function CarouselLayout({
+  images,
+  onImageClick,
+}: {
+  images: { url: string; alt?: string }[];
+  onImageClick?: (url: string) => void;
+}) {
   const [activeIndex, setActiveIndex] = useState(0);
   const activeImages = images.filter(img => img.url);
 
@@ -150,12 +181,19 @@ function CarouselLayout({ images, resolveUrl }: { images: { url: string; alt?: s
     setActiveIndex(prevVal => (prevVal === activeImages.length - 1 ? 0 : prevVal + 1));
   };
 
+  const handleImageClick = () => {
+    if (onImageClick) {
+      onImageClick(resolveCmsUrl(activeImages[activeIndex].url));
+    }
+  };
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-border/80 shadow-md h-[340px] group bg-surface-950">
       <img
-        src={resolveUrl(activeImages[activeIndex].url)}
+        src={resolveCmsUrl(activeImages[activeIndex].url)}
         alt={activeImages[activeIndex].alt || `Slide ${activeIndex + 1}`}
-        className="w-full h-full object-cover transition-all duration-500 animate-fadeIn"
+        onClick={handleImageClick}
+        className="w-full h-full object-cover cursor-zoom-in transition-all duration-500 animate-fadeIn"
       />
 
       {activeImages.length > 1 && (
@@ -203,7 +241,7 @@ function CarouselLayout({ images, resolveUrl }: { images: { url: string; alt?: s
 /**
  * 2. Main Content Renderer Page Parser
  */
-export default function BlogContentRenderer({ content }: BlogContentRendererProps) {
+export default function BlogContentRenderer({ content, onImageClick }: BlogContentRendererProps) {
   let sections: ContentSection[] = [];
 
   if (typeof content === "string") {
@@ -259,7 +297,7 @@ export default function BlogContentRenderer({ content }: BlogContentRendererProp
             if (!section.template) return null;
             return (
               <div key={section.id} className="space-y-2">
-                <ImageTemplateGrid template={section.template} images={section.images} />
+                <ImageTemplateGrid template={section.template} images={section.images} onImageClick={onImageClick} />
                 {section.caption && (
                   <p className="text-[11px] text-text-muted text-center italic">
                     {section.caption}
@@ -296,3 +334,4 @@ export default function BlogContentRenderer({ content }: BlogContentRendererProp
     </div>
   );
 }
+

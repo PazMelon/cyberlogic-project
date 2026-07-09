@@ -25,8 +25,9 @@ import {
   X
 } from "lucide-react";
 import { Button, Card } from "../ui";
-import BlogContentRenderer from "../common/BlogContentRenderer";
+import BlogContentRenderer, { resolveCmsUrl } from "../common/BlogContentRenderer";
 import { fetchDirectory } from "../../utils/api";
+import { FullscreenImageViewer } from "../forum/FullscreenImageViewer";
 
 // Reusable Subcomponents and Types
 import type { CMSBlogState, ContentSection, ImageTemplate, SectionType } from "./cms/types";
@@ -99,10 +100,39 @@ export default function CMSBlogBuilder({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+
+  // Gather all images for the draft preview fullscreen viewer
+  const allImages: string[] = [];
+  if (state) {
+    if (state.image) {
+      allImages.push(resolveCmsUrl(state.image));
+    }
+    if (state.sections) {
+      state.sections.forEach((sec: any) => {
+        if (sec.type === "image" && sec.images) {
+          sec.images.forEach((img: any) => {
+            if (img.url) {
+              allImages.push(resolveCmsUrl(img.url));
+            }
+          });
+        }
+      });
+    }
+  }
+
+  const handleImageClick = (url: string) => {
+    const idx = allImages.indexOf(url);
+    if (idx !== -1) {
+      setActiveImageIndex(idx);
+      setIsViewerOpen(true);
+    }
+  };
 
   useEffect(() => {
     if (isSuperAdmin) {
@@ -1025,7 +1055,12 @@ export default function CMSBlogBuilder({
               {/* Cover Image banner */}
               {state.image && (
                 <div className="relative aspect-video rounded-xl overflow-hidden border border-border/60">
-                  <img src={state.image} alt="Cover Preview" className="w-full h-full object-cover" />
+                  <img
+                    src={resolveCmsUrl(state.image)}
+                    alt="Cover Preview"
+                    onClick={() => handleImageClick(resolveCmsUrl(state.image))}
+                    className="w-full h-full object-cover cursor-zoom-in"
+                  />
                 </div>
               )}
 
@@ -1039,7 +1074,7 @@ export default function CMSBlogBuilder({
 
                 {state.sections && state.sections.length > 0 ? (
                   <div className="pt-6 border-t border-border/30">
-                    <BlogContentRenderer content={state.sections} />
+                    <BlogContentRenderer content={state.sections} onImageClick={handleImageClick} />
                   </div>
                 ) : (
                   <p className="text-xs text-text-muted italic">No body blocks added yet.</p>
@@ -1062,6 +1097,15 @@ export default function CMSBlogBuilder({
 
           </div>
         </div>
+      )}
+
+      {isViewerOpen && allImages.length > 0 && (
+        <FullscreenImageViewer
+          images={allImages}
+          initialIndex={activeImageIndex}
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+        />
       )}
     </>
   );

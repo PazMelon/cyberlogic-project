@@ -3,7 +3,8 @@ import { useParams, Link, useLocation } from "react-router";
 import { ChevronLeft, Calendar, User, Pin } from "lucide-react";
 import { fetchAnnouncementById } from "../utils/api";
 import type { Announcement } from "../data/mockData";
-import BlogContentRenderer from "../components/common/BlogContentRenderer";
+import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
+import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
 
 export default function AnnouncementDetail() {
   const { id } = useParams();
@@ -13,6 +14,8 @@ export default function AnnouncementDetail() {
   const [item, setItem] = useState<Announcement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   useEffect(() => {
     async function loadDetail() {
@@ -64,6 +67,41 @@ export default function AnnouncementDetail() {
   const authorName = (item as any).user?.name || item.author;
   const authorUserId = (item as any).userId || (item as any).user?.id;
 
+  // Gather all images for the fullscreen viewer gallery
+  const allImages: string[] = [];
+  if (item) {
+    if (item.image) {
+      allImages.push(resolveCmsUrl(item.image));
+    }
+    if (item.sections) {
+      let sections: any[] = [];
+      if (typeof item.sections === "string") {
+        try {
+          sections = JSON.parse(item.sections);
+        } catch {}
+      } else if (Array.isArray(item.sections)) {
+        sections = item.sections;
+      }
+      sections.forEach((sec: any) => {
+        if (sec.type === "image" && sec.images) {
+          sec.images.forEach((img: any) => {
+            if (img.url) {
+              allImages.push(resolveCmsUrl(img.url));
+            }
+          });
+        }
+      });
+    }
+  }
+
+  const handleImageClick = (url: string) => {
+    const idx = allImages.indexOf(url);
+    if (idx !== -1) {
+      setActiveImageIndex(idx);
+      setIsViewerOpen(true);
+    }
+  };
+
   if (isPortal) {
     return (
       <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
@@ -107,7 +145,12 @@ export default function AnnouncementDetail() {
             {/* Cover Image banner */}
             {item.image && (
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-border max-h-[400px]">
-                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                <img
+                  src={resolveCmsUrl(item.image)}
+                  alt={item.title}
+                  onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+                  className="w-full h-full object-cover cursor-zoom-in"
+                />
               </div>
             )}
 
@@ -123,7 +166,7 @@ export default function AnnouncementDetail() {
               {/* Dynamically Render CMS Blog Sections */}
               {item.sections && item.sections.length > 0 ? (
                 <div className="pt-6 border-t border-border/30">
-                  <BlogContentRenderer content={item.sections} />
+                  <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
                 </div>
               ) : (
                 <div className="text-xs text-text-muted py-2 italic">
@@ -204,6 +247,14 @@ export default function AnnouncementDetail() {
 
         </div>
 
+        {allImages.length > 0 && (
+          <FullscreenImageViewer
+            images={allImages}
+            initialIndex={activeImageIndex}
+            isOpen={isViewerOpen}
+            onClose={() => setIsViewerOpen(false)}
+          />
+        )}
       </div>
     );
   }
@@ -281,7 +332,12 @@ export default function AnnouncementDetail() {
         {/* Cover Image banner */}
         {item.image && (
           <div className="relative aspect-video rounded-2xl overflow-hidden border border-border mb-8 max-h-[400px]">
-            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+            <img
+              src={resolveCmsUrl(item.image)}
+              alt={item.title}
+              onClick={() => handleImageClick(resolveCmsUrl(item.image))}
+              className="w-full h-full object-cover cursor-zoom-in"
+            />
           </div>
         )}
 
@@ -298,7 +354,7 @@ export default function AnnouncementDetail() {
           {/* Dynamically Render CMS Blog Sections */}
           {item.sections && item.sections.length > 0 ? (
             <div className="pt-6 border-t border-border/30">
-              <BlogContentRenderer content={item.sections} />
+              <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
             </div>
           ) : (
             <div className="text-xs text-text-muted py-6 italic">
@@ -309,6 +365,15 @@ export default function AnnouncementDetail() {
         </div>
 
       </div>
+      
+      {allImages.length > 0 && (
+        <FullscreenImageViewer
+          images={allImages}
+          initialIndex={activeImageIndex}
+          isOpen={isViewerOpen}
+          onClose={() => setIsViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }
