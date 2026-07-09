@@ -93,6 +93,26 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->status === 'suspended') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            
+            $msg = 'Your account has been suspended.';
+            if ($user->suspended_until) {
+                $msg .= ' Suspended until: ' . \Carbon\Carbon::parse($user->suspended_until)->toDateTimeString() . '.';
+            } else {
+                $msg .= ' This is a permanent ban.';
+            }
+            if ($user->suspension_reason) {
+                $msg .= ' Reason: "' . $user->suspension_reason . '".';
+            }
+            
+            throw ValidationException::withMessages([
+                'email' => [$msg],
+            ]);
+        }
+
         if ($user->status === 'rejected') {
             Auth::logout();
             $request->session()->invalidate();
@@ -486,5 +506,92 @@ class AuthController extends Controller
 
         $permissions = Permission::orderBy('group')->orderBy('label')->get();
         return response()->json($permissions);
+    }
+
+    /**
+     * PUT /api/users/{id}/suspend
+     */
+    public function suspend(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $validated = $request->validate([
+            'duration' => 'required|string|in:7,30,perm',
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        $user = User::findOrFail($id);
+
+        if ($user->id === $currentUser->id) {
+            return response()->json(['error' => 'You cannot suspend your own account.'], 400);
+        }
+
+        $until = null;
+        if ($validated['duration'] === '7') {
+            $until = now()->addDays(7);
+        } elseif ($validated['duration'] === '30') {
+            $until = now()->addDays(30);
+        }
+
+        $user->update([
+            'status' => 'suspended',
+            'suspended_at' => now(),
+            'suspended_until' => $until,
+            'suspension_reason' => $validated['reason'],
+        ]);
+
+        AuditLogger::log('suspended', 'User', $user->id, $user->name, [
+            'duration' => $validated['duration'],
+            'reason' => $validated['reason'],
+        ], $request);
+
+        \App\Services\RealtimeService::broadcast('admin:member_management', [
+            'event' => 'member_suspended',
+            'userId' => $user->id,
+            'member' => $user,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "User {$user->name} has been suspended.",
+            'user' => $user,
+        ]);
+    }
+
+    /**
+     * PUT /api/users/{id}/unsuspend
+     */
+    public function unsuspend(Request $request, $id)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
+            return response()->json(['error' => 'Forbidden. Access denied.'], 403);
+        }
+
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'status' => 'approved',
+            'suspended_at' => null,
+            'suspended_until' => null,
+            'suspension_reason' => null,
+        ]);
+
+        AuditLogger::log('unsuspended', 'User', $user->id, $user->name, null, $request);
+
+        \App\Services\RealtimeService::broadcast('admin:member_management', [
+            'event' => 'member_unsuspended',
+            'userId' => $user->id,
+            'member' => $user,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "User {$user->name} suspension has been lifted.",
+            'user' => $user,
+        ]);
     }
 }

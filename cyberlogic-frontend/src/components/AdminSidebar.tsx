@@ -19,12 +19,15 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useEffect } from "react";
+import { fetchUsers } from "../utils/api";
+import { useWebSocket } from "../context/WebSocketContext";
 
 interface SidebarNavItem {
   icon: any;
   label: string;
   path: string;
-  badge?: number;
+  badgeKey?: string;
   permission?: string;
   superAdminOnly?: boolean;
 }
@@ -44,7 +47,7 @@ const adminNavSections: NavSection[] = [
   {
     title: "Management",
     items: [
-      { icon: Users, label: "Members", path: "/admin/members", badge: 3, permission: "manage_users" },
+      { icon: Users, label: "Members", path: "/admin/members", badgeKey: "pendingMembers", permission: "manage_users" },
       { icon: MessagesSquare, label: "Forums", path: "/admin/forums", permission: "manage_forums" },
       { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat", permission: "manage_chat" },
       { icon: Megaphone, label: "Announcements", path: "/admin/announcements", permission: "manage_announcements" },
@@ -65,13 +68,44 @@ const adminNavSections: NavSection[] = [
 
 export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const location = useLocation();
   const { logout, user, hasPermission, isSuperAdmin } = useAuth();
+  const { subscribe } = useWebSocket();
 
   const isActive = (path: string) => {
     if (path === "/admin") return location.pathname === "/admin";
     return location.pathname.startsWith(path);
   };
+
+  // Fetch initial pending count
+  useEffect(() => {
+    async function loadPendingCount() {
+      try {
+        const users = await fetchUsers();
+        const pendingUsers = users.filter((u) => u.status === "pending");
+        setPendingCount(pendingUsers.length);
+      } catch (err) {
+        console.error("Failed to load initial pending count in AdminSidebar:", err);
+      }
+    }
+    loadPendingCount();
+  }, []);
+
+  // Listen for real-time member registrations approval/pending updates
+  useEffect(() => {
+    const unsubscribe = subscribe("admin:member_management", (payload) => {
+      if (payload.event === "registration_pending") {
+        setPendingCount((prev) => prev + 1);
+      } else if (payload.event === "registration_approved" || payload.event === "registration_rejected") {
+        setPendingCount((prev) => Math.max(0, prev - 1));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribe]);
 
   return (
     <aside
@@ -118,37 +152,40 @@ export default function AdminSidebar() {
                 idx > 0 && <div className="border-t border-border/40 mx-2 my-3" />
               )}
               <div className="space-y-1">
-                {visibleItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                      isActive(item.path)
-                        ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
-                        : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                    }`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <item.icon
-                      className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                        isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                {visibleItems.map((item) => {
+                  const badgeValue = item.badgeKey === "pendingMembers" ? pendingCount : 0;
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
+                        isActive(item.path)
+                          ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
+                          : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
                       }`}
-                    />
-                    {!collapsed && (
-                      <>
-                        <span className="flex-1 truncate">{item.label}</span>
-                        {item.badge && (
-                          <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
-                            {item.badge}
-                          </span>
-                        )}
-                      </>
-                    )}
-                    {isActive(item.path) && !collapsed && !item.badge && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    )}
-                  </Link>
-                ))}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <item.icon
+                        className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                          isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                        }`}
+                      />
+                      {!collapsed && (
+                        <>
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {badgeValue > 0 && (
+                            <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
+                              {badgeValue}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {isActive(item.path) && !collapsed && badgeValue === 0 && (
+                        <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );

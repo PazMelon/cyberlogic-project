@@ -155,17 +155,25 @@ export default function MessageBubble({
         {imagesToRender.length > 0 && (
           <div className="mt-1.5 flex flex-col gap-1.5 max-w-sm rounded-xl overflow-hidden border border-border bg-surface-950">
             {imagesToRender.map((imgUrl, idx) => (
-              <img
-                key={idx}
-                src={imgUrl}
-                alt="Inline Shared Media"
-                className="max-h-60 object-contain w-full hover:scale-101 transition-transform cursor-pointer"
-                onClick={() => window.open(imgUrl, "_blank")}
-                onError={(e) => {
-                  // Hide error icon if url fails
-                  (e.target as HTMLImageElement).style.display = "none";
-                }}
-              />
+              <div key={idx} className="relative bg-surface-900 min-h-[120px] max-h-60 flex items-center justify-center overflow-hidden animate-pulse">
+                <img
+                  src={imgUrl}
+                  alt="Inline Shared Media"
+                  loading="lazy"
+                  decoding="async"
+                  className="max-h-60 object-contain w-full hover:scale-101 transition-transform cursor-pointer opacity-0 transition-opacity duration-300"
+                  onClick={() => window.open(imgUrl, "_blank")}
+                  onLoad={(e) => {
+                    e.currentTarget.classList.remove("opacity-0");
+                    e.currentTarget.parentElement?.classList.remove("animate-pulse");
+                  }}
+                  onError={(e) => {
+                    // Hide error icon and container if url fails
+                    const parent = (e.target as HTMLImageElement).parentElement;
+                    if (parent) parent.style.display = "none";
+                  }}
+                />
+              </div>
             ))}
           </div>
         )}
@@ -231,14 +239,23 @@ export default function MessageBubble({
           >
             <div className="min-w-0">
               {isImage ? (
-                <img
-                  src={cleanUrl}
-                  alt="Replied Image"
-                  className="max-h-20 max-w-[120px] rounded-lg object-contain border border-border/30"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
-                />
+                <div className="relative bg-surface-900 min-h-[40px] max-h-20 max-w-[120px] rounded-lg overflow-hidden flex items-center justify-center animate-pulse">
+                  <img
+                    src={cleanUrl}
+                    alt="Replied Image"
+                    loading="lazy"
+                    decoding="async"
+                    className="max-h-20 max-w-[120px] object-contain border border-border/30 opacity-0 transition-opacity duration-300"
+                    onLoad={(e) => {
+                      e.currentTarget.classList.remove("opacity-0");
+                      e.currentTarget.parentElement?.classList.remove("animate-pulse");
+                    }}
+                    onError={(e) => {
+                      const parent = (e.target as HTMLImageElement).parentElement;
+                      if (parent) parent.style.display = "none";
+                    }}
+                  />
+                </div>
               ) : (
                 <span className="opacity-90 break-words whitespace-pre-wrap">{message.replyTo.content}</span>
               )}

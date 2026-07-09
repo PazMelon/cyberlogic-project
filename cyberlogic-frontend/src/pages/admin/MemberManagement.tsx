@@ -10,19 +10,12 @@ import {
   Calendar,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { fetchUsers, updateUserRole, approveUser, rejectUser } from "../../utils/api";
+import { fetchUsers, updateUserRole, approveUser, rejectUser, suspendUser, unsuspendUser, fetchAuditLogs } from "../../utils/api";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useWebSocket } from "../../context/WebSocketContext";
 import { useDialog } from "../../utils/useDialog";
 import type { DirectoryMember } from "../../data/mockData";
-
-// Mock Audit Logs
-const initialAuditLogs = [
-  { id: 1, actor: "Alex Reyes", action: "Approved James Lim's registration request", timestamp: "2 hours ago" },
-  { id: 2, actor: "Alex Reyes", action: "Suspended Mark Dela Cruz (Duration: 7 days)", reason: "Spamming post replies", timestamp: "1 day ago" },
-  { id: 3, actor: "System", action: "Auto-verified student ID: 2026-00789", timestamp: "2 days ago" },
-  { id: 4, actor: "Samantha Cruz", action: "Promoted Carlos Mendoza to Tech Lead", timestamp: "3 days ago" },
-];
+import type { AuditLogEntry } from "../../utils/api";
 
 const labelToRole = (label: string) => {
   const l = label.toLowerCase();
@@ -37,20 +30,8 @@ export default function MemberManagement() {
   const [activeTab, setActiveTab] = useState<"directory" | "pending" | "suspensions" | "audit">("directory");
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [pending, setPending] = useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
-  const [bannedMembers, setBannedMembers] = useState([
-    {
-      id: 999,
-      name: "Mark Dela Cruz",
-      email: "mark.dc@uni.edu",
-      studentId: "2024-00155",
-      department: "Computer Science",
-      avatar: "https://api.dicebear.com/9.x/avataaars/svg?seed=mark",
-      banReason: "Spamming link redirects in Chat general channel.",
-      banDate: "2026-07-03",
-      banDuration: "7 Days",
-    },
-  ]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [bannedMembers, setBannedMembers] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -65,10 +46,14 @@ export default function MemberManagement() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const users = await fetchUsers();
+      const [users, logsResponse] = await Promise.all([
+        fetchUsers(),
+        fetchAuditLogs({ per_page: 200 })
+      ]);
       
-      const approvedUsers = users.filter((u) => u.status !== "pending");
+      const approvedUsers = users.filter((u) => u.status === "approved");
       const pendingUsers = users.filter((u) => u.status === "pending");
+      const suspendedUsers = users.filter((u) => u.status === "suspended");
 
       const mappedMembers: DirectoryMember[] = approvedUsers.map((u) => ({
         id: u.id,
@@ -96,8 +81,32 @@ export default function MemberManagement() {
         appliedDate: u.joinedDate || new Date().toISOString().split("T")[0]
       }));
 
+      const mappedSuspended = suspendedUsers.map((u) => {
+        const banDays = u.suspended_at && u.suspended_until 
+          ? Math.round((new Date(u.suspended_until).getTime() - new Date(u.suspended_at).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        return {
+          id: u.id,
+          name: `${u.first_name} ${u.last_name}`,
+          email: u.email,
+          avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+          studentId: u.school_id,
+          department: u.department || "Computer Science",
+          banReason: u.suspension_reason || "Violated club guidelines.",
+          banDate: u.suspended_at ? u.suspended_at.split("T")[0] : new Date().toISOString().split("T")[0],
+          banDuration: banDays ? `${banDays} Days` : "Permanent"
+        };
+      });
+
+      const allowedActions = ["registered", "approved", "deleted", "suspended", "unsuspended"];
+      const filteredLogs = (logsResponse.data || []).filter(
+        (log: any) => allowedActions.includes(log.action) && log.entity_type === "User"
+      );
+
       setMembers(mappedMembers);
       setPending(mappedPending);
+      setBannedMembers(mappedSuspended);
+      setAuditLogs(filteredLogs);
     } catch (err) {
       console.error("Failed to load members from DB:", err);
     } finally {
@@ -120,6 +129,7 @@ export default function MemberManagement() {
         });
       } else if (payload.event === "registration_approved") {
         setPending((prev) => prev.filter((p) => p.id !== payload.userId));
+        setBannedMembers((prev) => prev.filter((b) => b.id !== payload.userId));
         setMembers((prev) => {
           if (prev.some((m) => m.id === payload.userId)) return prev;
           return [{ ...payload.member, animate: "animate-row-pulse" }, ...prev];
@@ -127,6 +137,31 @@ export default function MemberManagement() {
       } else if (payload.event === "registration_rejected") {
         setPending((prev) => prev.filter((p) => p.id !== payload.userId));
         setMembers((prev) => prev.filter((m) => m.id !== payload.userId));
+      } else if (payload.event === "member_suspended") {
+        const u = payload.member;
+        setMembers((prev) => prev.filter((m) => m.id !== payload.userId));
+        setBannedMembers((prev) => {
+          if (prev.some((b) => b.id === payload.userId)) return prev;
+          const banDays = u.suspended_at && u.suspended_until 
+            ? Math.round((new Date(u.suspended_until).getTime() - new Date(u.suspended_at).getTime()) / (1000 * 60 * 60 * 24))
+            : null;
+          return [
+            {
+              id: u.id,
+              name: `${u.first_name} ${u.last_name}`,
+              email: u.email,
+              avatar: u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.first_name}`,
+              studentId: u.school_id,
+              department: u.department || "Computer Science",
+              banReason: u.suspension_reason || "Violated club guidelines.",
+              banDate: u.suspended_at ? u.suspended_at.split("T")[0] : new Date().toISOString().split("T")[0],
+              banDuration: banDays ? `${banDays} Days` : "Permanent"
+            },
+            ...prev
+          ];
+        });
+      } else if (payload.event === "member_unsuspended") {
+        setBannedMembers((prev) => prev.filter((b) => b.id !== payload.userId));
       }
     });
 
@@ -150,33 +185,14 @@ export default function MemberManagement() {
     try {
       await approveUser(id);
       
-      const newMember: DirectoryMember = {
-        id: userToApprove.id,
-        name: userToApprove.name,
-        email: userToApprove.email,
-        avatar: userToApprove.avatar,
-        role: "Member",
-        department: userToApprove.department,
-        yearLevel: "1st Year",
-        expertise: ["General Tech"],
-        badges: [],
-        joinedDate: new Date().toISOString().split("T")[0],
-        status: "offline",
-        bio: "Registered digital innovation enthusiast.",
-        studentId: userToApprove.studentId,
-      };
+      // Reload lists and audit logs from database
+      await loadData();
 
-      setMembers([...members, newMember]);
-      setPending(pending.filter((p) => p.id !== id));
-      
-      // Add to audit logs
-      const newLog = {
-        id: Date.now(),
-        actor: "System Admin",
-        action: `Approved ${userToApprove.name}'s registration request`,
-        timestamp: "Just now",
-      };
-      setAuditLogs([newLog, ...auditLogs]);
+      showAlert({
+        title: "Registration Approved",
+        message: `${userToApprove.name} has been approved successfully.`,
+        type: "success",
+      });
     } catch (err: any) {
       showAlert({
         title: "Approval Failed",
@@ -200,15 +216,15 @@ export default function MemberManagement() {
     if (confirmed) {
       try {
         await rejectUser(id);
-        setPending(pending.filter((p) => p.id !== id));
         
-        const newLog = {
-          id: Date.now(),
-          actor: "System Admin",
-          action: `Rejected and deleted ${rejectedUser.name}'s registration request`,
-          timestamp: "Just now",
-        };
-        setAuditLogs([newLog, ...auditLogs]);
+        // Reload lists and audit logs from database
+        await loadData();
+
+        showAlert({
+          title: "Registration Rejected",
+          message: `${rejectedUser.name} has been rejected and deleted.`,
+          type: "success",
+        });
       } catch (err: any) {
         showAlert({
           title: "Rejection Failed",
@@ -232,33 +248,17 @@ export default function MemberManagement() {
 
     // Check if ban is triggered
     if (banLength !== "none") {
-      const banObj = {
-        id: selectedUser.id,
-        name: selectedUser.name,
-        email: selectedUser.email,
-        studentId: selectedUser.studentId || "N/A",
-        department: selectedUser.department || "Computer Science",
-        avatar: selectedUser.avatar,
-        banReason: banReason || "Violated club forum guidelines.",
-        banDate: new Date().toISOString().split("T")[0],
-        banDuration: banLength === "perm" ? "Permanent" : banLength === "30" ? "30 Days" : "7 Days",
-      };
-
       try {
-        // Since ban is local/mock in the UI, we just delete them from DB or keep local ban state.
-        // Let's delete them from DB to make it real, or just remove them from UI active list.
-        await rejectUser(selectedUser.id);
-        setMembers(members.filter((m) => m.id !== selectedUser.id));
-        setBannedMembers([...bannedMembers, banObj]);
-
-        const newLog = {
-          id: Date.now(),
-          actor: "System Admin",
-          action: `Suspended ${selectedUser.name} (Duration: ${banObj.banDuration})`,
-          reason: banObj.banReason,
-          timestamp: "Just now",
-        };
-        setAuditLogs([newLog, ...auditLogs]);
+        await suspendUser(selectedUser.id, banLength, banReason || "Violated club guidelines.");
+        
+        // Refresh everything to reflect DB change
+        await loadData();
+        
+        showAlert({
+          title: "Suspended Successfully",
+          message: `${selectedUser.name} has been suspended.`,
+          type: "success",
+        });
       } catch (err: any) {
         showAlert({
           title: "Suspension Failed",
@@ -273,17 +273,14 @@ export default function MemberManagement() {
         const backendRole = labelToRole(editRole);
         await updateUserRole(selectedUser.id, backendRole);
 
-        setMembers(
-          members.map((m) => (m.id === selectedUser.id ? { ...m, role: editRole as any } : m))
-        );
+        // Refresh database state
+        await loadData();
 
-        const newLog = {
-          id: Date.now(),
-          actor: "Club Moderator",
-          action: `Updated role of ${selectedUser.name} to ${editRole}`,
-          timestamp: "Just now",
-        };
-        setAuditLogs([newLog, ...auditLogs]);
+        showAlert({
+          title: "Role Updated",
+          message: `Role of ${selectedUser.name} updated to ${editRole}.`,
+          type: "success",
+        });
       } catch (err: any) {
         showAlert({
           title: "Role Update Failed",
@@ -297,35 +294,28 @@ export default function MemberManagement() {
     setSelectedUser(null);
   };
 
-  const handleUnban = (id: number) => {
+  const handleUnban = async (id: number) => {
     const unbanned = bannedMembers.find((b) => b.id === id);
     if (!unbanned) return;
 
-    const restored: DirectoryMember = {
-      id: unbanned.id,
-      name: unbanned.name,
-      email: unbanned.email,
-      avatar: unbanned.avatar,
-      role: "Member",
-      department: unbanned.department,
-      yearLevel: "3rd Year",
-      expertise: ["General Tech"],
-      badges: [],
-      joinedDate: new Date().toISOString().split("T")[0],
-      status: "offline",
-      bio: "Restored from suspension registry.",
-    };
+    try {
+      await unsuspendUser(id);
+      
+      // Refresh database state
+      await loadData();
 
-    setMembers([...members, restored]);
-    setBannedMembers(bannedMembers.filter((b) => b.id !== id));
-
-    const newLog = {
-      id: Date.now(),
-      actor: "System Admin",
-      action: `Lifted suspension for ${unbanned.name}`,
-      timestamp: "Just now",
-    };
-    setAuditLogs([newLog, ...auditLogs]);
+      showAlert({
+        title: "Suspension Lifted",
+        message: `Suspension for ${unbanned.name} has been lifted.`,
+        type: "success",
+      });
+    } catch (err: any) {
+      showAlert({
+        title: "Action Failed",
+        message: err.message || "Failed to lift suspension.",
+        type: "error",
+      });
+    }
   };
 
   const directoryColumns = [
@@ -487,6 +477,70 @@ export default function MemberManagement() {
         </Button>
       ),
       className: "text-right"
+    }
+  ];
+
+  const auditLogsColumns = [
+    {
+      header: "Actor",
+      accessor: (log: any) => (
+        <span className="font-semibold text-text-secondary">{log.user_name || "System"}</span>
+      ),
+      sortable: true,
+      sortKey: "user_name" as any,
+    },
+    {
+      header: "Action Type",
+      accessor: (log: any) => {
+        let actionColor = "text-text-primary";
+        if (log.action === "registered" || log.action === "approved" || log.action === "unsuspended") {
+          actionColor = "text-success font-medium";
+        } else if (log.action === "suspended" || log.action === "deleted") {
+          actionColor = "text-error font-medium";
+        }
+        return (
+          <span className={`capitalize ${actionColor}`}>{log.action}</span>
+        );
+      },
+      sortable: true,
+      sortKey: "action" as any,
+    },
+    {
+      header: "Description / Reason",
+      accessor: (log: any) => (
+        <div>
+          <span className="text-xs text-text-primary">
+            {log.action === "registered" && `Requested membership registration`}
+            {log.action === "approved" && `Approved membership registration`}
+            {log.action === "deleted" && `Rejected and deleted registration request`}
+            {log.action === "suspended" && `Suspended account`}
+            {log.action === "unsuspended" && `Restored/Unsuspended account`}
+          </span>
+          {log.metadata?.reason && (
+            <p className="text-[11px] text-error/70 mt-0.5 italic">
+              Reason: "{log.metadata.reason}"
+            </p>
+          )}
+        </div>
+      ),
+      sortable: true,
+      sortKey: "action" as any,
+    },
+    {
+      header: "Target Member",
+      accessor: (log: any) => <span className="text-xs text-text-primary">{log.entity_label || "N/A"}</span>,
+      sortable: true,
+      sortKey: "entity_label" as any,
+    },
+    {
+      header: "Timestamp",
+      accessor: (log: any) => (
+        <span className="text-xs text-text-muted">
+          {new Date(log.created_at).toLocaleString()}
+        </span>
+      ),
+      sortable: true,
+      sortKey: "created_at" as any,
     }
   ];
 
@@ -748,31 +802,12 @@ export default function MemberManagement() {
 
           {/* AUDIT LOG LIST */}
           {activeTab === "audit" && (
-            <div className="glass rounded-xl p-5 space-y-4 animate-fadeIn">
-              <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-                <History className="w-4 h-4 text-amber-500" /> Admin Audit Logs
-              </h2>
-              <div className="space-y-3">
-                {auditLogs.map((log) => (
-                  <div
-                    key={log.id}
-                    className="p-3.5 rounded-lg border border-border/80 bg-surface-900/10 flex items-start justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <p className="text-text-primary">
-                        <span className="font-semibold text-text-secondary">{log.actor}</span>: {log.action}
-                      </p>
-                      {log.reason && (
-                        <p className="text-[11px] text-error/70 mt-1 italic font-serif">
-                          Reason: &quot;{log.reason}&quot;
-                        </p>
-                      )}
-                    </div>
-                    <time className="text-[10px] text-text-muted flex-shrink-0">{log.timestamp}</time>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DataTable
+              data={auditLogs}
+              columns={auditLogsColumns}
+              searchPlaceholder="Search audit logs by actor, action type, target..."
+              emptyStateText="No member management logs found."
+            />
           )}
 
         </div>

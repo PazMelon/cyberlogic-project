@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'admin_position', 'bio', 'expertise', 'avatar_path', 'status'])]
+#[Fillable(['first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'admin_position', 'bio', 'expertise', 'avatar_path', 'status', 'suspended_at', 'suspended_until', 'suspension_reason'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {

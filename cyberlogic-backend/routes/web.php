@@ -74,6 +74,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/users', [AuthController::class, 'index']);
     Route::put('/api/users/{id}/role', [AuthController::class, 'updateRole']);
     Route::put('/api/users/{id}/approve', [AuthController::class, 'approve']);
+    Route::put('/api/users/{id}/suspend', [AuthController::class, 'suspend']);
+    Route::put('/api/users/{id}/unsuspend', [AuthController::class, 'unsuspend']);
     Route::delete('/api/users/{id}', [AuthController::class, 'destroy']);
 
     // CMS Blog Builder Actions protected by session auth and throttle limiters

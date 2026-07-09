@@ -420,6 +420,35 @@ export async function rejectUser(userId: number): Promise<void> {
   }
 }
 
+export async function suspendUser(userId: number, duration: string, reason: string): Promise<DbUser> {
+  const res = await apiRequest(`/api/users/${userId}/suspend`, {
+    method: "PUT",
+    body: JSON.stringify({ duration, reason })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to suspend user.");
+  }
+
+  const data = await res.json();
+  return data.user;
+}
+
+export async function unsuspendUser(userId: number): Promise<DbUser> {
+  const res = await apiRequest(`/api/users/${userId}/unsuspend`, {
+    method: "PUT"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to unsuspend user.");
+  }
+
+  const data = await res.json();
+  return data.user;
+}
+
 /**
  * GET /api/events
  * Fetch all events.
