@@ -124,6 +124,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/admin/chat/channels/{id}', [ChatController::class, 'update']);
     Route::delete('/api/admin/chat/channels/{id}', [ChatController::class, 'destroy']);
     Route::put('/api/admin/chat/channels/reorder', [ChatController::class, 'reorder']);
+    Route::post('/api/admin/chat/gifs', [ChatController::class, 'storeGif']);
+    Route::delete('/api/admin/chat/gifs/{id}', [ChatController::class, 'destroyGif']);
 
     Route::post('/api/admin/forum/categories', [ForumCategoryController::class, 'store']);
     Route::put('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'update']);

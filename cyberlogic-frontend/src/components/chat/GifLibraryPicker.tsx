@@ -7,6 +7,12 @@ interface SavedGif {
   title: string;
   url: string;
   category: string | null;
+  user?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    avatar: string;
+  } | null;
 }
 
 interface GifLibraryPickerProps {
@@ -17,10 +23,85 @@ interface GifLibraryPickerProps {
 export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPickerProps) {
   const [gifs, setGifs] = useState<SavedGif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 15;
 
-  // Form states to add new GIF
+  const categories = ["All", "Reaction", "Funny", "Agree", "Shocked", "Thanks", "Other"];
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pillsRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const pills = pillsRef.current;
+    if (!pills) return;
+    isDraggingRef.current = true;
+    startXRef.current = e.pageX - pills.offsetLeft;
+    scrollLeftRef.current = pills.scrollLeft;
+  };
+
+  const handleMouseLeave = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    const pills = pillsRef.current;
+    if (!pills) return;
+    const x = e.pageX - pills.offsetLeft;
+    const walk = (x - startXRef.current) * 1.5;
+    pills.scrollLeft = scrollLeftRef.current - walk;
+  };
+
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(true);
+    fetchGifs(true, searchQuery, selectedCategory);
+  }, [searchQuery, selectedCategory]);
+
+  async function fetchGifs(isInitial = false, customSearch?: string, customCategory?: string) {
+    const currentOffset = isInitial ? 0 : offset;
+    const currentSearch = customSearch !== undefined ? customSearch : searchQuery;
+    const currentCategory = customCategory !== undefined ? customCategory : selectedCategory;
+    try {
+      if (isInitial) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const res = await apiRequest(`/api/chat/gifs?limit=${LIMIT}&offset=${currentOffset}&search=${encodeURIComponent(currentSearch)}&category=${encodeURIComponent(currentCategory)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (isInitial) {
+          setGifs(data);
+        } else {
+          setGifs((prev) => [...prev, ...data]);
+        }
+        setOffset(currentOffset + data.length);
+        if (data.length < LIMIT) {
+          setHasMore(false);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load GIF library:", err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -28,38 +109,6 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    fetchGifs();
-  }, []);
-
-  async function fetchGifs() {
-    try {
-      setLoading(true);
-      const res = await apiRequest("/api/chat/gifs");
-      if (res.ok) {
-        const data = await res.json();
-        setGifs(data);
-      }
-    } catch (err) {
-      console.error("Failed to load GIF library:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Handle clicking outside to close
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
 
   const handleAddGif = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,13 +150,26 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
     }
   };
 
-  // Filtering
-  const filteredGifs = gifs.filter((gif) => {
-    return (
-      gif.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (gif.category && gif.category.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  });
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    if (loading || loadingMore || !hasMore) return;
+
+    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 50;
+    if (isNearBottom) {
+      fetchGifs(false);
+    }
+  };
+
+  // Handle clicking outside to close
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [onClose]);
 
   return (
     <div
@@ -204,7 +266,7 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
       ) : (
         /* GIFs Grid */
         <>
-          {/* Search */}
+          {/* Search & Categories */}
           <div className="p-2.5 bg-surface-950/60 border-b border-border flex flex-col gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-muted" />
@@ -216,16 +278,52 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
                 className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg bg-surface-900 border border-border/80 text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
               />
             </div>
+
+            {/* Category Pills */}
+            <style>{`
+              .pills-container::-webkit-scrollbar {
+                display: none !important;
+              }
+            `}</style>
+            <div
+              ref={pillsRef}
+              onMouseDown={handleMouseDown}
+              onMouseLeave={handleMouseLeave}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              className="flex gap-1.5 overflow-x-auto pb-1 select-none cursor-grab active:cursor-grabbing pills-container"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border transition-all cursor-pointer whitespace-nowrap ${
+                    selectedCategory === cat
+                      ? "bg-primary/20 border-primary text-primary"
+                      : "bg-surface-850 border-border/40 text-text-muted hover:text-text-primary hover:bg-surface-800"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Grid Container */}
-          <div className="flex-1 overflow-y-auto p-3 min-h-[220px]">
+          <div 
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto p-3 min-h-[220px]"
+          >
             {loading ? (
               <div className="h-48 flex flex-col items-center justify-center gap-2 text-text-muted">
                 <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 <span className="text-xs">Loading library...</span>
               </div>
-            ) : filteredGifs.length === 0 ? (
+            ) : gifs.length === 0 ? (
               <div className="h-48 flex flex-col items-center justify-center gap-1.5 text-text-muted text-center p-4">
                 <ImageIcon className="w-8 h-8 opacity-45 mb-1" />
                 <p className="text-xs font-semibold text-text-secondary">No GIFs found</p>
@@ -234,32 +332,48 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {filteredGifs.map((gif) => (
-                  <button
-                    key={gif.id}
-                    onClick={() => {
-                      onSelectGif(gif.url);
-                      onClose();
-                    }}
-                    className="group relative flex flex-col rounded-xl overflow-hidden border border-border bg-surface-950 hover:border-primary/50 transition-all text-left shadow-xs cursor-pointer"
-                  >
-                    <div className="h-24 w-full bg-surface-900 overflow-hidden relative">
-                      <img
-                        src={gif.url}
-                        alt={gif.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-text-secondary px-1 py-0.5 rounded backdrop-blur-xs font-bold">
-                        {gif.category || "Reaction"}
-                      </span>
-                    </div>
-                    <div className="p-1.5">
-                      <p className="text-[10px] font-semibold text-text-primary truncate">{gif.title}</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  {gifs.map((gif) => (
+                    <button
+                      key={gif.id}
+                      onClick={() => {
+                        onSelectGif(gif.url);
+                        onClose();
+                      }}
+                      className="group relative flex flex-col rounded-xl overflow-hidden border border-border bg-surface-950 hover:border-primary/50 transition-all text-left shadow-xs cursor-pointer"
+                    >
+                      <div className="h-24 w-full bg-surface-900 overflow-hidden relative">
+                        <img
+                          src={gif.url}
+                          alt={gif.title}
+                          loading="lazy"
+                          className="w-full h-full object-contain transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="p-1.5 min-w-0 w-full">
+                        <p className="text-[10px] font-semibold text-text-primary truncate">{gif.title}</p>
+                        {gif.user ? (
+                          <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
+                            <img src={gif.user.avatar} className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" />
+                            <span className="text-[8px] text-text-muted truncate">By {gif.user.first_name}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
+                            <div className="w-3.5 h-3.5 rounded-full bg-surface-800 flex items-center justify-center text-[7px] text-text-muted flex-shrink-0 font-bold">S</div>
+                            <span className="text-[8px] text-text-muted truncate">System</span>
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {loadingMore && (
+                  <div className="flex justify-center py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  </div>
+                )}
               </div>
             )}
           </div>

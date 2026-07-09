@@ -15,5 +15,11 @@ class ChatSavedMedia extends Model
         'title',
         'url',
         'category',
+        'user_id',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

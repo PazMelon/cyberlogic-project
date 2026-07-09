@@ -352,18 +352,31 @@ class ChatController extends Controller
         return response()->json(['message' => 'Channel sorting updated successfully']);
     }
 
-    /**
-     * Get list of all saved GIF/image links.
-     */
-    public function getGifs(): JsonResponse
+    public function getGifs(Request $request): JsonResponse
     {
-        $gifs = ChatSavedMedia::orderBy('created_at', 'desc')->get();
+        $limit = $request->query('limit', 15);
+        $offset = $request->query('offset', 0);
+        $search = $request->query('search', '');
+        $category = $request->query('category', '');
+
+        $query = ChatSavedMedia::with(['user:id,first_name,last_name,avatar_path'])
+            ->orderBy('created_at', 'desc');
+
+        if (!empty($search)) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        if (!empty($category) && $category !== 'All') {
+            $query->where('category', $category);
+        }
+
+        $gifs = $query->offset($offset)->limit($limit)->get();
         return response()->json($gifs);
     }
 
-    /**
-     * Save a new GIF/image link to the library.
-     */
     public function storeGif(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -372,8 +385,26 @@ class ChatController extends Controller
             'category' => 'nullable|string|max:50',
         ]);
 
+        $validated['user_id'] = $request->user() ? $request->user()->id : null;
+
         $gif = ChatSavedMedia::create($validated);
+        $gif->load('user:id,first_name,last_name,avatar_path');
+
+        AuditLogger::log('created', 'ChatSavedMedia', $gif->id, $gif->title, ['url' => $gif->url], $request);
 
         return response()->json($gif, 201);
+    }
+
+    /**
+     * Delete a saved GIF/image link.
+     */
+    public function destroyGif(Request $request, int $id): JsonResponse
+    {
+        $gif = ChatSavedMedia::findOrFail($id);
+        
+        AuditLogger::log('deleted', 'ChatSavedMedia', $gif->id, $gif->title, ['url' => $gif->url], $request);
+
+        $gif->delete();
+        return response()->json(['message' => 'Media link deleted successfully']);
     }
 }

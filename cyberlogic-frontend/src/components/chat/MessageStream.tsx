@@ -66,9 +66,9 @@ export default function MessageStream({
     }
     // Case 3: New message added to bottom
     else if (lastMsg && lastLastMessageIdRef.current !== lastMsg.id) {
-      // Only scroll to bottom if user was already near the bottom (within 250px)
+      const isSentByMe = currentUserId && Number(lastMsg.authorId) === Number(currentUserId);
       const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 250;
-      if (isNearBottom) {
+      if (isSentByMe || isNearBottom) {
         container.scrollTop = container.scrollHeight;
       }
     }

@@ -114,6 +114,7 @@ export default function MessageBubble({
           cleanUrl.includes("tenor.com/view/")
         ) {
           imagesToRender.push(cleanUrl);
+          return null; // Hide the raw URL link text since the image itself is rendered inline
         }
         return (
           <a

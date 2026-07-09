@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Plus, 
   Pencil, 
@@ -81,6 +81,23 @@ export default function ChatManagement() {
   const [isArchived, setIsArchived] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Tabs & Library States
+  const [activeTab, setActiveTab] = useState<"channels" | "library">("channels");
+  const [library, setLibrary] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [mediaTitle, setMediaTitle] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaCategory, setMediaCategory] = useState("");
+  const [searchLibraryQuery, setSearchLibraryQuery] = useState("");
+
+  // Infinite Scroll States
+  const [libraryOffset, setLibraryOffset] = useState(0);
+  const [libraryHasMore, setLibraryHasMore] = useState(true);
+  const [libraryLoadingMore, setLibraryLoadingMore] = useState(false);
+  const LIBRARY_LIMIT = 15;
+  const observerTargetRef = useRef<HTMLDivElement>(null);
+
   const loadChannels = async () => {
     try {
       setIsLoading(true);
@@ -96,9 +113,76 @@ export default function ChatManagement() {
     }
   };
 
+  const loadLibrary = async (isInitial = false) => {
+    const currentOffset = isInitial ? 0 : libraryOffset;
+    try {
+      if (isInitial) {
+        setLibraryLoading(true);
+      } else {
+        setLibraryLoadingMore(true);
+      }
+      const res = await apiRequest(
+        `/api/chat/gifs?limit=${LIBRARY_LIMIT}&offset=${currentOffset}&search=${encodeURIComponent(
+          searchLibraryQuery
+        )}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (isInitial) {
+          setLibrary(data);
+        } else {
+          setLibrary((prev) => [...prev, ...data]);
+        }
+        setLibraryOffset(currentOffset + data.length);
+        if (data.length < LIBRARY_LIMIT) {
+          setLibraryHasMore(false);
+        } else {
+          setLibraryHasMore(true);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load library:", err);
+    } finally {
+      setLibraryLoading(false);
+      setLibraryLoadingMore(false);
+    }
+  };
+
+  const loadMoreLibrary = () => {
+    loadLibrary(false);
+  };
+
   useEffect(() => {
     loadChannels();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "library") {
+      setLibraryOffset(0);
+      setLibraryHasMore(true);
+      loadLibrary(true);
+    }
+  }, [activeTab, searchLibraryQuery]);
+
+  // Set up Intersection Observer for infinite loading
+  useEffect(() => {
+    if (activeTab !== "library" || !libraryHasMore || libraryLoading || libraryLoadingMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreLibrary();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTargetRef.current) {
+      observer.observe(observerTargetRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [activeTab, libraryHasMore, libraryLoading, libraryLoadingMore, libraryOffset]);
 
   const handleOpenCreate = () => {
     setEditingChannel(null);
@@ -112,6 +196,90 @@ export default function ChatManagement() {
     setIsArchived(false);
     setErrorMsg("");
     setShowModal(true);
+  };
+
+  const handleOpenAddMedia = () => {
+    setMediaTitle("");
+    setMediaUrl("");
+    setMediaCategory("Reaction");
+    setErrorMsg("");
+    setShowLibraryModal(true);
+  };
+
+  const handleAddMedia = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mediaTitle.trim() || !mediaUrl.trim()) return;
+
+    try {
+      const res = await apiRequest("/api/admin/chat/gifs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: mediaTitle,
+          url: mediaUrl,
+          category: mediaCategory.trim() || null,
+        }),
+      });
+
+      if (res.ok) {
+        setShowLibraryModal(false);
+        setMediaTitle("");
+        setMediaUrl("");
+        setMediaCategory("Reaction");
+        setLibraryOffset(0);
+        setLibraryHasMore(true);
+        loadLibrary(true);
+        showAlert({
+          title: "Success",
+          message: "Media link added successfully",
+          type: "success",
+        });
+      } else {
+        const errData = await res.json();
+        setErrorMsg(errData.message || "Failed to add media link");
+      }
+    } catch (err) {
+      console.error("Error adding media:", err);
+      setErrorMsg("Something went wrong");
+    }
+  };
+
+  const handleDeleteMedia = async (id: number) => {
+    const confirmed = await showConfirm({
+      title: "Delete Media",
+      message: "Are you sure you want to delete this media link from the library? This action cannot be undone.",
+      confirmText: "Delete",
+      type: "danger"
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const res = await apiRequest(`/api/admin/chat/gifs/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        loadLibrary();
+        showAlert({
+          title: "Success",
+          message: "Media link deleted successfully",
+          type: "success",
+        });
+      } else {
+        showAlert({
+          title: "Error",
+          message: "Failed to delete media link",
+          type: "error",
+        });
+      }
+    } catch (err) {
+      console.error("Error deleting media:", err);
+      showAlert({
+        title: "Error",
+        message: "Something went wrong",
+        type: "error",
+      });
+    }
   };
 
   const handleOpenEdit = (channel: DbChatChannel) => {
@@ -358,39 +526,172 @@ export default function ChatManagement() {
     }
   ];
 
+  // No client-side filtering needed as search is executed on the backend now.
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
-            Chat Channel Management
+            Chat System Administration
           </h1>
-          <p className="text-sm text-text-muted mt-1">Create or modify chat channels, customize icons, groupings, and permissions</p>
+          <p className="text-sm text-text-muted mt-1">Configure chat channels, set permissions, and manage the reaction GIF/image library.</p>
         </div>
-        <Button
-          type="button"
-          variant="admin"
-          icon={<Plus className="w-4 h-4" />}
-          className="px-4 py-2.5 cursor-pointer"
-          onClick={handleOpenCreate}
-        >
-          Create Channel
-        </Button>
+        {activeTab === "channels" ? (
+          <Button
+            type="button"
+            variant="admin"
+            icon={<Plus className="w-4 h-4" />}
+            className="px-4 py-2.5 cursor-pointer"
+            onClick={handleOpenCreate}
+          >
+            Create Channel
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="admin"
+            icon={<Plus className="w-4 h-4" />}
+            className="px-4 py-2.5 cursor-pointer"
+            onClick={handleOpenAddMedia}
+          >
+            Add Saved Media
+          </Button>
+        )}
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading channels...</p>
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-border/40">
+        <button
+          onClick={() => setActiveTab("channels")}
+          className={`px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer border-b-2 ${
+            activeTab === "channels"
+              ? "text-primary border-primary bg-primary/5"
+              : "text-text-muted border-transparent hover:text-text-primary"
+          }`}
+        >
+          Chat Channels
+        </button>
+        <button
+          onClick={() => setActiveTab("library")}
+          className={`px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer border-b-2 ${
+            activeTab === "library"
+              ? "text-primary border-primary bg-primary/5"
+              : "text-text-muted border-transparent hover:text-text-primary"
+          }`}
+        >
+          GIF & Image Library
+        </button>
+      </div>
+
+      {activeTab === "channels" ? (
+        isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <p className="text-xs text-text-muted">Loading channels...</p>
+          </div>
+        ) : (
+          <DataTable
+            data={channels}
+            columns={channelColumns}
+            filterGroups={channelFilters}
+            searchPlaceholder="Search chat channels..."
+            emptyStateText="No chat channels configured."
+          />
+        )
       ) : (
-        <DataTable
-          data={channels}
-          columns={channelColumns}
-          filterGroups={channelFilters}
-          searchPlaceholder="Search chat channels..."
-          emptyStateText="No chat channels configured."
-        />
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search GIFs/images by title or category..."
+              value={searchLibraryQuery}
+              onChange={(e) => setSearchLibraryQuery(e.target.value)}
+              className="flex-1 max-w-md px-3.5 py-2.5 rounded-xl bg-surface-900 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+            />
+          </div>
+
+          {libraryLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-3">
+              <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+              <p className="text-xs text-text-muted">Loading media library...</p>
+            </div>
+          ) : library.length === 0 ? (
+            <div className="text-center py-20 border border-dashed border-border/40 rounded-2xl bg-surface-900/30">
+              <p className="text-sm text-text-muted">No saved media found matching search terms.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                {library.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group relative flex flex-col bg-surface-900 border border-border/60 hover:border-primary/40 rounded-2xl overflow-hidden transition-all shadow-md"
+                  >
+                    <div className="relative aspect-video w-full bg-surface-950 flex items-center justify-center overflow-hidden border-b border-border/40">
+                      <img
+                        src={item.url}
+                        alt={item.title}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMedia(item.id)}
+                        className="absolute top-2 right-2 p-1.5 rounded-xl bg-error/90 hover:bg-error border border-error/25 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
+                        title="Delete media link"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="p-3.5 flex flex-col flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-text-primary truncate">{item.title}</p>
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <span className="text-[10px] font-bold text-primary uppercase bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">
+                          {item.category || "General"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(item.url);
+                            showAlert({
+                              title: "Copied",
+                              message: "Direct link copied to clipboard!",
+                              type: "info",
+                            });
+                          }}
+                          className="text-[10px] text-text-muted hover:text-text-primary underline cursor-pointer truncate max-w-[100px]"
+                        >
+                          Copy URL
+                        </button>
+                      </div>
+
+                      {/* Uploader user info tracing tag */}
+                      {item.user ? (
+                        <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-border/40 min-w-0">
+                          <img src={item.user.avatar} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                          <span className="text-[10px] text-text-muted truncate">
+                            By {item.user.first_name} {item.user.last_name}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-border/40 min-w-0">
+                          <div className="w-4 h-4 rounded-full bg-surface-850 flex items-center justify-center text-[7px] font-bold text-text-muted flex-shrink-0 border border-border/30">S</div>
+                          <span className="text-[10px] text-text-muted truncate">System Seeded</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Observer target for scroll infinite loading */}
+              {libraryHasMore && (
+                <div ref={observerTargetRef} className="flex justify-center py-6">
+                  <div className="w-6 h-6 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create / Edit Modal */}
@@ -541,6 +842,82 @@ export default function ChatManagement() {
                 </Button>
                 <Button type="submit" variant="admin" className="px-4 py-2 cursor-pointer">
                   {editingChannel ? "Save Changes" : "Create Channel"}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+      {/* Saved Media Addition Modal */}
+      {showLibraryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-fadeIn">
+          <Card className="w-full max-w-md p-6 border border-border bg-surface-900 shadow-2xl relative">
+            <h2 className="text-lg font-bold text-text-primary mb-1">
+              Add Saved Media
+            </h2>
+            <p className="text-xs text-text-muted mb-4">
+              Add a popular GIF or image URL shortcut to make it easily accessible inside the chat.
+            </p>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-lg bg-error/10 border border-error/20 text-xs text-error font-medium flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleAddMedia} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-text-secondary">Media Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={mediaTitle}
+                  onChange={(e) => setMediaTitle(e.target.value)}
+                  placeholder="e.g. Excited Celebration"
+                  className="w-full px-3 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-text-secondary">GIF/Image URL *</label>
+                <input
+                  type="url"
+                  required
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                  placeholder="https://media.giphy.com/media/.../giphy.gif"
+                  className="w-full px-3 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-text-secondary">Category Grouping *</label>
+                <select
+                  value={mediaCategory}
+                  onChange={(e) => setMediaCategory(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
+                >
+                  <option value="Reaction">Reaction</option>
+                  <option value="Funny">Funny</option>
+                  <option value="Agree">Agree</option>
+                  <option value="Shocked">Shocked</option>
+                  <option value="Thanks">Thanks</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-4 mt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="px-4 py-2 cursor-pointer"
+                  onClick={() => setShowLibraryModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="admin" className="px-4 py-2 cursor-pointer">
+                  Save to Library
                 </Button>
               </div>
             </form>
