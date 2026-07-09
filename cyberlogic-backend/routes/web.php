@@ -10,6 +10,7 @@ use App\Http\Controllers\ForumCategoryController;
 use App\Http\Controllers\ForumCommentController;
 use App\Http\Controllers\ForumThreadController;
 use App\Http\Controllers\ForumVoteController;
+use App\Http\Controllers\ForumPollController;
 use App\Http\Controllers\SiteSettingController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\OfficerController;
@@ -106,6 +107,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/forum/comments/{id}', [ForumCommentController::class, 'destroy']);
     Route::post('/api/forum/threads/{id}/vote', [ForumVoteController::class, 'voteThread']);
     Route::post('/api/forum/comments/{id}/vote', [ForumVoteController::class, 'voteComment']);
+    Route::post('/api/forum/polls/{pollId}/vote', [ForumPollController::class, 'vote']);
+    Route::put('/api/forum/polls/{pollId}/close', [ForumPollController::class, 'close']);
 
     // Chat Actions
     Route::get('/api/chat/channels', [ChatController::class, 'index']);

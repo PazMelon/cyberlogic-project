@@ -7,7 +7,8 @@ import {
   Trash2, 
   Upload, 
   Sparkles,
-  Info
+  Info,
+  BarChart2
 } from "lucide-react";
 import { fetchForumCategories, createForumThread, type ForumCategoryMapped } from "../utils/api";
 import { Button } from "../components/ui";
@@ -26,8 +27,37 @@ export default function CreateThread() {
   const isSpoiler = false;
   const isRedacted = false;
   
-  // Tab control: 'post' | 'images'
-  const [activeTab, setActiveTab] = useState<"post" | "images">("post");
+  // Tab control: 'post' | 'images' | 'poll'
+  const [activeTab, setActiveTab] = useState<"post" | "images" | "poll">("post");
+  
+  // Poll states
+  const [hasPoll, setHasPoll] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+
+  const handleAddPollOption = () => {
+    if (pollOptions.length >= 10) {
+      alert("You can add a maximum of 10 options.");
+      return;
+    }
+    setPollOptions([...pollOptions, ""]);
+  };
+
+  const handleRemovePollOption = (index: number) => {
+    if (pollOptions.length <= 2) {
+      alert("A poll must have at least 2 options.");
+      return;
+    }
+    const newOpts = [...pollOptions];
+    newOpts.splice(index, 1);
+    setPollOptions(newOpts);
+  };
+
+  const handlePollOptionChange = (index: number, val: string) => {
+    const newOpts = [...pollOptions];
+    newOpts[index] = val;
+    setPollOptions(newOpts);
+  };
   
   // Selected files
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -124,6 +154,20 @@ export default function CreateThread() {
       selectedFiles.forEach((file) => {
         formData.append("images[]", file);
       });
+
+      if (hasPoll) {
+        if (!pollQuestion.trim()) {
+          setErrorMsg("Poll question is required if poll is enabled.");
+          return;
+        }
+        const filledOptions = pollOptions.filter(o => o.trim() !== "");
+        if (filledOptions.length < 2) {
+          setErrorMsg("A poll must have at least 2 non-empty options.");
+          return;
+        }
+        formData.append("poll_question", pollQuestion.trim());
+        formData.append("poll_options", JSON.stringify(filledOptions));
+      }
 
       const newThread = await createForumThread(formData);
       navigate(`/app/forums/thread/${newThread.id}`);
@@ -256,6 +300,18 @@ export default function CreateThread() {
               <ImageIcon className="w-4 h-4" />
               Images ({selectedFiles.length} / 5)
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("poll")}
+              className={`pb-2.5 px-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-all flex items-center gap-2 ${
+                activeTab === "poll"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-text-muted hover:text-text-secondary"
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" />
+              Poll {hasPoll ? "(Active)" : ""}
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -275,7 +331,7 @@ export default function CreateThread() {
                   className="w-full p-4 bg-surface-950 border border-border/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 rounded-xl text-text-primary text-sm font-medium placeholder:text-text-muted/40 transition-all font-[family-name:var(--font-mono)]"
                 />
               </div>
-            ) : (
+            ) : activeTab === "images" ? (
               <div className="space-y-4">
                 <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest font-[family-name:var(--font-heading)]">
                   Media Attachments
@@ -323,6 +379,75 @@ export default function CreateThread() {
                         </button>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-5 animate-fadeIn">
+                <div className="flex items-center justify-between pb-3 border-b border-border/10">
+                  <div>
+                    <label className="text-sm font-bold text-text-primary">Enable Poll</label>
+                    <p className="text-[10px] text-text-muted">Attach a vote/poll to this thread.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={hasPoll}
+                    onChange={(e) => setHasPoll(e.target.checked)}
+                    className="w-5 h-5 accent-primary cursor-pointer"
+                  />
+                </div>
+
+                {hasPoll && (
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest mb-1.5 font-[family-name:var(--font-heading)]">
+                        Question / Poll Title
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="What do you think about...?"
+                        value={pollQuestion}
+                        onChange={(e) => setPollQuestion(e.target.value)}
+                        maxLength={255}
+                        disabled={isSubmitting}
+                        className="w-full h-11 px-4 bg-surface-950 border border-border/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 rounded-xl text-text-primary text-sm font-semibold placeholder:text-text-muted/50 transition-all shadow-inner"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest font-[family-name:var(--font-heading)]">
+                        Poll Options
+                      </label>
+                      {pollOptions.map((option, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder={`Option ${index + 1}`}
+                            value={option}
+                            onChange={(e) => handlePollOptionChange(index, e.target.value)}
+                            maxLength={255}
+                            disabled={isSubmitting}
+                            className="flex-1 h-10 px-3 bg-surface-950 border border-border/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 rounded-xl text-text-primary text-sm font-semibold placeholder:text-text-muted/50 transition-all"
+                          />
+                          {pollOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemovePollOption(index)}
+                              className="p-2 rounded-lg bg-error/10 hover:bg-error/20 border border-error/20 text-error transition-all shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={handleAddPollOption}
+                        className="mt-2 text-xs font-bold text-primary hover:text-primary-light flex items-center gap-1 transition-colors"
+                      >
+                        + Add Option
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

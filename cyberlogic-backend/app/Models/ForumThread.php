@@ -78,6 +78,14 @@ class ForumThread extends Model
     }
 
     /**
+     * Get the poll associated with the thread.
+     */
+    public function poll()
+    {
+        return $this->hasOne(ForumPoll::class, 'thread_id');
+    }
+
+    /**
      * Get the thread vote score.
      */
     public function getVoteScoreAttribute(): int

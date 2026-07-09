@@ -83,10 +83,25 @@ class ForumThreadController extends Controller
      */
     public function show($id)
     {
-        $thread = ForumThread::with(['user', 'category', 'solutionComment.user'])->findOrFail($id);
+        $thread = ForumThread::with([
+            'user',
+            'category',
+            'solutionComment.user',
+            'poll.options.votes',
+        ])->findOrFail($id);
 
         // Increment view count
         $thread->increment('views');
+
+        // Let's add user_voted_option_id if user is authenticated
+        if (auth()->check() && $thread->poll) {
+            $userVote = \App\Models\ForumPollVote::where('poll_id', $thread->poll->id)
+                ->where('user_id', auth()->id())
+                ->first();
+            $thread->poll->user_voted_option_id = $userVote ? $userVote->poll_option_id : null;
+        } elseif ($thread->poll) {
+            $thread->poll->user_voted_option_id = null;
+        }
 
         return response()->json($thread);
     }
@@ -105,7 +120,21 @@ class ForumThreadController extends Controller
             'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:4096',
             'is_spoiler' => 'nullable',
             'is_redacted' => 'nullable',
+            'poll_question' => 'nullable|string|max:255',
         ]);
+
+        $pollOptions = [];
+        if ($request->has('poll_question') && !empty($request->input('poll_question'))) {
+            $optionsInput = $request->input('poll_options');
+            if (is_string($optionsInput)) {
+                $decoded = json_decode($optionsInput, true);
+                if (is_array($decoded)) {
+                    $pollOptions = $decoded;
+                }
+            } elseif (is_array($optionsInput)) {
+                $pollOptions = $optionsInput;
+            }
+        }
 
         $imagesPaths = [];
         if ($request->hasFile('images')) {
@@ -129,9 +158,26 @@ class ForumThreadController extends Controller
             'images' => ! empty($imagesPaths) ? $imagesPaths : null,
         ]);
 
+        if (!empty($validated['poll_question']) && count($pollOptions) >= 2) {
+            $poll = \App\Models\ForumPoll::create([
+                'thread_id' => $thread->id,
+                'question' => $validated['poll_question'],
+                'is_closed' => false,
+            ]);
+
+            foreach ($pollOptions as $optText) {
+                if (!empty(trim($optText))) {
+                    \App\Models\ForumPollOption::create([
+                        'poll_id' => $poll->id,
+                        'option_text' => trim($optText),
+                    ]);
+                }
+            }
+        }
+
         AuditLogger::log('created', 'ForumThread', $thread->id, $thread->title, null, $request);
 
-        return response()->json($thread->load(['user', 'category']), 201);
+        return response()->json($thread->load(['user', 'category', 'poll.options']), 201);
     }
 
     /**

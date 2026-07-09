@@ -28,7 +28,9 @@ import {
   toggleThreadPin,
   toggleThreadClose,
   toggleThreadSolve,
-  fetchForumCategories
+  fetchForumCategories,
+  voteForumPoll,
+  closeForumPoll
 } from "../utils/api";
 import type {
   ForumThreadMapped,
@@ -257,6 +259,41 @@ export default function ForumThread() {
     }
   };
 
+  const [isVotingPoll, setIsVotingPoll] = useState(false);
+
+  const handleVotePoll = async (optionId: number) => {
+    if (!thread || !thread.poll || isVotingPoll) return;
+    if (!user) {
+      alert("You must be logged in to vote.");
+      return;
+    }
+    try {
+      setIsVotingPoll(true);
+      const updatedPoll = await voteForumPoll(thread.poll.id, optionId);
+      setThread({
+        ...thread,
+        poll: updatedPoll
+      });
+    } catch (err: any) {
+      alert(err.message || "Failed to submit vote.");
+    } finally {
+      setIsVotingPoll(false);
+    }
+  };
+
+  const handleClosePoll = async () => {
+    if (!thread || !thread.poll) return;
+    try {
+      const updatedPoll = await closeForumPoll(thread.poll.id);
+      setThread({
+        ...thread,
+        poll: updatedPoll
+      });
+    } catch (err: any) {
+      alert(err.message || "Failed to close poll.");
+    }
+  };
+
   // Condition to allow thread author to select solution
   const canSelectSolution = !!(user && category?.type === "support" && isThreadOwner);
 
@@ -343,6 +380,90 @@ export default function ForumThread() {
                   />
                 )}
               </SpoilerGate>
+
+              {/* Poll Section */}
+              {thread.poll && (
+                <div className="mt-6 p-4 rounded-xl bg-surface-900/50 border border-border/40 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                      <span className="w-1.5 h-3.5 bg-primary rounded-full inline-block" />
+                      {thread.poll.question}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                        thread.poll.isClosed 
+                          ? "bg-error/10 text-error border border-error/20" 
+                          : "bg-success/10 text-success border border-success/20 animate-pulse"
+                      }`}>
+                        {thread.poll.isClosed ? "Poll Closed" : "Active Poll"}
+                      </span>
+                      {/* Close Poll Option for author/admin */}
+                      {!thread.poll.isClosed && (isThreadOwner || isAdmin) && (
+                        <button
+                          type="button"
+                          onClick={handleClosePoll}
+                          className="text-[10px] text-error hover:text-error-light hover:underline font-bold transition-all cursor-pointer"
+                        >
+                          Close Poll
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {thread.poll.options.map((option) => {
+                      const percentage = thread.poll!.totalVotes > 0 
+                        ? Math.round((option.votesCount / thread.poll!.totalVotes) * 100) 
+                        : 0;
+                      const hasVotedThis = thread.poll!.userVotedOptionId === option.id;
+                      const canVote = !thread.poll!.isClosed && user;
+
+                      return (
+                        <div key={option.id} className="relative group/opt">
+                          {/* Vote Option Button/Card */}
+                          <button
+                            type="button"
+                            disabled={!canVote}
+                            onClick={() => handleVotePoll(option.id)}
+                            className={`w-full text-left relative overflow-hidden rounded-xl border p-3 flex items-center justify-between transition-all ${
+                              hasVotedThis 
+                                ? "border-primary bg-primary/5" 
+                                : canVote 
+                                  ? "border-border/60 bg-surface-950/40 hover:border-primary/40 hover:bg-surface-900/40" 
+                                  : "border-border/30 bg-surface-950/20"
+                            } ${!canVote ? "cursor-default" : "cursor-pointer"}`}
+                          >
+                            {/* Fill Percentage bar */}
+                            <div 
+                              className={`absolute left-0 top-0 bottom-0 transition-all duration-500 pointer-events-none ${
+                                hasVotedThis ? "bg-primary/10" : "bg-white/5"
+                              }`}
+                              style={{ width: `${percentage}%` }}
+                            />
+
+                            <span className="relative text-xs font-semibold text-text-secondary flex items-center gap-2">
+                              {hasVotedThis && <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />}
+                              {option.optionText}
+                            </span>
+
+                            <span className="relative text-xs font-bold text-text-primary flex items-center gap-1">
+                              <span>{option.votesCount} votes</span>
+                              <span className="text-text-muted">({percentage}%)</span>
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="text-[10px] text-text-muted flex justify-between">
+                    <span>Total Votes: {thread.poll.totalVotes}</span>
+                    {!user && !thread.poll.isClosed && (
+                      <span className="text-primary font-medium">Log in to cast your vote</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Post Footer Action Toolbar */}
               <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">

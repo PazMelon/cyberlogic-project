@@ -758,6 +758,22 @@ export interface ForumThreadMapped {
     color: string;
     slug: string;
   } | null;
+  poll?: ForumPollMapped | null;
+}
+
+export interface ForumPollOptionMapped {
+  id: number;
+  optionText: string;
+  votesCount: number;
+}
+
+export interface ForumPollMapped {
+  id: number;
+  question: string;
+  isClosed: boolean;
+  options: ForumPollOptionMapped[];
+  userVotedOptionId: number | null;
+  totalVotes: number;
 }
 
 export interface ForumCommentMapped {
@@ -877,7 +893,8 @@ export async function fetchForumThreads(params?: {
     categoryDbId: t.category_id,
     images: t.images || null,
     isSpoiler: !!t.is_spoiler,
-    isRedacted: !!t.is_redacted
+    isRedacted: !!t.is_redacted,
+    poll: mapPoll(t.poll)
   }));
 }
 
@@ -917,7 +934,8 @@ export async function fetchForumThread(id: number): Promise<ForumThreadMapped> {
     categoryDbId: t.category_id,
     images: t.images || null,
     isSpoiler: !!t.is_spoiler,
-    isRedacted: !!t.is_redacted
+    isRedacted: !!t.is_redacted,
+    poll: mapPoll(t.poll)
   };
 }
 
@@ -958,7 +976,8 @@ export async function createForumThread(data: FormData): Promise<ForumThreadMapp
     categoryDbId: t.category_id,
     images: t.images || null,
     isSpoiler: !!t.is_spoiler,
-    isRedacted: !!t.is_redacted
+    isRedacted: !!t.is_redacted,
+    poll: mapPoll(t.poll)
   };
 }
 
@@ -1002,7 +1021,8 @@ export async function updateForumThread(
     categoryDbId: t.category_id,
     images: t.images || null,
     isSpoiler: !!t.is_spoiler,
-    isRedacted: !!t.is_redacted
+    isRedacted: !!t.is_redacted,
+    poll: mapPoll(t.poll)
   };
 }
 
@@ -2122,5 +2142,61 @@ export async function fetchReputationLeaderboard(timeframe: string): Promise<Rep
     throw new Error("Failed to load reputation leaderboard.");
   }
   return res.json();
+}
+
+function mapPoll(p: any): ForumPollMapped | null {
+  if (!p) return null;
+  const totalVotes = p.options
+    ? p.options.reduce((sum: number, opt: any) => sum + (opt.votes_count || (opt.votes ? opt.votes.length : 0)), 0)
+    : 0;
+  return {
+    id: p.id,
+    question: p.question,
+    isClosed: !!p.is_closed,
+    options: p.options
+      ? p.options.map((opt: any) => ({
+          id: opt.id,
+          optionText: opt.option_text,
+          votesCount: opt.votes_count || (opt.votes ? opt.votes.length : 0),
+        }))
+      : [],
+    userVotedOptionId: p.user_voted_option_id || null,
+    totalVotes,
+  };
+}
+
+/**
+ * POST /api/forum/polls/{pollId}/vote
+ */
+export async function voteForumPoll(pollId: number, optionId: number): Promise<ForumPollMapped> {
+  const res = await apiRequest(`/api/forum/polls/${pollId}/vote`, {
+    method: "POST",
+    body: JSON.stringify({ option_id: optionId }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to vote in poll.");
+  }
+
+  const p = await res.json();
+  return mapPoll(p) as ForumPollMapped;
+}
+
+/**
+ * PUT /api/forum/polls/{pollId}/close
+ */
+export async function closeForumPoll(pollId: number): Promise<ForumPollMapped> {
+  const res = await apiRequest(`/api/forum/polls/${pollId}/close`, {
+    method: "PUT",
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to close poll.");
+  }
+
+  const p = await res.json();
+  return mapPoll(p) as ForumPollMapped;
 }
 
