@@ -58,6 +58,7 @@ export default function ForumThread() {
   const [isSaved, setIsSaved] = useState(false);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [isVotingPoll, setIsVotingPoll] = useState(false);
 
   // Auth checking for toggle buttons
   const isThreadOwner = user && thread && user.id === thread.authorId;
@@ -258,8 +259,6 @@ export default function ForumThread() {
       console.error("Failed to toggle close status:", err);
     }
   };
-
-  const [isVotingPoll, setIsVotingPoll] = useState(false);
 
   const handleVotePoll = async (optionId: number) => {
     if (!thread || !thread.poll || isVotingPoll) return;

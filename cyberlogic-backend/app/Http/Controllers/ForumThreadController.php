@@ -33,7 +33,7 @@ class ForumThreadController extends Controller
      */
     public function index(Request $request)
     {
-        $query = ForumThread::with(['user', 'category']);
+        $query = ForumThread::with(['user', 'category', 'poll']);
 
         // Filter by category slug
         if ($request->has('category') && $request->input('category') !== 'all') {

@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { MessageSquare, Heart, Eye, Pin, CheckCircle } from "lucide-react";
+import { MessageSquare, Heart, Eye, Pin, CheckCircle, BarChart2 } from "lucide-react";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
 import type { ForumThreadMapped } from "../../utils/api";
@@ -58,6 +58,11 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-text-muted flex-shrink-0">
+          {thread.poll && (
+            <Badge variant="accent" className="px-1.5 py-0">
+              <BarChart2 className="w-2.5 h-2.5" />
+            </Badge>
+          )}
           <span className="inline-flex items-center gap-1">
             <MessageSquare className="w-3 h-3" /> {thread.replyCount}
           </span>
@@ -89,6 +94,11 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
               {thread.solved && (
                 <Badge variant="success">
                   <CheckCircle className="w-3 h-3" /> Solved
+                </Badge>
+              )}
+              {thread.poll && (
+                <Badge variant="accent">
+                  <BarChart2 className="w-3 h-3" /> Poll
                 </Badge>
               )}
               {showCategory && (
