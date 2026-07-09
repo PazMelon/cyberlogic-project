@@ -2248,3 +2248,83 @@ export async function fetchClubStats(): Promise<ClubStats> {
   return res.json();
 }
 
+export interface DashboardStats {
+  forum_threads: number;
+  chat_messages_today: number;
+  active_members: number;
+  upcoming_events: number;
+  next_event_date: string;
+}
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  const res = await apiRequest("/api/dashboard/stats");
+  if (!res.ok) {
+    throw new Error("Failed to load dashboard stats.");
+  }
+  return res.json();
+}
+
+export interface AdminDashboardStats {
+  total_members: number;
+  pending_members: number;
+  active_threads: number;
+  threads_this_week: number;
+  upcoming_events: number;
+  next_event_date: string;
+}
+
+export async function fetchAdminDashboardStats(): Promise<AdminDashboardStats> {
+  const res = await apiRequest("/api/admin/dashboard/stats");
+  if (!res.ok) {
+    throw new Error("Failed to load admin dashboard stats.");
+  }
+  return res.json();
+}
+
+export interface AppNotification {
+  id: number;
+  user_id: number;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, any> | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const res = await apiRequest("/api/notifications");
+  if (!res.ok) {
+    throw new Error("Failed to fetch notifications.");
+  }
+  return res.json();
+}
+
+export async function fetchUnreadNotificationCount(): Promise<{ count: number }> {
+  const res = await apiRequest("/api/notifications/unread-count");
+  if (!res.ok) {
+    throw new Error("Failed to fetch unread notification count.");
+  }
+  return res.json();
+}
+
+export async function markNotificationRead(id: number): Promise<{ success: boolean }> {
+  const res = await apiRequest(`/api/notifications/${id}/read`, {
+    method: "PUT"
+  });
+  if (!res.ok) {
+    throw new Error("Failed to mark notification as read.");
+  }
+  return res.json();
+}
+
+export async function markAllNotificationsRead(): Promise<{ success: boolean }> {
+  const res = await apiRequest("/api/notifications/read-all", {
+    method: "PUT"
+  });
+  if (!res.ok) {
+    throw new Error("Failed to mark all notifications as read.");
+  }
+  return res.json();
+}
+

@@ -17,6 +17,8 @@ use App\Http\Controllers\OfficerController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\ReputationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -157,6 +159,16 @@ Route::middleware('auth')->group(function () {
     // Admin resource moderation
     Route::put('/api/admin/resources/{id}/approve', [ResourceController::class, 'approve']);
     Route::put('/api/admin/resources/{id}/reject', [ResourceController::class, 'reject']);
+
+    // Dashboard stats
+    Route::get('/api/dashboard/stats', [DashboardController::class, 'getMemberStats']);
+    Route::get('/api/admin/dashboard/stats', [DashboardController::class, 'getAdminStats']);
+
+    // Notifications
+    Route::get('/api/notifications', [NotificationController::class, 'index']);
+    Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
+    Route::put('/api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::put('/api/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
     // Reputation endpoints
     Route::get('/api/reputation/leaderboard', [ReputationController::class, 'leaderboard']);

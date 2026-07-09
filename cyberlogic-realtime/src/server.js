@@ -46,7 +46,7 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       try {
         const data = JSON.parse(body);
-        const { channel, payload, type } = data;
+        const { channel, payload, type, user_id } = data;
 
         if (!channel || !payload) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -54,8 +54,13 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        console.log(`[HTTP Internal] Broadcasting to ${channel} (type: ${type || 'broadcast'})`);
-        channelManager.broadcast(channel, type || 'broadcast', payload);
+        if (user_id) {
+          console.log(`[HTTP Internal] Sending to User ${user_id} on ${channel} (type: ${type || 'broadcast'})`);
+          channelManager.sendToUser(user_id, channel, type || 'broadcast', payload);
+        } else {
+          console.log(`[HTTP Internal] Broadcasting to ${channel} (type: ${type || 'broadcast'})`);
+          channelManager.broadcast(channel, type || 'broadcast', payload);
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));

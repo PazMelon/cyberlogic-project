@@ -10,11 +10,13 @@ import {
   fetchAnnouncements,
   fetchEvents,
   fetchForumCategories,
-  fetchForumThreads
+  fetchForumThreads,
+  fetchDashboardStats
 } from "../utils/api";
 import type {
   ForumCategoryMapped,
-  ForumThreadMapped
+  ForumThreadMapped,
+  DashboardStats
 } from "../utils/api";
 import type { Announcement, Event } from "../data/mockData";
 import { SkeletonLine, SkeletonBox } from "../components/Skeleton";
@@ -36,18 +38,21 @@ export default function Home() {
   const [nextEventDateStr, setNextEventDateStr] = useState("None scheduled");
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
+  const [dbStats, setDbStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [annData, evData, catsData, threadsData] = await Promise.all([
+        const [annData, evData, catsData, threadsData, statsData] = await Promise.all([
           fetchAnnouncements(),
           fetchEvents(),
           fetchForumCategories(),
-          fetchForumThreads()
+          fetchForumThreads(),
+          fetchDashboardStats()
         ]);
         setCategories(catsData);
         setThreads(threadsData);
+        setDbStats(statsData);
 
         const todayStr = new Date().toISOString().split('T')[0];
         const upcoming = evData.filter((e) => e.date >= todayStr);
@@ -74,9 +79,9 @@ export default function Home() {
   }, []);
 
   const quickStats = [
-    { icon: MessagesSquare, label: "Forum Threads", value: "118", change: "+12 this week", color: "primary" },
-    { icon: MessageSquare, label: "Chat Messages", value: "1.2k", change: "+89 today", color: "accent" },
-    { icon: Users, label: "Active Members", value: "94", change: "62% online", color: "success" },
+    { icon: MessagesSquare, label: "Forum Threads", value: dbStats ? String(dbStats.forum_threads) : "0", change: "Total threads", color: "primary" },
+    { icon: MessageSquare, label: "Chat Messages", value: dbStats ? String(dbStats.chat_messages_today) : "0", change: "Sent today", color: "accent" },
+    { icon: Users, label: "Active Members", value: dbStats ? String(dbStats.active_members) : "0", change: "Approved members", color: "success" },
     { icon: Calendar, label: "Upcoming Events", value: totalUpcomingCount.toString(), change: nextEventDateStr, color: "warning" },
   ];
 

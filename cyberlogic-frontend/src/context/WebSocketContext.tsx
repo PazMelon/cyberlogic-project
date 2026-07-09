@@ -15,6 +15,9 @@ interface WebSocketContextType {
   isConnected: boolean;
   onlineUsers: OnlineUser[];
   myStatus: 'online' | 'away';
+  unreadNotifCount: number;
+  resetUnreadNotifCount: () => void;
+  incrementUnreadNotifCount: () => void;
   updateMyStatus: (status: 'online' | 'away') => void;
   subscribe: (channel: string, callback: (payload: any, type: string) => void) => () => void;
   sendMessage: (type: string, channel: string, payload: any) => void;
@@ -26,9 +29,27 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [myStatus, setMyStatus] = useState<'online' | 'away'>(() => {
     return (localStorage.getItem('cl_user_status') as 'online' | 'away') || 'online';
   });
+
+  // Fetch initial unread count
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetch('/api/notifications/unread-count', { credentials: 'same-origin' })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Not ok');
+        })
+        .then(data => {
+          setUnreadNotifCount(data.count);
+        })
+        .catch(err => console.error('[WS Context] Failed to fetch unread count:', err));
+    } else {
+      setUnreadNotifCount(0);
+    }
+  }, [isAuthenticated]);
 
   // 1. Setup Ticket Fetcher on mount AND manage connection lifecycle based on auth state
   useEffect(() => {
@@ -85,6 +106,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Subscribe to notifications channel when connected
+  useEffect(() => {
+    if (status === 'connected') {
+      const unsubscribeNotifications = wsClient.subscribe('notifications', (_, type: string) => {
+        if (type === 'new_notification') {
+          setUnreadNotifCount(prev => prev + 1);
+        }
+      });
+
+      return () => {
+        unsubscribeNotifications();
+      };
+    }
+  }, [status]);
+
   // 4. Send current status when connected
   useEffect(() => {
     if (status === 'connected') {
@@ -99,6 +135,14 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       wsClient.send('status_update', 'presence', { status: newStatus });
     }
   }, [status]);
+
+  const resetUnreadNotifCount = useCallback(() => {
+    setUnreadNotifCount(0);
+  }, []);
+
+  const incrementUnreadNotifCount = useCallback(() => {
+    setUnreadNotifCount(prev => prev + 1);
+  }, []);
 
   // Stable function references to prevent unnecessary re-renders
   const subscribe = useCallback((channel: string, callback: (payload: any, type: string) => void) => {
@@ -116,6 +160,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         isConnected: status === 'connected',
         onlineUsers,
         myStatus,
+        unreadNotifCount,
+        resetUnreadNotifCount,
+        incrementUnreadNotifCount,
         updateMyStatus,
         subscribe,
         sendMessage,

@@ -239,6 +239,29 @@ class EventController extends Controller
 
         AuditLogger::log('created', 'Event', $event->id, $event->title, null, $request);
 
+        // Generate notifications for all approved users
+        try {
+            $approvedUsers = \App\Models\User::where('status', 'approved')->get();
+            foreach ($approvedUsers as $u) {
+                $notif = \App\Models\Notification::create([
+                    'user_id' => $u->id,
+                    'type' => 'event',
+                    'title' => 'New Event Created',
+                    'body' => $event->title,
+                    'data' => ['event_id' => $event->id],
+                ]);
+
+                \App\Services\RealtimeService::broadcast(
+                    'notifications',
+                    $notif->toArray(),
+                    'new_notification',
+                    $u->id
+                );
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to generate event notifications: " . $e->getMessage());
+        }
+
         return response()->json($event, 201);
     }
 

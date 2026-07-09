@@ -14,18 +14,26 @@ class RealtimeService
      * @param  array  $payload  The event payload to broadcast
      * @return bool True if broadcast was successful
      */
-    public static function broadcast(string $channel, array $payload): bool
+    public static function broadcast(string $channel, array $payload, ?string $type = null, ?int $userId = null): bool
     {
         $url = config('services.realtime.url').'/internal/broadcast';
         $secret = config('services.realtime.secret');
 
         try {
-            $response = Http::withHeaders([
-                'X-Realtime-Secret' => $secret,
-            ])->post($url, [
+            $data = [
                 'channel' => $channel,
                 'payload' => $payload,
-            ]);
+            ];
+            if ($type) {
+                $data['type'] = $type;
+            }
+            if ($userId) {
+                $data['user_id'] = $userId;
+            }
+
+            $response = Http::withHeaders([
+                'X-Realtime-Secret' => $secret,
+            ])->post($url, $data);
 
             if ($response->successful()) {
                 return true;

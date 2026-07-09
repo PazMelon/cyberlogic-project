@@ -126,6 +126,25 @@ class ChannelManager {
   }
 
   /**
+   * Send a message to all clients of a specific user ID.
+   */
+  sendToUser(userId, channel, type, payload) {
+    const userPresence = this.onlineUsers.get(Number(userId));
+    if (userPresence && userPresence.clients) {
+      const message = JSON.stringify({
+        type,
+        channel,
+        payload,
+      });
+      for (const client of userPresence.clients) {
+        if (client.readyState === 1) {
+          client.send(message);
+        }
+      }
+    }
+  }
+
+  /**
    * Broadcast presence update to all connected clients.
    */
   broadcastPresence() {

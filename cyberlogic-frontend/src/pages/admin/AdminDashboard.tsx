@@ -16,26 +16,31 @@ import {
 } from "lucide-react";
 import { SkeletonCircle, SkeletonLine } from "../../components/Skeleton";
 import { Button } from "../../components/ui";
-import { fetchUsers, approveUser, rejectUser, fetchAuditLogs } from "../../utils/api";
+import { fetchUsers, approveUser, rejectUser, fetchAuditLogs, fetchAdminDashboardStats } from "../../utils/api";
 import { useDialog } from "../../utils/useDialog";
-import type { AuditLogEntry } from "../../utils/api";
+import type { AuditLogEntry, AdminDashboardStats } from "../../utils/api";
 
 export default function AdminDashboard() {
   const { showAlert, showConfirm } = useDialog();
   const [isLoading, setIsLoading] = useState(true);
-  const [totalMembersCount, setTotalMembersCount] = useState(150);
-  const [pendingMembersCount, setPendingMembersCount] = useState(3);
+  const [totalMembersCount, setTotalMembersCount] = useState(0);
+  const [pendingMembersCount, setPendingMembersCount] = useState(0);
   const [pendingList, setPendingList] = useState<any[]>([]);
   const [dashboardLogs, setDashboardLogs] = useState<AuditLogEntry[]>([]);
+  const [adminStats, setAdminStats] = useState<AdminDashboardStats | null>(null);
 
   const loadData = async () => {
     try {
-      const users = await fetchUsers();
+      const [users, stats] = await Promise.all([
+        fetchUsers(),
+        fetchAdminDashboardStats()
+      ]);
       const approvedCount = users.filter((u) => u.status !== "pending").length;
       const pendingUsers = users.filter((u) => u.status === "pending");
 
       setTotalMembersCount(approvedCount);
       setPendingMembersCount(pendingUsers.length);
+      setAdminStats(stats);
 
       const mappedPending = pendingUsers.map((u) => ({
         id: u.id,
@@ -108,8 +113,8 @@ export default function AdminDashboard() {
   const statCards = [
     { icon: Users, label: "Total Members", value: totalMembersCount.toString(), change: "Active in database", color: "amber" },
     { icon: UserPlus, label: "Pending Approvals", value: pendingMembersCount.toString(), change: pendingMembersCount > 0 ? "Needs attention" : "All cleared", color: "error" },
-    { icon: MessagesSquare, label: "Active Threads", value: "118", change: "+12 this week", color: "primary" },
-    { icon: Calendar, label: "Upcoming Events", value: "5", change: "Next: Jul 10", color: "accent" },
+    { icon: MessagesSquare, label: "Active Threads", value: adminStats ? String(adminStats.active_threads) : "0", change: adminStats ? `+${adminStats.threads_this_week} this week` : "0 this week", color: "primary" },
+    { icon: Calendar, label: "Upcoming Events", value: adminStats ? String(adminStats.upcoming_events) : "0", change: adminStats ? adminStats.next_event_date : "None scheduled", color: "accent" },
   ];
 
   return (

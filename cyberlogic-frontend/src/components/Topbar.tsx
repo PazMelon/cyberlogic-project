@@ -99,9 +99,12 @@ const adminNavSections: NavSection[] = [
 
 export default function Topbar() {
   const { user, logout, isAdmin, isSuperAdmin, hasPermission } = useAuth();
-  const { myStatus, updateMyStatus } = useWebSocket();
+  const { myStatus, updateMyStatus, unreadNotifCount, resetUnreadNotifCount } = useWebSocket();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
   const location = useLocation();
 
   const isAdminRoute = location.pathname.startsWith("/admin");
@@ -109,6 +112,57 @@ export default function Topbar() {
   const isActive = (path: string) => {
     if (path === "/app" || path === "/admin") return location.pathname === path;
     return location.pathname.startsWith(path);
+  };
+
+  const handleOpenNotifications = async () => {
+    if (!showNotifDropdown) {
+      setLoadingNotifs(true);
+      setShowNotifDropdown(true);
+      try {
+        const res = await fetch('/api/notifications', { credentials: 'same-origin' });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data);
+        }
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+      } finally {
+        setLoadingNotifs(false);
+      }
+    } else {
+      setShowNotifDropdown(false);
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      const res = await fetch('/api/notifications/read-all', {
+        method: 'PUT',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      });
+      if (res.ok) {
+        resetUnreadNotifCount();
+        setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+      }
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    setShowNotifDropdown(false);
+    if (!notif.read_at) {
+      try {
+        await fetch(`/api/notifications/${notif.id}/read`, {
+          method: 'PUT',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        });
+      } catch (err) {
+        console.error('Failed to mark notification as read:', err);
+      }
+    }
   };
 
   return (
@@ -142,14 +196,83 @@ export default function Topbar() {
         <div className="flex-1" />
 
         {/* Notifications */}
-        <button
-          type="button"
-          className="relative p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error" />
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={handleOpenNotifications}
+            className="relative p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+            aria-label="Notifications"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadNotifCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error" />
+            )}
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifDropdown && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowNotifDropdown(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 glass rounded-xl border border-border shadow-xl z-50 py-2 flex flex-col max-h-[480px]">
+                <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+                  <span className="text-sm font-semibold text-text-primary">Notifications</span>
+                  {unreadNotifCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleMarkAllRead}
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      Mark all as read
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
+                  {loadingNotifs ? (
+                    <div className="p-4 text-center text-xs text-text-muted">
+                      Loading notifications...
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-text-muted">
+                      No new notifications.
+                    </div>
+                  ) : (
+                    notifications.map(notif => {
+                      let path = '/app';
+                      if (notif.type === 'announcement' && notif.data?.announcement_id) {
+                        path = `/app/announcements/${notif.data.announcement_id}`;
+                      } else if (notif.type === 'event' && notif.data?.event_id) {
+                        path = `/app/events/${notif.data.event_id}`;
+                      }
+                      
+                      return (
+                        <Link
+                          key={notif.id}
+                          to={path}
+                          onClick={() => handleNotificationClick(notif)}
+                          className={`flex flex-col gap-1 p-3.5 text-left hover:bg-white/5 transition-all ${
+                            !notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-text-primary">{notif.title}</span>
+                            <span className="text-[9px] text-text-muted">
+                              {new Date(notif.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-text-secondary leading-relaxed">{notif.body}</p>
+                        </Link>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* User Menu */}
         <div className="relative">
