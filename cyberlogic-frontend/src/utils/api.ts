@@ -350,10 +350,13 @@ export interface DbUser {
   department?: string;
   address?: string;
   birthday?: string;
-  status?: "pending" | "approved" | "rejected";
+  status?: "pending" | "approved" | "rejected" | "suspended";
   admin_position?: string;
   bio?: string;
   expertise?: string;
+  suspended_at?: string | null;
+  suspended_until?: string | null;
+  suspension_reason?: string | null;
 }
 
 /**

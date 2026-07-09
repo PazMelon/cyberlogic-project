@@ -3,7 +3,6 @@ import {
   AlertCircle,
   Shield,
   UserCheck,
-  History,
   X,
   Mail,
   Award,
