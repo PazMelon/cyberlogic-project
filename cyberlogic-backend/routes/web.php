@@ -159,12 +159,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/reputation/{id}', [ReputationController::class, 'show']);
 });
 
-// Serve storage files programmatically if the symlink is broken/missing
 Route::get('/storage/{path}', function ($path) {
-    if (!Storage::disk('public')->exists($path)) {
+    $filePath = storage_path('app/public/' . $path);
+    if (!file_exists($filePath)) {
         abort(404);
     }
-    return Storage::disk('public')->response($path);
+    return response()->file($filePath);
 })->where('path', '.*');
 
 // React SPA fallback handler
