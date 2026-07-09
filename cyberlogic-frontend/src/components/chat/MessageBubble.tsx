@@ -212,20 +212,44 @@ export default function MessageBubble({
       )}
 
       {/* Reply Quote Display */}
-      {message.replyTo && (
-        <div
-          onClick={() => handleScrollToMessage(message.replyTo!.id)}
-          className={`flex items-start gap-2 text-xs text-text-secondary mb-1.5 px-3 py-1.5 rounded-xl bg-surface-800 border border-border/50 hover:text-text-primary hover:border-primary/50 cursor-pointer transition-all max-w-[85%] ${
-            isMe ? "self-end origin-bottom-right" : "self-start origin-bottom-left"
-          }`}
-        >
-          <CornerUpLeft className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 min-w-0">
-            <span className="font-bold text-primary flex-shrink-0">@{message.replyTo.author}</span>
-            <span className="opacity-90 break-words whitespace-pre-wrap">{message.replyTo.content}</span>
+      {message.replyTo && (() => {
+        const imageExtensions = /\.(gif|jpe?g|png|webp|svg)/i;
+        const cleanUrl = message.replyTo.content.trim();
+        const isImage = cleanUrl.match(/(https?:\/\/[^\s]+)/g) && (
+          cleanUrl.match(imageExtensions) ||
+          cleanUrl.includes("giphy.com/media/") ||
+          cleanUrl.includes("giphy.com/gifs/") ||
+          cleanUrl.includes("tenor.com/view/")
+        );
+
+        return (
+          <div
+            onClick={() => handleScrollToMessage(message.replyTo!.id)}
+            className={`flex flex-col gap-1 text-xs text-text-secondary mb-1.5 px-3 py-1.5 rounded-xl bg-surface-800 border border-border/50 hover:text-text-primary hover:border-primary/50 cursor-pointer transition-all max-w-[85%] ${
+              isMe ? "self-end origin-bottom-right" : "self-start origin-bottom-left"
+            }`}
+          >
+            <div className="min-w-0">
+              {isImage ? (
+                <img
+                  src={cleanUrl}
+                  alt="Replied Image"
+                  className="max-h-20 max-w-[120px] rounded-lg object-contain border border-border/30"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <span className="opacity-90 break-words whitespace-pre-wrap">{message.replyTo.content}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] text-text-muted mt-0.5">
+              <CornerUpLeft className="w-3 h-3 text-primary flex-shrink-0" />
+              <span className="font-bold text-primary">@{message.replyTo.author}</span>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
