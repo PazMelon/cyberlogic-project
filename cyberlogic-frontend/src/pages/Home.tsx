@@ -81,97 +81,98 @@ export default function Home() {
   ];
 
   return (
-    <div className="space-y-6">
-      <WelcomeBanner name={user?.name || "Member"} totalUpcomingCount={totalUpcomingCount} />
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      {/* Left Column (2/3 width): Welcome, Stats, Forum Hub & Category Newest Threads */}
+      <div className="lg:col-span-2 space-y-6">
+        <WelcomeBanner name={user?.name || "Member"} totalUpcomingCount={totalUpcomingCount} />
 
-      {/* Quick Stats Grid - Hidden for regular members */}
-      {!isRegularMember && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {isLoading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="glass rounded-xl p-4 space-y-3 animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-lg bg-surface-800" />
-                  <div className="w-8 h-3 rounded bg-surface-800" />
+        {/* Quick Stats Grid - Hidden for regular members */}
+        {!isRegularMember && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="glass rounded-xl p-4 space-y-3 animate-pulse">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-lg bg-surface-800" />
+                    <div className="w-8 h-3 rounded bg-surface-800" />
+                  </div>
+                  <div className="w-1/2 h-7 rounded bg-surface-800" />
+                  <div className="w-3/4 h-3 rounded bg-surface-800" />
                 </div>
-                <div className="w-1/2 h-7 rounded bg-surface-800" />
-                <div className="w-3/4 h-3 rounded bg-surface-800" />
-              </div>
-            ))
-          ) : (
-            quickStats.map((stat) => (
-              <StatCard
-                key={stat.label}
-                icon={stat.icon}
-                label={stat.label}
-                value={stat.value}
-                change={stat.change}
-                color={stat.color}
-              />
-            ))
-          )}
-        </div>
-      )}
+              ))
+            ) : (
+              quickStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  icon={stat.icon}
+                  label={stat.label}
+                  value={stat.value}
+                  change={stat.change}
+                  color={stat.color}
+                />
+              ))
+            )}
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column (2/3 width): Forum Hub & Category Newest Threads */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Forums Activity Hub (Top Engaged) */}
-          {isLoading ? (
-            <div className="glass rounded-2xl p-5 h-[390px] animate-pulse flex items-center justify-center">
+        {/* Forums Activity Hub (Top Engaged) */}
+        {isLoading ? (
+          <div className="glass rounded-2xl p-5 h-[390px] animate-pulse flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+          </div>
+        ) : (
+          <ForumsActivityHub />
+        )}
+
+        {/* Newest Threads Category Cards Stacked Vertically */}
+        {isLoading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="glass rounded-2xl p-5 h-[280px] animate-pulse flex items-center justify-center">
               <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
             </div>
-          ) : (
-            <ForumsActivityHub />
+          ))
+        ) : (
+          categories.map((cat) => (
+            <CategoryNewestCard key={cat.id} category={cat} threads={threads} />
+          ))
+        )}
+      </div>
+
+      {/* Right Column (1/3 width): sidebar with Events (non-sticky), Announcements (sticky), and Leaderboard (sticky) */}
+      <div className="space-y-6 self-stretch">
+        {/* Upcoming Events */}
+        <DashboardCard
+          title="Upcoming Events"
+          viewAllPath="/app/events"
+          viewAllLabel="All"
+          accentColor="accent"
+          isLoading={isLoading}
+          skeletonCount={1}
+          renderSkeleton={() => (
+            <div className="flex items-start gap-3 p-2 rounded-lg animate-pulse">
+              <SkeletonBox className="w-11 h-11 rounded-lg flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <SkeletonLine widthClass="w-3/4" heightClass="h-4" />
+                <SkeletonLine widthClass="w-1/2" heightClass="h-3" />
+              </div>
+            </div>
           )}
-
-          {/* Newest Threads Category Cards Stacked Vertically */}
-          {isLoading ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="glass rounded-2xl p-5 h-[280px] animate-pulse flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-              </div>
-            ))
-          ) : (
-            categories.map((cat) => (
-              <CategoryNewestCard key={cat.id} category={cat} threads={threads} />
-            ))
+          isEmpty={upcomingEvents.length === 0}
+          renderEmpty={() => (
+            <div className="text-center py-6 px-4 rounded-xl border border-border/40 bg-surface-900/10 animate-fadeIn">
+              <Calendar className="w-8 h-8 text-text-muted/50 mx-auto mb-2" />
+              <p className="text-xs text-text-muted font-medium">No upcoming events scheduled.</p>
+              <p className="text-[10px] text-text-muted/70 mt-0.5">Check back later for workshops & bootcamps!</p>
+            </div>
           )}
-        </div>
+        >
+          {upcomingEvents.map((event) => (
+            <EventCard key={event.id} event={event} layout="compact" />
+          ))}
+        </DashboardCard>
 
-        {/* Right Column (1/3 width): sticky sidebar with Events, Announcements, and Leaderboard */}
-        <div className="sticky top-0 space-y-6">
-          {/* Upcoming Events */}
-          <DashboardCard
-            title="Upcoming Events"
-            viewAllPath="/app/events"
-            viewAllLabel="All"
-            accentColor="accent"
-            isLoading={isLoading}
-            skeletonCount={1}
-            renderSkeleton={() => (
-              <div className="flex items-start gap-3 p-2 rounded-lg animate-pulse">
-                <SkeletonBox className="w-11 h-11 rounded-lg flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <SkeletonLine widthClass="w-3/4" heightClass="h-4" />
-                  <SkeletonLine widthClass="w-1/2" heightClass="h-3" />
-                </div>
-              </div>
-            )}
-            isEmpty={upcomingEvents.length === 0}
-            renderEmpty={() => (
-              <div className="text-center py-6 px-4 rounded-xl border border-border/40 bg-surface-900/10 animate-fadeIn">
-                <Calendar className="w-8 h-8 text-text-muted/50 mx-auto mb-2" />
-                <p className="text-xs text-text-muted font-medium">No upcoming events scheduled.</p>
-                <p className="text-[10px] text-text-muted/70 mt-0.5">Check back later for workshops & bootcamps!</p>
-              </div>
-            )}
-          >
-            {upcomingEvents.map((event) => (
-              <EventCard key={event.id} event={event} layout="compact" />
-            ))}
-          </DashboardCard>
-
+        {/* Sticky Sidebar Container for Announcements and Leaderboard */}
+        <div className="sticky top-0 space-y-6 flex flex-col lg:h-[calc(100vh-6rem)]">
           {/* Latest Announcements */}
           <DashboardCard
             title="Announcements"
@@ -199,11 +200,11 @@ export default function Home() {
 
           {/* Reputation Leaderboard */}
           {isLoading ? (
-            <div className="glass rounded-2xl p-5 h-[390px] animate-pulse flex items-center justify-center">
+            <div className="glass rounded-2xl p-5 flex-1 min-h-[300px] animate-pulse flex items-center justify-center">
               <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
             </div>
           ) : (
-            <ReputationLeaderboard />
+            <ReputationLeaderboard className="flex-1 min-h-[300px]" />
           )}
         </div>
       </div>

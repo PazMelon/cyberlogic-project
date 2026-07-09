@@ -5,7 +5,7 @@ import { fetchReputationLeaderboard, type ReputationUser } from "../../utils/api
 
 type Timeframe = "week" | "month" | "year" | "allTime";
 
-export function ReputationLeaderboard() {
+export function ReputationLeaderboard({ className = "h-[390px]" }: { className?: string }) {
   const [timeframe, setTimeframe] = useState<Timeframe>("week");
   const [leaderboardData, setLeaderboardData] = useState<ReputationUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,7 +33,7 @@ export function ReputationLeaderboard() {
   ];
 
   return (
-    <div className="glass rounded-2xl p-5 h-[390px] flex flex-col">
+    <div className={`glass rounded-2xl p-5 flex flex-col ${className}`}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-text-primary font-[family-name:var(--font-heading)] flex items-center gap-2">
           <Trophy className="w-5 h-5 text-warning" />
