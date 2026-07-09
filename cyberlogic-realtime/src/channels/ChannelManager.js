@@ -228,7 +228,7 @@ class ChannelManager {
    * Save and broadcast chat message.
    */
   async handleChatMessage(client, user, channelSlug, payload) {
-    const { content } = payload;
+    const { content, parentId } = payload;
     if (!content || !content.trim()) return;
 
     try {
@@ -250,11 +250,30 @@ class ChannelManager {
 
       // 2. Persist message to DB
       const [result] = await pool.query(
-        'INSERT INTO chat_messages (channel_id, user_id, content, type, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-        [channelId, user.id, content, 'text']
+        'INSERT INTO chat_messages (channel_id, user_id, parent_id, content, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
+        [channelId, user.id, parentId || null, content, 'text']
       );
 
       // 3. Format message payload to send
+      let replyTo = null;
+      if (parentId) {
+        const [parentMsg] = await pool.query(
+          `SELECT m.id, m.content, 
+                  TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name)) as author 
+           FROM chat_messages m 
+           LEFT JOIN users u ON m.user_id = u.id 
+           WHERE m.id = ? LIMIT 1`,
+          [parentId]
+        );
+        if (parentMsg.length > 0) {
+          replyTo = {
+            id: parentMsg[0].id,
+            content: parentMsg[0].content,
+            author: parentMsg[0].author || 'Anonymous',
+          };
+        }
+      }
+
       const formattedMsg = {
         id: result.insertId,
         channelId: channelSlug,
@@ -264,6 +283,7 @@ class ChannelManager {
         content: content,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isSystem: false,
+        replyTo: replyTo,
       };
 
       // 4. Broadcast message to the channel subscribers

@@ -25,6 +25,8 @@ export default function Chat() {
 
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isFetchingMoreMessages, setIsFetchingMoreMessages] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<{ id: number; author: string; content: string } | null>(null);
+  const [showChatEditorEmojiPicker, setShowChatEditorEmojiPicker] = useState(false);
   
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -255,6 +257,7 @@ export default function Chat() {
 
     sendMessage("message", `chat:${activeChannel}`, {
       content: messageText,
+      parentId: replyingTo?.id || null,
     });
 
     if (stopTypingTimerRef.current) {
@@ -267,6 +270,16 @@ export default function Chat() {
     }
 
     setMessageText("");
+    setReplyingTo(null);
+  };
+
+  const handleSelectGif = (url: string) => {
+    if (!activeChannel || !hasWritePermission) return;
+    sendMessage("message", `chat:${activeChannel}`, {
+      content: url,
+      parentId: replyingTo?.id || null,
+    });
+    setReplyingTo(null);
   };
 
   // Toggle emoji reactions via WS
@@ -345,6 +358,17 @@ export default function Chat() {
             />
           )}
 
+          {/* Chat input emoji picker overlay (renders in main content) */}
+          {showChatEditorEmojiPicker && (
+            <EmojiSearchPicker
+              onSelectEmoji={(emoji) => {
+                setMessageText((prev) => prev + emoji);
+                setShowChatEditorEmojiPicker(false);
+              }}
+              onClose={() => setShowChatEditorEmojiPicker(false)}
+            />
+          )}
+
           <MessageStream
             messages={messages}
             messagesLoading={messagesLoading}
@@ -358,36 +382,10 @@ export default function Chat() {
             onLoadMore={loadMoreHistory}
             hasMore={hasMoreMessages}
             isFetchingMore={isFetchingMoreMessages}
+            onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
           />
 
-          {/* Members Sidebar Panel */}
-          {showMembers && (
-            <div className="w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex flex-col animate-slideLeft">
-              <div className="p-4 border-b border-border flex items-center justify-between">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                  Channel Members
-                </h3>
-              </div>
-              <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                {onlineUsers.map((m) => (
-                  <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-                    <div className="relative">
-                      <img
-                        src={m.avatar}
-                        alt={m.name}
-                        className="w-8 h-8 rounded-full bg-surface-700 object-cover"
-                      />
-                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
-                      <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Members Sidebar Panel removed from inner container to span full height */}
         </div>
 
         <MessageInput
@@ -403,8 +401,43 @@ export default function Chat() {
           onSubmit={handleSendMessage}
           onChange={handleInputChange}
           hasWritePermission={!!hasWritePermission}
+          onlineUsers={onlineUsers as any[]}
+          replyingTo={replyingTo}
+          onCancelReply={() => setReplyingTo(null)}
+          onSelectGif={handleSelectGif}
+          setMessageText={setMessageText}
+          onOpenEmojiPicker={() => setShowChatEditorEmojiPicker(true)}
         />
       </div>
+
+      {/* Members Sidebar Panel placed here to have the same height as the entire chat interface */}
+      {showMembers && (
+        <div className="w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex flex-col animate-slideLeft">
+          <div className="p-4 border-b border-border flex items-center justify-between">
+            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+              Channel Members
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {onlineUsers.map((m) => (
+              <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                <div className="relative">
+                  <img
+                    src={m.avatar}
+                    alt={m.name}
+                    className="w-8 h-8 rounded-full bg-surface-700 object-cover"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
+                  <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

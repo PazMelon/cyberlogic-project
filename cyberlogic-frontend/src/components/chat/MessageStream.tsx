@@ -24,6 +24,7 @@ export interface MessageStreamProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isFetchingMore?: boolean;
+  onReply?: (msg: ChatMessage) => void;
 }
 
 export default function MessageStream({
@@ -39,6 +40,7 @@ export default function MessageStream({
   onLoadMore,
   hasMore = false,
   isFetchingMore = false,
+  onReply,
 }: MessageStreamProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastFirstMessageIdRef = useRef<number | null>(null);
@@ -129,6 +131,7 @@ export default function MessageStream({
             activePickerId={activePickerId}
             setActivePickerId={setActivePickerId}
             onOpenFullPicker={onOpenFullPicker}
+            onReply={onReply}
           />
         ))
       )}

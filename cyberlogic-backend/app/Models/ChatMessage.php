@@ -12,9 +12,18 @@ class ChatMessage extends Model
     protected $fillable = [
         'channel_id',
         'user_id',
+        'parent_id',
         'content',
         'type',
     ];
+
+    /**
+     * Get the parent message that this message replies to.
+     */
+    public function parent()
+    {
+        return $this->belongsTo(ChatMessage::class, 'parent_id');
+    }
 
     /**
      * Get the channel this message belongs to.

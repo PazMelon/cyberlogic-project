@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ChatChannel;
 use App\Models\ChatMessage;
 use App\Models\ChatMessageReaction;
+use App\Models\ChatSavedMedia;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,7 +85,7 @@ class ChatController extends Controller
 
         // Get last 50 messages, ordered oldest to newest for the chat stream
         $query = ChatMessage::where('channel_id', $channel->id)
-            ->with(['user', 'reactions.user'])
+            ->with(['user', 'reactions.user', 'parent.user'])
             ->orderBy('id', 'desc')
             ->limit(50);
 
@@ -126,6 +127,11 @@ class ChatController extends Controller
                 'timestamp' => $msg->created_at ? $msg->created_at->format('g:i A') : now()->format('g:i A'),
                 'isSystem' => $msg->type === 'system',
                 'reactions' => $reactionsSummary,
+                'replyTo' => $msg->parent ? [
+                    'id' => $msg->parent->id,
+                    'content' => $msg->parent->content,
+                    'author' => $msg->parent->user ? $msg->parent->user->name : 'Anonymous',
+                ] : null,
             ];
         });
 
@@ -344,5 +350,30 @@ class ChatController extends Controller
         ], $request);
 
         return response()->json(['message' => 'Channel sorting updated successfully']);
+    }
+
+    /**
+     * Get list of all saved GIF/image links.
+     */
+    public function getGifs(): JsonResponse
+    {
+        $gifs = ChatSavedMedia::orderBy('created_at', 'desc')->get();
+        return response()->json($gifs);
+    }
+
+    /**
+     * Save a new GIF/image link to the library.
+     */
+    public function storeGif(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:100',
+            'url' => 'required|url',
+            'category' => 'nullable|string|max:50',
+        ]);
+
+        $gif = ChatSavedMedia::create($validated);
+
+        return response()->json($gif, 201);
     }
 }
