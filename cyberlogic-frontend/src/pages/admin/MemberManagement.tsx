@@ -669,7 +669,7 @@ export default function MemberManagement() {
 
         {/* Right Side Section: INLINE USER CONTROLS PANEL (splits grid) */}
         {selectedUser && activeTab === "directory" && (
-          <div className="xl:col-span-4 space-y-6">
+          <div className="xl:col-span-4 space-y-6 xl:sticky xl:top-24">
             <Card className="p-6 border border-border/80 bg-surface-900/40 relative animate-fadeIn">
               
               {/* Header */}
