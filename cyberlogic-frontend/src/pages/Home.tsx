@@ -48,11 +48,11 @@ export default function Home() {
         ]);
         setCategories(catsData);
         setThreads(threadsData);
-        
+
         const todayStr = new Date().toISOString().split('T')[0];
         const upcoming = evData.filter((e) => e.date >= todayStr);
         const sortedUpcoming = [...upcoming].sort((a, b) => a.date.localeCompare(b.date));
-        
+
         setLatestAnnouncements(annData.slice(0, 2));
         setUpcomingEvents(sortedUpcoming.slice(0, 1));
         setTotalUpcomingCount(upcoming.length);
@@ -140,7 +140,7 @@ export default function Home() {
         </div>
 
         {/* Right Column (1/3 width): sticky sidebar with Events, Announcements, and Leaderboard */}
-        <div className="sticky top-6 space-y-6">
+        <div className="sticky top-0 space-y-6">
           {/* Upcoming Events */}
           <DashboardCard
             title="Upcoming Events"
