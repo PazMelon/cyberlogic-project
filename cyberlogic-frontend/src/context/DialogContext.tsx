@@ -1,5 +1,5 @@
 import React, { createContext, useState, useCallback, useRef } from "react";
-import { Dialog } from "../components/ui/Dialog";
+import { Dialog } from "../components/ui";
 
 export type DialogType = "info" | "success" | "warning" | "error" | "danger";
 
