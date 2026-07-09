@@ -47,20 +47,21 @@ The Cyberlogic Club Portal is built as a distributed full-stack application comp
 ### 💻 1. Interactive Landing Page & Hero CLI
 - A simulated command-line interface directly on the hero banner.
 - Allows students to interactively query club information, list active projects, or simulate terminal commands without leaving the page.
+- Dynamic officer bios showing detailed profiles of the club's administration.
 - Fully customizable CLI database file.
 
 ### 👥 2. Member Portal
 - **Dashboard**: Home feed showcasing announcements, upcoming events, and resource links.
-- **Forums**: Discussions categories with inline filter pills, search functionality, pinned threads, and solved status.
+- **Forums**: Complete discussions module featuring forum thread CRUD (create, read, update, delete) operations, thread pinning, solved/unsolved status indicators, full interactive poll creation & voting, inline filter pills, search filtering, and XSS sanitization.
 - **Real-Time Chat**: Docked edge-to-edge layout designed to prevent overlap and remain locked dynamically to the browser layout, featuring typing indicators and live emoji reactions.
 - **Directory**: Complete searchable, role-tagged, and status-supported list of club members.
-- **Reddit-style Profile**: u/username profile card layout with custom banners, join date (Cake Day), user posts, and achievement badges.
+- **Reddit-style Profile**: u/username profile card layout with custom banners, join date (Cake Day), user posts, and achievement badges, fully integrated with thread author views.
 
-### 🛡️ 3. Officer Admin Panel
+### 🛡️ 3. Officer Admin Panel & CMS
 - **Admin Dashboard**: Visual stats cards (members, threads, approvals) and recent activity stream.
-- **Pending Approvals Queue**: Approve/reject new member requests.
-- **Content Management**: Manage announcements, events, resources, and moderation controls for the community forum.
-- **Live Theme Customizer**: Real-time theme editor where officers can adjust custom HSL variable colors (primary, accent, backgrounds) and preview changes instantly.
+- **Centralized CMS Content Management**: Full CRUD infrastructure for announcements, events, and blog posts with builder utilities, user ownership tracking (with migrations adding `user_id` foreign keys), and rich author-attributed details.
+- **Member Management**: Console allowing admin officers to assign roles, approve or reject registrations from the queue, and suspend/unsuspend members.
+- **Live Theme Customizer & Site Settings**: Real-time theme editor where officers can adjust custom HSL variable colors (primary, accent, backgrounds) and save the configuration profiles directly to the backend database.
 
 ---
 
