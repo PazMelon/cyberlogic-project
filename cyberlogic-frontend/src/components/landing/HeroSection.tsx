@@ -1,10 +1,36 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { ArrowRight, Calendar, Users, Rocket, Trophy } from "lucide-react";
 import { clubStats } from "../../data/mockData";
+import { fetchClubStats } from "../../utils/api";
 import Terminal from "../Terminal";
 import { Badge } from "../ui";
 
 export function HeroSection() {
+  const [stats, setStats] = useState({ members: 0, events: 0, projects: 0, awards: 0 });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const data = await fetchClubStats();
+        setStats(data);
+      } catch (err) {
+        console.error("Failed to load club stats", err);
+        // Fallback to static mock values if API fails
+        setStats({
+          members: clubStats.members,
+          events: clubStats.events,
+          projects: clubStats.projects,
+          awards: clubStats.awards,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadStats();
+  }, []);
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden py-20 lg:py-0">
       {/* Animated Background */}
@@ -67,10 +93,10 @@ export function HeroSection() {
             {/* Stats Strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 animate-fade-in-up delay-400">
               {[
-                { icon: Users, value: `${clubStats.members}+`, label: "Members" },
-                { icon: Calendar, value: `${clubStats.events}+`, label: "Events" },
-                { icon: Rocket, value: `${clubStats.projects}+`, label: "Projects" },
-                { icon: Trophy, value: `${clubStats.awards}+`, label: "Awards" },
+                { icon: Users, value: isLoading ? "..." : `${stats.members}+`, label: "Members" },
+                { icon: Calendar, value: isLoading ? "..." : `${stats.events}+`, label: "Events" },
+                { icon: Rocket, value: isLoading ? "..." : `${stats.projects}+`, label: "Projects" },
+                { icon: Trophy, value: isLoading ? "..." : `${stats.awards}+`, label: "Awards" },
               ].map((stat) => (
                 <div
                   key={stat.label}

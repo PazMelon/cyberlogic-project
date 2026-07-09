@@ -30,6 +30,7 @@ Route::get('/api/csrf-cookie', function () {
 Route::post('/api/register', [AuthController::class, 'register']);
 Route::post('/api/login', [AuthController::class, 'login']);
 Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
+Route::get('/api/club-stats', [SiteSettingController::class, 'getClubStats']);
 Route::get('/api/officers', [OfficerController::class, 'index']);
 Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
 

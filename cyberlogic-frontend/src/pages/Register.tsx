@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import { Shield, Eye, EyeOff, Mail, Lock, User, CreditCard, ArrowLeft, Users, Trophy, BookOpen, AlertTriangle, Clock } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { clubStats } from "../data/mockData";
+import { fetchClubStats } from "../utils/api";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -24,6 +25,29 @@ export default function Register() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  const [stats, setStats] = useState({ members: 0, events: 0, projects: 0, awards: 0 });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const data = await fetchClubStats();
+        setStats(data);
+      } catch (err) {
+        console.error("Failed to load club stats in Register page", err);
+        setStats({
+          members: clubStats.members,
+          events: clubStats.events,
+          projects: clubStats.projects,
+          awards: clubStats.awards,
+        });
+      } finally {
+        setIsLoadingStats(false);
+      }
+    }
+    loadStats();
+  }, []);
 
   const updateField = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -79,10 +103,10 @@ export default function Register() {
           {/* Stats */}
           <div className="grid grid-cols-2 gap-4 mb-8">
             {[
-              { icon: Users, value: `${clubStats.members}+`, label: "Active Members" },
-              { icon: Trophy, value: `${clubStats.awards}+`, label: "Awards Won" },
-              { icon: BookOpen, value: `${clubStats.events}+`, label: "Events Held" },
-              { icon: Shield, value: `${clubStats.projects}+`, label: "Projects Built" },
+              { icon: Users, value: isLoadingStats ? "..." : `${stats.members}+`, label: "Active Members" },
+              { icon: Trophy, value: isLoadingStats ? "..." : `${stats.awards}+`, label: "Awards Won" },
+              { icon: BookOpen, value: isLoadingStats ? "..." : `${stats.events}+`, label: "Events Held" },
+              { icon: Shield, value: isLoadingStats ? "..." : `${stats.projects}+`, label: "Projects Built" },
             ].map((stat) => (
               <div key={stat.label} className="glass rounded-xl p-4 text-center">
                 <stat.icon className="w-5 h-5 text-accent mx-auto mb-2" />

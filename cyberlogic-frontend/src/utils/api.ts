@@ -2200,3 +2200,21 @@ export async function closeForumPoll(pollId: number): Promise<ForumPollMapped> {
   return mapPoll(p) as ForumPollMapped;
 }
 
+export interface ClubStats {
+  members: number;
+  events: number;
+  projects: number;
+  awards: number;
+}
+
+/**
+ * GET /api/club-stats
+ */
+export async function fetchClubStats(): Promise<ClubStats> {
+  const res = await apiRequest("/api/club-stats");
+  if (!res.ok) {
+    throw new Error("Failed to load club statistics.");
+  }
+  return res.json();
+}
+

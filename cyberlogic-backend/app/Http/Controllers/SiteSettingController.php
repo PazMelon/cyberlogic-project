@@ -50,4 +50,43 @@ class SiteSettingController extends Controller
             'settings' => $settings
         ]);
     }
+
+    /**
+     * GET /api/club-stats
+     * Retrieve cached statistics.
+     */
+    public function getClubStats(): JsonResponse
+    {
+        $cachedAtSetting = SiteSetting::where('key', 'metrics_cached_at')->first();
+        $cachedAt = $cachedAtSetting ? (int) $cachedAtSetting->value : 0;
+        $now = time();
+
+        // 15 minutes cache (900 seconds)
+        if (!$cachedAtSetting || ($now - $cachedAt) > 900) {
+            $membersCount = \App\Models\User::where('status', 'approved')->count();
+            $eventsCount = \App\Models\Event::count();
+            $projectsCount = \App\Models\Resource::count();
+            
+            $awardsSetting = SiteSetting::where('key', 'metrics_awards')->first();
+            $awardsCount = $awardsSetting ? (int) $awardsSetting->value : 8;
+
+            SiteSetting::updateOrCreate(['key' => 'metrics_members'], ['value' => (string) $membersCount]);
+            SiteSetting::updateOrCreate(['key' => 'metrics_events'], ['value' => (string) $eventsCount]);
+            SiteSetting::updateOrCreate(['key' => 'metrics_projects'], ['value' => (string) $projectsCount]);
+            SiteSetting::updateOrCreate(['key' => 'metrics_awards'], ['value' => (string) $awardsCount]);
+            SiteSetting::updateOrCreate(['key' => 'metrics_cached_at'], ['value' => (string) $now]);
+        }
+
+        $members = (int) SiteSetting::where('key', 'metrics_members')->value('value') ?: 0;
+        $events = (int) SiteSetting::where('key', 'metrics_events')->value('value') ?: 0;
+        $projects = (int) SiteSetting::where('key', 'metrics_projects')->value('value') ?: 0;
+        $awards = (int) SiteSetting::where('key', 'metrics_awards')->value('value') ?: 8;
+
+        return response()->json([
+            'members' => $members,
+            'events' => $events,
+            'projects' => $projects,
+            'awards' => $awards,
+        ]);
+    }
 }
