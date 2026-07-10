@@ -18,9 +18,12 @@ interface WebSocketContextType {
   unreadNotifCount: number;
   resetUnreadNotifCount: () => void;
   incrementUnreadNotifCount: () => void;
+  decrementUnreadNotifCount: () => void;
   updateMyStatus: (status: 'online' | 'away') => void;
   subscribe: (channel: string, callback: (payload: any, type: string) => void) => () => void;
   sendMessage: (type: string, channel: string, payload: any) => void;
+  latestNotification: any | null;
+  clearLatestNotification: () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -30,6 +33,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [latestNotification, setLatestNotification] = useState<any | null>(null);
   const [myStatus, setMyStatus] = useState<'online' | 'away'>(() => {
     return (localStorage.getItem('cl_user_status') as 'online' | 'away') || 'online';
   });
@@ -109,9 +113,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   // Subscribe to notifications channel when connected
   useEffect(() => {
     if (status === 'connected') {
-      const unsubscribeNotifications = wsClient.subscribe('notifications', (_, type: string) => {
+      const unsubscribeNotifications = wsClient.subscribe('notifications', (payload: any, type: string) => {
         if (type === 'new_notification') {
           setUnreadNotifCount(prev => prev + 1);
+          setLatestNotification(payload);
         }
       });
 
@@ -144,6 +149,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     setUnreadNotifCount(prev => prev + 1);
   }, []);
 
+  const decrementUnreadNotifCount = useCallback(() => {
+    setUnreadNotifCount(prev => Math.max(0, prev - 1));
+  }, []);
+
   // Stable function references to prevent unnecessary re-renders
   const subscribe = useCallback((channel: string, callback: (payload: any, type: string) => void) => {
     return wsClient.subscribe(channel, callback);
@@ -151,6 +160,10 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback((type: string, channel: string, payload: any) => {
     wsClient.send(type, channel, payload);
+  }, []);
+
+  const clearLatestNotification = useCallback(() => {
+    setLatestNotification(null);
   }, []);
 
   return (
@@ -163,9 +176,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         unreadNotifCount,
         resetUnreadNotifCount,
         incrementUnreadNotifCount,
+        decrementUnreadNotifCount,
         updateMyStatus,
         subscribe,
         sendMessage,
+        latestNotification,
+        clearLatestNotification,
       }}
     >
       {children}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
 import {
   Bell,
@@ -23,6 +23,19 @@ import {
   ScrollText,
   KeyRound,
   FileText,
+  CalendarPlus,
+  CalendarClock,
+  CalendarCheck,
+  Reply,
+  Lock,
+  Unlock,
+  Trash2,
+  CheckCircle,
+  Pin,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Info,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
@@ -97,17 +110,142 @@ const adminNavSections: NavSection[] = [
   },
 ];
 
+const notificationIcons: Record<string, any> = {
+  'megaphone': Megaphone,
+  'calendar-plus': CalendarPlus,
+  'calendar-clock': CalendarClock,
+  'calendar-check': CalendarCheck,
+  'message-square': MessageSquare,
+  'reply': Reply,
+  'lock': Lock,
+  'lock-open': Unlock,
+  'trash-2': Trash2,
+  'check-circle': CheckCircle,
+  'pin': Pin,
+  'user-plus': UserPlus,
+  'user-check': UserCheck,
+  'user-x': UserX,
+  'info': Info,
+};
+
+const getNotificationIcon = (iconName: string | null, type: string) => {
+  if (iconName && notificationIcons[iconName]) {
+    return notificationIcons[iconName];
+  }
+  switch (type) {
+    case 'announcement':
+      return Megaphone;
+    case 'event_new':
+    case 'event':
+      return CalendarPlus;
+    case 'event_ongoing':
+      return CalendarClock;
+    case 'event_completed':
+      return CalendarCheck;
+    case 'thread_comment':
+      return MessageSquare;
+    case 'comment_reply':
+      return Reply;
+    case 'thread_closed':
+      return Lock;
+    case 'thread_reopened':
+      return Unlock;
+    case 'comment_deleted':
+      return Trash2;
+    case 'comment_solution':
+      return CheckCircle;
+    case 'thread_pinned':
+      return Pin;
+    case 'admin_registration':
+      return UserPlus;
+    case 'admin_approval_pending':
+      return UserCheck;
+    case 'admin_user_suspended':
+      return UserX;
+    default:
+      return Info;
+  }
+};
+
+const getNotificationColorClass = (type: string) => {
+  switch (type) {
+    case 'announcement':
+    case 'thread_comment':
+      return 'text-primary bg-primary/10 border-primary/20';
+    case 'event_new':
+    case 'thread_pinned':
+      return 'text-accent bg-accent/10 border-accent/20';
+    case 'event_ongoing':
+    case 'admin_approval_pending':
+      return 'text-warning bg-warning/10 border-warning/20';
+    case 'event_completed':
+    case 'thread_reopened':
+    case 'comment_solution':
+      return 'text-success bg-success/10 border-success/20';
+    case 'comment_reply':
+    case 'admin_registration':
+      return 'text-info bg-info/10 border-info/20';
+    case 'thread_closed':
+      return 'text-warning bg-warning/10 border-warning/20';
+    case 'comment_deleted':
+    case 'admin_user_suspended':
+      return 'text-error bg-error/10 border-error/20';
+    default:
+      return 'text-text-muted bg-white/5 border-white/10';
+  }
+};
+
+const formatRelativeTime = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
 export default function Topbar() {
   const { user, logout, isAdmin, isSuperAdmin, hasPermission } = useAuth();
-  const { myStatus, updateMyStatus, unreadNotifCount, resetUnreadNotifCount } = useWebSocket();
+  const {
+    myStatus,
+    updateMyStatus,
+    unreadNotifCount,
+    resetUnreadNotifCount,
+    decrementUnreadNotifCount,
+    latestNotification,
+    clearLatestNotification
+  } = useWebSocket();
+  
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const [activeToast, setActiveToast] = useState<any | null>(null);
   const location = useLocation();
 
   const isAdminRoute = location.pathname.startsWith("/admin");
+
+  // Show Toast when a new notification is received via WS
+  useEffect(() => {
+    if (latestNotification) {
+      setActiveToast(latestNotification);
+      clearLatestNotification();
+      
+      const timer = setTimeout(() => {
+        setActiveToast(null);
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [latestNotification, clearLatestNotification]);
 
   const isActive = (path: string) => {
     if (path === "/app" || path === "/admin") return location.pathname === path;
@@ -122,7 +260,8 @@ export default function Topbar() {
         const res = await fetch('/api/notifications', { credentials: 'same-origin' });
         if (res.ok) {
           const data = await res.json();
-          setNotifications(data);
+          // Support both paginated and non-paginated backend responses
+          setNotifications(Array.isArray(data) ? data : (data.data || []));
         }
       } catch (err) {
         console.error('Failed to load notifications:', err);
@@ -150,15 +289,56 @@ export default function Topbar() {
     }
   };
 
+  const handleClearAll = async () => {
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      });
+      if (res.ok) {
+        resetUnreadNotifCount();
+        setNotifications([]);
+      }
+    } catch (err) {
+      console.error('Failed to clear all notifications:', err);
+    }
+  };
+
+  const handleDeleteSingle = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/notifications/${id}`, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin'
+      });
+      if (res.ok) {
+        const deletedNotif = notifications.find(n => n.id === id);
+        if (deletedNotif && !deletedNotif.read_at) {
+          decrementUnreadNotifCount();
+        }
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
   const handleNotificationClick = async (notif: any) => {
     setShowNotifDropdown(false);
     if (!notif.read_at) {
       try {
-        await fetch(`/api/notifications/${notif.id}/read`, {
+        const res = await fetch(`/api/notifications/${notif.id}/read`, {
           method: 'PUT',
           headers: { 'Accept': 'application/json' },
           credentials: 'same-origin'
         });
+        if (res.ok) {
+          decrementUnreadNotifCount();
+          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read_at: new Date().toISOString() } : n));
+        }
       } catch (err) {
         console.error('Failed to mark notification as read:', err);
       }
@@ -217,17 +397,28 @@ export default function Topbar() {
                 onClick={() => setShowNotifDropdown(false)}
               />
               <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 glass rounded-xl border border-border shadow-xl z-50 py-2 flex flex-col max-h-[480px]">
-                <div className="px-4 py-2 border-b border-border flex items-center justify-between">
+                <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-text-primary">Notifications</span>
-                  {unreadNotifCount > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleMarkAllRead}
-                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
-                    >
-                      Mark all as read
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {unreadNotifCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleMarkAllRead}
+                        className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                    {notifications.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAll}
+                        className="text-xs font-semibold text-text-muted hover:text-error hover:underline cursor-pointer"
+                      >
+                        Clear all
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
@@ -237,33 +428,48 @@ export default function Topbar() {
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="p-8 text-center text-xs text-text-muted">
-                      No new notifications.
+                      No notifications.
                     </div>
                   ) : (
                     notifications.map(notif => {
-                      let path = '/app';
-                      if (notif.type === 'announcement' && notif.data?.announcement_id) {
-                        path = `/app/announcements/${notif.data.announcement_id}`;
-                      } else if (notif.type === 'event' && notif.data?.event_id) {
-                        path = `/app/events/${notif.data.event_id}`;
-                      }
+                      const path = notif.link || '/app';
                       
                       return (
                         <Link
                           key={notif.id}
                           to={path}
                           onClick={() => handleNotificationClick(notif)}
-                          className={`flex flex-col gap-1 p-3.5 text-left hover:bg-white/5 transition-all ${
+                          className={`group flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-all relative ${
                             !notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-text-primary">{notif.title}</span>
-                            <span className="text-[9px] text-text-muted">
-                              {new Date(notif.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                            </span>
+                          <div className={`p-2 rounded-lg flex-shrink-0 border flex items-center justify-center h-8 w-8 ${getNotificationColorClass(notif.type)}`}>
+                            {(() => {
+                              const Icon = getNotificationIcon(notif.icon, notif.type);
+                              return <Icon className="w-4 h-4" />;
+                            })()}
                           </div>
-                          <p className="text-xs text-text-secondary leading-relaxed">{notif.body}</p>
+                          
+                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span className="text-xs font-semibold text-text-primary truncate">{notif.title}</span>
+                              <span className="text-[9px] text-text-muted whitespace-nowrap flex-shrink-0">
+                                {formatRelativeTime(notif.created_at)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-text-secondary leading-relaxed line-clamp-2 pr-6">
+                              {notif.body}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteSingle(e, notif.id)}
+                            className="absolute right-3 top-3.5 p-1 rounded-md text-text-muted hover:text-error hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                            title="Delete notification"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </Link>
                       );
                     })
@@ -561,6 +767,42 @@ export default function Topbar() {
             </div>
           </div>
         </>
+      )}
+      
+      {activeToast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full glass rounded-xl border border-border/80 shadow-2xl p-4 flex gap-3.5 animate-slide-in-right">
+          <div className={`p-2.5 rounded-lg flex-shrink-0 border flex items-center justify-center h-10 w-10 ${getNotificationColorClass(activeToast.type)}`}>
+            {(() => {
+              const Icon = getNotificationIcon(activeToast.icon, activeToast.type);
+              return <Icon className="w-5 h-5" />;
+            })()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-semibold text-text-primary truncate">{activeToast.title}</span>
+              <button
+                type="button"
+                onClick={() => setActiveToast(null)}
+                className="text-text-muted hover:text-text-primary p-0.5 rounded transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed mt-1 line-clamp-2">{activeToast.body}</p>
+            {activeToast.link && (
+              <Link
+                to={activeToast.link}
+                onClick={() => {
+                  setActiveToast(null);
+                  handleNotificationClick(activeToast);
+                }}
+                className="text-xs font-semibold text-primary hover:underline mt-2 inline-block"
+              >
+                View details
+              </Link>
+            )}
+          </div>
+        </div>
       )}
     </>
   );

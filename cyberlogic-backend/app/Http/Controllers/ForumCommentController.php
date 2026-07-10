@@ -61,6 +61,32 @@ class ForumCommentController extends Controller
             'thread_id' => $threadId
         ], $request);
 
+        // Notify thread owner
+        if ($thread->user_id !== $request->user()->id) {
+            \App\Services\NotificationService::notifyUser(
+                $thread->user_id,
+                'thread_comment',
+                'New Comment',
+                "{$request->user()->name} commented on \"{$thread->title}\"",
+                ['thread_id' => $thread->id, 'comment_id' => $comment->id],
+                'message-square',
+                "/app/forums/threads/{$thread->id}"
+            );
+        }
+
+        // Notify parent comment owner
+        if (!empty($validated['parent_id']) && isset($parent) && $parent->user_id !== $request->user()->id) {
+            \App\Services\NotificationService::notifyUser(
+                $parent->user_id,
+                'comment_reply',
+                'New Reply',
+                "{$request->user()->name} replied to your comment",
+                ['thread_id' => $thread->id, 'comment_id' => $comment->id, 'parent_id' => $parent->id],
+                'reply',
+                "/app/forums/threads/{$thread->id}"
+            );
+        }
+
         $loadedComment = $comment->load('user');
         $commentPayload = [
             'id' => $loadedComment->id,
@@ -149,7 +175,21 @@ class ForumCommentController extends Controller
             $comment->user->increment('deleted_comments_count');
         }
 
+        $commentAuthorId = $comment->user_id;
         $comment->delete();
+
+        if ($commentAuthorId !== $user->id) {
+            $threadTitle = $thread ? $thread->title : (ForumThread::find($threadId)?->title ?? 'a thread');
+            \App\Services\NotificationService::notifyUser(
+                $commentAuthorId,
+                'comment_deleted',
+                'Comment Removed',
+                "Your comment was removed from \"{$threadTitle}\"",
+                ['thread_id' => $threadId],
+                'trash-2',
+                "/app/forums/threads/{$threadId}"
+            );
+        }
 
         AuditLogger::log('deleted', 'ForumComment', $commentId, $commentSnippet, [
             'thread_id' => $threadId

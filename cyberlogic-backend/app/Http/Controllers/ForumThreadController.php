@@ -268,6 +268,18 @@ class ForumThreadController extends Controller
         $thread = ForumThread::findOrFail($id);
         $thread->update(['is_pinned' => ! $thread->is_pinned]);
 
+        if ($thread->is_pinned && $thread->user_id !== $user->id) {
+            \App\Services\NotificationService::notifyUser(
+                $thread->user_id,
+                'thread_pinned',
+                'Thread Pinned',
+                "Your thread \"{$thread->title}\" was pinned",
+                ['thread_id' => $thread->id],
+                'pin',
+                "/app/forums/threads/{$thread->id}"
+            );
+        }
+
         AuditLogger::log($thread->is_pinned ? 'pinned' : 'unpinned', 'ForumThread', $thread->id, $thread->title, null, $request);
 
         return response()->json($thread->load(['user', 'category']));
@@ -286,6 +298,23 @@ class ForumThreadController extends Controller
 
         $thread = ForumThread::findOrFail($id);
         $thread->update(['is_closed' => ! $thread->is_closed]);
+
+        if ($thread->user_id !== $user->id) {
+            $type = $thread->is_closed ? 'thread_closed' : 'thread_reopened';
+            $title = $thread->is_closed ? 'Thread Closed' : 'Thread Reopened';
+            $body = $thread->is_closed ? "Your thread \"{$thread->title}\" was closed" : "Your thread \"{$thread->title}\" was reopened";
+            $icon = $thread->is_closed ? 'lock' : 'lock-open';
+
+            \App\Services\NotificationService::notifyUser(
+                $thread->user_id,
+                $type,
+                $title,
+                $body,
+                ['thread_id' => $thread->id],
+                $icon,
+                "/app/forums/threads/{$thread->id}"
+            );
+        }
 
         AuditLogger::log($thread->is_closed ? 'closed' : 'reopened', 'ForumThread', $thread->id, $thread->title, null, $request);
 
@@ -325,6 +354,18 @@ class ForumThreadController extends Controller
                 'solution_comment_id' => $comment->id,
                 'is_solved' => true,
             ]);
+
+            if ($comment->user_id !== $thread->user_id) {
+                \App\Services\NotificationService::notifyUser(
+                    $comment->user_id,
+                    'comment_solution',
+                    'Solution Accepted!',
+                    "Your comment was marked as the solution in \"{$thread->title}\"",
+                    ['thread_id' => $thread->id, 'comment_id' => $comment->id],
+                    'check-circle',
+                    "/app/forums/threads/{$thread->id}"
+                );
+            }
 
             AuditLogger::log('solved', 'ForumThread', $thread->id, $thread->title, ['comment_id' => $commentId], $request);
         } else {

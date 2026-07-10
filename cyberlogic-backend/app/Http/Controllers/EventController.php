@@ -240,27 +240,14 @@ class EventController extends Controller
         AuditLogger::log('created', 'Event', $event->id, $event->title, null, $request);
 
         // Generate notifications for all approved users
-        try {
-            $approvedUsers = \App\Models\User::where('status', 'approved')->get();
-            foreach ($approvedUsers as $u) {
-                $notif = \App\Models\Notification::create([
-                    'user_id' => $u->id,
-                    'type' => 'event',
-                    'title' => 'New Event Created',
-                    'body' => $event->title,
-                    'data' => ['event_id' => $event->id],
-                ]);
-
-                \App\Services\RealtimeService::broadcast(
-                    'notifications',
-                    $notif->toArray(),
-                    'new_notification',
-                    $u->id
-                );
-            }
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error("Failed to generate event notifications: " . $e->getMessage());
-        }
+        \App\Services\NotificationService::notifyAllMembers(
+            'event_new',
+            'New Event Created',
+            $event->title,
+            ['event_id' => $event->id],
+            'calendar-plus',
+            "/app/events/{$event->id}"
+        );
 
         return response()->json($event, 201);
     }
@@ -697,6 +684,26 @@ class EventController extends Controller
         $event->update([
             'status' => $validated['status']
         ]);
+
+        if ($validated['status'] === 'ongoing') {
+            \App\Services\NotificationService::notifyAllMembers(
+                'event_ongoing',
+                'Event Now Ongoing',
+                "\"{$event->title}\" has started.",
+                ['event_id' => $event->id],
+                'calendar-clock',
+                "/app/events/{$event->id}"
+            );
+        } elseif ($validated['status'] === 'completed') {
+            \App\Services\NotificationService::notifyAllMembers(
+                'event_completed',
+                'Event Completed',
+                "\"{$event->title}\" has ended.",
+                ['event_id' => $event->id],
+                'calendar-check',
+                "/app/events/{$event->id}"
+            );
+        }
 
         AuditLogger::log('status_updated', 'Event', $event->id, "Event {$event->title} status changed to {$validated['status']}", [
             'status' => $validated['status']

@@ -173,6 +173,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/notifications/unread-count', [NotificationController::class, 'getUnreadCount']);
     Route::put('/api/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::put('/api/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+    Route::delete('/api/notifications/{id}', [NotificationController::class, 'destroy']);
+    Route::delete('/api/notifications', [NotificationController::class, 'destroyAll']);
 
     // Reputation endpoints
     Route::get('/api/reputation/leaderboard', [ReputationController::class, 'leaderboard']);

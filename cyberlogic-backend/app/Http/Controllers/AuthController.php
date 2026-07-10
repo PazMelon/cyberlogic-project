@@ -61,6 +61,16 @@ class AuthController extends Controller
             ]
         ]);
 
+        \App\Services\NotificationService::notifyAdmins(
+            'admin_registration',
+            'New Registration',
+            "{$user->name} registered and is awaiting approval.",
+            ['user_id' => $user->id],
+            'user-plus',
+            '/admin/members',
+            'manage_users'
+        );
+
         return response()->json([
             'message' => 'Registration submitted successfully. Your account is pending review by an administrator or moderator.',
             'status' => 'pending',
@@ -560,6 +570,16 @@ class AuthController extends Controller
             'userId' => $user->id,
             'member' => $user,
         ]);
+
+        \App\Services\NotificationService::notifyAdmins(
+            'admin_user_suspended',
+            'User Suspended',
+            "{$user->name} was suspended.",
+            ['user_id' => $user->id],
+            'user-x',
+            '/admin/members',
+            'manage_users'
+        );
 
         return response()->json([
             'success' => true,
