@@ -8,6 +8,7 @@ use App\Models\ForumThread;
 use App\Services\ImageOptimizer;
 use App\Services\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ForumThreadController extends Controller
 {
@@ -68,6 +69,10 @@ class ForumThreadController extends Controller
         } elseif ($sort === 'oldest') {
             $query->orderBy('is_pinned', 'desc')
                 ->orderBy('created_at', 'asc');
+        } else {
+            // Default to newest: pinned first, then sorted by newest created_at desc
+            $query->orderBy('is_pinned', 'desc')
+                ->orderBy('created_at', 'desc');
         }
 
         if ($request->has('page') || $request->has('limit')) {
@@ -101,8 +106,14 @@ class ForumThreadController extends Controller
             'poll.options.votes',
         ])->findOrFail($id);
 
-        // Increment view count
-        $thread->increment('views');
+        // Increment view count with 6-hour cooldown (using User ID or Session ID to avoid CGNAT issues)
+        $identifier = auth()->check() ? auth()->id() : session()->getId();
+        $cacheKey = "thread_view:{$id}:{$identifier}";
+
+        if (!Cache::has($cacheKey)) {
+            $thread->increment('views');
+            Cache::put($cacheKey, true, now()->addHours(6));
+        }
 
         // Let's add user_voted_option_id if user is authenticated
         if (auth()->check() && $thread->poll) {

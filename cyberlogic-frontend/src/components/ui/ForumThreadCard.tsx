@@ -66,7 +66,7 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
             {thread.title}
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            <span onClick={handleAuthorClick} className="hover:text-primary transition-colors font-medium text-text-secondary cursor-pointer">{thread.author}</span> · {thread.lastActivity}
+            <span onClick={handleAuthorClick} className="hover:text-primary transition-colors font-medium text-text-secondary cursor-pointer">{thread.author}</span> · {thread.createdAt}
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs text-text-muted flex-shrink-0">
@@ -143,7 +143,7 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
             {/* Footer metrics */}
             <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
               <span onClick={handleAuthorClick} className="font-medium text-text-secondary hover:text-primary transition-colors cursor-pointer">{thread.author}</span>
-              <span>{thread.lastActivity}</span>
+              <span>{thread.createdAt}</span>
               <span className="inline-flex items-center gap-1">
                 <MessageSquare className="w-3 h-3" /> {thread.replyCount} replies
               </span>
