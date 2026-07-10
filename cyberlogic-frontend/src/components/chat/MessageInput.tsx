@@ -106,7 +106,10 @@ export default function MessageInput({
 
   // Filter mention suggestions safely
   const filteredUsers = (onlineUsers || []).filter((user) =>
-    user && user.name && user.name.toLowerCase().includes(mentionQuery.toLowerCase())
+    user && (
+      (user.name && user.name.toLowerCase().includes(mentionQuery.toLowerCase())) ||
+      (user.username && user.username.toLowerCase().includes(mentionQuery.toLowerCase()))
+    )
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -126,7 +129,8 @@ export default function MessageInput({
       }
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
-        selectMentionUser(filteredUsers[activeMentionIndex].name);
+        const selectedUser = filteredUsers[activeMentionIndex];
+        selectMentionUser(selectedUser.username || selectedUser.name.replace(/\s+/g, "").toLowerCase());
         return;
       }
       if (e.key === "Escape") {
@@ -167,7 +171,7 @@ export default function MessageInput({
               <button
                 key={user.id}
                 type="button"
-                onClick={() => selectMentionUser(user.name)}
+                onClick={() => selectMentionUser(user.username || user.name.replace(/\s+/g, "").toLowerCase())}
                 className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
                   idx === activeMentionIndex
                     ? "bg-primary/20 text-primary"
@@ -181,7 +185,9 @@ export default function MessageInput({
                 />
                 <div className="min-w-0 flex-1 truncate">
                   <span className="font-medium">{user.name}</span>
-                  <span className="text-[10px] text-text-muted ml-2">@{user.role}</span>
+                  <span className="text-[10px] text-text-muted ml-2">
+                    @{user.username || user.name.replace(/\s+/g, "").toLowerCase()}
+                  </span>
                 </div>
               </button>
             ))}

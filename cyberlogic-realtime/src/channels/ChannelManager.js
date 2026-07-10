@@ -280,6 +280,38 @@ class ChannelManager {
   }
 
   /**
+   * Create and deliver notification.
+   */
+  async createNotification(userId, type, title, body, icon, link, data) {
+    try {
+      const [result] = await pool.query(
+        'INSERT INTO notifications (user_id, type, title, body, icon, link, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())',
+        [userId, type, title, body, icon, link, JSON.stringify(data || null)]
+      );
+      
+      const notif = {
+        id: result.insertId,
+        user_id: userId,
+        type,
+        title,
+        body,
+        icon,
+        link,
+        data,
+        read_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      this.sendToUser(userId, 'notifications', 'new_notification', notif);
+      return notif;
+    } catch (err) {
+      console.error('[WS] Error creating notification:', err.message);
+      return null;
+    }
+  }
+
+  /**
    * Save and broadcast chat message.
    */
   async handleChatMessage(client, user, channelSlug, payload) {
@@ -296,8 +328,8 @@ class ChannelManager {
         return;
       }
 
-      // 1. Get channel ID and write_roles from DB
-      const [channels] = await pool.query('SELECT id, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+      // 1. Get channel ID, name and write_roles from DB
+      const [channels] = await pool.query('SELECT id, name, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
       if (channels.length === 0) {
         throw new Error(`Channel ${channelSlug} not found in database`);
       }
@@ -320,9 +352,10 @@ class ChannelManager {
 
       // 3. Format message payload to send
       let replyTo = null;
+      let parentAuthorId = null;
       if (parentId) {
         const [parentMsg] = await pool.query(
-          `SELECT m.id, m.content, 
+          `SELECT m.id, m.content, m.user_id,
                   COALESCE(u.username, TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name))) as author,
                   u.username as authorUsername
            FROM chat_messages m 
@@ -337,6 +370,7 @@ class ChannelManager {
             author: parentMsg[0].author || 'Anonymous',
             authorUsername: parentMsg[0].authorUsername || null,
           };
+          parentAuthorId = parentMsg[0].user_id;
         }
       }
 
@@ -355,6 +389,49 @@ class ChannelManager {
 
       // 4. Broadcast message to the channel subscribers
       this.broadcast(`chat:${channelSlug}`, 'message', formattedMsg);
+
+      const channelName = channels[0].name;
+
+      // 5. Send notification for reply
+      if (parentAuthorId && parentAuthorId !== user.id) {
+        await this.createNotification(
+          parentAuthorId,
+          'chat_reply',
+          'Chat Reply',
+          `${user.name} replied to your message in #${channelName}`,
+          'reply',
+          `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
+          { channel_slug: channelSlug, message_id: result.insertId, parent_id: parentId }
+        );
+      }
+
+      // 6. Send notification for mentions
+      const mentionRegex = /@([a-zA-Z0-9_\-\.]+)/g;
+      const mentionedUsernames = [];
+      let match;
+      while ((match = mentionRegex.exec(content)) !== null) {
+        mentionedUsernames.push(match[1]);
+      }
+      const uniqueUsernames = [...new Set(mentionedUsernames)];
+      if (uniqueUsernames.length > 0) {
+        const [mentionedUsers] = await pool.query(
+          'SELECT id, username FROM users WHERE username IN (?) AND status = ?',
+          [uniqueUsernames, 'approved']
+        );
+        for (const mentionedUser of mentionedUsers) {
+          if (mentionedUser.id !== user.id && mentionedUser.id !== parentAuthorId) {
+            await this.createNotification(
+              mentionedUser.id,
+              'chat_mention',
+              'New Mention',
+              `${user.name} mentioned you in #${channelName}`,
+              'message-square',
+              `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
+              { channel_slug: channelSlug, sender_id: user.id }
+            );
+          }
+        }
+      }
     } catch (err) {
       console.error('[WS] Error saving/broadcasting chat message:', err.message);
       this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to send message.' });
@@ -510,7 +587,10 @@ class ChannelManager {
 
       // Verify message exists and is not already deleted
       const [msgs] = await pool.query(
-        'SELECT id, content, user_id, channel_id, is_deleted FROM chat_messages WHERE id = ? LIMIT 1',
+        `SELECT m.id, m.content, m.user_id, m.is_deleted, c.slug, c.name 
+         FROM chat_messages m
+         LEFT JOIN chat_channels c ON m.channel_id = c.id
+         WHERE m.id = ? LIMIT 1`,
         [messageId]
       );
 
@@ -541,6 +621,21 @@ class ChannelManager {
         content: replacementContent,
         reason: reason.trim(),
       });
+
+      const deletedMessageAuthorId = msgs[0].user_id;
+      const channelName = msgs[0].name;
+
+      if (deletedMessageAuthorId !== user.id) {
+        await this.createNotification(
+          deletedMessageAuthorId,
+          'chat_message_deleted',
+          'Message Deleted',
+          `Your message in #${channelName} was removed by an Admin because of "${reason.trim()}"`,
+          'trash-2',
+          `/app/chat?channel=${channelSlug}&message_id=${messageId}`,
+          { channel_slug: channelSlug, deletion_reason: reason.trim() }
+        );
+      }
 
     } catch (err) {
       console.error('[WS] Error handling message deletion:', err.message);

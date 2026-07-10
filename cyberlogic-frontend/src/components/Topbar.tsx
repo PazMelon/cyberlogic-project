@@ -171,6 +171,7 @@ const getNotificationColorClass = (type: string) => {
   switch (type) {
     case 'announcement':
     case 'thread_comment':
+    case 'chat_mention':
       return 'text-primary bg-primary/10 border-primary/20';
     case 'event_new':
     case 'thread_pinned':
@@ -184,11 +185,13 @@ const getNotificationColorClass = (type: string) => {
       return 'text-success bg-success/10 border-success/20';
     case 'comment_reply':
     case 'admin_registration':
+    case 'chat_reply':
       return 'text-info bg-info/10 border-info/20';
     case 'thread_closed':
       return 'text-warning bg-warning/10 border-warning/20';
     case 'comment_deleted':
     case 'admin_user_suspended':
+    case 'chat_message_deleted':
       return 'text-error bg-error/10 border-error/20';
     default:
       return 'text-text-muted bg-white/5 border-white/10';

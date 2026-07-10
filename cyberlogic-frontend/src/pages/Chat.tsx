@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { useWebSocket } from "../context/WebSocketContext";
 import { apiRequest, useAuth } from "../context/AuthContext";
 import { ShieldAlert, X } from "lucide-react";
@@ -12,11 +13,14 @@ import type { TypingUser } from "../components/chat/MessageStream";
 import MessageInput from "../components/chat/MessageInput";
 import EmojiSearchPicker from "../components/chat/EmojiSearchPicker";
 import type { ChatMessage } from "../components/chat/MessageBubble";
-
 export default function Chat() {
   const { subscribe, sendMessage, onlineUsers, isConnected } = useWebSocket();
   const { user: currentUser, hasPermission } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const channelParam = searchParams.get("channel");
+  const messageIdParam = searchParams.get("message_id");
 
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -62,6 +66,22 @@ export default function Chat() {
     !Array.isArray(activeChannelData.write_roles) || 
     (currentUser && activeChannelData.write_roles.includes(currentUser.role));
 
+  // Fetch all directory users for mentions autocompletion
+  useEffect(() => {
+    async function loadDirectoryUsers() {
+      try {
+        const res = await apiRequest("/api/directory");
+        if (res.ok) {
+          const data = await res.json();
+          setAllUsers(data);
+        }
+      } catch (err) {
+        console.error("Failed to load directory users:", err);
+      }
+    }
+    loadDirectoryUsers();
+  }, []);
+
   // Load channels on mount
   useEffect(() => {
     async function loadChannels() {
@@ -71,7 +91,13 @@ export default function Chat() {
         if (res.ok) {
           const data: ChatChannel[] = await res.json();
           setChannels(data);
-          if (data.length > 0) {
+          
+          // Check query parameters first
+          const params = new URLSearchParams(window.location.search);
+          const chan = params.get("channel");
+          if (chan && data.some((c) => c.slug === chan)) {
+            setActiveChannel(chan);
+          } else if (data.length > 0) {
             setActiveChannel(data[0].slug);
           }
         }
@@ -83,6 +109,39 @@ export default function Chat() {
     }
     loadChannels();
   }, []);
+
+  // Listen to channel changes from query param (e.g. notification click)
+  useEffect(() => {
+    if (channelParam && channels.some((c) => c.slug === channelParam)) {
+      setActiveChannel(channelParam);
+    }
+  }, [channelParam, channels]);
+
+  // Scroll to specified message_id if present
+  useEffect(() => {
+    if (messageIdParam && !messagesLoading && messages.length > 0) {
+      const msgId = Number(messageIdParam);
+      if (messages.some((m) => m.id === msgId)) {
+        setTimeout(() => {
+          const el = document.getElementById(`message-${msgId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950", "rounded-2xl", "duration-500");
+            setTimeout(() => {
+              el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950");
+            }, 2000);
+            
+            // Prune message_id param from URL
+            setSearchParams((prev) => {
+              const newParams = new URLSearchParams(prev);
+              newParams.delete("message_id");
+              return newParams;
+            }, { replace: true });
+          }
+        }, 300);
+      }
+    }
+  }, [messageIdParam, messagesLoading, messages, setSearchParams]);
 
   // Show Toast
   const triggerToast = (msg: string) => {
@@ -509,7 +568,7 @@ export default function Chat() {
           onSubmit={handleSendMessage}
           onChange={handleInputChange}
           hasWritePermission={!!hasWritePermission}
-          onlineUsers={onlineUsers as any[]}
+          onlineUsers={allUsers}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           onSelectGif={handleSelectGif}
