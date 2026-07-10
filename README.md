@@ -50,18 +50,35 @@ The Cyberlogic Club Portal is built as a distributed full-stack application comp
 - Dynamic officer bios showing detailed profiles of the club's administration.
 - Fully customizable CLI database file.
 
-### 👥 2. Member Portal
+### 👥 2. Member Portal & Community
 - **Dashboard**: Home feed showcasing announcements, upcoming events, and resource links.
 - **Forums**: Complete discussions module featuring forum thread CRUD (create, read, update, delete) operations, thread pinning, solved/unsolved status indicators, full interactive poll creation & voting, inline filter pills, search filtering, and XSS sanitization.
-- **Real-Time Chat**: Docked edge-to-edge layout designed to prevent overlap and remain locked dynamically to the browser layout, featuring typing indicators and live emoji reactions.
+- **Real-Time Chat**: Docked edge-to-edge layout designed to prevent overlap and remain locked dynamically to the browser layout. Supports typing indicators, **rich media rendition (inline image and GIF previews)**, and **real-time emoji reaction pickers**.
+- **Gamified Reputation-Based Scores**: Interactive voting system (upvote/downvote) on forum threads and comments that dynamically computes member reputation points. Active participation and high scores unlock achievements, badges, and user-profile status upgrades.
 - **Directory**: Complete searchable, role-tagged, and status-supported list of club members.
-- **Reddit-style Profile**: u/username profile card layout with custom banners, join date (Cake Day), user posts, and achievement badges, fully integrated with thread author views.
+- **Reddit-style Profile**: `u/username` profile card layout with custom banners, join date (Cake Day), user posts, and achievement badges, fully integrated with thread author views.
 
-### 🛡️ 3. Officer Admin Panel & CMS
+### 🛡️ 3. Officer Admin Panel & Centralized CMS
 - **Admin Dashboard**: Visual stats cards (members, threads, approvals) and recent activity stream.
-- **Centralized CMS Content Management**: Full CRUD infrastructure for announcements, events, and blog posts with builder utilities, user ownership tracking (with migrations adding `user_id` foreign keys), and rich author-attributed details.
+- **Content Creation & CMS**: Complete CRUD control over key portal features:
+  - **Blog Creation**: Publish technical guides, cybersecurity research, and write-ups using an inline document section builder.
+  - **Resource Sharing**: Upload files, guides, templates, or links, which display download counters, view counts, and category detail stats.
+  - **Announcements**: Broadcast urgent notifications directly to the student dashboard.
+  - **Event Creation & RSVP**: Create events and track student RSVPs.
+- **QR Attendance Verification**: Integrated QR scanning module. Admins can generate unique attendance QR codes, and check in members instantly at events using any device's camera.
 - **Member Management**: Console allowing admin officers to assign roles, approve or reject registrations from the queue, and suspend/unsuspend members.
 - **Live Theme Customizer & Site Settings**: Real-time theme editor where officers can adjust custom HSL variable colors (primary, accent, backgrounds) and save the configuration profiles directly to the backend database.
+
+### 🔄 4. Recent Platform Enhancements & Fixes
+- **Opaque Overlay Menus**: Upgraded dropdown menus/overlays in `Topbar.tsx` (User Profile, Notifications) and search suggestions in `GlobalSearch.tsx` to use solid backgrounds (`bg-surface-900`) instead of transparent glass effects, ensuring text readability and proper contrast.
+- **Mobile Drawer Menus**: Converted the notifications and user profile menus in `Topbar.tsx` into right-hand slide-out drawer menus (sidebars) on mobile/tablet viewports (`< lg`). Fixed a CSS stacking context rendering bug by positioning the mobile drawer overlays outside of the sticky glass `<header>` element. Added a body scroll lock hook to prevent background scrolling when any mobile drawer or navigation drawer is active.
+- **Resource Image Validation Fix**: Updated the backend validation in `ResourceController.php` (both `store` and `update` methods) to dynamically allow file uploads or pre-existing image URL strings, resolving validation issues when publishing resources.
+- **Rate-Limited Resource Counters (CGNAT Compatible)**: Implemented 5-minute throttled accesses and downloads counters for learning resources.
+  - Added an `access_count` column to the `resources` table via database migrations.
+  - Implemented `/api/resources/{id}/download` endpoint to handle download files and external links redirection.
+  - Added 5-minute counter increment throttling tracked via Laravel's cache.
+  - Used Laravel's unique session IDs for guest rate-limiting to prevent IP-sharing/CGNAT false rate limits.
+  - Re-designed the frontend to separate views and downloads statistics with `Eye` and `Download` Lucide icons.
 
 ---
 
