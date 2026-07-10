@@ -108,6 +108,17 @@ export default function CMSBlogBuilder({
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const [tagsInput, setTagsInput] = useState(state.tags ? state.tags.join(", ") : "");
+
+  useEffect(() => {
+    if (state.tags) {
+      const currentParsed = tagsInput.split(",").map(t => t.trim()).filter(Boolean);
+      const parentTags = state.tags || [];
+      if (JSON.stringify(currentParsed) !== JSON.stringify(parentTags)) {
+        setTagsInput(parentTags.join(", "));
+      }
+    }
+  }, [state.tags]);
 
   // Gather all images for the draft preview fullscreen viewer
   const allImages: string[] = [];
@@ -988,8 +999,13 @@ export default function CMSBlogBuilder({
                 </label>
                 <input
                   type="text"
-                  value={state.tags.join(", ")}
-                  onChange={e => updateState({ tags: e.target.value.split(",").map(t => t.trim()).filter(Boolean) })}
+                  value={tagsInput}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setTagsInput(val);
+                    const parsedTags = val.split(",").map(t => t.trim()).filter(Boolean);
+                    updateState({ tags: parsedTags });
+                  }}
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
                   placeholder="e.g. tutorial, security, coding"
                 />
