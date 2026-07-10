@@ -237,6 +237,13 @@ class AuthController extends Controller
         }
 
         $validated = $request->validate([
+            'username' => [
+                'nullable',
+                'string',
+                'max:50',
+                'regex:/^[a-zA-Z0-9_\-\.]+$/',
+                \Illuminate\Validation\Rule::unique('users')->ignore($user->id),
+            ],
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],

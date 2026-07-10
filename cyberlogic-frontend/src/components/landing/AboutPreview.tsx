@@ -117,7 +117,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
               <div className="flex-1 space-y-5 text-center md:text-left">
                 <div>
                   <h3 className="text-2xl font-extrabold text-text-primary font-[family-name:var(--font-heading)] leading-tight">
-                    {activeOfficer.name}
+                    {activeOfficer.name} {activeOfficer.username && <span className="text-sm font-normal text-text-muted font-mono">(@{activeOfficer.username})</span>}
                   </h3>
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-accent/15 text-accent border border-accent/25 mt-2.5">
                     <Cpu className="w-3.5 h-3.5 animate-spin [animation-duration:10s]" /> {activeOfficer.role}
@@ -211,7 +211,9 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
                       className="w-11 h-11 rounded-xl object-cover bg-surface-800 border border-border/50 shrink-0"
                     />
                     <div className="space-y-0.5 min-w-0">
-                      <h4 className="text-sm font-bold text-text-primary truncate">{officer.name}</h4>
+                      <h4 className="text-sm font-bold text-text-primary truncate">
+                        {officer.name} {officer.username && <span className="text-xs font-normal text-text-muted font-mono">(@{officer.username})</span>}
+                      </h4>
                       <span className="text-[10px] text-accent font-semibold tracking-wider uppercase block truncate">
                         {officer.role}
                       </span>

@@ -19,7 +19,7 @@ async function verifySession(req) {
     if (ticket) {
       console.log(`[Auth] Executing query for ticket: ${ticket}`);
       const [rows] = await pool.query(
-        `SELECT u.id, u.first_name, u.middle_name, u.last_name, u.role, u.avatar_path, t.expires_at 
+        `SELECT u.id, u.username, u.first_name, u.middle_name, u.last_name, u.role, u.avatar_path, t.expires_at 
          FROM chat_tickets t 
          JOIN users u ON t.user_id = u.id 
          WHERE t.ticket = ? 
@@ -47,10 +47,11 @@ async function verifySession(req) {
 
           const user = {
             id: dbUser.id,
+            username: dbUser.username,
             first_name: dbUser.first_name,
             middle_name: dbUser.middle_name,
             last_name: dbUser.last_name,
-            name: fullName,
+            name: dbUser.username || fullName,
             role: dbUser.role,
             avatar: avatar
           };

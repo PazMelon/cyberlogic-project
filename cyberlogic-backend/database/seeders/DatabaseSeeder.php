@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
     {
         // Seed Requested Super Admin Accounts
         User::create([
+            'username' => 'clubmoderator',
             'first_name' => 'Club',
             'last_name' => 'Moderator',
             'middle_name' => null,
@@ -35,6 +36,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         User::create([
+            'username' => 'odemil',
             'first_name' => 'Odemil',
             'last_name' => 'Uyan',
             'middle_name' => 'Achas',

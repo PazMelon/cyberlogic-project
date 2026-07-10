@@ -24,6 +24,7 @@ import { optimizeAndConvertToWebP } from "../utils/imageOptimizer";
 import { 
   uploadAvatar, 
   fetchDirectoryMemberById, 
+  fetchDirectoryMemberByUsername,
   fetchForumThreads,
   type DirectoryMember, 
   type ForumThreadMapped 
@@ -31,18 +32,21 @@ import {
 
 export default function Profile() {
   const { user, updateProfile, updatePassword, updateUser } = useAuth();
-  const { userId } = useParams();
+  const { userId, username: urlUsername } = useParams();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [targetUser, setTargetUser] = useState<DirectoryMember | null>(null);
 
   // Decide if this is the logged-in user's profile
-  const isOwnProfile = !userId || parseInt(userId, 10) === user?.id;
+  const isOwnProfile = (!userId && !urlUsername) || 
+                       (userId && parseInt(userId, 10) === user?.id) || 
+                       (urlUsername && user?.username && urlUsername.toLowerCase() === user.username.toLowerCase());
 
   // Form states for Settings tab
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
   const [yearLevel, setYearLevel] = useState("");
   const [department, setDepartment] = useState("");
   const [address, setAddress] = useState("");
@@ -113,9 +117,14 @@ export default function Profile() {
   useEffect(() => {
     const initProfile = async () => {
       setIsLoading(true);
-      if (!isOwnProfile && userId) {
+      if (!isOwnProfile) {
         try {
-          const data = await fetchDirectoryMemberById(parseInt(userId, 10));
+          let data = null;
+          if (userId) {
+            data = await fetchDirectoryMemberById(parseInt(userId, 10));
+          } else if (urlUsername) {
+            data = await fetchDirectoryMemberByUsername(urlUsername);
+          }
           setTargetUser(data);
         } catch (err) {
           console.error("Failed to load target user details:", err);
@@ -127,7 +136,7 @@ export default function Profile() {
       setIsLoading(false);
     };
     initProfile();
-  }, [userId, isOwnProfile]);
+  }, [userId, urlUsername, isOwnProfile]);
 
   // Sync form state if user or targetUser changes
   useEffect(() => {
@@ -135,6 +144,7 @@ export default function Profile() {
       setFirstName(user.first_name || "");
       setMiddleName(user.middle_name || "");
       setLastName(user.last_name || "");
+      setUsername(user.username || "");
       setYearLevel(user.year_level || "");
       setDepartment(user.department || "");
       setAddress(user.address || "");
@@ -221,6 +231,7 @@ export default function Profile() {
 
     try {
       await updateProfile({
+        username: username.trim() || null,
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,
@@ -509,6 +520,19 @@ export default function Profile() {
                             required
                           />
                         </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label htmlFor="p-username" className="text-xs font-semibold text-text-secondary">Username / Nickname (No spaces)</label>
+                        <input
+                          id="p-username"
+                          type="text"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))}
+                          placeholder="e.g. pazmelon"
+                          className="w-full px-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all text-xs"
+                          maxLength={50}
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

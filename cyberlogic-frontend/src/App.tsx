@@ -223,6 +223,7 @@ function AppRoutes() {
         <Route path="resources" element={<Resources />} />
         <Route path="profile" element={<Profile />} />
         <Route path="profile/:userId" element={<Profile />} />
+        <Route path="u/:username" element={<Profile />} />
         <Route path="settings" element={<Settings />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="blogs/:id" element={<BlogDetail />} />

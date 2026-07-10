@@ -20,6 +20,7 @@ export default function Settings() {
   const [firstName, setFirstName] = useState("");
   const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
   const [yearLevel, setYearLevel] = useState("");
   const [department, setDepartment] = useState("");
   const [address, setAddress] = useState("");
@@ -56,6 +57,7 @@ export default function Settings() {
       setFirstName(user.first_name || "");
       setMiddleName(user.middle_name || "");
       setLastName(user.last_name || "");
+      setUsername(user.username || "");
       setYearLevel(user.year_level || "");
       setDepartment(user.department || "");
       setAddress(user.address || "");
@@ -98,6 +100,7 @@ export default function Settings() {
 
     try {
       await updateProfile({
+        username: username.trim() || null,
         first_name: firstName,
         middle_name: middleName || null,
         last_name: lastName,
@@ -274,6 +277,19 @@ export default function Settings() {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="set-username" className="text-[10px] font-semibold text-text-secondary uppercase">Username / Nickname (No spaces)</label>
+                <input
+                  id="set-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.replace(/\s+/g, ""))}
+                  placeholder="e.g. pazmelon"
+                  className="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                  maxLength={50}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

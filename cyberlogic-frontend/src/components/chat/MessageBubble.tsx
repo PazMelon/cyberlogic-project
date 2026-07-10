@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Link } from "react-router";
 import { Smile, Info, CornerUpLeft } from "lucide-react";
 import ReactionPicker from "./ReactionPicker";
 
@@ -8,6 +9,7 @@ export interface ChatMessage {
   author: string;
   authorAvatar: string;
   authorId: number;
+  authorUsername?: string | null;
   content: string;
   timestamp: string;
   isSystem?: boolean;
@@ -23,6 +25,7 @@ export interface ChatMessage {
     id: number;
     author: string;
     content: string;
+    authorUsername?: string | null;
   } | null;
 }
 
@@ -262,7 +265,13 @@ export default function MessageBubble({
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-text-muted mt-0.5">
               <CornerUpLeft className="w-3 h-3 text-primary flex-shrink-0" />
-              <span className="font-bold text-primary">@{message.replyTo.author}</span>
+              {message.replyTo.authorUsername ? (
+                <Link to={`/app/u/${message.replyTo.authorUsername}`} className="font-bold text-primary hover:underline">
+                  @{message.replyTo.author}
+                </Link>
+              ) : (
+                <span className="font-bold text-primary">@{message.replyTo.author}</span>
+              )}
             </div>
           </div>
         );
@@ -270,9 +279,23 @@ export default function MessageBubble({
 
       <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
-          {!isMe && <span className="text-xs font-semibold text-text-primary">{message.author}</span>}
+          {!isMe && (
+            <Link
+              to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
+              className="text-xs font-semibold text-text-primary hover:text-primary transition-colors"
+            >
+              {message.author}
+            </Link>
+          )}
           <span className="text-[10px] text-text-muted">{message.timestamp}</span>
-          {isMe && <span className="text-xs font-semibold text-primary">{message.author}</span>}
+          {isMe && (
+            <Link
+              to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
+              className="text-xs font-semibold text-primary hover:text-primary transition-colors"
+            >
+              {message.author}
+            </Link>
+          )}
         </div>
 
         <div
@@ -344,19 +367,23 @@ export default function MessageBubble({
       } ${message.animate || ""}`}
     >
       {!isMe && (
-        <img
-          src={message.authorAvatar}
-          alt={message.author}
-          className="w-8 h-8 rounded-full bg-surface-700 object-cover flex-shrink-0 border border-border mt-5"
-        />
+        <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+          <img
+            src={message.authorAvatar}
+            alt={message.author}
+            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
+          />
+        </Link>
       )}
       {contentContainer}
       {isMe && (
-        <img
-          src={message.authorAvatar}
-          alt={message.author}
-          className="w-8 h-8 rounded-full bg-surface-700 object-cover flex-shrink-0 border border-primary/30 mt-5"
-        />
+        <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+          <img
+            src={message.authorAvatar}
+            alt={message.author}
+            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
+          />
+        </Link>
       )}
     </div>
   );

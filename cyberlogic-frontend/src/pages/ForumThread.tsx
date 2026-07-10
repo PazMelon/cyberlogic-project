@@ -367,8 +367,8 @@ export default function ForumThread() {
 
                 <span className="text-[10px] text-text-muted">
                   Posted by{" "}
-                  <Link to={`/app/profile/${thread.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
-                    u/{thread.author.toLowerCase().replace(/\s+/g, "")}
+                  <Link to={thread.authorUsername ? `/app/u/${thread.authorUsername}` : `/app/profile/${thread.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
+                    u/{thread.authorUsername || thread.author.toLowerCase().replace(/\s+/g, "")}
                   </Link>
                 </span>
                 <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
@@ -662,7 +662,7 @@ export default function ForumThread() {
                 <span>Joined Cyberlogic Club</span>
               </div>
               <Link
-                to={`/app/profile?name=${encodeURIComponent(thread.author)}`}
+                to={thread.authorUsername ? `/app/u/${thread.authorUsername}` : `/app/profile/${thread.authorId}`}
                 className="w-full flex items-center justify-center py-2 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-primary text-xs font-semibold border border-border transition-all"
               >
                 View Author Profile

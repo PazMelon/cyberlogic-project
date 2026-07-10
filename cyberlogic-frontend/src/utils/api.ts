@@ -337,6 +337,7 @@ export async function uploadAvatar(file: File): Promise<{ user: any; message: st
 
 export interface DbUser {
   id: number;
+  username?: string;
   first_name: string;
   middle_name?: string;
   last_name: string;
@@ -780,6 +781,7 @@ export interface ForumThreadMapped {
   authorAvatar: string;
   authorRole: string;
   authorId: number;
+  authorUsername?: string | null;
   content: string;
   replyCount: number;
   likes: number;
@@ -827,6 +829,7 @@ export interface ForumCommentMapped {
   authorAvatar: string;
   authorRole: string;
   authorId: number;
+  authorUsername?: string | null;
   parentId: number | null;
   content: string;
   likes: number;
@@ -926,10 +929,11 @@ export async function fetchForumThreads(params?: {
       color: t.category.color || "primary",
       slug: t.category.slug
     } : null,
-    author: t.user?.name || "Anonymous",
+    author: t.user?.username || t.user?.name || "Anonymous",
     authorAvatar: t.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(t.user?.role),
     authorId: t.user_id,
+    authorUsername: t.user?.username || null,
     content: t.content,
     replyCount: t.commentCount,
     likes: t.voteScore,
@@ -978,10 +982,11 @@ export async function fetchForumThread(id: number): Promise<ForumThreadMapped> {
       color: t.category.color || "primary",
       slug: t.category.slug
     } : null,
-    author: t.user?.name || "Anonymous",
+    author: t.user?.username || t.user?.name || "Anonymous",
     authorAvatar: t.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(t.user?.role),
     authorId: t.user_id,
+    authorUsername: t.user?.username || null,
     content: t.content,
     replyCount: t.commentCount,
     likes: t.voteScore,
@@ -1235,10 +1240,11 @@ export async function fetchForumComments(threadId: number): Promise<ForumComment
   return data.map((c) => ({
     id: c.id,
     threadId: c.thread_id,
-    author: c.user?.name || "Anonymous",
+    author: c.user?.username || c.user?.name || "Anonymous",
     authorAvatar: c.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(c.user?.role),
     authorId: c.user_id,
+    authorUsername: c.user?.username || null,
     parentId: c.parent_id,
     content: c.content,
     likes: c.voteScore,
@@ -1271,10 +1277,11 @@ export async function createForumComment(
   return {
     id: c.id,
     threadId: c.thread_id,
-    author: c.user?.name || "Anonymous",
+    author: c.user?.username || c.user?.name || "Anonymous",
     authorAvatar: c.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(c.user?.role),
     authorId: c.user_id,
+    authorUsername: c.user?.username || null,
     parentId: c.parent_id,
     content: c.content,
     likes: c.voteScore,
@@ -1307,10 +1314,11 @@ export async function updateForumComment(
   return {
     id: c.id,
     threadId: c.thread_id,
-    author: c.user?.name || "Anonymous",
+    author: c.user?.username || c.user?.name || "Anonymous",
     authorAvatar: c.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user",
     authorRole: formatRole(c.user?.role),
     authorId: c.user_id,
+    authorUsername: c.user?.username || null,
     parentId: c.parent_id,
     content: c.content,
     likes: c.voteScore,
@@ -2356,6 +2364,14 @@ export async function markAllNotificationsRead(): Promise<{ success: boolean }> 
   });
   if (!res.ok) {
     throw new Error("Failed to mark all notifications as read.");
+  }
+  return res.json();
+}
+
+export async function fetchDirectoryMemberByUsername(username: string): Promise<DirectoryMember> {
+  const res = await apiRequest(`/api/directory/username/${username}`);
+  if (!res.ok) {
+    throw new Error("Failed to load member profile details.");
   }
   return res.json();
 }

@@ -36,11 +36,17 @@ class Officer extends Model
         'email',
         'github',
         'linkedin',
+        'username',
     ];
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getUsernameAttribute(): ?string
+    {
+        return $this->user ? $this->user->username : null;
     }
 
     public function getNameAttribute(): string

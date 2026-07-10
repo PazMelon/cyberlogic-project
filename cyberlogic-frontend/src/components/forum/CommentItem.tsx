@@ -69,7 +69,7 @@ export function CommentItem({
             : "border-border/40 bg-surface-900/20"
         } ${(comment as any).animate || ""}`}
       >
-        <Link to={`/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
+        <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
           <img
             src={comment.authorAvatar}
             alt={comment.author}
@@ -79,8 +79,8 @@ export function CommentItem({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <Link to={`/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
-                u/{comment.author.toLowerCase().replace(/\s+/g, "")}
+              <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
+                u/{comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}
               </Link>
               {comment.authorRole !== "Member" && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 text-[9px] font-bold rounded bg-primary/10 text-primary border border-primary/20">
@@ -202,7 +202,7 @@ export function CommentItem({
       {showReplyForm && (
         <div className="pl-6 border-l border-border/30">
           <CommentForm
-            placeholder={`Reply to u/${comment.author.toLowerCase().replace(/\s+/g, "")}...`}
+            placeholder={`Reply to u/${comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}...`}
             buttonText="Post Reply"
             onSubmit={handlePostReply}
             onCancel={() => setShowReplyForm(false)}

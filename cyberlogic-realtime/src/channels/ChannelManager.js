@@ -278,7 +278,8 @@ class ChannelManager {
       if (parentId) {
         const [parentMsg] = await pool.query(
           `SELECT m.id, m.content, 
-                  TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name)) as author 
+                  COALESCE(u.username, TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name))) as author,
+                  u.username as authorUsername
            FROM chat_messages m 
            LEFT JOIN users u ON m.user_id = u.id 
            WHERE m.id = ? LIMIT 1`,
@@ -289,6 +290,7 @@ class ChannelManager {
             id: parentMsg[0].id,
             content: parentMsg[0].content,
             author: parentMsg[0].author || 'Anonymous',
+            authorUsername: parentMsg[0].authorUsername || null,
           };
         }
       }
@@ -299,6 +301,7 @@ class ChannelManager {
         author: user.name,
         authorAvatar: user.avatar,
         authorId: user.id,
+        authorUsername: user.username || null,
         content: content,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         isSystem: false,

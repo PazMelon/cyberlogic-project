@@ -293,6 +293,9 @@ export default function About() {
                             <h4 className="text-lg font-bold text-text-primary group-hover:text-accent transition-colors">
                               {member.name}
                             </h4>
+                            {member.username && (
+                              <span className="text-xs text-text-muted font-mono block mt-0.5">@{member.username}</span>
+                            )}
                             <span className="text-sm font-semibold text-accent uppercase tracking-wider block mt-1">
                               {member.role}
                             </span>

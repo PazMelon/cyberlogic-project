@@ -42,7 +42,11 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
   const handleAuthorClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/app/profile/${thread.authorId}`);
+    if (thread.authorUsername) {
+      navigate(`/app/u/${thread.authorUsername}`);
+    } else {
+      navigate(`/app/profile/${thread.authorId}`);
+    }
   };
 
   if (mode === "compact") {

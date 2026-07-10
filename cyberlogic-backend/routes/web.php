@@ -66,6 +66,7 @@ Route::middleware('auth')->group(function () {
     // Directory endpoints
     Route::get('/api/directory', [DirectoryController::class, 'index']);
     Route::get('/api/directory/{id}', [DirectoryController::class, 'show']);
+    Route::get('/api/directory/username/{username}', [DirectoryController::class, 'showByUsername']);
 
     // Global Search endpoint
     Route::get('/api/search', [SearchController::class, 'search']);
