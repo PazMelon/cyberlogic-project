@@ -17,6 +17,7 @@ import {
 import { fetchResourceById, voteResource, type ResourceMapped } from "../utils/api";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
+import { useSEO } from "../utils/useSEO";
 
 const iconMap: Record<string, React.ReactNode> = {
   code: <Code className="w-5 h-5" />,
@@ -44,6 +45,13 @@ export default function ResourceDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  useSEO({
+    title: item ? item.title : "Loading Resource...",
+    description: item ? item.description : undefined,
+    keywords: item ? [item.category, "Resource", "Cyberlogic Resource"] : undefined,
+    type: "object",
+  });
 
   const loadDetail = async () => {
     if (!id) return;

@@ -12,7 +12,14 @@ import { useAuth } from "../context/AuthContext";
 import { applyGlobalTheme } from "../utils/theme";
 import { useDialog } from "../utils/useDialog";
 
+import { useSEO } from "../utils/useSEO";
+
 export default function Settings() {
+  useSEO({
+    title: "Account Settings",
+    description: "Update your profile information, password, notifications, and portal theme settings.",
+  });
+
   const { user, updateProfile, updatePassword } = useAuth();
   const { showAlert, showConfirm } = useDialog();
 

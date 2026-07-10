@@ -20,7 +20,14 @@ const availableThemes = [
   { value: "maroon-spider", label: "🕷️ Maroon Spider", desc: "Dark mode. Velvet black surfaces with crimson web lines and deep maroon details." }
 ];
 
+import { useSEO } from "../../utils/useSEO";
+
 export default function SiteSettings() {
+  useSEO({
+    title: "Site Settings & CMS",
+    description: "Manage default theme, mission, vision, values, and officers lists for the portal.",
+  });
+
   const { showAlert } = useDialog();
   const [activeTab, setActiveTab] = useState<"theme" | "about_mv" | "about_history" | "about_officers">("theme");
   const [defaultTheme, setDefaultTheme] = useState("cyberpunk");

@@ -13,6 +13,7 @@ import {
   Shield,
 } from "lucide-react";
 import { fetchSiteSettings, fetchOfficers } from "../utils/api";
+import { useSEO } from "../utils/useSEO";
 
 const defaultHistory = [
   {
@@ -56,6 +57,12 @@ export default function About() {
   const [values, setValues] = useState("Curiosity, collaboration, integrity, and continuous learning. We believe in open knowledge sharing and supporting each other's growth.");
   const [history, setHistory] = useState<typeof defaultHistory>([]);
   const [officers, setOfficers] = useState<any[]>([]);
+
+  useSEO({
+    title: "About Us & Club History",
+    description: `About Cyberlogic Club: Mission: ${mission}. Vision: ${vision}. Values: ${values}`,
+    keywords: ["about us", "club history", "officers", "organization mission", "student organization"],
+  });
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);

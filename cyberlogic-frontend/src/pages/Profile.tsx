@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "react-router";
 import {
   Calendar,
-  Award,
   Save,
   Shield,
   Compass,
@@ -31,19 +30,26 @@ import {
   type DirectoryMember, 
   type ForumThreadMapped 
 } from "../utils/api";
+import { useSEO } from "../utils/useSEO";
 
 export default function Profile() {
   const { user, updateProfile, updatePassword, updateUser } = useAuth();
   const { onlineUsers } = useWebSocket();
+
   const { userId, username: urlUsername } = useParams();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [targetUser, setTargetUser] = useState<DirectoryMember | null>(null);
 
-  // Decide if this is the logged-in user's profile
   const isOwnProfile = (!userId && !urlUsername) || 
                        (userId && parseInt(userId, 10) === user?.id) || 
                        (urlUsername && user?.username && urlUsername.toLowerCase() === user.username.toLowerCase());
+
+  useSEO({
+    title: targetUser ? `${targetUser.name}'s Profile` : isOwnProfile ? "My Profile" : "User Profile",
+    description: targetUser ? targetUser.bio : undefined,
+    image: targetUser ? targetUser.avatar : undefined,
+  });
 
   // Form states for Settings tab
   const [firstName, setFirstName] = useState("");

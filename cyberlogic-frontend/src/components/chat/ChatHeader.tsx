@@ -1,17 +1,21 @@
-import { Menu, Hash } from "lucide-react";
+import { Menu, Hash, Users } from "lucide-react";
 import type { ChatChannel } from "./ChannelSidebar";
 
 export interface ChatHeaderProps {
   activeChannelData?: ChatChannel;
   onOpenMobileMenu: () => void;
+  showMembersList?: boolean;
+  onToggleMembersList?: () => void;
 }
 
 export default function ChatHeader({
   activeChannelData,
   onOpenMobileMenu,
+  showMembersList,
+  onToggleMembersList,
 }: ChatHeaderProps) {
   return (
-    <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-border bg-surface-900/30 flex-shrink-0">
+    <div className="h-[57px] flex items-center justify-between px-4 sm:px-5 border-b border-border bg-surface-900/30 flex-shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <button
           type="button"
@@ -29,6 +33,23 @@ export default function ChatHeader({
         <span className="hidden md:inline text-xs text-text-muted truncate">
           {activeChannelData?.description}
         </span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {onToggleMembersList && (
+          <button
+            type="button"
+            onClick={onToggleMembersList}
+            className={`p-2 rounded-lg transition-colors cursor-pointer ${
+              showMembersList
+                ? "text-primary bg-primary/10 hover:bg-primary/20"
+                : "text-text-muted hover:text-text-primary hover:bg-white/5"
+            }`}
+            title={showMembersList ? "Hide online members" : "Show online members"}
+          >
+            <Users className="w-5 h-5" />
+          </button>
+        )}
       </div>
     </div>
   );

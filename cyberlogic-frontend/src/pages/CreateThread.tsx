@@ -14,7 +14,14 @@ import { fetchForumCategories, createForumThread, type ForumCategoryMapped } fro
 import { Button } from "../components/ui";
 import { useDialog } from "../utils/useDialog";
 
+import { useSEO } from "../utils/useSEO";
+
 export default function CreateThread() {
+  useSEO({
+    title: "Create New Thread",
+    description: "Start a new conversation or ask a question in Cyberlogic forums.",
+  });
+
   const navigate = useNavigate();
   const { showAlert } = useDialog();
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);

@@ -27,6 +27,7 @@ import {
   type ResourceMapped,
 } from "../utils/api";
 import { useDragScroll } from "../utils/scroll";
+import { useSEO } from "../utils/useSEO";
 
 const categories = ["All", "Tutorials", "Documents", "Tools", "Links"] as const;
 
@@ -47,6 +48,12 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function Resources() {
+  useSEO({
+    title: "Learning Resources & Tools",
+    description: "Access templates, cheat sheets, guidelines, setup instructions, cybersecurity tools, and tutorials curated by Cyberlogic.",
+    keywords: ["resources", "cybersecurity tools", "guides", "tutorials", "cheat sheets", "Cyberlogic downloads"],
+  });
+
   const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");

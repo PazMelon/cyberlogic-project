@@ -54,6 +54,10 @@ export default function MessageBubble({
 }: MessageBubbleProps) {
   const touchTimerRef = useRef<any>(null);
   const isTouchMoved = useRef(false);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const isSwiping = useRef(false);
 
   if (message.isSystem) {
     return (
@@ -105,24 +109,152 @@ export default function MessageBubble({
 
   const showReactionTrigger = activePickerId === message.id;
 
-  // Mobile long press gestures
-  const handleTouchStart = () => {
+  // Touch handlers for combined Swipe-To-Reply and Long-Press Reactions
+  const handleTouchStart = (e: React.TouchEvent) => {
     isTouchMoved.current = false;
+    const touch = e.touches[0];
+    startX.current = touch.clientX;
+    startY.current = touch.clientY;
+    isSwiping.current = true;
+
+    if (bubbleRef.current) {
+      bubbleRef.current.style.transition = "none";
+    }
+
     if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
     touchTimerRef.current = setTimeout(() => {
-      if (!isTouchMoved.current) {
+      if (!isTouchMoved.current && isSwiping.current) {
         setActivePickerId(message.id);
       }
     }, 500);
   };
 
-  const handleTouchMove = () => {
-    isTouchMoved.current = true;
-    if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1 || !isSwiping.current || !bubbleRef.current) return;
+    const touch = e.touches[0];
+    const diffX = touch.clientX - startX.current;
+    const diffY = touch.clientY - startY.current;
+
+    // Detect if movement is mostly horizontal
+    if (Math.abs(diffX) > 10 || Math.abs(diffY) > 10) {
+      isTouchMoved.current = true;
+      if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+    }
+
+    if (Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      // Swiping horizontally, lock vertical scrolling
+      if (e.cancelable) e.preventDefault();
+
+      let translation = 0;
+      if (isMe) {
+        // Outgoing: swipe left to reply (negative translation)
+        translation = Math.min(0, Math.max(-75, diffX));
+      } else {
+        // Incoming: swipe right to reply (positive translation)
+        translation = Math.max(0, Math.min(75, diffX));
+      }
+
+      bubbleRef.current.style.transform = `translateX(${translation}px)`;
+
+      const indicator = document.getElementById(`reply-indicator-${message.id}`);
+      if (indicator) {
+        const progress = Math.min(1, Math.abs(translation) / 55);
+        indicator.style.opacity = String(progress);
+        indicator.style.transform = `translateY(-50%) scale(${0.75 + progress * 0.25})`;
+      }
+    }
   };
 
   const handleTouchEnd = () => {
     if (touchTimerRef.current) clearTimeout(touchTimerRef.current);
+    if (!isSwiping.current || !bubbleRef.current) return;
+    isSwiping.current = false;
+
+    // Reset transition
+    bubbleRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)";
+    
+    // Retrieve current transform
+    const transformStr = bubbleRef.current.style.transform;
+    const match = transformStr.match(/translateX\(([-\d.]+)px\)/);
+    const translation = match ? parseFloat(match[1]) : 0;
+
+    bubbleRef.current.style.transform = "translateX(0px)";
+
+    const indicator = document.getElementById(`reply-indicator-${message.id}`);
+    if (indicator) {
+      indicator.style.opacity = "0";
+      indicator.style.transform = "translateY(-50%) scale(0.75)";
+    }
+
+    if (onReply && Math.abs(translation) >= 50) {
+      onReply(message);
+    }
+  };
+
+  // Mouse handlers for Desktop drag-to-reply gesture
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only drag with main mouse button (left click)
+    if (e.button !== 0 || !onReply) return;
+    startX.current = e.clientX;
+    startY.current = e.clientY;
+    isSwiping.current = true;
+
+    if (bubbleRef.current) {
+      bubbleRef.current.style.transition = "none";
+    }
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isSwiping.current || !bubbleRef.current) return;
+      const diffX = moveEvent.clientX - startX.current;
+      const diffY = moveEvent.clientY - startY.current;
+
+      if (Math.abs(diffX) > Math.abs(diffY) * 1.2) {
+        let translation = 0;
+        if (isMe) {
+          translation = Math.min(0, Math.max(-75, diffX));
+        } else {
+          translation = Math.max(0, Math.min(75, diffX));
+        }
+
+        bubbleRef.current.style.transform = `translateX(${translation}px)`;
+
+        const indicator = document.getElementById(`reply-indicator-${message.id}`);
+        if (indicator) {
+          const progress = Math.min(1, Math.abs(translation) / 55);
+          indicator.style.opacity = String(progress);
+          indicator.style.transform = `translateY(-50%) scale(${0.75 + progress * 0.25})`;
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      
+      if (!isSwiping.current || !bubbleRef.current) return;
+      isSwiping.current = false;
+
+      bubbleRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)";
+      
+      const transformStr = bubbleRef.current.style.transform;
+      const match = transformStr.match(/translateX\(([-\d.]+)px\)/);
+      const translation = match ? parseFloat(match[1]) : 0;
+
+      bubbleRef.current.style.transform = "translateX(0px)";
+
+      const indicator = document.getElementById(`reply-indicator-${message.id}`);
+      if (indicator) {
+        indicator.style.opacity = "0";
+        indicator.style.transform = "translateY(-50%) scale(0.75)";
+      }
+
+      if (Math.abs(translation) >= 50) {
+        onReply(message);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
   };
 
   const handleReactionClick = (emoji: string) => {
@@ -228,7 +360,15 @@ export default function MessageBubble({
   };
 
   const contentContainer = (
-    <div className="relative group/message flex flex-col w-fit max-w-[70%]">
+    <div
+      ref={bubbleRef}
+      onMouseDown={handleMouseDown}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ willChange: "transform", transition: "transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)" }}
+      className="relative group/message flex flex-col w-fit max-w-[70%] select-none cursor-grab active:cursor-grabbing"
+    >
       {/* Desktop hover controls: Smile picker trigger & Reply button */}
       <div
         className={`absolute bottom-0 translate-y-1/4 hidden md:group-hover/message:flex items-center gap-1 z-10 ${
@@ -272,6 +412,7 @@ export default function MessageBubble({
           onReact={handleReactionClick}
           onOpenFullPicker={() => onOpenFullPicker(message.id)}
           align={isMe ? "right" : "left"}
+          onClose={() => setActivePickerId(null)}
         />
       )}
 
@@ -335,16 +476,16 @@ export default function MessageBubble({
           {!isMe && (
             <Link
               to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
-              className="text-xs font-semibold text-text-primary hover:text-primary transition-colors"
+              className="text-xs font-semibold text-text-primary hover:text-primary transition-colors select-none"
             >
               {message.author}
             </Link>
           )}
-          <span className="text-[10px] text-text-muted">{message.timestamp}</span>
+          <span className="text-[10px] text-text-muted select-none">{message.timestamp}</span>
           {isMe && (
             <Link
               to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
-              className="text-xs font-semibold text-primary hover:text-primary transition-colors"
+              className="text-xs font-semibold text-primary hover:text-primary transition-colors select-none"
             >
               {message.author}
             </Link>
@@ -352,9 +493,6 @@ export default function MessageBubble({
         </div>
 
         <div
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
           className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit ${
             isMe
               ? "bg-primary/15 border-primary/30 rounded-tr-none"
@@ -414,30 +552,46 @@ export default function MessageBubble({
 
   return (
     <div
-      id={`message-${message.id}`}
-      className={`flex items-start gap-3 p-1 transition-all duration-300 ${
-        isMe ? "justify-end" : "justify-start"
-      } ${message.animate || ""}`}
+      id={`message-container-${message.id}`}
+      className="relative overflow-visible w-full"
     >
-      {!isMe && (
-        <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-          <img
-            src={message.authorAvatar}
-            alt={message.author}
-            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
-          />
-        </Link>
+      {onReply && (
+        <div
+          id={`reply-indicator-${message.id}`}
+          className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/30 text-primary transition-all scale-75 opacity-0 pointer-events-none z-0 ${
+            isMe ? "right-16" : "left-16"
+          }`}
+          style={{ transform: "translateY(-50%) scale(0.75)" }}
+        >
+          <CornerUpLeft className="w-4 h-4" />
+        </div>
       )}
-      {contentContainer}
-      {isMe && (
-        <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-          <img
-            src={message.authorAvatar}
-            alt={message.author}
-            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
-          />
-        </Link>
-      )}
+      <div
+        id={`message-${message.id}`}
+        className={`flex items-start gap-3 p-1 transition-all duration-300 ${
+          isMe ? "justify-end" : "justify-start"
+        } ${message.animate || ""}`}
+      >
+        {!isMe && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
+            />
+          </Link>
+        )}
+        {contentContainer}
+        {isMe && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
+            />
+          </Link>
+        )}
+      </div>
     </div>
   );
 }

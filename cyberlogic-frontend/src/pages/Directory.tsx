@@ -5,8 +5,14 @@ import { DirectoryFilters } from "../components/directory/DirectoryFilters";
 import { DirectoryCard } from "../components/directory/DirectoryCard";
 import { DirectorySkeleton } from "../components/directory/DirectorySkeleton";
 import { useWebSocket } from "../context/WebSocketContext";
+import { useSEO } from "../utils/useSEO";
 
 export default function Directory() {
+  useSEO({
+    title: "Member Directory",
+    description: "Browse members and officers of Cyberlogic Club, view their roles, and connect with them.",
+  });
+
   const { onlineUsers } = useWebSocket();
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");

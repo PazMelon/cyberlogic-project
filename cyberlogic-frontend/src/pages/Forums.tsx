@@ -13,7 +13,14 @@ import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 import { useDragScroll } from "../utils/scroll";
 
+import { useSEO } from "../utils/useSEO";
+
 export default function Forums() {
+  useSEO({
+    title: "Discussion Forums",
+    description: "Browse categories, view pinned and solved threads, ask questions, and collaborate in Cyberlogic community discussions.",
+  });
+
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const categoryParam = searchParams.get("category") || "all";

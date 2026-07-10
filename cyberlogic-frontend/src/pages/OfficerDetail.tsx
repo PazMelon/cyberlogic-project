@@ -3,12 +3,21 @@ import { useState, useEffect } from "react";
 import { ArrowLeft, Mail, Cpu } from "lucide-react";
 import { fetchOfficerById } from "../utils/api";
 import type { Officer } from "../utils/api";
+import { useSEO } from "../utils/useSEO";
 
 export default function OfficerDetail() {
   const { id } = useParams<{ id: string }>();
   const [officer, setOfficer] = useState<Officer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useSEO({
+    title: officer ? `${officer.name} — ${officer.role}` : "Loading Officer Profile...",
+    description: officer ? officer.bio : undefined,
+    keywords: officer ? [officer.role, "Officer Profile", "Cyberlogic Officer"] : undefined,
+    image: officer ? officer.avatar : undefined,
+    type: "profile",
+  });
 
   useEffect(() => {
     if (!id) return;

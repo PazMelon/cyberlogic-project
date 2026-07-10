@@ -28,7 +28,14 @@ import { ReputationLeaderboard } from "../components/dashboard/ReputationLeaderb
 import { ForumsActivityHub } from "../components/dashboard/ForumsActivityHub";
 import { CategoryNewestCard } from "../components/dashboard/CategoryNewestCard";
 
+import { useSEO } from "../utils/useSEO";
+
 export default function Home() {
+  useSEO({
+    title: "Member Dashboard",
+    description: "Access your dashboard, view reputation stats, forums activity, latest announcements, and upcoming events.",
+  });
+
   const { user } = useAuth();
   const isRegularMember = user?.role === "member";
   const [isLoading, setIsLoading] = useState(true);

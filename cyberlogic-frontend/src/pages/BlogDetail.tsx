@@ -5,6 +5,7 @@ import { fetchBlogById } from "../utils/api";
 import type { BlogPost } from "../data/mockData";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
+import { useSEO } from "../utils/useSEO";
 
 export default function BlogDetail() {
   const { id } = useParams();
@@ -16,6 +17,20 @@ export default function BlogDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  // Cover image resolver helper function defined below can be resolved locally or duplicated.
+  const getCoverImageUrl = () => {
+    if (!item) return undefined;
+    return item.image ? (item.image.startsWith("http") ? item.image : `${window.location.origin}/storage/${item.image}`) : undefined;
+  };
+
+  useSEO({
+    title: item ? item.title : "Loading Blog...",
+    description: item ? item.excerpt : undefined,
+    keywords: item ? [item.category, ...(item.tags || []), "Cyberlogic Blog"] : undefined,
+    image: getCoverImageUrl(),
+    type: "article",
+  });
 
   useEffect(() => {
     async function loadDetail() {

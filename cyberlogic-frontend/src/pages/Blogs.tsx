@@ -6,8 +6,15 @@ import { BlogCard } from "../components/ui";
 import { SkeletonCard } from "../components/Skeleton";
 import type { BlogPost } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
+import { useSEO } from "../utils/useSEO";
 
 export default function Blogs() {
+  useSEO({
+    title: "Blogs & Tech Insights",
+    description: "Read coding guides, hardware tips, cyber-security writeups, and academic news published by club officers and members of Cyberlogic.",
+    keywords: ["blogs", "technology articles", "coding guides", "cybersecurity writeups", "tutorials", "Cyberlogic Club"],
+  });
+
   const [blogs, setBlogs] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");

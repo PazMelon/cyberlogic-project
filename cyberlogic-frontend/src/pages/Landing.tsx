@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSEO } from "../utils/useSEO";
 import {
   HeroSection,
   AnnouncementsPreview,
@@ -10,6 +11,12 @@ import {
 } from "../components/landing";
 
 export default function Landing() {
+  useSEO({
+    title: "Home",
+    description: "Welcome to Cyberlogic Club Portal — The premier student cybersecurity and technology club. Learn, compete, collaborate, and grow.",
+    keywords: ["cybersecurity", "programming", "coding", "bootcamps", "IT education", "student club"],
+  });
+
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

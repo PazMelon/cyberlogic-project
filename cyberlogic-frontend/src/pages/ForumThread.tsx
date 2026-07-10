@@ -18,6 +18,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
 import { useDialog } from "../utils/useDialog";
+import { useSEO } from "../utils/useSEO";
 import {
   fetchForumThread,
   fetchForumComments,
@@ -61,6 +62,12 @@ export default function ForumThread() {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isVotingPoll, setIsVotingPoll] = useState(false);
+
+  useSEO({
+    title: thread ? thread.title : "Loading Thread...",
+    description: thread ? thread.content : undefined,
+    keywords: thread ? ["Forum Thread", "Discussions", thread.categoryId] : undefined,
+  });
 
   // Auth checking for toggle buttons
   const isThreadOwner = user && thread && user.id === thread.authorId;

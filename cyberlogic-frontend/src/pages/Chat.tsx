@@ -13,7 +13,14 @@ import type { TypingUser } from "../components/chat/MessageStream";
 import MessageInput from "../components/chat/MessageInput";
 import EmojiSearchPicker from "../components/chat/EmojiSearchPicker";
 import type { ChatMessage } from "../components/chat/MessageBubble";
+import { useSEO } from "../utils/useSEO";
+
 export default function Chat() {
+  useSEO({
+    title: "Realtime Chat",
+    description: "Connect and collaborate with other members of Cyberlogic Club in realtime chat rooms.",
+  });
+
   const { subscribe, sendMessage, onlineUsers, isConnected } = useWebSocket();
   const { user: currentUser, hasPermission } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -27,12 +34,13 @@ export default function Chat() {
   const [messageText, setMessageText] = useState("");
 
   const [showMobileChannels, setShowMobileChannels] = useState(false);
+  const [showMembersList, setShowMembersList] = useState(window.innerWidth >= 1024);
 
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isFetchingMoreMessages, setIsFetchingMoreMessages] = useState(false);
   const [replyingTo, setReplyingTo] = useState<{ id: number; author: string; content: string } | null>(null);
   const [showChatEditorEmojiPicker, setShowChatEditorEmojiPicker] = useState(false);
-  
+
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -61,9 +69,9 @@ export default function Chat() {
   const activeChannelData = channels.find((c) => c.slug === activeChannel);
 
   // Check write permissions for the current user
-  const hasWritePermission = !activeChannelData || 
-    !activeChannelData.write_roles || 
-    !Array.isArray(activeChannelData.write_roles) || 
+  const hasWritePermission = !activeChannelData ||
+    !activeChannelData.write_roles ||
+    !Array.isArray(activeChannelData.write_roles) ||
     (currentUser && activeChannelData.write_roles.includes(currentUser.role));
 
   // Fetch all directory users for mentions autocompletion
@@ -91,7 +99,7 @@ export default function Chat() {
         if (res.ok) {
           const data: ChatChannel[] = await res.json();
           setChannels(data);
-          
+
           // Check query parameters first
           const params = new URLSearchParams(window.location.search);
           const chan = params.get("channel");
@@ -130,7 +138,7 @@ export default function Chat() {
             setTimeout(() => {
               el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950");
             }, 2000);
-            
+
             // Prune message_id param from URL
             setSearchParams((prev) => {
               const newParams = new URLSearchParams(prev);
@@ -205,8 +213,8 @@ export default function Chat() {
           prev.map((msg) => {
             if (msg.id === messageId) {
               const mappedReactions = reactions.map((r: any) => {
-                const userIdsMapped = Array.isArray(r.userIds) 
-                  ? r.userIds.map((uid: any) => Number(uid)) 
+                const userIdsMapped = Array.isArray(r.userIds)
+                  ? r.userIds.map((uid: any) => Number(uid))
                   : [];
                 return {
                   emoji: r.emoji,
@@ -475,7 +483,7 @@ export default function Chat() {
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
             onClick={() => setShowMobileChannels(false)}
           />
-          
+
           <div className="relative flex w-64 max-w-xs flex-col bg-surface-900 border-r border-border animate-slideRight">
             {/* Render ChannelSidebar directly, passing onClose handler callback to let it close drawer */}
             <ChannelSidebar
@@ -490,6 +498,49 @@ export default function Chat() {
               setCollapsedGroups={setCollapsedGroups}
               className="flex flex-col h-full w-full"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile/Tablet Members Drawer */}
+      {showMembersList && (
+        <div className="fixed inset-0 z-50 flex justify-end md:hidden">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setShowMembersList(false)}
+          />
+
+          <div className="relative flex w-60 max-w-xs flex-col bg-surface-900 border-l border-border animate-slideLeft h-full">
+            <div className="h-[57px] border-b border-border flex items-center justify-between px-4">
+              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+                Online Members
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowMembersList(false)}
+                className="p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2">
+              {onlineUsers.map((m) => (
+                <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                  <div className="relative">
+                    <img
+                      src={m.avatar}
+                      alt={m.name}
+                      className="w-8 h-8 rounded-full bg-surface-700 object-cover"
+                    />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
+                    <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -511,6 +562,8 @@ export default function Chat() {
         <ChatHeader
           activeChannelData={activeChannelData}
           onOpenMobileMenu={() => setShowMobileChannels(true)}
+          showMembersList={showMembersList}
+          onToggleMembersList={() => setShowMembersList((prev) => !prev)}
         />
 
         <div className="flex-1 flex min-h-0 relative">
@@ -559,8 +612,8 @@ export default function Chat() {
             !activeChannelData
               ? "Connect to a channel..."
               : !hasWritePermission
-              ? `Message #${activeChannelData.name} (Read-only)`
-              : `Message #${activeChannelData.name}`
+                ? `Message #${activeChannelData.name} (Read-only)`
+                : `Message #${activeChannelData.name}`
           }
           disabled={!activeChannel || !isConnected || !hasWritePermission}
           onSubmit={handleSendMessage}
@@ -576,31 +629,33 @@ export default function Chat() {
       </div>
 
       {/* Members Sidebar Panel placed here to have the same height as the entire chat interface */}
-      <div className="w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex flex-col">
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-            Online Members
-          </h3>
-        </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {onlineUsers.map((m) => (
-            <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-              <div className="relative">
-                <img
-                  src={m.avatar}
-                  alt={m.name}
-                  className="w-8 h-8 rounded-full bg-surface-700 object-cover"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
+      {showMembersList && (
+        <div className="hidden md:flex w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex-col animate-slideLeft">
+          <div className="h-[57px] border-b border-border flex items-center justify-between px-4">
+            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+              Online Members
+            </h3>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {onlineUsers.map((m) => (
+              <div key={m.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+                <div className="relative">
+                  <img
+                    src={m.avatar}
+                    alt={m.name}
+                    className="w-8 h-8 rounded-full bg-surface-700 object-cover"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface-950 bg-success" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
+                  <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
-                <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { fetchAnnouncementById } from "../utils/api";
 import type { Announcement } from "../data/mockData";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
+import { useSEO } from "../utils/useSEO";
 
 export default function AnnouncementDetail() {
   const { id } = useParams();
@@ -16,6 +17,19 @@ export default function AnnouncementDetail() {
   const [error, setError] = useState<string | null>(null);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const getCoverImageUrl = () => {
+    if (!item) return undefined;
+    return item.image ? (item.image.startsWith("http") ? item.image : `${window.location.origin}/storage/${item.image}`) : undefined;
+  };
+
+  useSEO({
+    title: item ? item.title : "Loading Announcement...",
+    description: item ? item.excerpt : undefined,
+    keywords: item ? [item.category, "Announcement", "Cyberlogic News"] : undefined,
+    image: getCoverImageUrl(),
+    type: "article",
+  });
 
   useEffect(() => {
     async function loadDetail() {

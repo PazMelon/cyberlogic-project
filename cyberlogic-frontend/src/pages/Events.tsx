@@ -18,11 +18,18 @@ import { fetchEvents, registerForEvent, unregisterFromEvent, formatEventTime } f
 import { useDialog } from "../utils/useDialog";
 import type { Event } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
+import { useSEO } from "../utils/useSEO";
 
 const eventTypes = ["All", "Workshop", "Seminar", "Competition", "Social", "Meeting"] as const;
 const statusFilters = ["All", "Upcoming", "Ongoing", "Completed", "Closed", "Postponed"] as const;
 
 export default function Events() {
+  useSEO({
+    title: "Upcoming Events & Bootcamps",
+    description: "Discover and join our workshops, seminars, competitions, hardware servicing meetups, and social gatherings.",
+    keywords: ["events", "bootcamps", "cybersecurity seminars", "coding competitions", "workshops", "IT meetups"],
+  });
+
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { showAlert } = useDialog();

@@ -8,6 +8,7 @@ import type { Event } from "../data/mockData";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { QRCodeSVG } from "qrcode.react";
 import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
+import { useSEO } from "../utils/useSEO";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -23,6 +24,19 @@ export default function EventDetail() {
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const getCoverImageUrl = () => {
+    if (!item) return undefined;
+    return item.image ? (item.image.startsWith("http") ? item.image : `${window.location.origin}/storage/${item.image}`) : undefined;
+  };
+
+  useSEO({
+    title: item ? item.title : "Loading Event...",
+    description: item ? item.description : undefined,
+    keywords: item ? [item.type, "Event", "Cyberlogic Event"] : undefined,
+    image: getCoverImageUrl(),
+    type: "event",
+  });
 
   // QR code state
   const [qrToken, setQrToken] = useState<string | null>(null);

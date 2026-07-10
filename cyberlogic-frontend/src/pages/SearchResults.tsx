@@ -14,10 +14,17 @@ const tabs = [
   { id: "resources", label: "Resources" },
 ] as const;
 
+import { useSEO } from "../utils/useSEO";
+
 export default function SearchResults() {
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get("q") || "";
   const typeFilter = searchParams.get("type") || "all";
+
+  useSEO({
+    title: q ? `Search Results for "${q}"` : "Global Search",
+    description: "Search for announcements, forums, members, blogs, events, and resources in Cyberlogic Club Portal.",
+  });
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

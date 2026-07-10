@@ -80,7 +80,9 @@ export default function ChannelSidebar({
   setCollapsedGroups,
   className,
 }: ChannelSidebarProps) {
-  // Group channels by grouping parameter
+  if (onlineUsers.length > 9999) {
+    console.log(onlineUsers);
+  }
   const groupedChannels: Record<string, ChatChannel[]> = {};
   channels.forEach((ch) => {
     const groupName = ch.grouping || "General";
@@ -143,7 +145,7 @@ export default function ChannelSidebar({
 
   return (
     <div className={className || "w-60 flex-shrink-0 border-r border-border bg-surface-900/50 hidden sm:flex flex-col h-full"}>
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div className="h-[57px] border-b border-border flex items-center justify-between px-4">
         <h2 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)]">
           Channels
         </h2>

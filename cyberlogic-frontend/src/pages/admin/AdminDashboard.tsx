@@ -20,7 +20,14 @@ import { fetchUsers, approveUser, rejectUser, fetchAuditLogs, fetchAdminDashboar
 import { useDialog } from "../../utils/useDialog";
 import type { AuditLogEntry, AdminDashboardStats } from "../../utils/api";
 
+import { useSEO } from "../../utils/useSEO";
+
 export default function AdminDashboard() {
+  useSEO({
+    title: "Admin Dashboard",
+    description: "Access site administration controls, pending membership approvals, and system audit logs.",
+  });
+
   const { showAlert, showConfirm } = useDialog();
   const [isLoading, setIsLoading] = useState(true);
   const [totalMembersCount, setTotalMembersCount] = useState(0);

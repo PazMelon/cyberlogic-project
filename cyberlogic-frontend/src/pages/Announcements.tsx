@@ -4,10 +4,17 @@ import { ChevronRight, Pin, Search, Filter } from "lucide-react";
 import { fetchAnnouncements } from "../utils/api";
 import type { Announcement } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
+import { useSEO } from "../utils/useSEO";
 
 const categories = ["All", "General", "Academic", "Events"] as const;
 
 export default function Announcements() {
+  useSEO({
+    title: "Club Announcements",
+    description: "Stay informed with the latest news, announcements, recruitment drives, and alerts from the Cyberlogic Club.",
+    keywords: ["announcements", "club news", "recruitment", "updates", "cyberlogic notifications"],
+  });
+
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("All");

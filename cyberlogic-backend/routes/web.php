@@ -190,12 +190,171 @@ Route::get('/storage/{path}', function ($path) {
     return response()->file($filePath);
 })->where('path', '.*');
 
-// React SPA fallback handler
-Route::fallback(function () {
+// React SPA fallback handler with dynamic SEO injection
+Route::fallback(function (\Illuminate\Http\Request $request) {
     $indexPath = public_path('index.html');
-    if (file_exists($indexPath)) {
-        return file_get_contents($indexPath);
+    if (!file_exists($indexPath)) {
+        return response('React frontend is not built yet. Please run "npm run build" in the frontend directory.', 404);
     }
 
-    return response('React frontend is not built yet. Please run "npm run build" in the frontend directory.', 404);
+    $html = file_get_contents($indexPath);
+
+    // Default SEO values
+    $title = "Cyberlogic Club Portal";
+    $description = "Cyberlogic Club Portal — The premier student cybersecurity and technology club. Learn, compete, collaborate, and grow.";
+    $keywords = ["cybersecurity", "coding", "programming", "student club", "tech portal", "tutorials", "bootcamps"];
+    $image = asset('favicon.svg'); // Fallback image
+    $type = "website";
+    $url = $request->fullUrl();
+
+    // Parse the path segments
+    $path = trim($request->getPathInfo(), '/');
+    
+    // Ignore internal app routing paths that require authentication/portal context
+    if (!str_starts_with($path, 'app/') && !str_starts_with($path, 'admin/') && !str_starts_with($path, 'portal/')) {
+        $segments = explode('/', $path);
+        
+        if (count($segments) > 0 && !empty($segments[0])) {
+            if ($segments[0] === 'blogs') {
+                if (isset($segments[1]) && is_numeric($segments[1])) {
+                    $post = \App\Models\BlogPost::find($segments[1]);
+                    if ($post) {
+                        $title = $post->title . " | Cyberlogic Club";
+                        $description = $post->excerpt ?: substr(strip_tags($post->content), 0, 160);
+                        if ($post->image) {
+                            $image = asset('storage/' . $post->image);
+                        }
+                        $keywords = array_merge([$post->category, "Blog", "Cyberlogic Blog"], $post->tags ?: []);
+                        $type = "article";
+                    }
+                } else {
+                    $title = "Blogs & Tech Insights | Cyberlogic Club";
+                    $description = "Read coding guides, hardware tips, cyber-security writeups, and academic news published by club officers and members.";
+                }
+            } elseif ($segments[0] === 'announcements') {
+                if (isset($segments[1]) && is_numeric($segments[1])) {
+                    $ann = \App\Models\Announcement::find($segments[1]);
+                    if ($ann) {
+                        $title = $ann->title . " | Cyberlogic Club";
+                        $description = $ann->excerpt ?: substr(strip_tags($ann->content), 0, 160);
+                        if ($ann->image) {
+                            $image = asset('storage/' . $ann->image);
+                        }
+                        $keywords = [$ann->category, "Announcement", "Cyberlogic News", "Club Alert"];
+                        $type = "article";
+                    }
+                } else {
+                    $title = "Club Announcements | Cyberlogic Club";
+                    $description = "Stay informed with the latest news, announcements, recruitment drives, and alerts from the Cyberlogic Club.";
+                }
+            } elseif ($segments[0] === 'events') {
+                if (isset($segments[1]) && is_numeric($segments[1])) {
+                    $event = \App\Models\Event::find($segments[1]);
+                    if ($event) {
+                        $title = $event->title . " | Cyberlogic Club";
+                        $description = $event->description ? substr(strip_tags($event->description), 0, 160) : "Join us for " . $event->title;
+                        if ($event->image) {
+                            $image = asset('storage/' . $event->image);
+                        }
+                        $keywords = [$event->type, "Event", "Workshop", "Seminar", "Cyberlogic Event"];
+                        $type = "event";
+                    }
+                } else {
+                    $title = "Upcoming Events & Bootcamps | Cyberlogic Club";
+                    $description = "Discover and join our workshops, seminars, competitions, hardware servicing meetups, and social gatherings.";
+                }
+            } elseif ($segments[0] === 'resources') {
+                if (isset($segments[1]) && is_numeric($segments[1])) {
+                    $res = \App\Models\Resource::find($segments[1]);
+                    if ($res && $res->status === 'approved') {
+                        $title = $res->title . " | Cyberlogic Club";
+                        $description = $res->description ? substr(strip_tags($res->description), 0, 160) : "Download resource: " . $res->title;
+                        $keywords = [$res->category, "Resource", "Tool", "Tutorial", "Cyberlogic Resource"];
+                        $type = "object";
+                    }
+                } else {
+                    $title = "Learning Resources & Tools | Cyberlogic Club";
+                    $description = "Access templates, cheat sheets, guidelines, setup instructions, cybersecurity tools, and tutorials curated by Cyberlogic.";
+                }
+            } elseif ($segments[0] === 'about') {
+                if (isset($segments[1]) && $segments[1] === 'officers' && isset($segments[2]) && is_numeric($segments[2])) {
+                    $officer = \App\Models\Officer::with('user')->find($segments[2]);
+                    if ($officer) {
+                        $title = $officer->name . " — " . $officer->role . " | Cyberlogic Club";
+                        $description = $officer->bio ?: "Meet " . $officer->name . ", " . $officer->role . " at Cyberlogic Club.";
+                        $image = $officer->avatar;
+                        $keywords = [$officer->role, "Officer Profile", "Cyberlogic Officer", "Team Member"];
+                        $type = "profile";
+                    }
+                } else {
+                    $title = "About Us & Club History | Cyberlogic Club";
+                    
+                    // Fetch dynamic settings from database for About description
+                    $mission = \App\Models\SiteSetting::where('key', 'about_mission')->value('value');
+                    $vision = \App\Models\SiteSetting::where('key', 'about_vision')->value('value');
+                    if ($mission && $vision) {
+                        $description = substr(strip_tags("Mission: " . $mission . " | Vision: " . $vision), 0, 160);
+                    } else {
+                        $description = "Learn about the history, mission, vision, values, and leadership team of Cyberlogic Club.";
+                    }
+                    $keywords = ["about us", "club history", "officers", "organization mission", "student organization"];
+                }
+            }
+        } else {
+            // Landing page default description can also be customized by site settings mission
+            $mission = \App\Models\SiteSetting::where('key', 'about_mission')->value('value');
+            if ($mission) {
+                $description = substr(strip_tags($mission), 0, 160);
+            }
+        }
+    }
+
+    // Escape variables
+    $title = e($title);
+    $description = e($description);
+    $image = e($image);
+    $url = e($url);
+    $keywordsStr = e(implode(', ', $keywords));
+
+    // Replace Title
+    $html = preg_replace('/<title>.*?<\/title>/i', "<title>{$title}</title>", $html);
+
+    // Replace Description
+    $html = preg_replace(
+        '/<meta name="description" content=".*?"\s*\/?>/i',
+        "<meta name=\"description\" content=\"{$description}\" />",
+        $html
+    );
+
+    // Replace or Inject Keywords (check if exists first)
+    if (preg_match('/<meta name="keywords" content=".*?"\s*\/?>/i', $html)) {
+        $html = preg_replace(
+            '/<meta name="keywords" content=".*?"\s*\/?>/i',
+            "<meta name=\"keywords\" content=\"{$keywordsStr}\" />",
+            $html
+        );
+    } else {
+        $keywordsMeta = "<meta name=\"keywords\" content=\"{$keywordsStr}\" />";
+        $html = str_replace('</head>', $keywordsMeta . "\n</head>", $html);
+    }
+
+    // Construct social meta tags
+    $seoTags = "
+    <!-- Dynamic SEO Optimization (Antigravity Agent) -->
+    <meta property=\"og:title\" content=\"{$title}\" />
+    <meta property=\"og:description\" content=\"{$description}\" />
+    <meta property=\"og:image\" content=\"{$image}\" />
+    <meta property=\"og:type\" content=\"{$type}\" />
+    <meta property=\"og:url\" content=\"{$url}\" />
+    <meta property=\"og:site_name\" content=\"Cyberlogic Club\" />
+    <meta name=\"twitter:card\" content=\"summary_large_image\" />
+    <meta name=\"twitter:title\" content=\"{$title}\" />
+    <meta name=\"twitter:description\" content=\"{$description}\" />
+    <meta name=\"twitter:image\" content=\"{$image}\" />
+    ";
+
+    // Inject tags right before </head>
+    $html = str_replace('</head>', $seoTags . "\n</head>", $html);
+
+    return response($html);
 });
