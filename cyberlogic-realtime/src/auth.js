@@ -120,7 +120,18 @@ async function verifySession(req) {
     const data = await response.json();
     if (data && data.user) {
       console.log(`[Auth] Cookie verified successfully: ${data.user.name} (${data.user.role})`);
-      return data.user;
+      const dbUser = data.user;
+      return {
+        id: dbUser.id,
+        username: dbUser.username,
+        first_name: dbUser.first_name,
+        middle_name: dbUser.middle_name,
+        last_name: dbUser.last_name,
+        name: dbUser.username || dbUser.name,
+        role: dbUser.role,
+        avatar: dbUser.avatar,
+        permission_keys: dbUser.permission_keys || [],
+      };
     }
 
     console.log('[Auth] Connection rejected: Cookie check returned empty user payload');

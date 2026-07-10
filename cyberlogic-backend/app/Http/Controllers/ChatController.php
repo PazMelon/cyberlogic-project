@@ -129,9 +129,10 @@ class ChatController extends Controller
             return [
                 'id' => $msg->id,
                 'channelId' => $slug,
-                'author' => $msg->user ? $msg->user->name : 'Anonymous',
+                'author' => $msg->user ? ($msg->user->username ?: $msg->user->name) : 'Anonymous',
                 'authorAvatar' => $msg->user ? $msg->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user',
                 'authorId' => $msg->user_id,
+                'authorUsername' => $msg->user ? $msg->user->username : null,
                 'content' => $content,
                 'timestamp' => $msg->created_at ? $msg->created_at->format('g:i A') : now()->format('g:i A'),
                 'isSystem' => $msg->type === 'system',
@@ -141,7 +142,8 @@ class ChatController extends Controller
                 'replyTo' => $msg->parent ? [
                     'id' => $msg->parent->id,
                     'content' => $msg->parent->content,
-                    'author' => $msg->parent->user ? $msg->parent->user->name : 'Anonymous',
+                    'author' => $msg->parent->user ? ($msg->parent->user->username ?: $msg->parent->user->name) : 'Anonymous',
+                    'authorUsername' => $msg->parent->user ? $msg->parent->user->username : null,
                 ] : null,
             ];
         });
@@ -202,7 +204,7 @@ class ChatController extends Controller
                 'emoji' => $emo,
                 'count' => $reacs->count(),
                 'users' => $reacs->map(function ($r) {
-                    return $r->user ? $r->user->name : 'Anonymous';
+                    return $r->user ? ($r->user->username ?: $r->user->name) : 'Anonymous';
                 })->values()->toArray(),
                 'reacted' => in_array($user->id, $userIds),
             ];

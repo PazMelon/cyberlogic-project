@@ -389,7 +389,7 @@ class ChannelManager {
       channel: channelName,
       payload: {
         userId: user.id,
-        firstName: user.first_name || user.name.split(' ')[0],
+        firstName: user.username || user.first_name || user.name.split(' ')[0],
         name: user.name,
         avatar: user.avatar,
         isTyping: !!isTyping,
@@ -439,6 +439,7 @@ class ChannelManager {
       // 2. Fetch updated reaction list for this message (concatenating first, middle, last names)
       const [rawReactions] = await pool.query(
         `SELECT r.emoji, r.user_id, 
+                u.username,
                 TRIM(CONCAT(u.first_name, ' ', IFNULL(CONCAT(u.middle_name, ' '), ''), u.last_name)) as name 
          FROM chat_message_reactions r 
          LEFT JOIN users u ON r.user_id = u.id 
@@ -458,7 +459,7 @@ class ChannelManager {
           };
         }
         reactionsMap[row.emoji].count += 1;
-        reactionsMap[row.emoji].users.push(row.name || 'Anonymous');
+        reactionsMap[row.emoji].users.push(row.username || row.name || 'Anonymous');
         reactionsMap[row.emoji].userIds.push(row.user_id);
       });
 
