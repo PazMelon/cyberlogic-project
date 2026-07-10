@@ -107,7 +107,7 @@ export function DirectoryCard({ member, isExpanded, onToggleExpand }: DirectoryC
           {isExpanded ? "Collapse" : "View Bio"}
         </Button>
         <Link
-          to={`/app/profile/${member.id}`}
+          to={member.username ? `/app/u/${member.username}` : `/app/profile/${member.id}`}
           className="px-3 py-1.5 text-center text-xs font-semibold rounded-lg bg-gradient-to-r from-primary to-accent hover:shadow-md hover:shadow-primary/10 text-white transition-all"
         >
           Profile

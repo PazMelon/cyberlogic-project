@@ -1885,6 +1885,7 @@ export async function updateUserPermissions(userId: number, permissionIds: numbe
 
 export interface DirectoryMember {
   id: number;
+  username?: string | null;
   name: string;
   avatar: string;
   status: string;

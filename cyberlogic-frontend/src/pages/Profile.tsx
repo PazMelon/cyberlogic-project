@@ -168,6 +168,7 @@ export default function Profile() {
     name: isOwnProfile 
       ? trimFullName(firstName, middleName, lastName) 
       : (targetUser?.name || "Unknown User"),
+    username: isOwnProfile ? (user?.username || "") : (targetUser?.username || ""),
     avatar: isOwnProfile ? (user?.avatar || "") : (targetUser?.avatar || ""),
     role: isOwnProfile ? (user?.role || "Member") : (targetUser?.role || "Member"),
     email: isOwnProfile ? (user?.email || "") : (targetUser?.email || ""),
@@ -800,9 +801,11 @@ export default function Profile() {
                     <h3 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] leading-tight">
                       {activeUser.name}
                     </h3>
-                    <p className="text-xs text-text-muted mt-0.5">
-                      u/{activeUser.name.toLowerCase().replace(/\s+/g, "")}
-                    </p>
+                    {activeUser.username && (
+                      <p className="text-xs text-text-muted mt-0.5 font-mono">
+                        u/{activeUser.username}
+                      </p>
+                    )}
                   </div>
 
                   {/* Status roles and details */}
