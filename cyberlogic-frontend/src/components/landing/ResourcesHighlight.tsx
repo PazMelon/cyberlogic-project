@@ -93,14 +93,12 @@ export function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
                   <span className="inline-flex items-center gap-1 font-semibold text-[10px]">
                     <Download className="w-3 h-3 text-primary/70" /> {resource.downloadCount}
                   </span>
-                  <a
-                    href={resource.filePathUrl || resource.link || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    to={`/resources/${resource.id}`}
                     className="inline-flex items-center gap-1 text-primary hover:text-primary-light font-medium transition-colors cursor-pointer"
                   >
-                    Access <ChevronRight className="w-3.5 h-3.5" />
-                  </a>
+                    View <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </div>
             ))

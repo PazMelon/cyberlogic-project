@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
+import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
   Search,
@@ -17,15 +18,14 @@ import {
   CheckCircle2,
   XCircle,
   Filter,
+  Edit,
 } from "lucide-react";
 import {
   fetchResources,
   fetchMyResources,
-  createResource,
   voteResource,
   type ResourceMapped,
 } from "../utils/api";
-import SubmitResourceModal from "../components/resources/SubmitResourceModal";
 import { useDragScroll } from "../utils/scroll";
 
 const categories = ["All", "Tutorials", "Documents", "Tools", "Links"] as const;
@@ -47,12 +47,12 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function Resources() {
+  const { user } = useAuth();
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [resourcesList, setResourcesList] = useState<ResourceMapped[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "my">("all");
-  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
   const categoriesScrollRef = useDragScroll();
 
   const location = useLocation();
@@ -97,16 +97,6 @@ export default function Resources() {
     }
   };
 
-  const handleSubmitResource = async (formData: FormData) => {
-    try {
-      await createResource(formData);
-      loadResources();
-    } catch (err) {
-      console.error("Failed to create resource:", err);
-      throw err;
-    }
-  };
-
   const filtered = resourcesList.filter((r) => {
     // Front-end filter categories specifically when on My Submissions tab
     if (activeTab === "my") {
@@ -143,13 +133,12 @@ export default function Resources() {
             </p>
           </div>
           {isPortal && (
-            <button
-              type="button"
-              onClick={() => setIsSubmitModalOpen(true)}
+            <Link
+              to="/app/resources/create"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer flex-shrink-0"
             >
               <Plus className="w-4 h-4" /> Submit Resource
-            </button>
+            </Link>
           )}
         </div>
 
@@ -250,36 +239,49 @@ export default function Resources() {
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
                       {iconMap[resource.icon] || <BookOpen className="w-5 h-5" />}
                     </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          categoryColors[resource.category] || "bg-surface-700 text-text-secondary"
-                        }`}
-                      >
-                        {resource.category}
-                      </span>
-                      {activeTab === "my" && (
+                    <div className="flex items-center gap-2">
+                      {isPortal && user && resource.user_id === user.id && (
+                        <Link
+                          to={`/app/resources/edit/${resource.id}`}
+                          className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-text-muted hover:text-primary transition-all cursor-pointer flex items-center justify-center self-start"
+                          title="Edit Submission"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </Link>
+                      )}
+                      <div className="flex flex-col items-end gap-1.5">
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            resource.status === "approved"
-                              ? "bg-success/10 text-success border-success/20"
-                              : resource.status === "rejected"
-                              ? "bg-error/10 text-error border-error/20"
-                              : "bg-warning/10 text-warning border-warning/20 animate-pulse"
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            categoryColors[resource.category] || "bg-surface-700 text-text-secondary"
                           }`}
                         >
-                          {resource.status === "approved" && <CheckCircle2 className="w-3 h-3" />}
-                          {resource.status === "rejected" && <XCircle className="w-3 h-3" />}
-                          {resource.status === "pending" && <Clock className="w-3 h-3" />}
-                          {resource.status.toUpperCase()}
+                          {resource.category}
                         </span>
-                      )}
+                        {activeTab === "my" && (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                              resource.status === "approved"
+                                ? "bg-success/10 text-success border-success/20"
+                                : resource.status === "rejected"
+                                ? "bg-error/10 text-error border-error/20"
+                                : "bg-warning/10 text-warning border-warning/20 animate-pulse"
+                            }`}
+                          >
+                            {resource.status === "approved" && <CheckCircle2 className="w-3 h-3" />}
+                            {resource.status === "rejected" && <XCircle className="w-3 h-3" />}
+                            {resource.status === "pending" && <Clock className="w-3 h-3" />}
+                            {resource.status.toUpperCase()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <h3 className="text-base font-semibold text-text-primary group-hover:text-primary transition-colors mb-2">
-                    {resource.title}
-                  </h3>
+                  <Link to={isPortal ? `/app/resources/${resource.id}` : `/resources/${resource.id}`}>
+                    <h3 className="text-base font-semibold text-text-primary group-hover:text-primary transition-colors mb-2 cursor-pointer">
+                      {resource.title}
+                    </h3>
+                  </Link>
                   <p className="text-sm text-text-muted line-clamp-2 mb-4">
                     {resource.description}
                   </p>
@@ -331,14 +333,12 @@ export default function Resources() {
                       </button>
                     </div>
 
-                    <a
-                      href={resource.filePathUrl || resource.link || "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <Link
+                      to={isPortal ? `/app/resources/${resource.id}` : `/resources/${resource.id}`}
                       className="inline-flex items-center gap-1.5 text-sm text-primary hover:text-primary-light font-medium transition-colors cursor-pointer"
                     >
-                      {resource.filePathUrl ? "Download" : "Access"} <ChevronRight className="w-3.5 h-3.5" />
-                    </a>
+                      View Details <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -352,13 +352,6 @@ export default function Resources() {
           </div>
         )}
       </div>
-
-      {/* Resource Submission Modal */}
-      <SubmitResourceModal
-        isOpen={isSubmitModalOpen}
-        onClose={() => setIsSubmitModalOpen(false)}
-        onSubmit={handleSubmitResource}
-      />
     </div>
   );
 }

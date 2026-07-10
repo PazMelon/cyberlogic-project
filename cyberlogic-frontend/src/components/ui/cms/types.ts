@@ -67,6 +67,12 @@ export interface CMSBlogState {
   attendanceStart?: string;
   attendanceEnd?: string;
 
+  isResource?: boolean;
+  resourceLink?: string;
+  resourceFile?: File | null;
+  resourceFilePath?: string;
+  resourceIcon?: string;
+
   status?: 'published' | 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'closed' | 'postponed';
   tags?: string[];
 }

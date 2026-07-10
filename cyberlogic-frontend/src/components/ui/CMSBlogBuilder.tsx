@@ -22,7 +22,9 @@ import {
   PanelTop,
   GalleryHorizontal,
   Eye,
-  X
+  X,
+  Upload,
+  Link2
 } from "lucide-react";
 import { Button, Card } from "../ui";
 import BlogContentRenderer, { resolveCmsUrl } from "../common/BlogContentRenderer";
@@ -899,18 +901,67 @@ export default function CMSBlogBuilder({
             {/* Category */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
-                <Tag size={12} /> {state.isEvent ? "Event Type *" : "Category *"}
+                <Tag size={12} /> {state.isEvent ? "Event Type *" : (state.isResource ? "Resource Category *" : "Category *")}
               </label>
               <select
                 value={state.category}
                 onChange={e => updateState({ category: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all select-none"
               >
                 {categories.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
             </div>
+
+            {/* Resource Specific Fields */}
+            {state.isResource && (
+              <>
+                {/* Resource Link */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
+                    <Link2 size={12} /> Resource URL Link
+                  </label>
+                  <input
+                    type="url"
+                    value={state.resourceLink || ""}
+                    onChange={e => updateState({ resourceLink: e.target.value })}
+                    placeholder="https://example.com/project"
+                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  />
+                </div>
+
+                {/* Resource File Upload */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-text-secondary flex items-center gap-1">
+                    <Upload size={12} /> Resource File Attachment
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      type="file"
+                      id="resource-file-input"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0] || null;
+                        updateState({ resourceFile: file });
+                      }}
+                    />
+                    <label
+                      htmlFor="resource-file-input"
+                      className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-border hover:border-primary/50 rounded-xl cursor-pointer bg-surface-800 text-xs font-semibold text-text-secondary hover:text-text-primary transition-all text-center"
+                    >
+                      <Upload className="w-4 h-4 text-primary" />
+                      {state.resourceFile ? state.resourceFile.name : (state.resourceFilePath ? "Replace attached file" : "Upload file attachment")}
+                    </label>
+                    {(state.resourceFile || state.resourceFilePath) && (
+                      <p className="text-[10px] text-text-muted italic truncate max-w-[280px]">
+                        Attached: {state.resourceFile ? state.resourceFile.name : (state.resourceFilePath ? "Existing file in cloud" : "")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Status Selection */}
             {state.status !== undefined && (

@@ -67,24 +67,45 @@ class ResourceController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
             'description' => 'required|string',
+            'excerpt' => 'nullable|string',
             'category' => 'required|string|in:Tutorials,Documents,Tools,Links',
             'link' => 'nullable|url|max:255',
             'file' => 'nullable|file|max:10240', // max 10MB
             'icon' => 'nullable|string|max:50',
+            'sections' => 'nullable|string', // JSON string
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
 
         $user = $request->user();
         $status = $user->isAdmin() ? 'approved' : 'pending';
 
+        // Process sections if provided
+        $sections = null;
+        if (!empty($validated['sections'])) {
+            $sections = json_decode($validated['sections'], true);
+        }
+
+        // Optimize cover image if provided
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $path = \App\Services\ImageOptimizer::optimize($request->file('image'), 'resources');
+            $imagePath = '/storage/' . $path;
+        }
+
         $resourceData = [
             'user_id' => $user->id,
             'title' => $validated['title'],
+            'subtitle' => $validated['subtitle'] ?? null,
             'description' => $validated['description'],
+            'excerpt' => $validated['excerpt'] ?? null,
             'category' => $validated['category'],
             'link' => $validated['link'] ?? null,
             'icon' => $validated['icon'] ?? 'file-text',
+            'image' => $imagePath,
             'status' => $status,
+            'sections' => $sections,
         ];
 
         if ($request->hasFile('file')) {
@@ -127,23 +148,48 @@ class ResourceController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
+            'subtitle' => 'nullable|string|max:255',
             'description' => 'required|string',
+            'excerpt' => 'nullable|string',
             'category' => 'required|string|in:Tutorials,Documents,Tools,Links',
             'link' => 'nullable|url|max:255',
             'file' => 'nullable|file|max:10240', // max 10MB
             'icon' => 'nullable|string|max:50',
+            'sections' => 'nullable|string', // JSON string
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
         ]);
 
         $status = $user->isAdmin() ? $resource->status : 'pending'; // Reset to pending for regular members
 
+        // Process sections if provided
+        $sections = $resource->sections;
+        if (array_key_exists('sections', $validated)) {
+            $sections = $validated['sections'] ? json_decode($validated['sections'], true) : null;
+        }
+
         $resourceData = [
             'title' => $validated['title'],
+            'subtitle' => $validated['subtitle'] ?? null,
             'description' => $validated['description'],
+            'excerpt' => $validated['excerpt'] ?? null,
             'category' => $validated['category'],
             'link' => $validated['link'] ?? null,
             'icon' => $validated['icon'] ?? $resource->icon,
             'status' => $status,
+            'sections' => $sections,
         ];
+
+        // Optimize cover image if provided
+        if ($request->hasFile('image')) {
+            // Delete old cover image if it exists
+            if ($resource->image) {
+                // Strip /storage/ prefix to delete from disk
+                $oldPath = str_replace('/storage/', '', $resource->image);
+                Storage::disk('public')->delete($oldPath);
+            }
+            $path = \App\Services\ImageOptimizer::optimize($request->file('image'), 'resources');
+            $resourceData['image'] = '/storage/' . $path;
+        }
 
         if ($request->hasFile('file')) {
             // Delete old file if exists

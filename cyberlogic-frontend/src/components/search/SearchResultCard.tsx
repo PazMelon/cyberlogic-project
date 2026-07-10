@@ -49,7 +49,7 @@ export default function SearchResultCard({ type, data, onClick }: SearchResultCa
       case "event":
         return `/app/events/${data.id}`;
       case "resource":
-        return `/app/resources`; // Navigate to resources page
+        return `/app/resources/${data.id}`; // Navigate to resources details page
       default:
         return "/app";
     }

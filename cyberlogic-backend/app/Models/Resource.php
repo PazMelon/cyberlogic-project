@@ -11,13 +11,21 @@ class Resource extends Model
     protected $fillable = [
         'user_id',
         'title',
+        'subtitle',
         'description',
+        'excerpt',
         'category',
         'icon',
         'link',
         'file_path',
+        'image',
         'status',
         'download_count',
+        'sections',
+    ];
+
+    protected $casts = [
+        'sections' => 'array',
     ];
 
     protected $appends = ['voteScore', 'userVote', 'filePathUrl'];

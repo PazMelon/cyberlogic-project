@@ -15,6 +15,15 @@ class ChatMessage extends Model
         'parent_id',
         'content',
         'type',
+        'is_deleted',
+        'deleted_by',
+        'deletion_reason',
+        'deleted_at_timestamp',
+    ];
+
+    protected $casts = [
+        'is_deleted' => 'boolean',
+        'deleted_at_timestamp' => 'datetime',
     ];
 
     /**
@@ -23,6 +32,14 @@ class ChatMessage extends Model
     public function parent()
     {
         return $this->belongsTo(ChatMessage::class, 'parent_id');
+    }
+
+    /**
+     * Get the admin who deleted this message (for audit purposes).
+     */
+    public function deletedByUser()
+    {
+        return $this->belongsTo(User::class, 'deleted_by');
     }
 
     /**

@@ -12,6 +12,8 @@ import Landing from "./pages/Landing";
 import Announcements from "./pages/Announcements";
 import Events from "./pages/Events";
 import Resources from "./pages/Resources";
+import ResourceDetail from "./pages/ResourceDetail";
+import CreateResource from "./pages/CreateResource";
 import About from "./pages/About";
 import OfficerDetail from "./pages/OfficerDetail";
 import Login from "./pages/Login";
@@ -177,6 +179,7 @@ function AppRoutes() {
         <Route path="events" element={<Events />} />
         <Route path="events/:id" element={<EventDetail />} />
         <Route path="resources" element={<Resources />} />
+        <Route path="resources/:id" element={<ResourceDetail />} />
         <Route path="about" element={<About />} />
         <Route path="about/officers/:id" element={<OfficerDetail />} />
         <Route path="blogs" element={<Blogs />} />
@@ -221,6 +224,9 @@ function AppRoutes() {
         <Route path="events" element={<Events />} />
         <Route path="events/:id" element={<EventDetail />} />
         <Route path="resources" element={<Resources />} />
+        <Route path="resources/:id" element={<ResourceDetail />} />
+        <Route path="resources/create" element={<CreateResource />} />
+        <Route path="resources/edit/:id" element={<CreateResource />} />
         <Route path="profile" element={<Profile />} />
         <Route path="profile/:userId" element={<Profile />} />
         <Route path="u/:username" element={<Profile />} />

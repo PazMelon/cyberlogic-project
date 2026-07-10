@@ -2028,16 +2028,20 @@ export interface ResourceMapped {
   id: number;
   user_id: number;
   title: string;
+  subtitle?: string | null;
   description: string;
+  excerpt?: string | null;
   category: "Tutorials" | "Documents" | "Tools" | "Links";
   icon: string;
   link: string | null;
   file_path: string | null;
   filePathUrl: string | null;
+  image?: string | null;
   status: "pending" | "approved" | "rejected";
   downloadCount: number;
   voteScore: number;
   userVote: number | null;
+  sections?: any[] | null;
   user?: {
     id: number;
     name: string;
@@ -2053,16 +2057,20 @@ function mapResource(r: any): ResourceMapped {
     id: r.id,
     user_id: r.user_id,
     title: r.title,
+    subtitle: r.subtitle ?? null,
     description: r.description,
+    excerpt: r.excerpt ?? null,
     category: r.category,
     icon: r.icon,
     link: r.link,
     file_path: r.file_path,
     filePathUrl: r.filePathUrl ?? null,
+    image: r.image ?? null,
     status: r.status,
     downloadCount: r.download_count ?? 0,
     voteScore: r.voteScore ?? 0,
     userVote: r.userVote ?? null,
+    sections: r.sections ?? null,
     user: r.user,
     createdAt: r.created_at,
     updatedAt: r.updated_at
@@ -2084,6 +2092,18 @@ export async function fetchResources(params?: { category?: string; q?: string; s
   }
   const data = await res.json();
   return data.map(mapResource);
+}
+
+/**
+ * GET /api/resources/{id}
+ */
+export async function fetchResourceById(id: number): Promise<ResourceMapped> {
+  const res = await apiRequest(`/api/resources/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to load resource details.");
+  }
+  const data = await res.json();
+  return mapResource(data);
 }
 
 /**
