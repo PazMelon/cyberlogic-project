@@ -17,7 +17,7 @@ import { useAuth } from "../context/AuthContext";
 const navLinks = [
   { label: "Home", path: "/", icon: Home },
   { label: "Announcements", path: "/announcements", icon: Bell },
-  { label: "Blog", path: "/blogs", icon: BookOpen },
+  { label: "Blogs", path: "/blogs", icon: BookOpen },
   { label: "Events", path: "/events", icon: Calendar },
   { label: "Resources", path: "/resources", icon: FolderOpen },
   { label: "About", path: "/about", icon: Info },
@@ -55,11 +55,10 @@ export default function Navbar() {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
-          scrolled
+        className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${scrolled
             ? "glass shadow-lg shadow-black/20"
             : "bg-transparent"
-        }`}
+          }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 lg:h-20">
@@ -80,11 +79,10 @@ export default function Navbar() {
                 <Link
                   key={link.path}
                   to={link.path}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    location.pathname === link.path
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${location.pathname === link.path
                       ? "text-primary bg-primary/10"
                       : "text-text-secondary hover:text-text-primary hover:bg-white/5"
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>
@@ -134,17 +132,15 @@ export default function Navbar() {
 
       {/* Backdrop overlay */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-45 transition-opacity duration-300 lg:hidden ${
-          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-45 transition-opacity duration-300 lg:hidden ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
         onClick={() => setIsOpen(false)}
       />
 
       {/* Slide-out Sidebar Drawer */}
       <div
-        className={`fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface-900 border-l border-border z-50 flex flex-col justify-between transition-transform duration-300 ease-out shadow-2xl lg:hidden ${
-          isOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface-900 border-l border-border z-50 flex flex-col justify-between transition-transform duration-300 ease-out shadow-2xl lg:hidden ${isOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Drawer Header */}
@@ -178,16 +174,14 @@ export default function Navbar() {
                   key={link.path}
                   to={link.path}
                   onClick={() => setIsOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                    isActive
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive
                       ? "bg-gradient-to-r from-primary/15 to-primary/5 text-text-primary border-primary/25 shadow-sm shadow-primary/5"
                       : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                  }`}
+                    }`}
                 >
                   <Icon
-                    className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                      isActive ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
-                    }`}
+                    className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
+                      }`}
                   />
                   <span className="truncate">{link.label}</span>
                   {isActive && (

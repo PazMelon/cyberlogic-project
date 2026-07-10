@@ -46,6 +46,8 @@ import BlogDetail from "./pages/BlogDetail";
 import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
 import SearchResults from "./pages/SearchResults";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import { Shield } from "lucide-react";
 import PortalLayout from "./layouts/PortalLayout";
 import AttendancePortal from "./pages/portal/AttendancePortal";
@@ -184,6 +186,8 @@ function AppRoutes() {
         <Route path="about/officers/:id" element={<OfficerDetail />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="blogs/:id" element={<BlogDetail />} />
+        <Route path="privacy" element={<PrivacyPolicy />} />
+        <Route path="terms" element={<TermsOfService />} />
       </Route>
 
       {/* Auth Routes (unauthenticated guests only) */}

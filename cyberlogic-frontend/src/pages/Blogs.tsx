@@ -40,12 +40,12 @@ export default function Blogs() {
   }, []);
 
   const filteredBlogs = blogs.filter((blog) => {
-    const matchesSearch = 
+    const matchesSearch =
       blog.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       blog.excerpt.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = 
-      activeCategory === "All" || 
+
+    const matchesCategory =
+      activeCategory === "All" ||
       blog.category === activeCategory;
 
     return matchesSearch && matchesCategory;
@@ -62,7 +62,7 @@ export default function Blogs() {
                 Home
               </Link>
               <ChevronRight className="w-3.5 h-3.5" />
-              <span className="text-text-secondary">Blog</span>
+              <span className="text-text-secondary">Blogs</span>
             </div>
           )}
           <h1 className={`${isPortal ? "text-2xl" : "text-3xl lg:text-4xl"} font-bold font-[family-name:var(--font-heading)] text-text-primary`}>
@@ -95,11 +95,10 @@ export default function Blogs() {
                   key={cat}
                   type="button"
                   onClick={() => setActiveCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${
-                    activeCategory === cat
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all border duration-200 cursor-pointer whitespace-nowrap ${activeCategory === cat
                       ? "bg-gradient-to-r from-primary/15 to-primary/5 text-primary border-primary/20 shadow-sm"
                       : "text-text-muted hover:text-text-primary border-transparent hover:bg-surface-800"
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>

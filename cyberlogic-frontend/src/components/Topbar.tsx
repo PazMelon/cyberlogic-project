@@ -55,7 +55,7 @@ const memberNavSections = [
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
       { icon: Users, label: "Directory", path: "/app/directory" },
-      { icon: Newspaper, label: "Blog", path: "/app/blogs" },
+      { icon: Newspaper, label: "Blogs", path: "/app/blogs" },
     ],
   },
   {
@@ -225,7 +225,7 @@ export default function Topbar() {
     latestNotification,
     clearLatestNotification
   } = useWebSocket();
-  
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -241,11 +241,11 @@ export default function Topbar() {
     if (latestNotification) {
       setActiveToast(latestNotification);
       clearLatestNotification();
-      
+
       const timer = setTimeout(() => {
         setActiveToast(null);
       }, 5000);
-      
+
       return () => clearTimeout(timer);
     }
   }, [latestNotification, clearLatestNotification]);
@@ -436,15 +436,14 @@ export default function Topbar() {
                   ) : (
                     notifications.map(notif => {
                       const path = notif.link || '/app';
-                      
+
                       return (
                         <Link
                           key={notif.id}
                           to={path}
                           onClick={() => handleNotificationClick(notif)}
-                          className={`group flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-all relative ${
-                            !notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
-                          }`}
+                          className={`group flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-all relative ${!notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
+                            }`}
                         >
                           <div className={`p-2 rounded-lg flex-shrink-0 border flex items-center justify-center h-8 w-8 ${getNotificationColorClass(notif.type)}`}>
                             {(() => {
@@ -452,7 +451,7 @@ export default function Topbar() {
                               return <Icon className="w-4 h-4" />;
                             })()}
                           </div>
-                          
+
                           <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                             <div className="flex items-center justify-between gap-1.5">
                               <span className="text-xs font-semibold text-text-primary truncate">{notif.title}</span>
@@ -513,7 +512,7 @@ export default function Topbar() {
                   <p className="text-sm font-medium text-text-primary">{user?.name}</p>
                   <p className="text-xs text-text-muted">{user?.email}</p>
                 </div>
-                
+
                 {/* Status Toggle */}
                 <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-xs text-text-muted font-medium">Status</span>
@@ -521,22 +520,20 @@ export default function Topbar() {
                     <button
                       type="button"
                       onClick={() => updateMyStatus('online')}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                        myStatus === 'online'
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${myStatus === 'online'
                           ? 'bg-success/10 border-success/30 text-success'
                           : 'bg-surface-800 border-border text-text-muted hover:border-success/20'
-                      }`}
+                        }`}
                     >
                       Online
                     </button>
                     <button
                       type="button"
                       onClick={() => updateMyStatus('away')}
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${
-                        myStatus === 'away'
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-all cursor-pointer ${myStatus === 'away'
                           ? 'bg-warning/10 border-warning/30 text-warning'
                           : 'bg-surface-800 border-border text-text-muted hover:border-warning/20'
-                      }`}
+                        }`}
                     >
                       Away
                     </button>
@@ -551,7 +548,7 @@ export default function Topbar() {
                   <User className="w-4 h-4" /> Profile
                 </Link>
                 <Link
-                  to="#"
+                  to="/app/settings"
                   onClick={() => setShowDropdown(false)}
                   className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
                 >
@@ -591,9 +588,8 @@ export default function Topbar() {
                 onClick={() => setShowMobileMenu(false)}
               >
                 <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${
-                    isAdminRoute ? "from-amber-500 to-orange-600" : "from-primary to-accent"
-                  }`}
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${isAdminRoute ? "from-amber-500 to-orange-600" : "from-primary to-accent"
+                    }`}
                 >
                   <Shield className="w-4 h-4 text-white" />
                 </div>
@@ -619,82 +615,78 @@ export default function Topbar() {
             <nav className="flex-1 py-6 px-4 space-y-6 overflow-y-auto">
               {isAdminRoute
                 ? adminNavSections.map((section) => {
-                    const visibleItems = section.items.filter((item) => {
-                      if (item.superAdminOnly) return isSuperAdmin;
-                      if (item.permission) return hasPermission(item.permission);
-                      return true;
-                    });
+                  const visibleItems = section.items.filter((item) => {
+                    if (item.superAdminOnly) return isSuperAdmin;
+                    if (item.permission) return hasPermission(item.permission);
+                    return true;
+                  });
 
-                    if (visibleItems.length === 0) return null;
+                  if (visibleItems.length === 0) return null;
 
-                    return (
-                      <div key={section.title} className="space-y-2">
-                        <span className="text-[10px] font-bold text-text-muted/50 uppercase tracking-widest px-3 block">
-                          {section.title}
-                        </span>
-                        <div className="space-y-1">
-                          {visibleItems.map((item) => (
-                            <Link
-                              key={item.path}
-                              to={item.path}
-                              onClick={() => setShowMobileMenu(false)}
-                              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                                isActive(item.path)
-                                  ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
-                                  : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                              }`}
-                            >
-                              <item.icon
-                                className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                  isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
-                                }`}
-                              />
-                              <span className="flex-1 truncate">{item.label}</span>
-                              {item.badge && (
-                                <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
-                                  {item.badge}
-                                </span>
-                              )}
-                              {isActive(item.path) && !item.badge && (
-                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                : memberNavSections.map((section) => (
+                  return (
                     <div key={section.title} className="space-y-2">
                       <span className="text-[10px] font-bold text-text-muted/50 uppercase tracking-widest px-3 block">
                         {section.title}
                       </span>
                       <div className="space-y-1">
-                        {section.items.map((item) => (
+                        {visibleItems.map((item) => (
                           <Link
                             key={item.path}
                             to={item.path}
                             onClick={() => setShowMobileMenu(false)}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${
-                              isActive(item.path)
-                                ? "bg-gradient-to-r from-primary/15 to-primary/5 text-text-primary border-primary/25 shadow-sm shadow-primary/5"
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive(item.path)
+                                ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
                                 : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                            }`}
+                              }`}
                           >
                             <item.icon
-                              className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${
-                                isActive(item.path) ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
-                              }`}
+                              className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                                }`}
                             />
-                            <span className="truncate">{item.label}</span>
-                            {isActive(item.path) && (
-                              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            <span className="flex-1 truncate">{item.label}</span>
+                            {item.badge && (
+                              <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
+                                {item.badge}
+                              </span>
+                            )}
+                            {isActive(item.path) && !item.badge && (
+                              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                             )}
                           </Link>
                         ))}
                       </div>
                     </div>
-                  ))}
+                  );
+                })
+                : memberNavSections.map((section) => (
+                  <div key={section.title} className="space-y-2">
+                    <span className="text-[10px] font-bold text-text-muted/50 uppercase tracking-widest px-3 block">
+                      {section.title}
+                    </span>
+                    <div className="space-y-1">
+                      {section.items.map((item) => (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setShowMobileMenu(false)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive(item.path)
+                              ? "bg-gradient-to-r from-primary/15 to-primary/5 text-text-primary border-primary/25 shadow-sm shadow-primary/5"
+                              : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
+                            }`}
+                        >
+                          <item.icon
+                            className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive(item.path) ? "text-primary" : "text-text-muted group-hover:text-text-secondary"
+                              }`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                          {isActive(item.path) && (
+                            <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
             </nav>
 
             {/* Bottom Section */}
@@ -712,11 +704,10 @@ export default function Topbar() {
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span
-                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold capitalize ${
-                        isAdminRoute
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold capitalize ${isAdminRoute
                           ? "bg-amber-500/10 text-amber-400"
                           : "bg-primary/10 text-primary"
-                      }`}
+                        }`}
                     >
                       {isAdminRoute ? user?.admin_position || user?.role : user?.role}
                     </span>
@@ -771,7 +762,7 @@ export default function Topbar() {
           </div>
         </>
       )}
-      
+
       {activeToast && (
         <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full glass rounded-xl border border-border/80 shadow-2xl p-4 flex gap-3.5 animate-slide-in-right">
           <div className={`p-2.5 rounded-lg flex-shrink-0 border flex items-center justify-center h-10 w-10 ${getNotificationColorClass(activeToast.type)}`}>

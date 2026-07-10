@@ -1,4 +1,5 @@
 import { Shield } from "lucide-react";
+import { Link } from "react-router";
 
 export function DashboardFooter() {
   const currentYear = new Date().getFullYear();
@@ -21,21 +22,21 @@ export function DashboardFooter() {
 
         {/* Links with cyber hover effects */}
         <div className="flex items-center gap-6">
-          <a
-            href="#"
+          <Link
+            to="/terms"
             className="hover:text-primary transition-all duration-300 relative group py-0.5"
           >
             Terms of Service
             <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-primary group-hover:w-full transition-all duration-300" />
-          </a>
+          </Link>
           <span className="text-border/20 select-none">|</span>
-          <a
-            href="#"
+          <Link
+            to="/privacy"
             className="hover:text-primary transition-all duration-300 relative group py-0.5"
           >
             Privacy Policy
             <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-primary group-hover:w-full transition-all duration-300" />
-          </a>
+          </Link>
         </div>
       </div>
     </footer>
