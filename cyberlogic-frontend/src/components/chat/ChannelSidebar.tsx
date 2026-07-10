@@ -165,28 +165,7 @@ export default function ChannelSidebar({
         )}
       </div>
 
-      <div className="p-3 border-t border-border">
-        <div className="flex items-center gap-2 text-xs text-text-muted mb-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-success" />
-          <span className="font-medium text-text-primary">{onlineUsers.length} online</span>
-        </div>
-        <div className="flex -space-x-2">
-          {onlineUsers.slice(0, 5).map((m) => (
-            <img
-              key={m.id}
-              src={m.avatar}
-              alt={m.name}
-              className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 object-cover"
-              title={m.name}
-            />
-          ))}
-          {onlineUsers.length > 5 && (
-            <div className="w-7 h-7 rounded-full border-2 border-surface-900 bg-surface-700 flex items-center justify-center text-[10px] text-text-muted font-bold">
-              +{onlineUsers.length - 5}
-            </div>
-          )}
-        </div>
-      </div>
+
     </div>
   );
 }

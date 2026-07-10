@@ -1,17 +1,13 @@
-import { Menu, Hash, Users, Info } from "lucide-react";
+import { Menu, Hash } from "lucide-react";
 import type { ChatChannel } from "./ChannelSidebar";
 
 export interface ChatHeaderProps {
   activeChannelData?: ChatChannel;
-  showMembers: boolean;
-  setShowMembers: (show: boolean) => void;
   onOpenMobileMenu: () => void;
 }
 
 export default function ChatHeader({
   activeChannelData,
-  showMembers,
-  setShowMembers,
   onOpenMobileMenu,
 }: ChatHeaderProps) {
   return (
@@ -33,26 +29,6 @@ export default function ChatHeader({
         <span className="hidden md:inline text-xs text-text-muted truncate">
           {activeChannelData?.description}
         </span>
-      </div>
-      
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          onClick={() => setShowMembers(!showMembers)}
-          className={`p-2 rounded-lg transition-colors ${
-            showMembers ? "text-primary bg-primary/10" : "text-text-muted hover:text-text-primary hover:bg-white/5"
-          }`}
-          aria-label="Toggle members"
-        >
-          <Users className="w-4 h-4" />
-        </button>
-        <button
-          type="button"
-          className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-          aria-label="Channel info"
-        >
-          <Info className="w-4 h-4" />
-        </button>
       </div>
     </div>
   );
