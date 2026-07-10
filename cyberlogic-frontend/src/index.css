@@ -448,6 +448,16 @@ body {
   }
 }
 
+@keyframes slide-in-right-drawer {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
 .animate-fade-in-up {
   animation: fade-in-up 0.6s ease-out forwards;
 }
@@ -470,6 +480,10 @@ body {
 
 .animate-slide-in-left {
   animation: slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-in-right-drawer {
+  animation: slide-in-right-drawer 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Staggered animation delays */

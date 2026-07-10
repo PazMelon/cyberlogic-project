@@ -250,6 +250,26 @@ export default function Topbar() {
     }
   }, [latestNotification, clearLatestNotification]);
 
+  // Prevent body scroll when any mobile menu/drawer is open
+  useEffect(() => {
+    const checkScrollLock = () => {
+      const isMobileView = window.innerWidth < 1024;
+      const shouldLock = showMobileMenu || (isMobileView && (showDropdown || showNotifDropdown));
+      if (shouldLock) {
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.overflow = "";
+      }
+    };
+
+    checkScrollLock();
+    window.addEventListener("resize", checkScrollLock);
+    return () => {
+      window.removeEventListener("resize", checkScrollLock);
+      document.body.style.overflow = "";
+    };
+  }, [showMobileMenu, showDropdown, showNotifDropdown]);
+
   const isActive = (path: string) => {
     if (path === "/app" || path === "/admin") return location.pathname === path;
     return location.pathname.startsWith(path);
@@ -348,6 +368,64 @@ export default function Topbar() {
     }
   };
 
+  const renderNotificationsList = () => {
+    if (loadingNotifs) {
+      return (
+        <div className="p-4 text-center text-xs text-text-muted">
+          Loading notifications...
+        </div>
+      );
+    }
+    if (notifications.length === 0) {
+      return (
+        <div className="p-8 text-center text-xs text-text-muted">
+          No notifications.
+        </div>
+      );
+    }
+    return notifications.map(notif => {
+      const path = notif.link || '/app';
+
+      return (
+        <Link
+          key={notif.id}
+          to={path}
+          onClick={() => handleNotificationClick(notif)}
+          className={`group flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-all relative ${!notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
+            }`}
+        >
+          <div className={`p-2 rounded-lg flex-shrink-0 border flex items-center justify-center h-8 w-8 ${getNotificationColorClass(notif.type)}`}>
+            {(() => {
+              const Icon = getNotificationIcon(notif.icon, notif.type);
+              return <Icon className="w-4 h-4" />;
+            })()}
+          </div>
+
+          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-xs font-semibold text-text-primary truncate">{notif.title}</span>
+              <span className="text-[9px] text-text-muted whitespace-nowrap flex-shrink-0">
+                {formatRelativeTime(notif.created_at)}
+              </span>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed line-clamp-2 pr-6">
+              {notif.body}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => handleDeleteSingle(e, notif.id)}
+            className="absolute right-3 top-3.5 p-1 rounded-md text-text-muted hover:text-error hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            title="Delete notification"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </Link>
+      );
+    });
+  };
+
   return (
     <>
       <header className="sticky top-0 z-40 h-16 glass border-b border-border flex items-center px-4 sm:px-6 gap-4">
@@ -392,14 +470,14 @@ export default function Topbar() {
             )}
           </button>
 
-          {/* Notifications Dropdown */}
+          {/* Notifications Dropdown (Desktop Only) */}
           {showNotifDropdown && (
-            <>
+            <div className="hidden lg:block">
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowNotifDropdown(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 glass rounded-xl border border-border shadow-xl z-50 py-2 flex flex-col max-h-[480px]">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface-900 rounded-xl border border-border shadow-xl z-50 py-2 flex flex-col max-h-[480px]">
                 <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-text-primary">Notifications</span>
                   <div className="flex items-center gap-3">
@@ -425,60 +503,10 @@ export default function Topbar() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
-                  {loadingNotifs ? (
-                    <div className="p-4 text-center text-xs text-text-muted">
-                      Loading notifications...
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <div className="p-8 text-center text-xs text-text-muted">
-                      No notifications.
-                    </div>
-                  ) : (
-                    notifications.map(notif => {
-                      const path = notif.link || '/app';
-
-                      return (
-                        <Link
-                          key={notif.id}
-                          to={path}
-                          onClick={() => handleNotificationClick(notif)}
-                          className={`group flex items-start gap-3 p-3.5 text-left hover:bg-white/5 transition-all relative ${!notif.read_at ? 'bg-primary/5 border-l-2 border-primary' : ''
-                            }`}
-                        >
-                          <div className={`p-2 rounded-lg flex-shrink-0 border flex items-center justify-center h-8 w-8 ${getNotificationColorClass(notif.type)}`}>
-                            {(() => {
-                              const Icon = getNotificationIcon(notif.icon, notif.type);
-                              return <Icon className="w-4 h-4" />;
-                            })()}
-                          </div>
-
-                          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-                            <div className="flex items-center justify-between gap-1.5">
-                              <span className="text-xs font-semibold text-text-primary truncate">{notif.title}</span>
-                              <span className="text-[9px] text-text-muted whitespace-nowrap flex-shrink-0">
-                                {formatRelativeTime(notif.created_at)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-text-secondary leading-relaxed line-clamp-2 pr-6">
-                              {notif.body}
-                            </p>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteSingle(e, notif.id)}
-                            className="absolute right-3 top-3.5 p-1 rounded-md text-text-muted hover:text-error hover:bg-white/5 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                            title="Delete notification"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </Link>
-                      );
-                    })
-                  )}
+                  {renderNotificationsList()}
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
 
@@ -500,14 +528,14 @@ export default function Topbar() {
             <ChevronDown className="hidden sm:block w-4 h-4 text-text-muted" />
           </button>
 
-          {/* Dropdown */}
+          {/* User Menu Dropdown (Desktop Only) */}
           {showDropdown && (
-            <>
+            <div className="hidden lg:block">
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowDropdown(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-56 glass rounded-xl border border-border shadow-xl z-50 py-2">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-surface-900 rounded-xl border border-border shadow-xl z-50 py-2">
                 <div className="px-4 py-2 border-b border-border">
                   <p className="text-sm font-medium text-text-primary">{user?.name}</p>
                   <p className="text-xs text-text-muted">{user?.email}</p>
@@ -567,10 +595,142 @@ export default function Topbar() {
                   </button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </div>
       </header>
+
+      {/* Mobile/Tablet Notifications Sidebar Drawer */}
+      {showNotifDropdown && (
+        <div className="lg:hidden">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in"
+            onClick={() => setShowNotifDropdown(false)}
+          />
+          <div className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface-900 border-l border-border z-50 flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
+              <span className="text-sm font-semibold text-text-primary">Notifications</span>
+              <div className="flex items-center gap-3">
+                {unreadNotifCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleMarkAllRead}
+                    className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                {notifications.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    className="text-xs font-semibold text-text-muted hover:text-error hover:underline cursor-pointer"
+                  >
+                    Clear all
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowNotifDropdown(false)}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
+              {renderNotificationsList()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile/Tablet User Profile Sidebar Drawer */}
+      {showDropdown && (
+        <div className="lg:hidden">
+          <div
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in"
+            onClick={() => setShowDropdown(false)}
+          />
+          <div className="fixed top-0 right-0 bottom-0 w-72 max-w-[80vw] bg-surface-900 border-l border-border z-50 flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
+              <span className="text-sm font-semibold text-text-primary">Account Options</span>
+              <button
+                type="button"
+                onClick={() => setShowDropdown(false)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Content */}
+            <div className="flex-1 overflow-y-auto py-2">
+              <div className="px-5 py-3 border-b border-border">
+                <p className="text-sm font-semibold text-text-primary">{user?.name}</p>
+                <p className="text-xs text-text-muted mt-0.5">{user?.email}</p>
+              </div>
+
+              {/* Status Toggle */}
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-2">
+                <span className="text-xs text-text-muted font-semibold">Status</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => updateMyStatus('online')}
+                    className={`px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${myStatus === 'online'
+                        ? 'bg-success/10 border-success/30 text-success'
+                        : 'bg-surface-800 border-border text-text-muted hover:border-success/20'
+                      }`}
+                  >
+                    Online
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateMyStatus('away')}
+                    className={`px-2.5 py-1 rounded text-xs font-bold border transition-all cursor-pointer ${myStatus === 'away'
+                        ? 'bg-warning/10 border-warning/30 text-warning'
+                        : 'bg-surface-800 border-border text-text-muted hover:border-warning/20'
+                      }`}
+                  >
+                    Away
+                  </button>
+                </div>
+              </div>
+
+              <Link
+                to="/app/profile"
+                onClick={() => setShowDropdown(false)}
+                className="flex items-center gap-3 px-5 py-3.5 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+              >
+                <User className="w-4.5 h-4.5" /> Profile
+              </Link>
+              <Link
+                to="/app/settings"
+                onClick={() => setShowDropdown(false)}
+                className="flex items-center gap-3 px-5 py-3.5 text-sm text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+              >
+                <Settings className="w-4.5 h-4.5" /> Settings
+              </Link>
+
+              <div className="border-t border-border mt-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDropdown(false);
+                    logout();
+                  }}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-sm text-text-muted hover:text-error hover:bg-error/5 transition-colors text-left"
+                >
+                  <LogOut className="w-4.5 h-4.5" /> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile Navigation Drawer */}
       {showMobileMenu && (

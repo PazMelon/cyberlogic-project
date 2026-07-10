@@ -151,7 +151,7 @@ export default function GlobalSearch() {
 
       {/* Results Dropdown Overlay */}
       {isOpen && query.trim() && (
-        <div className="absolute left-0 right-0 mt-2 bg-surface-900 border border-border rounded-2xl shadow-2xl glass-effect-panel max-h-[420px] overflow-hidden flex flex-col z-50 animate-slide-down">
+        <div className="absolute left-0 right-0 mt-2 bg-surface-900 border border-border rounded-2xl shadow-2xl max-h-[420px] overflow-hidden flex flex-col z-50 animate-slide-down">
           {/* Results List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-thin">
             {isLoading ? (

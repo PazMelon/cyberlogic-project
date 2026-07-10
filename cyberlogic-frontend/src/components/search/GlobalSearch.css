@@ -15,11 +15,6 @@
   animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-.glass-effect-panel {
-  background: var(--cl-glass, rgba(15, 23, 41, 0.85));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
 
 /* Scrollbar styling for dropdown list */
 .scrollbar-thin::-webkit-scrollbar {
