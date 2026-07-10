@@ -54,6 +54,7 @@ Route::get('/api/forum/threads/{threadId}/comments', [ForumCommentController::cl
 // Public Resource API endpoints
 Route::get('/api/resources', [ResourceController::class, 'index']);
 Route::get('/api/resources/{id}', [ResourceController::class, 'show']);
+Route::get('/api/resources/{id}/download', [ResourceController::class, 'download']);
 
 // Authenticated API endpoints
 Route::middleware('auth')->group(function () {

@@ -13,6 +13,7 @@ import {
   Terminal,
   Activity,
   Code,
+  Eye,
 } from "lucide-react";
 import { fetchResourceById, voteResource, type ResourceMapped } from "../utils/api";
 import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
@@ -198,7 +199,7 @@ export default function ResourceDetail() {
           <div className="flex flex-wrap gap-4 pt-2">
             {item.filePathUrl && (
               <a
-                href={item.filePathUrl}
+                href={`/api/resources/${item.id}/download?type=file`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-light hover:shadow-lg hover:shadow-primary/20 transition-all hover:-translate-y-0.5 cursor-pointer"
@@ -209,7 +210,7 @@ export default function ResourceDetail() {
 
             {item.link && (
               <a
-                href={item.link}
+                href={`/api/resources/${item.id}/download?type=link`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-5 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm font-bold hover:bg-surface-750 transition-all hover:-translate-y-0.5 cursor-pointer"
@@ -312,8 +313,12 @@ export default function ResourceDetail() {
                   <span>Shared: {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Recently"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-text-secondary">
+                  <Eye className="w-4 h-4 text-primary-light" />
+                  <span>{item.accessCount} views</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-text-secondary">
                   <Download className="w-4 h-4 text-accent" />
-                  <span>{item.downloadCount} accesses / downloads</span>
+                  <span>{item.downloadCount} downloads</span>
                 </div>
               </div>
 

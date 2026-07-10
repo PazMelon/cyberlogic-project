@@ -8,6 +8,7 @@ use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 
 class ResourceController extends Controller
 {
@@ -130,10 +131,50 @@ class ResourceController extends Controller
     /**
      * GET /api/resources/{id}
      */
-    public function show($id): JsonResponse
+    public function show(Request $request, $id): JsonResponse
     {
         $resource = Resource::with('user')->findOrFail($id);
+
+        $uniqueId = auth()->check() ? auth()->id() : $request->session()->getId();
+        $cacheKey = "resource_access:{$id}:{$uniqueId}";
+
+        if (!Cache::has($cacheKey)) {
+            $resource->increment('access_count');
+            Cache::put($cacheKey, true, now()->addMinutes(5));
+        }
+
         return response()->json($resource);
+    }
+
+    /**
+     * GET /api/resources/{id}/download
+     */
+    public function download(Request $request, $id)
+    {
+        $resource = Resource::findOrFail($id);
+        $type = $request->query('type', 'file');
+
+        $uniqueId = auth()->check() ? auth()->id() : $request->session()->getId();
+        $cacheKey = "resource_download:{$id}:{$uniqueId}";
+
+        if (!Cache::has($cacheKey)) {
+            $resource->increment('download_count');
+            Cache::put($cacheKey, true, now()->addMinutes(5));
+        }
+
+        if ($type === 'link' && $resource->link) {
+            return redirect($resource->link);
+        }
+
+        if ($resource->file_path) {
+            return Storage::disk('public')->download($resource->file_path);
+        }
+
+        if ($resource->link) {
+            return redirect($resource->link);
+        }
+
+        return response()->json(['error' => 'Resource has no downloadable file or link.'], 404);
     }
 
     /**

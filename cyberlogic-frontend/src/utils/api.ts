@@ -2050,6 +2050,7 @@ export interface ResourceMapped {
   image?: string | null;
   status: "pending" | "approved" | "rejected";
   downloadCount: number;
+  accessCount: number;
   voteScore: number;
   userVote: number | null;
   sections?: any[] | null;
@@ -2079,6 +2080,7 @@ function mapResource(r: any): ResourceMapped {
     image: r.image ?? null,
     status: r.status,
     downloadCount: r.download_count ?? 0,
+    accessCount: r.access_count ?? 0,
     voteScore: r.voteScore ?? 0,
     userVote: r.userVote ?? null,
     sections: r.sections ?? null,

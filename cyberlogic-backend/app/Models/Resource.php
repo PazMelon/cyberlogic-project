@@ -21,6 +21,7 @@ class Resource extends Model
         'image',
         'status',
         'download_count',
+        'access_count',
         'sections',
     ];
 
