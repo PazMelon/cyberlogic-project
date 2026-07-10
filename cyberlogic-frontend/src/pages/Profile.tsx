@@ -18,6 +18,7 @@ import {
   Camera
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useWebSocket } from "../context/WebSocketContext";
 import { SkeletonCircle, SkeletonLine } from "../components/Skeleton";
 import { ForumThreadCard } from "../components/ui";
 import { optimizeAndConvertToWebP } from "../utils/imageOptimizer";
@@ -32,6 +33,7 @@ import {
 
 export default function Profile() {
   const { user, updateProfile, updatePassword, updateUser } = useAuth();
+  const { onlineUsers } = useWebSocket();
   const { userId, username: urlUsername } = useParams();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
@@ -179,6 +181,16 @@ export default function Profile() {
     birthday: isOwnProfile ? birthday : (targetUser?.birthday || ""),
     reputation: isOwnProfile ? user?.reputation : targetUser?.reputation,
   };
+
+  const getMemberStatus = () => {
+    if (isOwnProfile) return "online";
+    const targetId = targetUser?.id || (userId ? parseInt(userId, 10) : null);
+    if (!targetId) return "offline";
+    const active = onlineUsers.find((u) => u.id === targetId);
+    return active ? (active.status || "online") : "offline";
+  };
+
+  const status = getMemberStatus();
 
   function trimFullName(f: string, m: string, l: string) {
     return `${f} ${m ? m + " " : ""}${l}`.trim() || "John Doe";
@@ -798,8 +810,11 @@ export default function Profile() {
 
                   {/* Identity */}
                   <div>
-                    <h3 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] leading-tight">
+                    <h3 className="text-base font-bold text-text-primary font-[family-name:var(--font-heading)] leading-tight flex items-center justify-center gap-1.5">
                       {activeUser.name}
+                      <span className={`w-2 h-2 rounded-full inline-block ${
+                        status === "online" ? "bg-success" : status === "away" ? "bg-warning" : "bg-text-muted"
+                      }`} title={status} />
                     </h3>
                     {activeUser.username && (
                       <p className="text-xs text-text-muted mt-0.5 font-mono">
@@ -810,6 +825,15 @@ export default function Profile() {
 
                   {/* Status roles and details */}
                   <div className="mt-3.5 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${
+                        status === "online" ? "bg-success" : status === "away" ? "bg-warning" : "bg-text-muted"
+                      }`} />
+                      <span className="text-xs font-semibold text-text-secondary capitalize">
+                        {status === "online" ? "Online" : status === "away" ? "Away" : "Offline"}
+                      </span>
+                    </div>
+
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-primary flex-shrink-0" />
                       <span className="text-xs font-semibold text-text-secondary capitalize">{activeUser.role}</span>
