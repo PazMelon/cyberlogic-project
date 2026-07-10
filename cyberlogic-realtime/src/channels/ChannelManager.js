@@ -10,6 +10,11 @@ class ChannelManager {
     this.onlineUsers = new Map();
     // Maps client -> user object
     this.clientUsers = new Map();
+    // Anti-spam: Maps userId -> array of message timestamps (sliding window)
+    this.messageTimestamps = new Map();
+    // Rate limit: 15 messages per 60 seconds
+    this.RATE_LIMIT_MAX = 15;
+    this.RATE_LIMIT_WINDOW_MS = 60 * 1000;
   }
 
   /**
@@ -236,11 +241,42 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleChatTyping(client, user, channelSlug, payload);
         }
+      } else if (type === 'delete_message') {
+        // Handle admin message deletion
+        if (channel.startsWith('chat:')) {
+          const channelSlug = channel.split(':')[1];
+          await this.handleDeleteMessage(client, user, channelSlug, payload);
+        }
       }
     } catch (err) {
       console.error('[WS] Error handling message:', err.message);
       this.sendToClient(client, 'error', 'error', { message: 'Invalid payload or server error.' });
     }
+  }
+
+  /**
+   * Check anti-spam rate limit for a user. Returns true if allowed, false if rate-limited.
+   */
+  checkRateLimit(userId) {
+    const now = Date.now();
+    const windowStart = now - this.RATE_LIMIT_WINDOW_MS;
+
+    if (!this.messageTimestamps.has(userId)) {
+      this.messageTimestamps.set(userId, []);
+    }
+
+    const timestamps = this.messageTimestamps.get(userId);
+    // Prune old timestamps outside the sliding window
+    while (timestamps.length > 0 && timestamps[0] < windowStart) {
+      timestamps.shift();
+    }
+
+    if (timestamps.length >= this.RATE_LIMIT_MAX) {
+      return false; // Rate limited
+    }
+
+    timestamps.push(now);
+    return true; // Allowed
   }
 
   /**
@@ -251,6 +287,15 @@ class ChannelManager {
     if (!content || !content.trim()) return;
 
     try {
+      // Anti-spam rate limit check
+      if (!this.checkRateLimit(user.id)) {
+        console.log(`[WS] Rate limit hit: User ${user.name} (ID: ${user.id}) exceeded ${this.RATE_LIMIT_MAX} messages per minute`);
+        this.sendToClient(client, `chat:${channelSlug}`, 'rate_limit', {
+          message: `You're sending messages too fast. Please wait before sending another message. (Limit: ${this.RATE_LIMIT_MAX} messages per minute)`
+        });
+        return;
+      }
+
       // 1. Get channel ID and write_roles from DB
       const [channels] = await pool.query('SELECT id, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
       if (channels.length === 0) {
@@ -437,6 +482,68 @@ class ChannelManager {
     } catch (err) {
       console.error('[WS] Error handling chat reaction:', err.message);
       this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to process reaction.' });
+    }
+  }
+
+  /**
+   * Handle admin message deletion via WebSocket.
+   * Verifies manage_chat permission, soft-deletes in DB, and broadcasts to channel.
+   */
+  async handleDeleteMessage(client, user, channelSlug, payload) {
+    const { messageId, reason } = payload;
+    if (!messageId || !reason || !reason.trim()) {
+      this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Message ID and reason are required.' });
+      return;
+    }
+
+    try {
+      // Check manage_chat permission
+      const hasPermission = user.role === 'superadmin' || 
+        (Array.isArray(user.permission_keys) && user.permission_keys.includes('manage_chat'));
+
+      if (!hasPermission) {
+        console.log(`[WS] Delete rejected: User ${user.name} lacks manage_chat permission`);
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'You do not have permission to delete messages.' });
+        return;
+      }
+
+      // Verify message exists and is not already deleted
+      const [msgs] = await pool.query(
+        'SELECT id, content, user_id, channel_id, is_deleted FROM chat_messages WHERE id = ? LIMIT 1',
+        [messageId]
+      );
+
+      if (msgs.length === 0) {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Message not found.' });
+        return;
+      }
+
+      if (msgs[0].is_deleted) {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'This message has already been deleted.' });
+        return;
+      }
+
+      // Soft-delete the message
+      await pool.query(
+        'UPDATE chat_messages SET is_deleted = 1, deleted_by = ?, deletion_reason = ?, deleted_at_timestamp = NOW() WHERE id = ?',
+        [user.id, reason.trim(), messageId]
+      );
+
+      console.log(`[WS] Message ${messageId} deleted by ${user.name} (ID: ${user.id}) - Reason: ${reason}`);
+
+      // Build the replacement content
+      const replacementContent = `This message has been removed by an Admin because of "${reason.trim()}".`;
+
+      // Broadcast the deletion to all channel subscribers
+      this.broadcast(`chat:${channelSlug}`, 'message_deleted', {
+        messageId,
+        content: replacementContent,
+        reason: reason.trim(),
+      });
+
+    } catch (err) {
+      console.error('[WS] Error handling message deletion:', err.message);
+      this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to delete message.' });
     }
   }
 }

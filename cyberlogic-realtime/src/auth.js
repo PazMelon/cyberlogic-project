@@ -45,6 +45,21 @@ async function verifySession(req) {
             ? `/storage/${dbUser.avatar_path}` 
             : `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(dbUser.first_name)}`;
 
+          // Fetch permission keys for authorization checks
+          let permissionKeys = [];
+          if (dbUser.role === 'superadmin') {
+            const [allPerms] = await pool.query('SELECT `key` FROM permissions');
+            permissionKeys = allPerms.map(p => p.key);
+          } else {
+            const [userPerms] = await pool.query(
+              `SELECT p.\`key\` FROM permissions p 
+               INNER JOIN permission_user pu ON p.id = pu.permission_id 
+               WHERE pu.user_id = ?`,
+              [dbUser.id]
+            );
+            permissionKeys = userPerms.map(p => p.key);
+          }
+
           const user = {
             id: dbUser.id,
             username: dbUser.username,
@@ -53,10 +68,11 @@ async function verifySession(req) {
             last_name: dbUser.last_name,
             name: dbUser.username || fullName,
             role: dbUser.role,
-            avatar: avatar
+            avatar: avatar,
+            permission_keys: permissionKeys,
           };
 
-          console.log(`[Auth] Ticket verified successfully: ${user.name} (ID: ${user.id})`);
+          console.log(`[Auth] Ticket verified successfully: ${user.name} (ID: ${user.id}, permissions: ${permissionKeys.join(', ')})`);
           
           // Delete ticket (one-time use token)
           await pool.query('DELETE FROM chat_tickets WHERE ticket = ?', [ticket]);

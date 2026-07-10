@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useWebSocket } from "../context/WebSocketContext";
 import { apiRequest, useAuth } from "../context/AuthContext";
+import { ShieldAlert, X } from "lucide-react";
 
 // Modular sub-components
 import ChannelSidebar from "../components/chat/ChannelSidebar";
@@ -14,7 +15,7 @@ import type { ChatMessage } from "../components/chat/MessageBubble";
 
 export default function Chat() {
   const { subscribe, sendMessage, onlineUsers, isConnected } = useWebSocket();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, hasPermission } = useAuth();
 
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>("");
@@ -39,6 +40,11 @@ export default function Chat() {
 
   // Collapse state for grouping categories
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Message deletion modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingMessage, setDeletingMessage] = useState<ChatMessage | null>(null);
+  const [deleteReason, setDeleteReason] = useState("");
 
   // Local user typing state refs
   const isLocalTypingRef = useRef(false);
@@ -181,6 +187,18 @@ export default function Chat() {
         } else {
           setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
         }
+      } else if (type === "message_deleted") {
+        const { messageId, content } = payload;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, content, isDeleted: true, reactions: [] }
+              : msg
+          )
+        );
+      } else if (type === "rate_limit") {
+        const { message } = payload;
+        triggerToast(message);
       }
     });
 
@@ -293,12 +311,101 @@ export default function Chat() {
     setActiveFullPickerMessageId(null);
   };
 
+  // Handle opening the delete confirmation modal
+  const handleDeleteClick = (msg: ChatMessage) => {
+    setDeletingMessage(msg);
+    setDeleteReason("");
+    setDeleteModalOpen(true);
+  };
+
+  // Handle confirming a message deletion
+  const handleConfirmDelete = () => {
+    if (!deletingMessage || !deleteReason.trim() || !activeChannel) return;
+
+    sendMessage("delete_message", `chat:${activeChannel}`, {
+      messageId: deletingMessage.id,
+      reason: deleteReason.trim(),
+    });
+
+    setDeleteModalOpen(false);
+    setDeletingMessage(null);
+    setDeleteReason("");
+  };
+
+  const canDeleteMessages = hasPermission('manage_chat');
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-surface-950">
-      {/* Toast alert for max reaction error */}
+      {/* Toast alert for errors */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-error/95 border border-error/50 backdrop-blur-md text-white text-xs px-4 py-2.5 rounded-xl shadow-lg transition-all animate-fade-in-up">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-error/95 border border-error/50 backdrop-blur-md text-white text-xs px-4 py-2.5 rounded-xl shadow-lg transition-all animate-fade-in-up">
           {toastMessage}
+        </div>
+      )}
+
+      {/* Delete Message Confirmation Modal */}
+      {deleteModalOpen && deletingMessage && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+            onClick={() => setDeleteModalOpen(false)}
+          />
+          <div className="relative bg-surface-900 border border-border rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 animate-fadeIn">
+            <button
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              className="absolute top-4 right-4 p-1 rounded-full text-text-muted hover:text-text-primary hover:bg-surface-800 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-full bg-error/10 border border-error/20">
+                <ShieldAlert className="w-5 h-5 text-error" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-text-primary">Delete Message</h3>
+                <p className="text-xs text-text-muted">This action will replace the message with a moderation notice.</p>
+              </div>
+            </div>
+
+            <div className="mb-4 p-3 rounded-xl bg-surface-800 border border-border/50">
+              <p className="text-xs text-text-muted mb-1">Message by <span className="font-semibold text-text-secondary">{deletingMessage.author}</span>:</p>
+              <p className="text-xs text-text-secondary line-clamp-3 break-words">{deletingMessage.content}</p>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold text-text-secondary mb-1.5">Reason for deletion <span className="text-error">*</span></label>
+              <textarea
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Enter the reason why this message is being removed..."
+                className="w-full px-3 py-2 text-sm rounded-xl bg-surface-800 border border-border text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-error/50 focus:border-error/50 resize-none transition-all"
+                rows={3}
+                maxLength={500}
+                autoFocus
+              />
+              <p className="text-[10px] text-text-muted mt-1 text-right">{deleteReason.length}/500</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                className="px-4 py-2 text-xs font-medium rounded-xl bg-surface-800 border border-border text-text-secondary hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={!deleteReason.trim()}
+                className="px-4 py-2 text-xs font-medium rounded-xl bg-error border border-error/50 text-white hover:bg-error/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Delete Message
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -383,6 +490,7 @@ export default function Chat() {
             hasMore={hasMoreMessages}
             isFetchingMore={isFetchingMoreMessages}
             onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
+            onDelete={canDeleteMessages ? handleDeleteClick : undefined}
           />
 
           {/* Members Sidebar Panel removed from inner container to span full height */}

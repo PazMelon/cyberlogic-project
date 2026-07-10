@@ -117,16 +117,27 @@ class ChatController extends Controller
                 ];
             }
 
+            // Handle moderation-deleted messages
+            $content = $msg->content;
+            $isDeleted = (bool) $msg->is_deleted;
+            $deletionReason = null;
+            if ($isDeleted) {
+                $deletionReason = $msg->deletion_reason ?: 'No reason provided';
+                $content = 'This message has been removed by an Admin because of "' . $deletionReason . '".';
+            }
+
             return [
                 'id' => $msg->id,
                 'channelId' => $slug,
                 'author' => $msg->user ? $msg->user->name : 'Anonymous',
                 'authorAvatar' => $msg->user ? $msg->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user',
                 'authorId' => $msg->user_id,
-                'content' => $msg->content,
+                'content' => $content,
                 'timestamp' => $msg->created_at ? $msg->created_at->format('g:i A') : now()->format('g:i A'),
                 'isSystem' => $msg->type === 'system',
-                'reactions' => $reactionsSummary,
+                'isDeleted' => $isDeleted,
+                'deletionReason' => $deletionReason,
+                'reactions' => $isDeleted ? [] : $reactionsSummary,
                 'replyTo' => $msg->parent ? [
                     'id' => $msg->parent->id,
                     'content' => $msg->parent->content,
@@ -406,5 +417,45 @@ class ChatController extends Controller
 
         $gif->delete();
         return response()->json(['message' => 'Media link deleted successfully']);
+    }
+
+    /**
+     * Soft-delete a chat message (Admin with manage_chat permission).
+     * Replaces message content with moderation notice.
+     */
+    public function deleteMessage(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized. You do not have permission to delete messages.'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $message = ChatMessage::findOrFail($id);
+
+        if ($message->is_deleted) {
+            return response()->json(['message' => 'This message has already been deleted.'], 422);
+        }
+
+        $message->update([
+            'is_deleted' => true,
+            'deleted_by' => $currentUser->id,
+            'deletion_reason' => $validated['reason'],
+            'deleted_at_timestamp' => now(),
+        ]);
+
+        AuditLogger::log('deleted_message', 'ChatMessage', $message->id, substr($message->content, 0, 80), [
+            'reason' => $validated['reason'],
+            'channel_id' => $message->channel_id,
+            'original_author_id' => $message->user_id,
+        ], $request);
+
+        return response()->json([
+            'message' => 'Message deleted successfully',
+            'messageId' => $message->id,
+        ]);
     }
 }

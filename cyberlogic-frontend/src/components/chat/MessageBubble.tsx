@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { Link } from "react-router";
-import { Smile, Info, CornerUpLeft } from "lucide-react";
+import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert } from "lucide-react";
 import ReactionPicker from "./ReactionPicker";
 
 export interface ChatMessage {
@@ -13,6 +13,8 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   isSystem?: boolean;
+  isDeleted?: boolean;
+  deletionReason?: string | null;
   reactions?: {
     emoji: string;
     count: number;
@@ -37,6 +39,7 @@ export interface MessageBubbleProps {
   setActivePickerId: (id: number | null) => void;
   onOpenFullPicker: (messageId: number) => void;
   onReply?: (msg: ChatMessage) => void;
+  onDelete?: (msg: ChatMessage) => void;
 }
 
 export default function MessageBubble({
@@ -47,6 +50,7 @@ export default function MessageBubble({
   setActivePickerId,
   onOpenFullPicker,
   onReply,
+  onDelete,
 }: MessageBubbleProps) {
   const touchTimerRef = useRef<any>(null);
   const isTouchMoved = useRef(false);
@@ -56,6 +60,45 @@ export default function MessageBubble({
       <div className="flex items-center justify-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50 my-2 max-w-md mx-auto">
         <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
         <span>{message.content}</span>
+      </div>
+    );
+  }
+
+  // Render moderation-deleted messages with distinct style
+  if (message.isDeleted) {
+    return (
+      <div
+        id={`message-${message.id}`}
+        className={`flex items-start gap-3 p-1 ${isMe ? "justify-end" : "justify-start"}`}
+      >
+        {!isMe && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border opacity-50"
+            />
+          </Link>
+        )}
+        <div className="flex flex-col w-fit max-w-[70%]">
+          <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
+            <span className="text-xs font-semibold text-text-muted/60">{message.author}</span>
+            <span className="text-[10px] text-text-muted/40">{message.timestamp}</span>
+          </div>
+          <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-error/5 border border-error/15">
+            <ShieldAlert className="w-3.5 h-3.5 text-error/50 flex-shrink-0" />
+            <span className="text-xs text-text-muted italic">{message.content}</span>
+          </div>
+        </div>
+        {isMe && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
+            />
+          </Link>
+        )}
       </div>
     );
   }
@@ -208,6 +251,16 @@ export default function MessageBubble({
             title="Reply to message"
           >
             <CornerUpLeft className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            type="button"
+            onClick={() => onDelete(message)}
+            className="p-1.5 rounded-full bg-surface-800 border border-border text-text-muted hover:text-error hover:border-error/50 transition-colors shadow-md cursor-pointer"
+            title="Delete message"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
       </div>

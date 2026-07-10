@@ -120,6 +120,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chat/channels', [ChatController::class, 'index']);
     Route::get('/api/chat/channels/{slug}/messages', [ChatController::class, 'messages']);
     Route::post('/api/chat/messages/{messageId}/reactions', [ChatController::class, 'toggleReaction']);
+    Route::delete('/api/chat/messages/{id}', [ChatController::class, 'deleteMessage']);
     Route::post('/api/chat/ticket', [ChatController::class, 'ticket']);
     Route::get('/api/chat/gifs', [ChatController::class, 'getGifs']);
     Route::post('/api/chat/gifs', [ChatController::class, 'storeGif']);
