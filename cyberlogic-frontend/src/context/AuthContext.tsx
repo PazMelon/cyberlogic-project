@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 
 export interface User {
   id: number;
+  username?: string | null;
   first_name: string;
   middle_name: string | null;
   last_name: string;
@@ -38,6 +39,7 @@ interface AuthContextType {
   register: (formValues: any) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (profileData: {
+    username?: string | null;
     first_name: string;
     middle_name?: string | null;
     last_name: string;

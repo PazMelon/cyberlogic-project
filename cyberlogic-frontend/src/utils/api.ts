@@ -1638,6 +1638,7 @@ export interface Officer {
   email: string;
   github: string;
   linkedin: string;
+  username?: string;
   user?: DbUser;
 }
 

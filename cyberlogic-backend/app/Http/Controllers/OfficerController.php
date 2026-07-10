@@ -46,6 +46,7 @@ class OfficerController extends Controller
                 'linkedin' => $officer->linkedin,
                 'sort_order' => $officer->sort_order,
                 'user_id' => $officer->user_id,
+                'username' => $officer->username,
             ];
         });
 
@@ -71,6 +72,7 @@ class OfficerController extends Controller
             'linkedin' => $officer->linkedin,
             'sort_order' => $officer->sort_order,
             'user_id' => $officer->user_id,
+            'username' => $officer->username,
         ]);
     }
 
