@@ -144,6 +144,11 @@ class ForumCommentController extends Controller
             ]);
         }
 
+        // Increment the comment author's deleted comments count
+        if ($comment->user) {
+            $comment->user->increment('deleted_comments_count');
+        }
+
         $comment->delete();
 
         AuditLogger::log('deleted', 'ForumComment', $commentId, $commentSnippet, [

@@ -22,6 +22,7 @@ class ForumComment extends Model
     ];
 
     protected $casts = [
+        'user_id' => 'integer',
         'is_best_answer' => 'boolean',
         'is_spoiler' => 'boolean',
         'is_redacted' => 'boolean',

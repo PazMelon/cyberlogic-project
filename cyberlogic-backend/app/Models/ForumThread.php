@@ -27,6 +27,7 @@ class ForumThread extends Model
     ];
 
     protected $casts = [
+        'user_id' => 'integer',
         'is_pinned' => 'boolean',
         'is_solved' => 'boolean',
         'is_closed' => 'boolean',

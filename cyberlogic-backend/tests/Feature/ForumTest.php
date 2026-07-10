@@ -33,9 +33,19 @@ function setupForumTest(): array
         'type' => 'support',
     ]);
 
-    $user = User::factory()->create(['role' => 'member']);
-    $author = User::factory()->create(['role' => 'member']);
-    $admin = User::factory()->create(['role' => 'admin']);
+    $permission = \App\Models\Permission::firstOrCreate(
+        ['key' => 'manage_forums'],
+        [
+            'label' => 'Manage Forum Categories',
+            'group' => 'Content',
+            'description' => 'Create, edit, delete forum categories and moderate threads'
+        ]
+    );
+
+    $user = User::factory()->create(['role' => 'member', 'status' => 'approved']);
+    $author = User::factory()->create(['role' => 'member', 'status' => 'approved']);
+    $admin = User::factory()->create(['role' => 'admin', 'status' => 'approved']);
+    $admin->permissions()->attach($permission->id);
 
     return [
         'discussionCategory' => $discussionCategory,
@@ -295,3 +305,164 @@ test('posting comments supports spoiler and redacted switches', function () {
         'is_redacted' => true,
     ]);
 });
+
+test('deleting a comment decreases owner reputation score by 5', function () {
+    $setup = setupForumTest();
+    $user = $setup['user'];
+
+    $thread = ForumThread::create([
+        'title' => 'Test Thread',
+        'content' => 'Test content',
+        'category_id' => $setup['discussionCategory']->id,
+        'user_id' => $setup['author']->id,
+    ]);
+
+    $comment = ForumComment::create([
+        'thread_id' => $thread->id,
+        'user_id' => $user->id,
+        'content' => 'My comment that will be deleted',
+    ]);
+
+    // Initial reputation (should be 0)
+    expect($user->calculateReputationScore())->toBe(0);
+
+    // Delete comment
+    $this->actingAs($user)
+        ->deleteJson("/api/forum/comments/{$comment->id}")
+        ->assertStatus(200);
+
+    // Refresh user and verify reputation is -5
+    $user->refresh();
+    expect($user->calculateReputationScore())->toBe(-5);
+});
+
+test('voting on own thread or comment does not affect reputation score', function () {
+    $setup = setupForumTest();
+    $author = $setup['author'];
+    $otherUser = $setup['user'];
+
+    $thread = ForumThread::create([
+        'title' => 'Test Thread',
+        'content' => 'Test content',
+        'category_id' => $setup['discussionCategory']->id,
+        'user_id' => $author->id,
+    ]);
+
+    $comment = ForumComment::create([
+        'thread_id' => $thread->id,
+        'user_id' => $author->id,
+        'content' => 'Test comment',
+    ]);
+
+    // Self-vote thread (should not grant points to author)
+    $this->actingAs($author)
+        ->postJson("/api/forum/threads/{$thread->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(0);
+
+    // Self-vote comment (should not grant points to author)
+    $this->actingAs($author)
+        ->postJson("/api/forum/comments/{$comment->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(0);
+
+    // Other user votes on thread (should grant 5 points to author)
+    $this->actingAs($otherUser)
+        ->postJson("/api/forum/threads/{$thread->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(5);
+
+    // Other user votes on comment (should grant 3 points to author)
+    $this->actingAs($otherUser)
+        ->postJson("/api/forum/comments/{$comment->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(8); // 5 + 3 = 8
+});
+
+test('voting on own resource does not affect reputation score', function () {
+    $setup = setupForumTest();
+    $author = $setup['author'];
+    $otherUser = $setup['user'];
+
+    $resource = \App\Models\Resource::create([
+        'title' => 'Test Resource',
+        'description' => 'Test description',
+        'category' => 'Documents',
+        'file_path' => 'resources/test.pdf',
+        'user_id' => $author->id,
+        'status' => 'approved', // Approved status counts as 10 pts but we are testing votes
+    ]);
+
+    // Initial reputation score: 10 (from approved status)
+    expect($author->calculateReputationScore())->toBe(10);
+
+    // Self-vote resource (should not grant points)
+    $this->actingAs($author)
+        ->postJson("/api/resources/{$resource->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(10);
+
+    // Other user votes on resource (should grant 3 points)
+    $this->actingAs($otherUser)
+        ->postJson("/api/resources/{$resource->id}/vote", ['value' => 1])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(13); // 10 + 3 = 13
+});
+
+test('marking own comment as solution does not award reputation points', function () {
+    $setup = setupForumTest();
+    $author = $setup['author'];
+    $otherUser = $setup['user'];
+
+    // Create a support category thread (only support categories allow solutions)
+    $thread = ForumThread::create([
+        'title' => 'Support Request',
+        'content' => 'Need help',
+        'category_id' => $setup['supportCategory']->id,
+        'user_id' => $author->id,
+    ]);
+
+    // Author's own comment on their own thread
+    $ownComment = ForumComment::create([
+        'thread_id' => $thread->id,
+        'user_id' => $author->id,
+        'content' => 'I figured it out myself',
+    ]);
+
+    // Other user's comment
+    $otherComment = ForumComment::create([
+        'thread_id' => $thread->id,
+        'user_id' => $otherUser->id,
+        'content' => 'Here is a helper answer',
+    ]);
+
+    // 1. Mark other user's comment as solution (other user should get 25 points)
+    $this->actingAs($author)
+        ->putJson("/api/forum/threads/{$thread->id}/solve", ['comment_id' => $otherComment->id])
+        ->assertStatus(200);
+
+    $otherUser->refresh();
+    expect($otherUser->calculateReputationScore())->toBe(25);
+
+    // 2. Mark own comment as solution (author should get 0 points)
+    $this->actingAs($author)
+        ->putJson("/api/forum/threads/{$thread->id}/solve", ['comment_id' => $ownComment->id])
+        ->assertStatus(200);
+
+    $author->refresh();
+    expect($author->calculateReputationScore())->toBe(0);
+});
+
+

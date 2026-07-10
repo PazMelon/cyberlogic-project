@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['username', 'first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'admin_position', 'bio', 'expertise', 'avatar_path', 'status', 'suspended_at', 'suspended_until', 'suspension_reason'])]
+#[Fillable(['username', 'first_name', 'middle_name', 'last_name', 'email', 'password', 'school_id', 'year_level', 'department', 'address', 'birthday', 'role', 'admin_position', 'bio', 'expertise', 'avatar_path', 'status', 'suspended_at', 'suspended_until', 'suspension_reason', 'deleted_comments_count'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -176,7 +176,8 @@ class User extends Authenticatable
         $threadRep = 0;
         if ($threadIds->isNotEmpty()) {
             $query = \App\Models\ForumVote::where('voteable_type', \App\Models\ForumThread::class)
-                ->whereIn('voteable_id', $threadIds);
+                ->whereIn('voteable_id', $threadIds)
+                ->where('user_id', '!=', $this->id);
             if ($startDate) {
                 $query->where('created_at', '>=', $startDate);
             }
@@ -186,7 +187,8 @@ class User extends Authenticatable
         $commentRep = 0;
         if ($commentIds->isNotEmpty()) {
             $query = \App\Models\ForumVote::where('voteable_type', \App\Models\ForumComment::class)
-                ->whereIn('voteable_id', $commentIds);
+                ->whereIn('voteable_id', $commentIds)
+                ->where('user_id', '!=', $this->id);
             if ($startDate) {
                 $query->where('created_at', '>=', $startDate);
             }
@@ -195,7 +197,8 @@ class User extends Authenticatable
 
         $solutionRep = 0;
         if ($commentIds->isNotEmpty()) {
-            $query = \App\Models\ForumThread::whereIn('solution_comment_id', $commentIds);
+            $query = \App\Models\ForumThread::whereIn('solution_comment_id', $commentIds)
+                ->where('user_id', '!=', $this->id);
             if ($startDate) {
                 $query->where('updated_at', '>=', $startDate);
             }
@@ -204,7 +207,8 @@ class User extends Authenticatable
 
         $resourceRep = 0;
         if ($resourceIds->isNotEmpty()) {
-            $query = \App\Models\ResourceVote::whereIn('resource_id', $resourceIds);
+            $query = \App\Models\ResourceVote::whereIn('resource_id', $resourceIds)
+                ->where('user_id', '!=', $this->id);
             if ($startDate) {
                 $query->where('created_at', '>=', $startDate);
             }
@@ -218,7 +222,9 @@ class User extends Authenticatable
         }
         $resourceApprovalRep = $resQuery->count() * 10;
 
-        return $threadRep + $commentRep + $solutionRep + $resourceRep + $resourceApprovalRep;
+        $deletedCommentRepPenalty = (int) ($this->deleted_comments_count * 5);
+
+        return $threadRep + $commentRep + $solutionRep + $resourceRep + $resourceApprovalRep - $deletedCommentRepPenalty;
     }
 
     /**
