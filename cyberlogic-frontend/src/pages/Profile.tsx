@@ -27,6 +27,7 @@ import {
   fetchDirectoryMemberById, 
   fetchDirectoryMemberByUsername,
   fetchForumThreads,
+  fetchUserActivity,
   type DirectoryMember, 
   type ForumThreadMapped 
 } from "../utils/api";
@@ -198,7 +199,9 @@ export default function Profile() {
 
   const [activeTab, setActiveTab] = useState<"overview" | "posts" | "saved" | "settings">("overview");
   const [userPosts, setUserPosts] = useState<ForumThreadMapped[]>([]);
-  const [savedThreads] = useState<ForumThreadMapped[]>([]);
+  const [savedThreads, setSavedThreads] = useState<ForumThreadMapped[]>([]);
+  const [userActivities, setUserActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
 
   // Sync tab status with URL query parameter
   useEffect(() => {
@@ -215,7 +218,7 @@ export default function Profile() {
     }
   }, [location.search, isOwnProfile]);
 
-  const profileUserId = isOwnProfile ? user?.id : (userId ? parseInt(userId, 10) : undefined);
+  const profileUserId = isOwnProfile ? user?.id : (userId ? parseInt(userId, 10) : targetUser?.id);
 
   // Load user threads dynamically from database
   useEffect(() => {
@@ -230,6 +233,30 @@ export default function Profile() {
     };
     loadUserThreads();
   }, [profileUserId]);
+
+  // Load user activities dynamically from database
+  useEffect(() => {
+    const loadUserActivities = async () => {
+      if (!profileUserId) return;
+      try {
+        setActivitiesLoading(true);
+        const data = await fetchUserActivity(profileUserId);
+        setUserActivities(data);
+      } catch (err) {
+        console.error("Failed to load user activity:", err);
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+    loadUserActivities();
+  }, [profileUserId]);
+
+  // Load saved threads from localStorage
+  useEffect(() => {
+    if (!user) return;
+    const saved = JSON.parse(localStorage.getItem(`cl-saved-threads-${user.id}`) || "[]");
+    setSavedThreads(saved);
+  }, [user, activeTab]);
 
   const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -399,7 +426,9 @@ export default function Profile() {
                     <p className="text-xs text-text-secondary leading-relaxed">{bio}</p>
                   </div>
 
-                  {/* Recent Posts Feed in Overview */}
+
+
+                  {/* Recent Activity Feed in Overview */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
@@ -408,33 +437,37 @@ export default function Profile() {
                     </div>
                     
                     <div className="space-y-3">
-                      {userPosts.slice(0, 2).map((thread) => (
-                        <ForumThreadCard key={thread.id} thread={thread} mode="compact" />
-                      ))}
-                      {userPosts.length === 0 && (
-                        <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
-                          No forum activities posted by this member.
+                      {activitiesLoading ? (
+                        <div className="space-y-3">
+                          <SkeletonLine widthClass="w-full" heightClass="h-20" />
+                          <SkeletonLine widthClass="w-full" heightClass="h-20" />
                         </div>
+                      ) : (
+                        userActivities.slice(0, 4).map((activity) => (
+                          <div key={`${activity.type}-${activity.id}`} className="glass rounded-xl p-4 hover:bg-white/5 transition-all border border-border/40 flex flex-col gap-2">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                activity.type === 'thread' ? 'bg-primary/20 text-primary' : 'bg-accent/20 text-accent'
+                              }`}>
+                                {activity.type === 'thread' ? 'Started Thread' : 'Commented'}
+                              </span>
+                              <span className="text-[10px] text-text-muted">
+                                {activity.created_at ? new Date(activity.created_at).toLocaleDateString() : 'Recent'}
+                              </span>
+                            </div>
+                            <Link to={`/app/forums/thread/${activity.thread?.id}`} className="text-sm font-semibold text-text-primary hover:text-primary transition-colors line-clamp-1">
+                              {activity.title}
+                            </Link>
+                            <p className="text-xs text-text-secondary line-clamp-2 bg-surface-900/30 p-2.5 rounded-lg border border-border/20">
+                              {activity.content ? activity.content.replace(/<[^>]*>/g, '') : ''}
+                            </p>
+                          </div>
+                        ))
                       )}
-                    </div>
-                  </div>
-
-                  {/* Expertise Skills inside Overview */}
-                  <div className="glass rounded-2xl p-5 space-y-4">
-                    <h2 className="text-sm font-semibold text-text-primary flex items-center gap-2">
-                      <Award className="w-4 h-4 text-primary" /> Expertises & Fields
-                    </h2>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {expertise.split(",").map((exp) => exp.trim()).filter(Boolean).map((exp) => (
-                        <span
-                          key={exp}
-                          className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary font-medium animate-fadeIn"
-                        >
-                          {exp}
-                        </span>
-                      ))}
-                      {!expertise.trim() && (
-                        <span className="text-xs text-text-muted">No expertise listed.</span>
+                      {!activitiesLoading && userActivities.length === 0 && (
+                        <div className="glass rounded-xl p-6 text-center text-text-muted text-xs">
+                          No recent activity from this member.
+                        </div>
                       )}
                     </div>
                   </div>
@@ -775,7 +808,9 @@ export default function Profile() {
                         isUploadingAvatar ? "opacity-40 animate-pulse" : ""
                       }`}
                     />
-                    <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success border-2 border-surface-950" />
+                    <span className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-surface-950 ${
+                      status === "online" ? "bg-success" : status === "away" ? "bg-warning" : "bg-text-muted"
+                    }`} />
                     
                     {/* Upload overlay (own profile only) */}
                     {isOwnProfile && (
@@ -893,6 +928,24 @@ export default function Profile() {
                     <p className="leading-relaxed bg-surface-900/30 p-2.5 rounded-lg border border-border/40 whitespace-pre-wrap">
                       {bio || "No biography details added yet."}
                     </p>
+                  </div>
+
+                  {/* Expertise Skills inside Overview (Moved to right sidebar profile card) */}
+                  <div className="space-y-1.5 pt-2 text-xs text-text-secondary">
+                    <p className="font-semibold text-text-primary uppercase text-[9px] tracking-wide">Expertises & Fields</p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {expertise.split(",").map((exp) => exp.trim()).filter(Boolean).map((exp) => (
+                        <span
+                          key={exp}
+                          className="px-2.5 py-1 rounded-lg bg-surface-900/40 border border-border text-[10px] text-text-primary font-medium"
+                        >
+                          {exp}
+                        </span>
+                      ))}
+                      {!expertise.trim() && (
+                        <span className="text-[10px] text-text-muted">No expertise listed.</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Settings quick shortcut link */}

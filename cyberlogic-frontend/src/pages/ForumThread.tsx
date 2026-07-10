@@ -89,6 +89,31 @@ export default function ForumThread() {
     loadData();
   }, [threadId]);
 
+  useEffect(() => {
+    if (!user || !threadId) return;
+    const saved = JSON.parse(localStorage.getItem(`cl-saved-threads-${user.id}`) || "[]");
+    setIsSaved(saved.some((t: any) => t.id === Number(threadId)));
+  }, [threadId, user]);
+
+  const handleToggleSave = () => {
+    if (!user || !thread) return;
+    const key = `cl-saved-threads-${user.id}`;
+    const saved = JSON.parse(localStorage.getItem(key) || "[]");
+    let newSaved;
+    if (isSaved) {
+      newSaved = saved.filter((t: any) => t.id !== thread.id);
+      setIsSaved(false);
+    } else {
+      if (!saved.some((t: any) => t.id === thread.id)) {
+        newSaved = [...saved, thread];
+      } else {
+        newSaved = saved;
+      }
+      setIsSaved(true);
+    }
+    localStorage.setItem(key, JSON.stringify(newSaved));
+  };
+
   const { subscribe } = useWebSocket();
 
   useEffect(() => {
@@ -525,7 +550,7 @@ export default function ForumThread() {
 
                 <button
                   type="button"
-                  onClick={() => setIsSaved(!isSaved)}
+                  onClick={handleToggleSave}
                   className={`inline-flex items-center gap-1 hover:text-primary transition-colors ml-auto cursor-pointer ${
                     isSaved ? "text-primary font-medium" : ""
                   }`}

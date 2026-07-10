@@ -965,6 +965,17 @@ export async function fetchForumThreads(params?: {
 }
 
 /**
+ * GET /api/directory/{id}/activity
+ */
+export async function fetchUserActivity(id: number): Promise<any[]> {
+  const res = await apiRequest(`/api/directory/${id}/activity`);
+  if (!res.ok) {
+    throw new Error("Failed to load user activity.");
+  }
+  return res.json();
+}
+
+/**
  * GET /api/forum/threads/{id}
  */
 export async function fetchForumThread(id: number): Promise<ForumThreadMapped> {
