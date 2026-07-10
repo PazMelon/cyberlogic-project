@@ -378,7 +378,7 @@ export default function MessageBubble({
         <button
           type="button"
           onClick={() => setActivePickerId(showReactionTrigger ? null : message.id)}
-          className="p-1.5 rounded-full bg-surface-800 border border-border text-text-muted hover:text-text-primary hover:border-primary/50 transition-colors shadow-md cursor-pointer"
+          className="reaction-trigger-btn p-1.5 rounded-full bg-surface-800 border border-border text-text-muted hover:text-text-primary hover:border-primary/50 transition-colors shadow-md cursor-pointer"
           title="React to message"
         >
           <Smile className="w-3.5 h-3.5" />
@@ -411,7 +411,6 @@ export default function MessageBubble({
           reactions={message.reactions}
           onReact={handleReactionClick}
           onOpenFullPicker={() => onOpenFullPicker(message.id)}
-          align={isMe ? "right" : "left"}
           onClose={() => setActivePickerId(null)}
         />
       )}

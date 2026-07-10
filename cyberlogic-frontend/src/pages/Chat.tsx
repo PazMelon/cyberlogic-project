@@ -50,6 +50,22 @@ export default function Chat() {
   const [activeFullPickerMessageId, setActiveFullPickerMessageId] = useState<number | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Close reaction picker on click-away / touch-away
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".reaction-picker-container") && !target.closest(".reaction-trigger-btn")) {
+        setActiveReactionPickerMessageId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleGlobalClick);
+    document.addEventListener("touchstart", handleGlobalClick);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalClick);
+      document.removeEventListener("touchstart", handleGlobalClick);
+    };
+  }, []);
+
   // Collapse state for grouping categories
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
