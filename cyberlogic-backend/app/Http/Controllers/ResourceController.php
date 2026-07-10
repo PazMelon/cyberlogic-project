@@ -75,7 +75,9 @@ class ResourceController extends Controller
             'file' => 'nullable|file|max:10240', // max 10MB
             'icon' => 'nullable|string|max:50',
             'sections' => 'nullable|string', // JSON string
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
+            'image' => $request->hasFile('image') 
+                ? 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096' 
+                : 'nullable|string',
         ]);
 
         $user = $request->user();
@@ -92,6 +94,8 @@ class ResourceController extends Controller
         if ($request->hasFile('image')) {
             $path = \App\Services\ImageOptimizer::optimize($request->file('image'), 'resources');
             $imagePath = '/storage/' . $path;
+        } elseif ($request->filled('image')) {
+            $imagePath = $request->input('image');
         }
 
         $resourceData = [
@@ -156,7 +160,9 @@ class ResourceController extends Controller
             'file' => 'nullable|file|max:10240', // max 10MB
             'icon' => 'nullable|string|max:50',
             'sections' => 'nullable|string', // JSON string
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096',
+            'image' => $request->hasFile('image') 
+                ? 'nullable|image|mimes:jpeg,png,jpg,gif|max:4096' 
+                : 'nullable|string',
         ]);
 
         $status = $user->isAdmin() ? $resource->status : 'pending'; // Reset to pending for regular members
@@ -189,6 +195,8 @@ class ResourceController extends Controller
             }
             $path = \App\Services\ImageOptimizer::optimize($request->file('image'), 'resources');
             $resourceData['image'] = '/storage/' . $path;
+        } elseif ($request->has('image')) {
+            $resourceData['image'] = $request->input('image');
         }
 
         if ($request->hasFile('file')) {
