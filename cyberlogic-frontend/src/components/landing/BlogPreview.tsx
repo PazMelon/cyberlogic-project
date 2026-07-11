@@ -14,7 +14,12 @@ export function BlogPreview({ isLoading }: { isLoading: boolean }) {
     async function load() {
       try {
         const data = await fetchBlogs();
-        setLatest(data.slice(0, 3));
+        const sorted = [...data].sort((a, b) => {
+          if (a.featured && !b.featured) return -1;
+          if (!a.featured && b.featured) return 1;
+          return b.id - a.id;
+        });
+        setLatest(sorted.slice(0, 3));
       } catch (err) {
         console.error("Failed to load landing blogs:", err);
       } finally {

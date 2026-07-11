@@ -14,7 +14,12 @@ export function AnnouncementsPreview({ isLoading }: { isLoading: boolean }) {
     async function load() {
       try {
         const data = await fetchAnnouncements();
-        setLatest(data.slice(0, 3));
+        const sorted = [...data].sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          return b.id - a.id;
+        });
+        setLatest(sorted.slice(0, 3));
       } catch (err) {
         console.error("Failed to load landing announcements:", err);
       } finally {

@@ -13,7 +13,8 @@ export function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
     async function load() {
       try {
         const data = await fetchResources();
-        setFeatured(data.slice(0, 4));
+        const sorted = [...data].sort((a, b) => b.id - a.id);
+        setFeatured(sorted.slice(0, 4));
       } catch (err) {
         console.error("Failed to load landing featured resources:", err);
       } finally {

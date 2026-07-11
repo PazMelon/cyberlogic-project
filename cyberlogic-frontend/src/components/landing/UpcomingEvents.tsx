@@ -14,7 +14,8 @@ export function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
     async function load() {
       try {
         const data = await fetchEvents();
-        setUpcoming(data.slice(0, 4));
+        const sorted = [...data].sort((a, b) => b.id - a.id);
+        setUpcoming(sorted.slice(0, 4));
       } catch (err) {
         console.error("Failed to load landing events:", err);
       } finally {
