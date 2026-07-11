@@ -47,7 +47,7 @@ export default function MemberManagement() {
     try {
       const [users, logsResponse] = await Promise.all([
         fetchUsers(),
-        fetchAuditLogs({ per_page: 200 })
+        fetchAuditLogs({ per_page: 200, entity_type: "User" })
       ]);
       
       const approvedUsers = users.filter((u) => u.status === "approved");
