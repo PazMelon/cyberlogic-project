@@ -140,7 +140,7 @@ class ResourceController extends Controller
 
         if (!Cache::has($cacheKey)) {
             $resource->increment('access_count');
-            Cache::put($cacheKey, true, now()->addMinutes(5));
+            Cache::put($cacheKey, true, now()->addMinutes(1));
         }
 
         return response()->json($resource);

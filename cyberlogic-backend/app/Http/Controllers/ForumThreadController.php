@@ -106,13 +106,13 @@ class ForumThreadController extends Controller
             'poll.options.votes',
         ])->findOrFail($id);
 
-        // Increment view count with 6-hour cooldown (using User ID or Session ID to avoid CGNAT issues)
+        // Increment view count with 1-minute cooldown (using User ID or Session ID to avoid CGNAT issues)
         $identifier = auth()->check() ? auth()->id() : session()->getId();
         $cacheKey = "thread_view:{$id}:{$identifier}";
 
         if (!Cache::has($cacheKey)) {
             $thread->increment('views');
-            Cache::put($cacheKey, true, now()->addHours(6));
+            Cache::put($cacheKey, true, now()->addMinutes(1));
         }
 
         // Let's add user_voted_option_id if user is authenticated
