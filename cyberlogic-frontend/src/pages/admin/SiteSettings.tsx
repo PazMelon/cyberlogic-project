@@ -8,22 +8,25 @@ import AboutHistorySettings from "../../components/admin/about/AboutHistorySetti
 import AboutOfficerSettings from "../../components/admin/about/AboutOfficerSettings";
 
 const availableThemes = [
+  // Dark Themes
   { value: "cyberpunk", label: "👾 Cyberpunk Neon", desc: "Dark mode. Futuristic dark slate, vibrant gradients, and gridlines." },
   { value: "matrix", label: "📟 Neon Matrix", desc: "Dark mode. Carbon black backgrounds with digital green glows." },
   { value: "slate", label: "🌌 Slate Space", desc: "Dark mode. Minimalist deep space navy with silver lines and soft glows." },
   { value: "glass", label: "💎 Glassmorphism", desc: "Dark mode. Rich translucent containers and colorful backgrounds." },
+  { value: "maroon-spider", label: "🕷️ Maroon Spider (Dark)", desc: "Dark mode. Velvet black surfaces with crimson web lines and deep maroon details." },
+  { value: "dark-pink", label: "🌺 Dark Pink", desc: "Dark mode. Black-cherry background with hot pink highlights and rose details." },
+  { value: "dark-orange", label: "🔥 Dark Orange", desc: "Dark mode. Ember charcoal background with glowing orange accents." },
+
+  // Light Themes
   { value: "light-classic", label: "☀️ Classic Light", desc: "Light mode. Washed slate surfaces, warm amber accents, and indigo details." },
   { value: "light-neo", label: "⚡ Neon Light", desc: "Light mode. Crisp neutral white with electric cyan lines and hot pink glows." },
   { value: "light-mint", label: "🍃 Mint Light", desc: "Light mode. Soothing mint base, deep forest text, and emerald accents." },
   { value: "light-lavender", label: "🦄 Lavender Mist", desc: "Light mode. Soft purple base, lavender mist cards, and orchid accents." },
   { value: "light-retro", label: "📜 Sand Retro", desc: "Light mode. Warm sand cream backgrounds, sepia text, and amber highlights." },
-  { value: "maroon-spider", label: "🕷️ Maroon Spider (Dark)", desc: "Dark mode. Velvet black surfaces with crimson web lines and deep maroon details." },
-  { value: "light-neon-pink", label: "⚡ Neon Pink Light", desc: "Light mode. Crisp neutral white with electric pink lines and hot cyan glows." },
   { value: "maroon-spider-light", label: "🕷️ Maroon Spider (Light)", desc: "Light mode. Soft rose-tinted surfaces with deep maroon outlines and crimson details." },
+  { value: "light-neon-pink", label: "⚡ Neon Pink Light", desc: "Light mode. Crisp neutral white with electric pink lines and hot cyan glows." },
   { value: "light-pink", label: "🌸 Light Pink", desc: "Light mode. Soft rose background with warm pink accents and deep burgundy text." },
-  { value: "dark-pink", label: "🌺 Dark Pink", desc: "Dark mode. Black-cherry background with hot pink highlights and rose details." },
-  { value: "light-orange", label: "🍊 Light Orange", desc: "Light mode. Soft orange cream background with warm citrus highlights and brown text." },
-  { value: "dark-orange", label: "🔥 Dark Orange", desc: "Dark mode. Ember charcoal background with glowing orange accents." }
+  { value: "light-orange", label: "🍊 Light Orange", desc: "Light mode. Soft orange cream background with warm citrus highlights and brown text." }
 ];
 
 import { useSEO } from "../../utils/useSEO";

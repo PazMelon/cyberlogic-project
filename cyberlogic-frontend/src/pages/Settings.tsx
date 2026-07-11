@@ -567,6 +567,7 @@ export default function Settings() {
               </p>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* Dark Themes */}
                 <button
                   type="button"
                   onClick={() => handleThemeChange("cyberpunk")}
@@ -619,6 +620,46 @@ export default function Settings() {
                   <span className="text-[9px] text-text-muted mt-0.5 block">Rich translucent containers and colorful backgrounds.</span>
                 </button>
 
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("maroon-spider")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "maroon-spider"
+                      ? "border-rose-900 bg-rose-950/20 text-rose-800"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Dark)</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Velvet black surfaces with crimson web lines and deep maroon details.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("dark-pink")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "dark-pink"
+                      ? "border-pink-400 bg-pink-950/20 text-pink-400"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🌺 Dark Pink</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Black-cherry background with hot pink highlights and rose details.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("dark-orange")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "dark-orange"
+                      ? "border-orange-400 bg-orange-950/20 text-orange-400"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🔥 Dark Orange</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Ember charcoal background with glowing orange accents.</span>
+                </button>
+
+                {/* Light Themes */}
                 <button
                   type="button"
                   onClick={() => handleThemeChange("light-classic")}
@@ -686,15 +727,15 @@ export default function Settings() {
 
                 <button
                   type="button"
-                  onClick={() => handleThemeChange("maroon-spider")}
+                  onClick={() => handleThemeChange("maroon-spider-light")}
                   className={`p-3.5 rounded-xl border text-left transition-all ${
-                    theme === "maroon-spider"
-                      ? "border-rose-900 bg-rose-950/20 text-rose-800"
-                      : "border-border hover:bg-white/5"
+                    theme === "maroon-spider-light"
+                      ? "border-rose-900 bg-rose-50/25 text-rose-850"
+                      : "border-border hover:bg-black/5"
                   }`}
                 >
-                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Dark)</span>
-                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Velvet black surfaces with crimson web lines and deep maroon details.</span>
+                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Light)</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Light mode. Soft rose-tinted surfaces with deep maroon outlines and crimson details.</span>
                 </button>
 
                 <button
@@ -712,19 +753,6 @@ export default function Settings() {
 
                 <button
                   type="button"
-                  onClick={() => handleThemeChange("maroon-spider-light")}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    theme === "maroon-spider-light"
-                      ? "border-rose-900 bg-rose-50/25 text-rose-850"
-                      : "border-border hover:bg-black/5"
-                  }`}
-                >
-                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Light)</span>
-                  <span className="text-[9px] text-text-muted mt-0.5 block">Light mode. Soft rose-tinted surfaces with deep maroon outlines and crimson details.</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => handleThemeChange("light-pink")}
                   className={`p-3.5 rounded-xl border text-left transition-all ${
                     theme === "light-pink"
@@ -738,19 +766,6 @@ export default function Settings() {
 
                 <button
                   type="button"
-                  onClick={() => handleThemeChange("dark-pink")}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    theme === "dark-pink"
-                      ? "border-pink-400 bg-pink-950/20 text-pink-400"
-                      : "border-border hover:bg-white/5"
-                  }`}
-                >
-                  <span className="text-xs font-bold text-text-primary block">🌺 Dark Pink</span>
-                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Black-cherry background with hot pink highlights and rose details.</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => handleThemeChange("light-orange")}
                   className={`p-3.5 rounded-xl border text-left transition-all ${
                     theme === "light-orange"
@@ -760,19 +775,6 @@ export default function Settings() {
                 >
                   <span className="text-xs font-bold text-text-primary block">🍊 Light Orange</span>
                   <span className="text-[9px] text-text-muted mt-0.5 block">Soft orange cream light background with warm citrus highlights and brown text.</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleThemeChange("dark-orange")}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    theme === "dark-orange"
-                      ? "border-orange-400 bg-orange-950/20 text-orange-400"
-                      : "border-border hover:bg-white/5"
-                  }`}
-                >
-                  <span className="text-xs font-bold text-text-primary block">🔥 Dark Orange</span>
-                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Ember charcoal background with glowing orange accents.</span>
                 </button>
               </div>
             </div>
