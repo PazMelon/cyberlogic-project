@@ -170,7 +170,9 @@ class ResourceController extends Controller
         }
 
         if ($resource->file_path) {
-            return Storage::disk('public')->download($resource->file_path);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = Storage::disk('public');
+            return $disk->download($resource->file_path);
         }
 
         if ($resource->link) {
