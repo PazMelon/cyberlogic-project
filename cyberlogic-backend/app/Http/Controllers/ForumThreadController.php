@@ -107,15 +107,16 @@ class ForumThreadController extends Controller
         ])->findOrFail($id);
 
         // Increment view count if 1 minute has passed since the user's last visit (updates last visit time on every access)
+        $now = time();
         $identifier = auth()->check() ? auth()->id() : session()->getId();
         $lastVisitKey = "thread_last_visit:{$id}:{$identifier}";
         $lastVisit = Cache::get($lastVisitKey);
 
-        if (!$lastVisit || now()->diffInMinutes($lastVisit) >= 1) {
+        if (!$lastVisit || ($now - (int)$lastVisit) >= 60) {
             $thread->increment('views');
         }
 
-        Cache::put($lastVisitKey, now(), now()->addMinutes(10));
+        Cache::put($lastVisitKey, $now, now()->addMinutes(10));
 
         // Let's add user_voted_option_id if user is authenticated
         if (auth()->check() && $thread->poll) {

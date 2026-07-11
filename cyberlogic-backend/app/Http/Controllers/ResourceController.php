@@ -135,15 +135,16 @@ class ResourceController extends Controller
     {
         $resource = Resource::with('user')->findOrFail($id);
 
+        $now = time();
         $uniqueId = auth()->check() ? auth()->id() : $request->session()->getId();
         $lastVisitKey = "resource_last_visit:{$id}:{$uniqueId}";
         $lastVisit = Cache::get($lastVisitKey);
 
-        if (!$lastVisit || now()->diffInMinutes($lastVisit) >= 1) {
+        if (!$lastVisit || ($now - (int)$lastVisit) >= 60) {
             $resource->increment('access_count');
         }
 
-        Cache::put($lastVisitKey, now(), now()->addMinutes(10));
+        Cache::put($lastVisitKey, $now, now()->addMinutes(10));
 
         return response()->json($resource);
     }
