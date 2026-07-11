@@ -75,31 +75,71 @@ class NotificationService
         }
     }
 
-    /**
-     * Parse mentions from content and notify mentioned users.
-     */
     public static function notifyMentions(string $content, User $author, string $type, string $title, string $body, ?array $data = null, ?string $icon = null, ?string $link = null): void
     {
+        $mentionTargetUserIds = [];
+
+        // Group Mentions
+        if (str_contains($content, '@everyone')) {
+            $ids = User::where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@officers')) {
+            $ids = User::whereIn('role', ['admin', 'superadmin'])->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@firstyear')) {
+            $ids = User::where('year_level', '1st Year')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@secondyear')) {
+            $ids = User::where('year_level', '2nd Year')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@thirdyear')) {
+            $ids = User::where('year_level', '3rd Year')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@fourthyear')) {
+            $ids = User::where('year_level', '4th Year')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@fifthyear')) {
+            $ids = User::where('year_level', '5th Year')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+        if (str_contains($content, '@graduate')) {
+            $ids = User::where('year_level', 'Graduate')->where('status', 'approved')->pluck('id')->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
+
+        // Individual Mentions
         preg_match_all('/@([a-zA-Z0-9_\-\.]+)/', $content, $matches);
         if (!empty($matches[1])) {
             $usernames = array_unique($matches[1]);
-            // Exclude author
-            $mentionedUsers = User::whereIn('username', $usernames)
-                ->where('id', '!=', $author->id)
+            $ids = User::whereIn('username', $usernames)
                 ->where('status', 'approved')
-                ->get();
+                ->pluck('id')
+                ->toArray();
+            $mentionTargetUserIds = array_merge($mentionTargetUserIds, $ids);
+        }
 
-            foreach ($mentionedUsers as $user) {
-                self::notifyUser(
-                    $user->id,
-                    $type,
-                    $title,
-                    $body,
-                    $data,
-                    $icon ?? 'at-sign',
-                    $link
-                );
-            }
+        // Exclude the author, deduplicate
+        $mentionTargetUserIds = array_unique($mentionTargetUserIds);
+        $mentionTargetUserIds = array_filter($mentionTargetUserIds, function($id) use ($author) {
+            return $id != $author->id;
+        });
+
+        foreach ($mentionTargetUserIds as $userId) {
+            self::notifyUser(
+                $userId,
+                $type,
+                $title,
+                $body,
+                $data,
+                $icon ?? 'at-sign',
+                $link
+            );
         }
     }
 }

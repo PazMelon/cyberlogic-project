@@ -122,14 +122,33 @@ export function CommentForm({
     }, 10);
   };
 
-  const filteredUsers = (users || [])
-    .filter((u) => u.status === "approved")
-    .filter((u) => {
-      const q = mentionQuery.toLowerCase();
-      const fullName = `${u.first_name} ${u.last_name}`.toLowerCase();
-      const username = (u.username || "").toLowerCase();
-      return fullName.includes(q) || username.includes(q);
-    });
+  const groupMentions = [
+    { id: "group-everyone", first_name: "Everyone", last_name: "(All Members)", username: "everyone", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=everyone" },
+    { id: "group-officers", first_name: "Officers", last_name: "(Admins)", username: "officers", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=officers" },
+    { id: "group-firstyear", first_name: "1st Year", last_name: "Students", username: "firstyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=firstyear" },
+    { id: "group-secondyear", first_name: "2nd Year", last_name: "Students", username: "secondyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=secondyear" },
+    { id: "group-thirdyear", first_name: "3rd Year", last_name: "Students", username: "thirdyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=thirdyear" },
+    { id: "group-fourthyear", first_name: "4th Year", last_name: "Students", username: "fourthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fourthyear" },
+    { id: "group-fifthyear", first_name: "5th Year", last_name: "Students", username: "fifthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fifthyear" },
+    { id: "group-graduate", first_name: "Graduates", last_name: "", username: "graduate", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=graduate" }
+  ];
+
+  const filteredGroups = groupMentions.filter((group) =>
+    `${group.first_name} ${group.last_name}`.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+    group.username.toLowerCase().includes(mentionQuery.toLowerCase())
+  );
+
+  const filteredUsers = [
+    ...filteredGroups,
+    ...(users || [])
+      .filter((u) => u.status === "approved")
+      .filter((u) => {
+        const q = mentionQuery.toLowerCase();
+        const fullName = `${u.first_name} ${u.last_name}`.toLowerCase();
+        const username = (u.username || "").toLowerCase();
+        return fullName.includes(q) || username.includes(q);
+      })
+  ];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (showMentions && filteredUsers.length > 0) {
