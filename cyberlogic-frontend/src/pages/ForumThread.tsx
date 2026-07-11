@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Eye,
@@ -52,6 +52,8 @@ import {
 
 export default function ForumThread() {
   const { threadId } = useParams();
+  const [searchParams] = useSearchParams();
+  const highlightCommentId = searchParams.get("comment_id");
   const { user } = useAuth();
   const { showAlert } = useDialog();
 
@@ -110,6 +112,27 @@ export default function ForumThread() {
   useEffect(() => {
     loadData();
   }, [threadId]);
+
+  useEffect(() => {
+    if (!isLoading && highlightCommentId && comments.length > 0) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`comment-${highlightCommentId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          
+          // Temporary highlight effect
+          const innerCommentDiv = element.querySelector("div");
+          if (innerCommentDiv) {
+            innerCommentDiv.classList.add("bg-primary/10", "rounded-lg", "p-2", "shadow-[0_0_15px_rgba(6,182,212,0.25)]", "transition-all", "duration-500");
+            setTimeout(() => {
+              innerCommentDiv.classList.remove("bg-primary/10", "p-2", "shadow-[0_0_15px_rgba(6,182,212,0.25)]");
+            }, 3000);
+          }
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, highlightCommentId, comments]);
 
   useEffect(() => {
     if (!user || !threadId) return;

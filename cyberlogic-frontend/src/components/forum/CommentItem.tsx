@@ -61,7 +61,7 @@ export function CommentItem({
   };
 
   return (
-    <div className="space-y-2">
+    <div id={`comment-${comment.id}`} className="space-y-2 scroll-mt-24">
       <div
         className={`flex items-start gap-2.5 text-xs sm:text-sm transition-all py-2 px-1 ${
           isSolution

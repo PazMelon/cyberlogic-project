@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router";
 import { 
   ArrowLeft, 
@@ -10,13 +10,45 @@ import {
   Info,
   BarChart2
 } from "lucide-react";
-import { fetchForumCategories, createForumThread, type ForumCategoryMapped } from "../utils/api";
+import { fetchForumCategories, createForumThread, fetchUsers, type ForumCategoryMapped, type DbUser } from "../utils/api";
 import { Button } from "../components/ui";
 import { useDialog } from "../utils/useDialog";
 
 import { useSEO } from "../utils/useSEO";
 
+function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
+  const div = document.createElement("div");
+  const style = window.getComputedStyle(textarea);
+  const properties = [
+    "direction", "boxSizing", "width", "height", "overflowX", "overflowY",
+    "borderWidth", "borderStyle", "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+    "fontStyle", "fontVariant", "fontWeight", "fontStretch", "fontSize", "fontSizeAdjust",
+    "lineHeight", "fontFamily", "textAlign", "textTransform", "textIndent", "textDecoration",
+    "letterSpacing", "wordSpacing", "tabSize", "MozTabSize", "whiteSpace", "wordBreak", "wordWrap"
+  ];
+  properties.forEach(prop => {
+    (div.style as any)[prop] = (style as any)[prop];
+  });
+  div.style.position = "absolute";
+  div.style.visibility = "hidden";
+  div.style.whiteSpace = "pre-wrap";
+  div.style.wordWrap = "break-word";
+  document.body.appendChild(div);
+  const text = textarea.value.substring(0, position);
+  div.textContent = text;
+  const span = document.createElement("span");
+  span.textContent = textarea.value.substring(position) || ".";
+  div.appendChild(span);
+  const coordinates = {
+    top: span.offsetTop + parseInt(style.borderTopWidth || "0") - textarea.scrollTop,
+    left: span.offsetLeft + parseInt(style.borderLeftWidth || "0") - textarea.scrollLeft
+  };
+  document.body.removeChild(div);
+  return coordinates;
+}
+
 export default function CreateThread() {
+  const [mentionCoords, setMentionCoords] = useState({ top: 0, left: 0 });
   useSEO({
     title: "Create New Thread",
     description: "Start a new conversation or ask a question in Cyberlogic forums.",
@@ -35,6 +67,103 @@ export default function CreateThread() {
   const [categoryId, setCategoryId] = useState("");
   const isSpoiler = false;
   const isRedacted = false;
+
+  // Mentions autocomplete states
+  const [users, setUsers] = useState<DbUser[]>([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [activeMentionIndex, setActiveMentionIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    fetchUsers()
+      .then((data) => setUsers(data || []))
+      .catch((err) => console.error("Failed to load users for mentions", err));
+  }, []);
+
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setContent(val);
+    const selectionStart = e.target.selectionStart;
+
+    const lastAtIdx = val.lastIndexOf("@", selectionStart - 1);
+    if (lastAtIdx !== -1) {
+      const charBeforeAt = lastAtIdx > 0 ? val[lastAtIdx - 1] : " ";
+      const textAfterAt = val.substring(lastAtIdx + 1, selectionStart);
+
+      if (
+        (charBeforeAt === " " || charBeforeAt === "\n") &&
+        !textAfterAt.includes(" ")
+      ) {
+        setShowMentions(true);
+        setMentionQuery(textAfterAt);
+        setMentionStartIndex(lastAtIdx);
+        setActiveMentionIndex(0);
+
+        if (textareaRef.current) {
+          const coords = getCaretCoordinates(textareaRef.current, lastAtIdx);
+          setMentionCoords(coords);
+        }
+        return;
+      }
+    }
+    setShowMentions(false);
+  };
+
+  const selectMentionUser = (username: string) => {
+    if (mentionStartIndex === -1 || !textareaRef.current) return;
+    const beforeMention = content.substring(0, mentionStartIndex);
+    const afterMention = content.substring(textareaRef.current.selectionStart);
+
+    const newText = `${beforeMention}@${username} ${afterMention}`;
+    setContent(newText);
+    setShowMentions(false);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        const cursorPosition = beforeMention.length + username.length + 2; // @ + space
+        textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 10);
+  };
+
+  const filteredUsers = (users || [])
+    .filter((u) => u.status === "approved")
+    .filter((u) => {
+      const q = mentionQuery.toLowerCase();
+      const fullName = `${u.first_name} ${u.last_name}`.toLowerCase();
+      const username = (u.username || "").toLowerCase();
+      return fullName.includes(q) || username.includes(q);
+    });
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showMentions && filteredUsers.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActiveMentionIndex((prev) => (prev + 1) % filteredUsers.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActiveMentionIndex((prev) => (prev - 1 + filteredUsers.length) % filteredUsers.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const selectedUser = filteredUsers[activeMentionIndex];
+        const uName = selectedUser.username || `${selectedUser.first_name}${selectedUser.last_name}`.toLowerCase();
+        selectMentionUser(uName);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentions(false);
+        return;
+      }
+    }
+  };
   
   // Tab control: 'post' | 'images' | 'poll'
   const [activeTab, setActiveTab] = useState<"post" | "images" | "poll">("post");
@@ -342,19 +471,64 @@ export default function CreateThread() {
           {/* Tab Content */}
           <div className="min-h-[220px]">
             {activeTab === "post" ? (
-              <div className="space-y-2">
+              <div className="space-y-2 relative">
                 <label className="block text-xs font-bold text-text-secondary uppercase tracking-widest font-[family-name:var(--font-heading)]">
                   Description
                 </label>
                 <textarea
+                  ref={textareaRef}
                   placeholder="Draft your post details here... (Supports standard HTML content or plain text. Use ||spoiler|| for inline spoilers)"
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleTextareaChange}
+                  onKeyDown={handleKeyDown}
                   rows={8}
                   required
                   disabled={isSubmitting}
                   className="w-full p-4 bg-surface-950 border border-border/40 focus:border-primary/60 focus:ring-1 focus:ring-primary/30 rounded-xl text-text-primary text-sm font-medium placeholder:text-text-muted/40 transition-all font-[family-name:var(--font-mono)]"
                 />
+
+                {/* Autocomplete Popover */}
+                {showMentions && filteredUsers.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${mentionCoords.top + 24}px`,
+                      left: `${mentionCoords.left}px`,
+                    }}
+                    className="w-64 bg-surface-900 border border-border rounded-xl shadow-2xl overflow-hidden z-50 animate-fadeIn"
+                  >
+                    <div className="px-3 py-1.5 bg-surface-950 border-b border-border text-[9px] uppercase tracking-wider font-bold text-text-muted">
+                      Mention Users
+                    </div>
+                    <div className="max-h-40 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin">
+                      {filteredUsers.map((user, idx) => {
+                        const uName = user.username || `${user.first_name}${user.last_name}`.toLowerCase();
+                        return (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onClick={() => selectMentionUser(uName)}
+                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                              idx === activeMentionIndex
+                                ? "bg-primary/20 text-primary"
+                                : "text-text-secondary hover:bg-surface-800 hover:text-text-primary"
+                            }`}
+                          >
+                            <img
+                              src={user.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.first_name}`}
+                              alt={`${user.first_name} ${user.last_name}`}
+                              className="w-5 h-5 rounded-full object-cover"
+                            />
+                            <div className="min-w-0 flex-1 truncate">
+                              <span className="font-medium">{`${user.first_name} ${user.last_name}`}</span>
+                              <span className="text-[10px] text-text-muted ml-2">@{uName}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : activeTab === "images" ? (
               <div className="space-y-4">

@@ -66,7 +66,8 @@ export function RedactedFormatter({ content, isRedacted = false }: RedactedForma
     // To support standard HTML string inputs
     const cleanText = text
       .replace(/(?:\|\|)([^\s].*?[^\s]|[^\s])(?:\|\|)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>')
-      .replace(/(?:&gt;!|>!)([^\s].*?[^\s]|[^\s])(?:!&lt;|!<)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>');
+      .replace(/(?:&gt;!|>!)([^\s].*?[^\s]|[^\s])(?:!&lt;|!<)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>')
+      .replace(/@([a-zA-Z0-9_\-\.]+)/g, '<a href="/app/u/$1" class="text-primary hover:underline font-semibold">@$1</a>');
 
     return (
       <div 

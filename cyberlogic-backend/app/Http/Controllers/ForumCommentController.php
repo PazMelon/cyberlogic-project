@@ -70,7 +70,7 @@ class ForumCommentController extends Controller
                 "{$request->user()->name} commented on \"{$thread->title}\"",
                 ['thread_id' => $thread->id, 'comment_id' => $comment->id],
                 'message-square',
-                "/app/forums/thread/{$thread->id}"
+                "/app/forums/thread/{$thread->id}?comment_id={$comment->id}"
             );
         }
 
@@ -83,9 +83,21 @@ class ForumCommentController extends Controller
                 "{$request->user()->name} replied to your comment",
                 ['thread_id' => $thread->id, 'comment_id' => $comment->id, 'parent_id' => $parent->id],
                 'reply',
-                "/app/forums/thread/{$thread->id}"
+                "/app/forums/thread/{$thread->id}?comment_id={$comment->id}"
             );
         }
+
+        // Notify user mentions inside comment
+        \App\Services\NotificationService::notifyMentions(
+            $comment->content,
+            $request->user(),
+            'comment_mention',
+            'Mentioned in Comment',
+            "{$request->user()->name} mentioned you in a comment in: \"{$thread->title}\"",
+            ['thread_id' => $thread->id, 'comment_id' => $comment->id],
+            'at-sign',
+            "/app/forums/thread/{$thread->id}?comment_id={$comment->id}"
+        );
 
         $loadedComment = $comment->load('user');
         $commentPayload = [

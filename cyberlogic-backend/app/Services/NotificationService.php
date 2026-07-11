@@ -74,4 +74,32 @@ class NotificationService
             Log::error("Failed to notify admins: " . $e->getMessage());
         }
     }
+
+    /**
+     * Parse mentions from content and notify mentioned users.
+     */
+    public static function notifyMentions(string $content, User $author, string $type, string $title, string $body, ?array $data = null, ?string $icon = null, ?string $link = null): void
+    {
+        preg_match_all('/@([a-zA-Z0-9_\-\.]+)/', $content, $matches);
+        if (!empty($matches[1])) {
+            $usernames = array_unique($matches[1]);
+            // Exclude author
+            $mentionedUsers = User::whereIn('username', $usernames)
+                ->where('id', '!=', $author->id)
+                ->where('status', 'approved')
+                ->get();
+
+            foreach ($mentionedUsers as $user) {
+                self::notifyUser(
+                    $user->id,
+                    $type,
+                    $title,
+                    $body,
+                    $data,
+                    $icon ?? 'at-sign',
+                    $link
+                );
+            }
+        }
+    }
 }

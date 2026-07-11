@@ -199,6 +199,17 @@ class ForumThreadController extends Controller
 
         AuditLogger::log('created', 'ForumThread', $thread->id, $thread->title, null, $request);
 
+        \App\Services\NotificationService::notifyMentions(
+            $thread->content,
+            $request->user(),
+            'thread_mention',
+            'Mentioned in Thread',
+            "{$request->user()->name} mentioned you in their thread: \"{$thread->title}\"",
+            ['thread_id' => $thread->id],
+            'at-sign',
+            "/app/forums/thread/{$thread->id}"
+        );
+
         return response()->json($thread->load(['user', 'category', 'poll.options']), 201);
     }
 
