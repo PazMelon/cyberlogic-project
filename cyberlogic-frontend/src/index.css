@@ -40,8 +40,8 @@
   --color-info: var(--cl-info, #3b82f6);
 
   /* Border */
-  --color-border: var(--cl-border, rgba(148, 163, 184, 0.12));
-  --color-border-light: var(--cl-border-light, rgba(148, 163, 184, 0.06));
+  --color-border: var(--cl-border, rgba(148, 163, 184, 0.20));
+  --color-border-light: var(--cl-border-light, rgba(148, 163, 184, 0.10));
 
   /* Glass effect */
   --color-glass: var(--cl-glass, rgba(15, 23, 41, 0.7));
@@ -88,8 +88,8 @@
   --cl-text-muted: #64748b;
   /* Slate 500 */
 
-  --cl-border: rgba(15, 23, 42, 0.08);
-  --cl-border-light: rgba(15, 23, 42, 0.04);
+  --cl-border: rgba(15, 23, 42, 0.16);
+  --cl-border-light: rgba(15, 23, 42, 0.08);
   --cl-glass: rgba(248, 250, 252, 0.8);
   --cl-glass-light: rgba(248, 250, 252, 0.4);
 }
@@ -125,8 +125,8 @@
   --cl-text-muted: #737373;
   /* Neutral 500 */
 
-  --cl-border: rgba(23, 23, 23, 0.08);
-  --cl-border-light: rgba(23, 23, 23, 0.04);
+  --cl-border: rgba(23, 23, 23, 0.16);
+  --cl-border-light: rgba(23, 23, 23, 0.08);
   --cl-glass: rgba(255, 255, 255, 0.85);
   --cl-glass-light: rgba(255, 255, 255, 0.45);
 }
@@ -158,8 +158,8 @@
   --cl-text-muted: #15803d;
   /* Green 700 */
 
-  --cl-border: rgba(20, 83, 45, 0.08);
-  --cl-border-light: rgba(20, 83, 45, 0.04);
+  --cl-border: rgba(20, 83, 45, 0.16);
+  --cl-border-light: rgba(20, 83, 45, 0.08);
   --cl-glass: rgba(240, 253, 244, 0.8);
   --cl-glass-light: rgba(240, 253, 244, 0.4);
 }
@@ -191,8 +191,8 @@
   --cl-text-secondary: #581c87;
   --cl-text-muted: #701a75;
 
-  --cl-border: rgba(59, 7, 100, 0.08);
-  --cl-border-light: rgba(59, 7, 100, 0.04);
+  --cl-border: rgba(59, 7, 100, 0.16);
+  --cl-border-light: rgba(59, 7, 100, 0.08);
   --cl-glass: rgba(250, 245, 255, 0.8);
   --cl-glass-light: rgba(250, 245, 255, 0.4);
 }
@@ -224,8 +224,8 @@
   --cl-text-secondary: #78350f;
   --cl-text-muted: #92400e;
 
-  --cl-border: rgba(69, 26, 3, 0.08);
-  --cl-border-light: rgba(69, 26, 3, 0.04);
+  --cl-border: rgba(69, 26, 3, 0.16);
+  --cl-border-light: rgba(69, 26, 3, 0.08);
   --cl-glass: rgba(253, 251, 247, 0.8);
   --cl-glass-light: rgba(253, 251, 247, 0.4);
 }
@@ -262,9 +262,9 @@
   --cl-text-muted: #94a3b8;
   /* Web grey */
 
-  --cl-border: rgba(136, 19, 55, 0.25);
+  --cl-border: rgba(136, 19, 55, 0.35);
   /* Crimson web outlines */
-  --cl-border-light: rgba(136, 19, 55, 0.12);
+  --cl-border-light: rgba(136, 19, 55, 0.18);
   --cl-glass: rgba(13, 4, 7, 0.85);
   --cl-glass-light: rgba(13, 4, 7, 0.5);
 }

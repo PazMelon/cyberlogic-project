@@ -200,7 +200,7 @@ export function CommentItem({
 
       {/* Reply Form */}
       {showReplyForm && (
-        <div className="pl-4 border-l-2 border-border/20 hover:border-primary/50 transition-colors duration-200">
+        <div className="pl-4 border-l-2 border-border/45 hover:border-primary/50 transition-colors duration-200">
           <CommentForm
             placeholder={`Reply to u/${comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}...`}
             buttonText="Post Reply"
@@ -213,7 +213,7 @@ export function CommentItem({
 
       {/* Recursive replies rendering */}
       {childReplies.length > 0 && (
-        <div className="pl-4 border-l-2 border-border/20 hover:border-primary/50 transition-colors duration-200 space-y-2 pt-1">
+        <div className="pl-4 border-l-2 border-border/45 hover:border-primary/50 transition-colors duration-200 space-y-2 pt-1">
           {childReplies.map((reply) => (
             <CommentItem
               key={reply.id}
