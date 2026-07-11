@@ -73,7 +73,7 @@ class ResourceController extends Controller
             'excerpt' => 'nullable|string',
             'category' => 'required|string|in:Tutorials,Documents,Tools,Links',
             'link' => 'nullable|url|max:255',
-            'file' => 'nullable|file|max:10240', // max 10MB
+            'file' => 'nullable|file|max:20480', // max 20MB
             'icon' => 'nullable|string|max:50',
             'sections' => 'nullable|string', // JSON string
             'image' => $request->hasFile('image') 
@@ -201,7 +201,7 @@ class ResourceController extends Controller
             'excerpt' => 'nullable|string',
             'category' => 'required|string|in:Tutorials,Documents,Tools,Links',
             'link' => 'nullable|url|max:255',
-            'file' => 'nullable|file|max:10240', // max 10MB
+            'file' => 'nullable|file|max:20480', // max 20MB
             'icon' => 'nullable|string|max:50',
             'sections' => 'nullable|string', // JSON string
             'image' => $request->hasFile('image') 
@@ -277,6 +277,26 @@ class ResourceController extends Controller
         // Delete associated files
         if ($resource->file_path) {
             Storage::disk('public')->delete($resource->file_path);
+        }
+
+        // Delete cover image if it exists and is local
+        if ($resource->image && str_starts_with($resource->image, '/storage/')) {
+            $imagePath = str_replace('/storage/', '', $resource->image);
+            Storage::disk('public')->delete($imagePath);
+        }
+
+        // Delete images inside media blocks (sections)
+        if (is_array($resource->sections)) {
+            foreach ($resource->sections as $sec) {
+                if (isset($sec['type']) && $sec['type'] === 'image' && isset($sec['images']) && is_array($sec['images'])) {
+                    foreach ($sec['images'] as $img) {
+                        if (isset($img['url']) && str_starts_with($img['url'], '/storage/')) {
+                            $localPath = str_replace('/storage/', '', $img['url']);
+                            Storage::disk('public')->delete($localPath);
+                        }
+                    }
+                }
+            }
         }
 
         $resource->delete();

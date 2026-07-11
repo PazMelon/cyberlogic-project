@@ -192,7 +192,7 @@ export default function SubmitResourceModal({
               <span className="text-xs text-text-secondary font-medium">
                 {file ? file.name : "Drag & drop or click to choose a file"}
               </span>
-              <span className="text-[10px] text-text-muted">Max size: 10MB</span>
+              <span className="text-[10px] text-text-muted">Max size: 20MB</span>
               <input
                 type="file"
                 ref={fileInputRef}

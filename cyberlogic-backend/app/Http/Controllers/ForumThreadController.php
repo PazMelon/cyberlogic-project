@@ -261,6 +261,16 @@ class ForumThreadController extends Controller
             return response()->json(['error' => 'Forbidden. You do not own this thread.'], 403);
         }
 
+        // Delete associated images from storage
+        if (is_array($thread->images)) {
+            foreach ($thread->images as $imgPath) {
+                if (str_starts_with($imgPath, '/storage/')) {
+                    $localPath = str_replace('/storage/', '', $imgPath);
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($localPath);
+                }
+            }
+        }
+
         $thread->delete();
 
         AuditLogger::log('deleted', 'ForumThread', $threadId, $threadTitle, null, $request);

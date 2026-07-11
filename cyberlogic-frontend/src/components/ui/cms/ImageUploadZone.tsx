@@ -54,12 +54,14 @@ export default function ImageUploadZone({
       // 1. Client-side compress and convert to WebP
       const result = await optimizeAndConvertToWebP(file);
       
-      // 2. Convert base64 dataURL back into a WebP File object for multipart form uploading
+      // 2. Convert base64 dataURL back into a File object for multipart form uploading
       const secureName = file.name.substring(0, file.name.lastIndexOf('.')) || "image";
-      const webpFile = dataURLtoFile(result.dataUrl, `${secureName}.webp`);
+      const isGif = file.type === "image/gif";
+      const fileExt = isGif ? "gif" : "webp";
+      const processedFile = dataURLtoFile(result.dataUrl, `${secureName}.${fileExt}`);
 
-      // 3. Upload WebP binary payload securely to backend public storage
-      const backendUrl = uploadFn ? await uploadFn(webpFile) : await uploadImageFile(webpFile);
+      // 3. Upload binary payload securely to backend public storage
+      const backendUrl = uploadFn ? await uploadFn(processedFile) : await uploadImageFile(processedFile);
       onChange(backendUrl);
 
       // Calculate compression stats for rich user feedback
@@ -148,7 +150,7 @@ export default function ImageUploadZone({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
           onChange={handleFileChange}
           disabled={isCompressing}
