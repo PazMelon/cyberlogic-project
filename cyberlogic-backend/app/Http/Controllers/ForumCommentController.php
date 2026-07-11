@@ -43,7 +43,7 @@ class ForumCommentController extends Controller
         ]);
 
         // If parent_id is provided, verify it belongs to the same thread
-        if (! empty($validated['parent_id'])) {
+        if (!empty($validated['parent_id'])) {
             $parent = ForumComment::where('thread_id', $threadId)->findOrFail($validated['parent_id']);
         }
 
@@ -70,7 +70,7 @@ class ForumCommentController extends Controller
                 "{$request->user()->name} commented on \"{$thread->title}\"",
                 ['thread_id' => $thread->id, 'comment_id' => $comment->id],
                 'message-square',
-                "/app/forums/threads/{$thread->id}"
+                "/app/forums/thread/{$thread->id}"
             );
         }
 
@@ -83,14 +83,14 @@ class ForumCommentController extends Controller
                 "{$request->user()->name} replied to your comment",
                 ['thread_id' => $thread->id, 'comment_id' => $comment->id, 'parent_id' => $parent->id],
                 'reply',
-                "/app/forums/threads/{$thread->id}"
+                "/app/forums/thread/{$thread->id}"
             );
         }
 
         $loadedComment = $comment->load('user');
         $commentPayload = [
             'id' => $loadedComment->id,
-            'threadId' => (int)$threadId,
+            'threadId' => (int) $threadId,
             'author' => $loadedComment->user ? $loadedComment->user->name : 'Anonymous',
             'authorAvatar' => $loadedComment->user ? $loadedComment->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user',
             'authorRole' => $loadedComment->user ? ucfirst($loadedComment->user->role) : 'Member',
@@ -101,8 +101,8 @@ class ForumCommentController extends Controller
             'createdAt' => 'just now',
             'isBestAnswer' => false,
             'userVote' => null,
-            'isSpoiler' => (bool)$loadedComment->is_spoiler,
-            'isRedacted' => (bool)$loadedComment->is_redacted,
+            'isSpoiler' => (bool) $loadedComment->is_spoiler,
+            'isRedacted' => (bool) $loadedComment->is_redacted,
         ];
 
         \App\Services\RealtimeService::broadcast("forums:thread:{$threadId}", [
@@ -122,7 +122,7 @@ class ForumCommentController extends Controller
         $comment = ForumComment::findOrFail($id);
 
         $user = $request->user();
-        if ($comment->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
+        if ($comment->user_id !== $user->id && !$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this comment.'], 403);
         }
 
@@ -157,7 +157,7 @@ class ForumCommentController extends Controller
         $threadId = $comment->thread_id;
 
         $user = $request->user();
-        if ($comment->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
+        if ($comment->user_id !== $user->id && !$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this comment.'], 403);
         }
 
@@ -187,7 +187,7 @@ class ForumCommentController extends Controller
                 "Your comment was removed from \"{$threadTitle}\"",
                 ['thread_id' => $threadId],
                 'trash-2',
-                "/app/forums/threads/{$threadId}"
+                "/app/forums/thread/{$threadId}"
             );
         }
 
