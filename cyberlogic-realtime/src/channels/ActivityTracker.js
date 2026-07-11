@@ -348,10 +348,21 @@ class ActivityTracker {
   async onUserConnect(user) {
     if (user.role === 'system' || user.id === 1) return;
 
+    const existingSession = this.activeSessions.get(user.id);
+    if (existingSession && existingSession.pendingDisconnect) {
+      // Reconnected within the 30-minute grace period!
+      // Cancel the pending disconnect and restore active state.
+      existingSession.pendingDisconnect = false;
+      delete existingSession.disconnectTime;
+      console.log(`[Activity Log] User @${user.username || user.name} reconnected within grace period. Session restored.`);
+      return;
+    }
+
     this.activeSessions.set(user.id, {
       connectTime: Date.now(),
       lastMilestone: 0,
-      user
+      user,
+      pendingDisconnect: false
     });
 
     const username = user.username || user.name;
@@ -363,21 +374,35 @@ class ActivityTracker {
 
   async onUserDisconnect(user) {
     const session = this.activeSessions.get(user.id);
-    this.activeSessions.delete(user.id);
-
     if (!session) return;
 
-    const durationMs = Date.now() - session.connectTime;
-    const durationMin = Math.round(durationMs / (60 * 1000));
-    const username = user.username || user.name;
-
-    const message = `🔴 @${username} went offline after ${durationMin} minutes of activity`;
-    await this.postBotMessage(message);
+    // Put session on hold: wait for 30 minutes grace period
+    session.pendingDisconnect = true;
+    session.disconnectTime = Date.now();
+    console.log(`[Activity Log] User @${user.username || user.name} disconnected. Grace period active (30 minutes).`);
   }
 
   async _checkMilestones() {
     const now = Date.now();
+    const GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+
     for (const [userId, session] of this.activeSessions.entries()) {
+      if (session.pendingDisconnect) {
+        // Check if the 30 minutes grace period has expired
+        if (now - session.disconnectTime >= GRACE_PERIOD_MS) {
+          const durationMs = session.disconnectTime - session.connectTime;
+          const durationMin = Math.round(durationMs / (60 * 1000));
+          const username = session.user.username || session.user.name;
+
+          const message = `🔴 @${username} went offline after ${durationMin} minutes of activity`;
+          await this.postBotMessage(message);
+
+          // Fully clean up the session now
+          this.activeSessions.delete(userId);
+        }
+        continue;
+      }
+
       const elapsedMs = now - session.connectTime;
       const elapsedMin = elapsedMs / (60 * 1000);
       
