@@ -61,23 +61,23 @@ export function CommentItem({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div
-        className={`flex items-start gap-3 text-sm transition-all rounded-xl p-3.5 border ${
+        className={`flex items-start gap-2.5 text-xs sm:text-sm transition-all py-2 px-1 ${
           isSolution
-            ? "border-success bg-success/5 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
-            : "border-border/40 bg-surface-900/20"
+            ? "border border-success bg-success/5 rounded-lg p-2.5 sm:p-3 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
+            : "border-none bg-transparent"
         } ${(comment as any).animate || ""}`}
       >
         <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
           <img
             src={comment.authorAvatar}
             alt={comment.author}
-            className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border/30"
+            className="w-7 h-7 rounded-full bg-surface-700 object-cover border border-border/30"
           />
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2 flex-wrap">
               <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
                 u/{comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}
@@ -123,7 +123,7 @@ export function CommentItem({
 
           {/* Comment Action Toolbar */}
           {!showEditForm && (
-            <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-text-muted border-t border-border/10 pt-2.5">
+            <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-text-muted border-t border-border/10 pt-1.5">
               {/* Vote controls */}
               <VoteControl
                 score={comment.likes}
@@ -200,7 +200,7 @@ export function CommentItem({
 
       {/* Reply Form */}
       {showReplyForm && (
-        <div className="pl-6 border-l border-border/30">
+        <div className="pl-4 border-l-2 border-border/20 hover:border-primary/50 transition-colors duration-200">
           <CommentForm
             placeholder={`Reply to u/${comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}...`}
             buttonText="Post Reply"
@@ -213,7 +213,7 @@ export function CommentItem({
 
       {/* Recursive replies rendering */}
       {childReplies.length > 0 && (
-        <div className="pl-6 border-l border-border/30 space-y-4 pt-1">
+        <div className="pl-4 border-l-2 border-border/20 hover:border-primary/50 transition-colors duration-200 space-y-2 pt-1">
           {childReplies.map((reply) => (
             <CommentItem
               key={reply.id}
