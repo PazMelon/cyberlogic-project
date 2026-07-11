@@ -25,6 +25,18 @@ class ChatController extends Controller
         if ($channels->isEmpty()) {
             $defaultChannels = [
                 [
+                    'name' => 'Activity Log',
+                    'slug' => 'activity-log',
+                    'description' => 'Automated activity feed — tracks member logins, session durations, and presence.',
+                    'type' => 'group',
+                    'icon' => 'Activity',
+                    'grouping' => 'System',
+                    'allowed_roles' => ['member', 'admin', 'superadmin'],
+                    'write_roles' => [],
+                    'is_protected' => true,
+                    'sort_order' => 0,
+                ],
+                [
                     'name' => 'General',
                     'slug' => 'general',
                     'description' => 'General chat and discussion for all members.',
@@ -303,11 +315,20 @@ class ChatController extends Controller
 
         $validated['slug'] = Str::slug($validated['name']);
 
-        // Ensure unique slug (ignoring current ID)
-        $count = 1;
-        $originalSlug = $validated['slug'];
-        while (ChatChannel::where('slug', $validated['slug'])->where('id', '!=', $id)->exists()) {
-            $validated['slug'] = $originalSlug.'-'.$count++;
+        if ($channel->is_protected) {
+            // Overwrite protected properties so they cannot be modified
+            $validated['name'] = $channel->name;
+            $validated['slug'] = $channel->slug;
+            $validated['type'] = $channel->type;
+            $validated['grouping'] = $channel->grouping;
+            $validated['is_archived'] = false;
+        } else {
+            // Ensure unique slug (ignoring current ID)
+            $count = 1;
+            $originalSlug = $validated['slug'];
+            while (ChatChannel::where('slug', $validated['slug'])->where('id', '!=', $id)->exists()) {
+                $validated['slug'] = $originalSlug.'-'.$count++;
+            }
         }
 
         $channel->update($validated);
@@ -328,6 +349,9 @@ class ChatController extends Controller
         }
 
         $channel = ChatChannel::findOrFail($id);
+        if ($channel->is_protected) {
+            return response()->json(['message' => 'This is a system protected channel and cannot be deleted.'], 403);
+        }
         $channelId = $channel->id;
         $channelName = $channel->name;
         $channel->delete();

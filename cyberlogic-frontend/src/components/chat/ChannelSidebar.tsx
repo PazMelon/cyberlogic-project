@@ -8,7 +8,8 @@ import {
   Laugh, 
   BookOpen, 
   HeartHandshake, 
-  HelpCircle 
+  HelpCircle,
+  Activity
 } from "lucide-react";
 import { SkeletonLine } from "../Skeleton";
 
@@ -24,6 +25,7 @@ export interface ChatChannel {
   allowed_roles?: string[] | null;
   write_roles?: string[] | null;
   is_archived?: boolean;
+  is_protected?: boolean;
 }
 
 export interface OnlineUser {
@@ -63,6 +65,8 @@ const ChannelIcon = ({ iconName, className }: { iconName?: string | null; classN
       return <HeartHandshake className={className} />;
     case "HelpCircle":
       return <HelpCircle className={className} />;
+    case "Activity":
+      return <Activity className={className} />;
     default:
       return <Hash className={className} />;
   }
@@ -92,6 +96,16 @@ export default function ChannelSidebar({
     groupedChannels[groupName].push(ch);
   });
 
+  const groupOrder = ["Welcome & Info", "System", "General Discussions", "Academic & Help"];
+  const sortedGroupNames = Object.keys(groupedChannels).sort((a, b) => {
+    const idxA = groupOrder.indexOf(a);
+    const idxB = groupOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
   const toggleGroupCollapse = (groupName: string) => {
     setCollapsedGroups((prev) => ({
       ...prev,
@@ -100,7 +114,7 @@ export default function ChannelSidebar({
   };
 
   const renderChannelList = () => {
-    return Object.keys(groupedChannels).map((groupName) => {
+    return sortedGroupNames.map((groupName) => {
       const isCollapsed = !!collapsedGroups[groupName];
       const groupChannels = groupedChannels[groupName];
 

@@ -8,6 +8,7 @@ const PORT = process.env.WS_PORT || 3001;
 const REALTIME_WS_SECRET = process.env.REALTIME_WS_SECRET || 'cyberlogic_secret_token_123';
 
 const channelManager = new ChannelManager();
+channelManager.activityTracker.start();
 
 // Create HTTP server for internal broadcast API and health checks
 const server = http.createServer(async (req, res) => {
@@ -145,6 +146,7 @@ const interval = setInterval(() => {
 
 wss.on('close', () => {
   clearInterval(interval);
+  channelManager.activityTracker.stop();
 });
 
 // Start Server

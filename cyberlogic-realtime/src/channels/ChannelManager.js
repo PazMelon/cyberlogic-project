@@ -1,4 +1,5 @@
 const pool = require('../db');
+const ActivityTracker = require('./ActivityTracker');
 
 class ChannelManager {
   constructor() {
@@ -15,6 +16,9 @@ class ChannelManager {
     // Rate limit: 15 messages per 60 seconds
     this.RATE_LIMIT_MAX = 15;
     this.RATE_LIMIT_WINDOW_MS = 60 * 1000;
+    
+    // Initialize presence log bot activity tracker
+    this.activityTracker = new ActivityTracker(this);
   }
 
   /**
@@ -36,6 +40,9 @@ class ChannelManager {
       });
       // Broadcast updated presence
       this.broadcastPresence();
+
+      // Trigger presence log bot connection
+      this.activityTracker.onUserConnect(user);
     }
     this.onlineUsers.get(user.id).clients.add(client);
   }
@@ -64,6 +71,9 @@ class ChannelManager {
         this.onlineUsers.delete(user.id);
         // Broadcast updated presence
         this.broadcastPresence();
+
+        // Trigger presence log bot disconnection
+        this.activityTracker.onUserDisconnect(user);
       }
     }
   }

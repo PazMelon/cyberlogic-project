@@ -616,7 +616,7 @@ export default function Chat() {
             hasMore={hasMoreMessages}
             isFetchingMore={isFetchingMoreMessages}
             onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
-            onDelete={canDeleteMessages ? handleDeleteClick : undefined}
+            onDelete={canDeleteMessages && !activeChannelData?.is_protected ? handleDeleteClick : undefined}
           />
 
           {/* Members Sidebar Panel removed from inner container to span full height */}
@@ -641,6 +641,7 @@ export default function Chat() {
           onSelectGif={handleSelectGif}
           setMessageText={setMessageText}
           onOpenEmojiPicker={() => setShowChatEditorEmojiPicker(true)}
+          isActivityLog={activeChannelData?.slug === 'activity-log'}
         />
       </div>
 

@@ -20,6 +20,18 @@ class ChatChannelSeeder extends Seeder
 
         $defaultChannels = [
             [
+                'name' => 'Activity Log',
+                'slug' => 'activity-log',
+                'description' => 'Automated activity feed — tracks member logins, session durations, and presence.',
+                'type' => 'group',
+                'icon' => 'Activity',
+                'grouping' => 'System',
+                'sort_order' => 0,
+                'allowed_roles' => ['member', 'officer', 'admin', 'superadmin'],
+                'write_roles' => [],
+                'is_protected' => true,
+            ],
+            [
                 'name' => 'Welcome',
                 'slug' => 'welcome',
                 'description' => 'Welcome to the Cyberlogic Club! Start here to introduce yourself and meet members.',

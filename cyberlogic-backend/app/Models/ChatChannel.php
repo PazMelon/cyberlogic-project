@@ -18,6 +18,7 @@ class ChatChannel extends Model
         'allowed_roles',
         'write_roles',
         'is_archived',
+        'is_protected',
         'icon',
         'grouping',
         'sort_order',
@@ -27,6 +28,7 @@ class ChatChannel extends Model
         'allowed_roles' => 'array',
         'write_roles' => 'array',
         'is_archived' => 'boolean',
+        'is_protected' => 'boolean',
     ];
 
     protected $appends = ['messageCount'];

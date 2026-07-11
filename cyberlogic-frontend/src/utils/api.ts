@@ -1408,6 +1408,7 @@ export interface DbChatChannel {
   allowed_roles: string[] | null;
   write_roles: string[] | null;
   is_archived: boolean;
+  is_protected: boolean;
   messageCount: number;
 }
 

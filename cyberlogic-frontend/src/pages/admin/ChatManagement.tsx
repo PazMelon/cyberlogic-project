@@ -15,7 +15,8 @@ import {
   HelpCircle, 
   Hash,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Activity
 } from "lucide-react";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
@@ -38,7 +39,8 @@ const availableIcons = [
   { value: "Laugh", label: "Laugh (Fun)" },
   { value: "BookOpen", label: "Book Open (Study)" },
   { value: "HeartHandshake", label: "Heart Handshake (Support)" },
-  { value: "HelpCircle", label: "Help Circle (FAQ)" }
+  { value: "HelpCircle", label: "Help Circle (FAQ)" },
+  { value: "Activity", label: "Activity (System/Logs)" }
 ];
 
 const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
@@ -57,6 +59,8 @@ const ChannelIcon = ({ iconName, className }: { iconName?: string | null; classN
       return <HeartHandshake className={className} />;
     case "HelpCircle":
       return <HelpCircle className={className} />;
+    case "Activity":
+      return <Activity className={className} />;
     default:
       return <Hash className={className} />;
   }
@@ -428,6 +432,11 @@ export default function ChatManagement() {
           <div>
             <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
               {ch.name}
+              {ch.is_protected && (
+                <span className="text-[9px] bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase flex items-center gap-1 select-none">
+                  <Lock className="w-2.5 h-2.5" /> Protected
+                </span>
+              )}
               {ch.is_archived && (
                 <span className="text-[10px] bg-warning/10 border border-warning/20 text-warning px-1.5 py-0.5 rounded font-bold uppercase">
                   Archived
@@ -491,23 +500,31 @@ export default function ChatManagement() {
       header: "Actions",
       accessor: (ch: DbChatChannel) => (
         <div className="flex items-center justify-end gap-1">
-          <button
-            type="button"
-            onClick={() => handleOpenEdit(ch)}
-            className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer"
-            title="Edit settings"
-          >
-            <Pencil className="w-3.5 h-3.5" />
-          </button>
-          {currentUser?.role === "superadmin" && (
-            <button
-              type="button"
-              onClick={() => handleDelete(ch.id)}
-              className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
-              title="Delete channel"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+          {ch.is_protected ? (
+            <span className="text-[10px] font-bold text-text-muted/50 px-2 py-1 bg-surface-800 border border-border/30 rounded-lg flex items-center gap-1 select-none mr-1">
+              <Lock className="w-3 h-3 text-text-muted/30" /> Locked
+            </span>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenEdit(ch)}
+                className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                title="Edit settings"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              {currentUser?.role === "superadmin" && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(ch.id)}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
+                  title="Delete channel"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </>
           )}
         </div>
       ),
