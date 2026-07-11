@@ -33,7 +33,11 @@ export function VoteControl({
     <div className={containerClass}>
       <button
         type="button"
-        onClick={() => onVote("up")}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onVote("up");
+        }}
         className={`${btnSize} rounded hover:bg-white/5 transition-colors ${
           isUp ? "text-primary" : "text-text-muted hover:text-text-primary"
         }`}
@@ -51,7 +55,11 @@ export function VoteControl({
       </span>
       <button
         type="button"
-        onClick={() => onVote("down")}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onVote("down");
+        }}
         className={`${btnSize} rounded hover:bg-white/5 transition-colors ${
           isDown ? "text-error" : "text-text-muted hover:text-text-primary"
         }`}

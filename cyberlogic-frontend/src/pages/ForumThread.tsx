@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -13,7 +13,8 @@ import {
   MessageSquare,
   Pin,
   Lock,
-  Unlock
+  Unlock,
+  MoreVertical
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
@@ -62,6 +63,20 @@ export default function ForumThread() {
   const [isViewerOpen, setIsViewerOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isVotingPoll, setIsVotingPoll] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   useSEO({
     title: thread ? thread.title : "Loading Thread...",
@@ -359,7 +374,7 @@ export default function ForumThread() {
           {/* Main Thread Card */}
           <div className="glass rounded-xl overflow-hidden border border-border flex">
             {/* Reddit Vote Panel */}
-            <div className="hidden sm:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
+            <div className="hidden lg:flex flex-col items-center gap-1 py-4 px-3 bg-surface-900/30 border-r border-border/50 text-center w-12 flex-shrink-0">
               <VoteControl
                 score={thread.likes}
                 userVote={thread.userVote}
@@ -373,37 +388,106 @@ export default function ForumThread() {
             {/* Post Detail Body */}
             <div className="flex-1 p-5 sm:p-6 space-y-4">
               {/* Header Info */}
-              <div className="flex flex-wrap items-center gap-2">
-                {category && (
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}
-                  >
-                    {category.name}
-                  </span>
-                )}
-                {thread.solved && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
-                    <CheckCircle className="w-2.5 h-2.5" /> Solved
-                  </span>
-                )}
-                {thread.pinned && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded-full">
-                    <Pin className="w-2.5 h-2.5" /> Pinned
-                  </span>
-                )}
-                {thread.closed && (
-                  <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-error bg-error/10 border border-error/20 px-2 py-0.5 rounded-full">
-                    <Lock className="w-2.5 h-2.5" /> Closed
-                  </span>
-                )}
+              <div className="flex items-start justify-between gap-2 relative">
+                <div className="flex flex-wrap items-center gap-2">
+                  {category && (
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${selectedColorClass}`}
+                    >
+                      {category.name}
+                    </span>
+                  )}
+                  {thread.solved && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-success bg-success/10 border border-success/20 px-2 py-0.5 rounded-full">
+                      <CheckCircle className="w-2.5 h-2.5" /> Solved
+                    </span>
+                  )}
+                  {thread.pinned && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-warning bg-warning/10 border border-warning/20 px-2 py-0.5 rounded-full">
+                      <Pin className="w-2.5 h-2.5" /> Pinned
+                    </span>
+                  )}
+                  {thread.closed && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-error bg-error/10 border border-error/20 px-2 py-0.5 rounded-full">
+                      <Lock className="w-2.5 h-2.5" /> Closed
+                    </span>
+                  )}
 
-                <span className="text-[10px] text-text-muted">
-                  Posted by{" "}
-                  <Link to={thread.authorUsername ? `/app/u/${thread.authorUsername}` : `/app/profile/${thread.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
-                    u/{thread.authorUsername || thread.author.toLowerCase().replace(/\s+/g, "")}
-                  </Link>
-                </span>
-                <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
+                  <span className="text-[10px] text-text-muted">
+                    Posted by{" "}
+                    <Link to={thread.authorUsername ? `/app/u/${thread.authorUsername}` : `/app/profile/${thread.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
+                      u/{thread.authorUsername || thread.author.toLowerCase().replace(/\s+/g, "")}
+                    </Link>
+                  </span>
+                  <span className="text-[10px] text-text-muted">{thread.createdAt}</span>
+                </div>
+
+                {/* Mobile/Tablet dropdown menu */}
+                <div className="relative lg:hidden" ref={menuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-1 rounded-lg hover:bg-white/5 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {isMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-48 rounded-xl bg-surface-900/95 border border-border shadow-xl py-1 z-50 animate-fadeIn backdrop-blur-md">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          // share logic
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>Share</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          // report logic
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-error hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
+                      >
+                        <Flag className="w-3.5 h-3.5" />
+                        <span>Report</span>
+                      </button>
+
+                      {isAdmin && (
+                        <>
+                          <div className="border-t border-border/40 my-1" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              handleTogglePin();
+                            }}
+                            className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-warning hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
+                          >
+                            <Pin className="w-3.5 h-3.5" />
+                            <span>{thread.pinned ? "Unpin" : "Pin"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsMenuOpen(false);
+                              handleToggleClose();
+                            }}
+                            className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-error hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
+                          >
+                            {thread.closed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                            <span>{thread.closed ? "Open" : "Close"}</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Title */}
@@ -512,7 +596,8 @@ export default function ForumThread() {
               )}
 
               {/* Post Footer Action Toolbar */}
-              <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
+              {/* Desktop View */}
+              <div className="hidden lg:flex flex-wrap items-center gap-4 pt-4 border-t border-border text-xs text-text-muted">
                 <span className="inline-flex items-center gap-1">
                   <MessageSquare className="w-3.5 h-3.5" /> {comments.length} comments
                 </span>
@@ -576,6 +661,39 @@ export default function ForumThread() {
                   className="inline-flex items-center gap-1 hover:text-error transition-colors cursor-pointer"
                 >
                   <Flag className="w-3.5 h-3.5" /> Report
+                </button>
+              </div>
+
+              {/* Mobile/Tablet View */}
+              <div className="flex lg:hidden flex-wrap items-center gap-2 pt-4 border-t border-border text-sm text-text-muted">
+                <VoteControl
+                  score={thread.likes}
+                  userVote={thread.userVote}
+                  onVote={handleThreadVoteAction}
+                  orientation="horizontal"
+                  size="md"
+                  animateClass={thread.voteAnimate}
+                />
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-850 border border-border/45 font-semibold">
+                  <MessageSquare className="w-4 h-4" />
+                  <span>{comments.length}</span>
+                </div>
+
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-850 border border-border/45 font-semibold">
+                  <Eye className="w-4 h-4" />
+                  <span>{thread.views}</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleToggleSave}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-850 hover:bg-white/5 border border-border/45 transition-colors font-semibold ml-auto cursor-pointer ${
+                    isSaved ? "text-primary border-primary/40 bg-primary/5" : ""
+                  }`}
+                >
+                  <Bookmark className={`w-4 h-4 ${isSaved ? "fill-primary/20" : ""}`} />
+                  <span>{isSaved ? "Saved" : "Save"}</span>
                 </button>
               </div>
             </div>

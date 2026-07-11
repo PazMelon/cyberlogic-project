@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { MessageSquare, Heart, Eye, Pin, CheckCircle, BarChart2 } from "lucide-react";
+import { MessageSquare, Eye, Pin, CheckCircle, BarChart2 } from "lucide-react";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
-import type { ForumThreadMapped } from "../../utils/api";
+import { VoteControl } from "../forum/VoteControl";
+import { voteThread, type ForumThreadMapped } from "../../utils/api";
 
 const defaultCategories = [
   { id: "general", name: "General Discussion", color: "primary" },
@@ -23,6 +25,22 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
   const dbCategory = thread.category;
   const mockCategory = defaultCategories.find((c) => c.id === thread.categoryId);
   
+  const [likes, setLikes] = useState(thread.likes);
+  const [userVote, setUserVote] = useState(thread.userVote);
+  const [voteAnimate, setVoteAnimate] = useState<string | undefined>(thread.voteAnimate);
+
+  const handleVoteAction = async (direction: "up" | "down") => {
+    try {
+      const val = direction === "up" ? 1 : -1;
+      const res = await voteThread(thread.id, val);
+      setLikes(res.vote_score);
+      setUserVote(res.user_vote);
+      setVoteAnimate(direction === "up" ? "animate-vote-up" : "animate-vote-down");
+    } catch (err) {
+      console.error("Failed to vote thread from card:", err);
+    }
+  };
+
   const categoryName = dbCategory?.name || mockCategory?.name || "General Discussion";
   const categoryColor = dbCategory?.color || mockCategory?.color || "primary";
 
@@ -70,8 +88,24 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
             {thread.title}
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
-            <span onClick={handleAuthorClick} className="hover:text-primary transition-colors font-medium text-text-secondary cursor-pointer">{thread.author}</span> · {thread.createdAt}
+            Posted by <span onClick={handleAuthorClick} className="hover:text-primary transition-colors font-medium text-text-secondary cursor-pointer">{thread.author}</span>
           </p>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-text-muted mt-1.5">
+            <VoteControl
+              score={likes}
+              userVote={userVote}
+              onVote={handleVoteAction}
+              orientation="horizontal"
+              size="md"
+              animateClass={voteAnimate}
+            />
+            <span>·</span>
+            <span>{thread.createdAt}</span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              <MessageSquare className="w-3.5 h-3.5" /> {thread.replyCount} comments
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3 text-xs text-text-muted flex-shrink-0">
           {thread.poll && (
@@ -79,12 +113,6 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
               <BarChart2 className="w-2.5 h-2.5" />
             </Badge>
           )}
-          <span className="inline-flex items-center gap-1">
-            <MessageSquare className="w-3 h-3" /> {thread.replyCount}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Heart className="w-3 h-3" /> {thread.likes}
-          </span>
         </div>
       </Link>
     );
@@ -133,9 +161,14 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
             <h3 className="text-base font-semibold text-text-primary group-hover:text-primary transition-colors mb-1">
               {thread.title}
             </h3>
+
+            {/* Author info */}
+            <p className="text-xs text-text-muted mb-2">
+              Posted by <span onClick={handleAuthorClick} className="hover:text-primary transition-colors font-medium text-text-secondary cursor-pointer">{thread.author}</span>
+            </p>
             
             {/* Snippet */}
-            <p className="text-sm text-text-muted line-clamp-1 mb-2">
+            <p className="text-sm text-text-muted line-clamp-1 mb-3">
               {(() => {
                 const cleanText = thread.content
                   .replace(/(?:\|\|)([^\s].*?[^\s]|[^\s])(?:\|\|)/g, '<span class="px-1.5 rounded font-mono select-none" style="background-color: #0c0f17; color: transparent; border: 1px solid rgba(239, 68, 68, 0.2); user-select: none;">$1</span>')
@@ -146,16 +179,20 @@ export function ForumThreadCard({ thread, mode = "full", showCategory = true }: 
 
             {/* Footer metrics */}
             <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted">
-              <span onClick={handleAuthorClick} className="font-medium text-text-secondary hover:text-primary transition-colors cursor-pointer">{thread.author}</span>
+              <VoteControl
+                score={likes}
+                userVote={userVote}
+                onVote={handleVoteAction}
+                orientation="horizontal"
+                size="md"
+                animateClass={voteAnimate}
+              />
               <span>{thread.createdAt}</span>
               <span className="inline-flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" /> {thread.replyCount} replies
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Heart className="w-3 h-3" /> {thread.likes}
+                <MessageSquare className="w-3.5 h-3.5" /> {thread.replyCount} comments
               </span>
               <span className="hidden sm:inline-flex items-center gap-1">
-                <Eye className="w-3 h-3" /> {thread.views} views
+                <Eye className="w-3.5 h-3.5" /> {thread.views} views
               </span>
             </div>
           </div>
