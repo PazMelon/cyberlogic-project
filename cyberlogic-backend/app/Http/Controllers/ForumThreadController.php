@@ -50,7 +50,7 @@ class ForumThreadController extends Controller
 
 
         // Search by title or content
-        if ($request->has('q') && ! empty($request->input('q'))) {
+        if ($request->has('q') && !empty($request->input('q'))) {
             $search = $request->input('q');
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
@@ -162,7 +162,7 @@ class ForumThreadController extends Controller
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $file) {
                 $path = ImageOptimizer::optimize($file, 'forum');
-                $imagesPaths[] = '/storage/'.$path;
+                $imagesPaths[] = '/storage/' . $path;
             }
         }
 
@@ -177,7 +177,7 @@ class ForumThreadController extends Controller
             'is_closed' => false,
             'is_spoiler' => filter_var($request->input('is_spoiler'), FILTER_VALIDATE_BOOLEAN),
             'is_redacted' => filter_var($request->input('is_redacted'), FILTER_VALIDATE_BOOLEAN),
-            'images' => ! empty($imagesPaths) ? $imagesPaths : null,
+            'images' => !empty($imagesPaths) ? $imagesPaths : null,
         ]);
 
         if (!empty($validated['poll_question']) && count($pollOptions) >= 2) {
@@ -211,7 +211,7 @@ class ForumThreadController extends Controller
         $thread = ForumThread::findOrFail($id);
 
         $user = $request->user();
-        if ($thread->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
+        if ($thread->user_id !== $user->id && !$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this thread.'], 403);
         }
 
@@ -241,9 +241,9 @@ class ForumThreadController extends Controller
         $thread = ForumThread::findOrFail($id);
         $threadId = $thread->id;
         $threadTitle = $thread->title;
-        
+
         $user = $request->user();
-        if ($thread->user_id !== $user->id && ! $user->hasPermission('manage_forums')) {
+        if ($thread->user_id !== $user->id && !$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. You do not own this thread.'], 403);
         }
 
@@ -261,12 +261,12 @@ class ForumThreadController extends Controller
     public function togglePin(Request $request, $id)
     {
         $user = $request->user();
-        if (! $user->hasPermission('manage_forums')) {
+        if (!$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. Admin credentials required.'], 403);
         }
 
         $thread = ForumThread::findOrFail($id);
-        $thread->update(['is_pinned' => ! $thread->is_pinned]);
+        $thread->update(['is_pinned' => !$thread->is_pinned]);
 
         if ($thread->is_pinned && $thread->user_id !== $user->id) {
             \App\Services\NotificationService::notifyUser(
@@ -276,7 +276,7 @@ class ForumThreadController extends Controller
                 "Your thread \"{$thread->title}\" was pinned",
                 ['thread_id' => $thread->id],
                 'pin',
-                "/app/forums/threads/{$thread->id}"
+                "/app/forums/thread/{$thread->id}"
             );
         }
 
@@ -292,12 +292,12 @@ class ForumThreadController extends Controller
     public function toggleClose(Request $request, $id)
     {
         $user = $request->user();
-        if (! $user->hasPermission('manage_forums')) {
+        if (!$user->hasPermission('manage_forums')) {
             return response()->json(['error' => 'Forbidden. Admin credentials required.'], 403);
         }
 
         $thread = ForumThread::findOrFail($id);
-        $thread->update(['is_closed' => ! $thread->is_closed]);
+        $thread->update(['is_closed' => !$thread->is_closed]);
 
         if ($thread->user_id !== $user->id) {
             $type = $thread->is_closed ? 'thread_closed' : 'thread_reopened';
@@ -312,7 +312,7 @@ class ForumThreadController extends Controller
                 $body,
                 ['thread_id' => $thread->id],
                 $icon,
-                "/app/forums/threads/{$thread->id}"
+                "/app/forums/thread/{$thread->id}"
             );
         }
 
@@ -363,7 +363,7 @@ class ForumThreadController extends Controller
                     "Your comment was marked as the solution in \"{$thread->title}\"",
                     ['thread_id' => $thread->id, 'comment_id' => $comment->id],
                     'check-circle',
-                    "/app/forums/threads/{$thread->id}"
+                    "/app/forums/thread/{$thread->id}"
                 );
             }
 
@@ -380,7 +380,7 @@ class ForumThreadController extends Controller
 
         \App\Services\RealtimeService::broadcast("forums:thread:{$thread->id}", [
             'event' => 'thread_solved',
-            'solved' => (bool)$thread->is_solved,
+            'solved' => (bool) $thread->is_solved,
             'solutionCommentId' => $thread->solution_comment_id
         ]);
 
