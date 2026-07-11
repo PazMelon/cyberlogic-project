@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('resources', function (Blueprint $table) {
-            $table->unsignedInteger('access_count')->default(0)->after('download_count');
-        });
+        if (!Schema::hasColumn('resources', 'access_count')) {
+            Schema::table('resources', function (Blueprint $table) {
+                $table->unsignedInteger('access_count')->default(0)->after('download_count');
+            });
+        }
     }
 
     /**
@@ -21,8 +23,10 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('resources', function (Blueprint $table) {
-            $table->dropColumn('access_count');
-        });
+        if (Schema::hasColumn('resources', 'access_count')) {
+            Schema::table('resources', function (Blueprint $table) {
+                $table->dropColumn('access_count');
+            });
+        }
     }
 };
