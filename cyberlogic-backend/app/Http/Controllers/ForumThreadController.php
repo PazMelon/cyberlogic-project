@@ -106,14 +106,16 @@ class ForumThreadController extends Controller
             'poll.options.votes',
         ])->findOrFail($id);
 
-        // Increment view count with 1-minute cooldown (using User ID or Session ID to avoid CGNAT issues)
+        // Increment view count if 1 minute has passed since the user's last visit (updates last visit time on every access)
         $identifier = auth()->check() ? auth()->id() : session()->getId();
-        $cacheKey = "thread_view:{$id}:{$identifier}";
+        $lastVisitKey = "thread_last_visit:{$id}:{$identifier}";
+        $lastVisit = Cache::get($lastVisitKey);
 
-        if (!Cache::has($cacheKey)) {
+        if (!$lastVisit || now()->diffInMinutes($lastVisit) >= 1) {
             $thread->increment('views');
-            Cache::put($cacheKey, true, now()->addMinutes(1));
         }
+
+        Cache::put($lastVisitKey, now(), now()->addMinutes(10));
 
         // Let's add user_voted_option_id if user is authenticated
         if (auth()->check() && $thread->poll) {
