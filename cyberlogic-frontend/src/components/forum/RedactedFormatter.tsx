@@ -64,8 +64,16 @@ export function RedactedFormatter({ content, isRedacted = false }: RedactedForma
 
     // Standard string replacement for inline spoilers
     // To support standard HTML string inputs
-    const cleanText = text
-      .replace(/(?:\|\|)([^\s].*?[^\s]|[^\s])(?:\|\|)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>')
+    let cleanText = text;
+    
+    // 1. Match direct images / gif URLs first (ending in png, jpg, jpeg, gif, webp)
+    cleanText = cleanText.replace(/(https?:\/\/\S+\.(?:png|jpe?g|gif|webp)(?:\?\S+)?)/gi, '<div class="my-2 max-w-full"><img src="$1" alt="Embed" class="max-h-80 rounded-xl object-contain border border-border/40" /></div>');
+    
+    // 2. Match other links to make them clickable anchors
+    cleanText = cleanText.replace(/(?<!src=")(https?:\/\/(?!\S+\.(?:png|jpe?g|gif|webp))\S+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline font-semibold">$1</a>');
+
+    // 3. Spoilers & Mentions
+    cleanText = cleanText.replace(/(?:\|\|)([^\s].*?[^\s]|[^\s])(?:\|\|)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>')
       .replace(/(?:&gt;!|>!)([^\s].*?[^\s]|[^\s])(?:!&lt;|!<)/g, '<span class="inline-spoiler" title="Click to reveal">$1</span>')
       .replace(/@([a-zA-Z0-9_\-\.]+)/g, '<a href="/app/u/$1" class="text-primary hover:underline font-semibold">@$1</a>');
 
