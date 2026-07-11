@@ -26,6 +26,7 @@ export interface ChatChannel {
   write_roles?: string[] | null;
   is_archived?: boolean;
   is_protected?: boolean;
+  latest_message_id?: number;
 }
 
 export interface OnlineUser {

@@ -122,7 +122,25 @@ export default function Chat() {
           if (chan && data.some((c) => c.slug === chan)) {
             setActiveChannel(chan);
           } else if (data.length > 0) {
-            setActiveChannel(data[0].slug);
+            // Check unread status for Welcome, Announcements, and Rules
+            const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
+            const checkUnread = (slug: string) => {
+              const chanObj = data.find((c) => c.slug === slug);
+              if (!chanObj || !chanObj.latest_message_id) return false;
+              return chanObj.latest_message_id > (lastRead[slug] || 0);
+            };
+
+            if (checkUnread("welcome")) {
+              setActiveChannel("welcome");
+            } else if (checkUnread("announcements")) {
+              setActiveChannel("announcements");
+            } else if (checkUnread("rules")) {
+              setActiveChannel("rules");
+            } else if (data.some((c) => c.slug === "general")) {
+              setActiveChannel("general");
+            } else {
+              setActiveChannel(data[0].slug);
+            }
           }
         }
       } catch (err) {
@@ -206,6 +224,16 @@ export default function Chat() {
           if (data.length < 50) {
             setHasMoreMessages(false);
           }
+
+          // Mark active channel messages as read
+          if (data.length > 0) {
+            const latestMsg = data[data.length - 1];
+            if (latestMsg) {
+              const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
+              lastRead[activeChannel] = latestMsg.id;
+              localStorage.setItem("chat_last_read", JSON.stringify(lastRead));
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to load chat history:", err);
@@ -221,6 +249,14 @@ export default function Chat() {
       if (type === "message") {
         setMessages((prev) => {
           if (prev.some((m) => m.id === payload.id)) return prev;
+
+          // If the new message is in the currently active channel, mark it read immediately
+          if (activeChannel === payload.channelId) {
+            const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
+            lastRead[activeChannel] = payload.id;
+            localStorage.setItem("chat_last_read", JSON.stringify(lastRead));
+          }
+
           return [...prev, { ...payload, animate: "animate-message-arrive" }];
         });
       } else if (type === "reaction_update") {

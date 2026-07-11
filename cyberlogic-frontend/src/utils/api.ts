@@ -1410,6 +1410,7 @@ export interface DbChatChannel {
   is_archived: boolean;
   is_protected: boolean;
   messageCount: number;
+  latest_message_id?: number;
 }
 
 export interface DbForumCategory {

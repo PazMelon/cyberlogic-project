@@ -84,6 +84,11 @@ class ChatController extends Controller
             return true;
         })->values();
 
+        // Attach latest message ID dynamically
+        $filtered->each(function ($channel) {
+            $channel->latest_message_id = $channel->messages()->max('id') ?: 0;
+        });
+
         return response()->json($filtered);
     }
 
