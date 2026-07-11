@@ -405,31 +405,89 @@ class ChannelManager {
         );
       }
 
-      // 6. Send notification for mentions
+      // 6. Send notification for mentions (individual & group mentions)
+      const notifiedUserIds = new Set();
+      if (parentAuthorId && parentAuthorId !== user.id) {
+        notifiedUserIds.add(parentAuthorId);
+      }
+
+      const hasEveryone = content.includes('@everyone');
+      const hasOfficers = content.includes('@officers');
+      const hasFirstYear = content.includes('@firstyear');
+      const hasSecondYear = content.includes('@secondyear');
+      const hasThirdYear = content.includes('@thirdyear');
+      const hasFourthYear = content.includes('@fourthyear');
+      const hasFifthYear = content.includes('@fifthyear');
+      const hasGraduate = content.includes('@graduate');
+
+      const mentionTargetUserIds = new Set();
+
+      if (hasEveryone) {
+        const [users] = await pool.query('SELECT id FROM users WHERE status = ? AND id != ?', ['approved', user.id]);
+        users.forEach(u => mentionTargetUserIds.add(u.id));
+      } else {
+        if (hasOfficers) {
+          const [users] = await pool.query('SELECT id FROM users WHERE role IN (?, ?) AND status = ? AND id != ?', ['admin', 'superadmin', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasFirstYear) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['1st Year', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasSecondYear) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['2nd Year', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasThirdYear) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['3rd Year', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasFourthYear) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['4th Year', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasFifthYear) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['5th Year', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+        if (hasGraduate) {
+          const [users] = await pool.query('SELECT id FROM users WHERE year_level = ? AND status = ? AND id != ?', ['Graduate', 'approved', user.id]);
+          users.forEach(u => mentionTargetUserIds.add(u.id));
+        }
+      }
+
+      // Individual user mentions parsing
       const mentionRegex = /@([a-zA-Z0-9_\-\.]+)/g;
       const mentionedUsernames = [];
       let match;
       while ((match = mentionRegex.exec(content)) !== null) {
-        mentionedUsernames.push(match[1]);
+        const name = match[1].toLowerCase();
+        if (!['everyone', 'officers', 'firstyear', 'secondyear', 'thirdyear', 'fourthyear', 'fifthyear', 'graduate'].includes(name)) {
+          mentionedUsernames.push(match[1]);
+        }
       }
       const uniqueUsernames = [...new Set(mentionedUsernames)];
       if (uniqueUsernames.length > 0) {
         const [mentionedUsers] = await pool.query(
-          'SELECT id, username FROM users WHERE username IN (?) AND status = ?',
-          [uniqueUsernames, 'approved']
+          'SELECT id FROM users WHERE username IN (?) AND status = ? AND id != ?',
+          [uniqueUsernames, 'approved', user.id]
         );
-        for (const mentionedUser of mentionedUsers) {
-          if (mentionedUser.id !== user.id && mentionedUser.id !== parentAuthorId) {
-            await this.createNotification(
-              mentionedUser.id,
-              'chat_mention',
-              'New Mention',
-              `${user.name} mentioned you in #${channelName}`,
-              'message-square',
-              `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
-              { channel_slug: channelSlug, sender_id: user.id }
-            );
-          }
+        mentionedUsers.forEach(u => mentionTargetUserIds.add(u.id));
+      }
+
+      // Deliver notifications to all targets (excluding those already notified via reply / sender)
+      for (const targetId of mentionTargetUserIds) {
+        if (!notifiedUserIds.has(targetId)) {
+          await this.createNotification(
+            targetId,
+            'chat_mention',
+            'New Mention',
+            `${user.name} mentioned you in #${channelName}`,
+            'message-square',
+            `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
+            { channel_slug: channelSlug, sender_id: user.id }
+          );
+          notifiedUserIds.add(targetId);
         }
       }
     } catch (err) {

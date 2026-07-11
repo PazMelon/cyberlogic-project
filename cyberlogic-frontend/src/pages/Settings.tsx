@@ -693,8 +693,34 @@ export default function Settings() {
                       : "border-border hover:bg-white/5"
                   }`}
                 >
-                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider</span>
+                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Dark)</span>
                   <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Velvet black surfaces with crimson web lines and deep maroon details.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-neon-pink")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-neon-pink"
+                      ? "border-pink-500 bg-pink-500/10 text-pink-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">⚡ Neon Pink Light</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Light mode. Crisp neutral white with electric pink lines and hot cyan glows.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("maroon-spider-light")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "maroon-spider-light"
+                      ? "border-rose-900 bg-rose-50/25 text-rose-850"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider (Light)</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Light mode. Soft rose-tinted surfaces with deep maroon outlines and crimson details.</span>
                 </button>
 
                 <button

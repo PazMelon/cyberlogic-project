@@ -104,13 +104,34 @@ export default function MessageInput({
     }, 10);
   };
 
-  // Filter mention suggestions safely
-  const filteredUsers = (onlineUsers || []).filter((user) =>
-    user && (
-      (user.name && user.name.toLowerCase().includes(mentionQuery.toLowerCase())) ||
-      (user.username && user.username.toLowerCase().includes(mentionQuery.toLowerCase()))
-    )
+  // Filter mention suggestions safely (individual users & system group mentions)
+  const groupMentions = [
+    { id: "group-everyone", name: "Everyone (All Members)", username: "everyone", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=everyone" },
+    { id: "group-officers", name: "Officers (Admins)", username: "officers", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=officers" },
+    { id: "group-firstyear", name: "1st Year Students", username: "firstyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=firstyear" },
+    { id: "group-secondyear", name: "2nd Year Students", username: "secondyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=secondyear" },
+    { id: "group-thirdyear", name: "3rd Year Students", username: "thirdyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=thirdyear" },
+    { id: "group-fourthyear", name: "4th Year Students", username: "fourthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fourthyear" },
+    { id: "group-fifthyear", name: "5th Year Students", username: "fifthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fifthyear" },
+    { id: "group-graduate", name: "Graduates", username: "graduate", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=graduate" }
+  ];
+
+  const filteredGroups = groupMentions.filter((group) =>
+    group.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+    group.username.toLowerCase().includes(mentionQuery.toLowerCase())
   );
+
+  const filteredUsers = [
+    ...filteredGroups,
+    ...(onlineUsers || [])
+      .filter((user) =>
+        user && (
+          (user.name && user.name.toLowerCase().includes(mentionQuery.toLowerCase())) ||
+          (user.username && user.username.toLowerCase().includes(mentionQuery.toLowerCase()))
+        )
+      )
+      .filter((user) => user && !groupMentions.some(g => g.username === user.username))
+  ];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Mentions navigation
