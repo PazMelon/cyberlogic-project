@@ -269,6 +269,98 @@
   --cl-glass-light: rgba(13, 4, 7, 0.5);
 }
 
+:root[data-theme="light-pink"] {
+  --cl-primary: #db2777;
+  --cl-primary-light: #f472b6;
+  --cl-primary-dark: #be185d;
+  --cl-primary-glow: rgba(219, 39, 119, 0.15);
+  --cl-accent: #a855f7;
+  --cl-accent-light: #c084fc;
+  --cl-accent-dark: #9333ea;
+  --cl-accent-glow: rgba(168, 85, 247, 0.15);
+  --cl-surface-950: #fff1f2;
+  --cl-surface-900: #ffe4e6;
+  --cl-surface-800: #fecdd3;
+  --cl-surface-700: #fda4af;
+  --cl-surface-600: #f43f5e;
+  --cl-text-primary: #4c0519;
+  --cl-text-secondary: #881337;
+  --cl-text-muted: #be123c;
+  --cl-border: rgba(76, 5, 25, 0.16);
+  --cl-border-light: rgba(76, 5, 25, 0.08);
+  --cl-glass: rgba(255, 241, 242, 0.8);
+  --cl-glass-light: rgba(255, 241, 242, 0.4);
+}
+
+:root[data-theme="dark-pink"] {
+  --cl-primary: #ec4899;
+  --cl-primary-light: #f472b6;
+  --cl-primary-dark: #db2777;
+  --cl-primary-glow: rgba(236, 72, 153, 0.3);
+  --cl-accent: #f43f5e;
+  --cl-accent-light: #fb7185;
+  --cl-accent-dark: #e11d48;
+  --cl-accent-glow: rgba(244, 63, 94, 0.3);
+  --cl-surface-950: #0f0206;
+  --cl-surface-900: #1a050d;
+  --cl-surface-800: #2a0c18;
+  --cl-surface-700: #3f1426;
+  --cl-surface-600: #5a1e38;
+  --cl-text-primary: #fff1f2;
+  --cl-text-secondary: #fecdd3;
+  --cl-text-muted: #fda4af;
+  --cl-border: rgba(236, 72, 153, 0.20);
+  --cl-border-light: rgba(236, 72, 153, 0.10);
+  --cl-glass: rgba(15, 2, 6, 0.8);
+  --cl-glass-light: rgba(15, 2, 6, 0.4);
+}
+
+:root[data-theme="light-orange"] {
+  --cl-primary: #ea580c;
+  --cl-primary-light: #fb923c;
+  --cl-primary-dark: #c2410c;
+  --cl-primary-glow: rgba(234, 88, 12, 0.15);
+  --cl-accent: #d97706;
+  --cl-accent-light: #f59e0b;
+  --cl-accent-dark: #b45309;
+  --cl-accent-glow: rgba(217, 119, 6, 0.15);
+  --cl-surface-950: #fff7ed;
+  --cl-surface-900: #ffedd5;
+  --cl-surface-800: #fed7aa;
+  --cl-surface-700: #fdba74;
+  --cl-surface-600: #f97316;
+  --cl-text-primary: #431407;
+  --cl-text-secondary: #7c2d12;
+  --cl-text-muted: #9a3412;
+  --cl-border: rgba(67, 20, 7, 0.16);
+  --cl-border-light: rgba(67, 20, 7, 0.08);
+  --cl-glass: rgba(255, 247, 237, 0.8);
+  --cl-glass-light: rgba(255, 247, 237, 0.4);
+}
+
+:root[data-theme="dark-orange"] {
+  --cl-primary: #f97316;
+  --cl-primary-light: #fdba74;
+  --cl-primary-dark: #ea580c;
+  --cl-primary-glow: rgba(249, 115, 22, 0.3);
+  --cl-accent: #f59e0b;
+  --cl-accent-light: #fbbf24;
+  --cl-accent-dark: #d97706;
+  --cl-accent-glow: rgba(245, 158, 11, 0.3);
+  --cl-surface-950: #0f0501;
+  --cl-surface-900: #1a0a03;
+  --cl-surface-800: #2b1207;
+  --cl-surface-700: #3f1b0c;
+  --cl-surface-600: #5a2814;
+  --cl-text-primary: #ffedd5;
+  --cl-text-secondary: #fed7aa;
+  --cl-text-muted: #fdba74;
+  --cl-border: rgba(249, 115, 22, 0.20);
+  --cl-border-light: rgba(249, 115, 22, 0.10);
+  --cl-glass: rgba(15, 5, 1, 0.8);
+  --cl-glass-light: rgba(15, 5, 1, 0.4);
+}
+
 /* ============================================
    BASE STYLES
    ============================================ */

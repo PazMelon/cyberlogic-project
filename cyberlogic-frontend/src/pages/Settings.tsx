@@ -696,6 +696,58 @@ export default function Settings() {
                   <span className="text-xs font-bold text-text-primary block">🕷️ Maroon Spider</span>
                   <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Velvet black surfaces with crimson web lines and deep maroon details.</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-pink")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-pink"
+                      ? "border-pink-500 bg-pink-500/10 text-pink-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🌸 Light Pink</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Soft rose light background with warm pink accents and deep burgundy text.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("dark-pink")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "dark-pink"
+                      ? "border-pink-400 bg-pink-950/20 text-pink-400"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🌺 Dark Pink</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Black-cherry background with hot pink highlights and rose details.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("light-orange")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "light-orange"
+                      ? "border-orange-500 bg-orange-500/10 text-orange-500"
+                      : "border-border hover:bg-black/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🍊 Light Orange</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Soft orange cream light background with warm citrus highlights and brown text.</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleThemeChange("dark-orange")}
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
+                    theme === "dark-orange"
+                      ? "border-orange-400 bg-orange-950/20 text-orange-400"
+                      : "border-border hover:bg-white/5"
+                  }`}
+                >
+                  <span className="text-xs font-bold text-text-primary block">🔥 Dark Orange</span>
+                  <span className="text-[9px] text-text-muted mt-0.5 block">Dark mode. Ember charcoal background with glowing orange accents.</span>
+                </button>
               </div>
             </div>
           </div>
