@@ -1,8 +1,9 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router";
-import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert } from "lucide-react";
+import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert, Pencil } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import ReactionPicker from "./ReactionPicker";
+import { PromptDialog } from "../ui";
 
 export interface ChatMessage {
   id: number;
@@ -42,6 +43,7 @@ export interface MessageBubbleProps {
   onOpenFullPicker: (messageId: number) => void;
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
+  onEdit?: (messageId: number, newContent: string) => void;
   readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
   onToast?: (msg: string) => void;
   onJumpToMessage?: (parentId: number) => void;
@@ -79,6 +81,7 @@ export default function MessageBubble({
   onOpenFullPicker,
   onReply,
   onDelete,
+  onEdit,
   readReceipts = [],
   onToast,
   onJumpToMessage,
@@ -91,6 +94,7 @@ export default function MessageBubble({
   const isSwiping = useRef(false);
 
   const { user } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
   const seenUsers = readReceipts.filter(
     (r) => r.message_id === message.id && (user ? Number(r.user_id) !== Number(user.id) : true)
   );
@@ -477,6 +481,16 @@ export default function MessageBubble({
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         )}
+        {onEdit && (
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className="p-1.5 rounded-full bg-surface-800 border border-border text-text-muted hover:text-primary hover:border-primary/50 transition-colors shadow-md cursor-pointer"
+            title="Edit message"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Floating Reaction Bar popover */}
@@ -724,6 +738,22 @@ export default function MessageBubble({
           )
         )}
       </div>
+      {onEdit && (
+        <PromptDialog
+          isOpen={isEditing}
+          title="Edit Message"
+          message="Modify your message content below:"
+          defaultValue={message.content}
+          confirmText="Save Changes"
+          onConfirm={(newText) => {
+            if (newText.trim() && newText.trim() !== message.content) {
+              onEdit(message.id, newText.trim());
+            }
+            setIsEditing(false);
+          }}
+          onClose={() => setIsEditing(false)}
+        />
+      )}
     </div>
   );
 }

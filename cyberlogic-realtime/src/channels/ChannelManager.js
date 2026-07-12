@@ -298,6 +298,12 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleDeleteMessage(client, user, channelSlug, payload);
         }
+      } else if (type === 'edit_message') {
+        // Handle message editing
+        if (channel.startsWith('chat:')) {
+          const channelSlug = channel.split(':')[1];
+          await this.handleEditMessage(client, user, channelSlug, payload);
+        }
       }
     } catch (err) {
       console.error('[WS] Error handling message:', err.message);
@@ -591,6 +597,27 @@ class ChannelManager {
           notifiedUserIds.add(targetId);
         }
       }
+
+      // Check and trigger batch content moderation if 50 unprocessed messages are reached
+      try {
+        const [unprocessedCount] = await pool.query(
+          "SELECT COUNT(*) as count FROM chat_messages WHERE moderation_status = 'none' AND is_deleted = 0"
+        );
+        if (unprocessedCount[0].count >= 50) {
+          console.log(`[WS] Unprocessed queue reached ${unprocessedCount[0].count} messages. Triggering batch AI moderation...`);
+          fetch(`${LARAVEL_URL}/api/internal/chat/messages/moderate-batch`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Realtime-Secret': REALTIME_WS_SECRET,
+            }
+          }).catch(triggerErr => {
+            console.error('[WS] Failed to trigger batch AI moderation webhook:', triggerErr.message);
+          });
+        }
+      } catch (countErr) {
+        console.error('[WS] Error checking unprocessed messages count:', countErr.message);
+      }
     } catch (err) {
       console.error('[WS] Error saving/broadcasting chat message:', err.message);
       this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to send message.' });
@@ -801,6 +828,90 @@ class ChannelManager {
     } catch (err) {
       console.error('[WS] Error handling message deletion:', err.message);
       this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to delete message.' });
+    }
+  }
+
+  /**
+   * Handle chat message editing/modification via WebSocket.
+   * Verifies modify_welcome_info_messages permission for Welcome & Info category channels,
+   * updates content in DB, transfers user_id to editor, and broadcasts updated message.
+   */
+  async handleEditMessage(client, user, channelSlug, payload) {
+    const { messageId, newContent } = payload;
+    if (!messageId || !newContent || !newContent.trim()) {
+      this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Message ID and updated content are required.' });
+      return;
+    }
+
+    try {
+      // 1. Get channel info and verify grouping category
+      const [channels] = await pool.query(
+        'SELECT id, grouping FROM chat_channels WHERE slug = ? LIMIT 1',
+        [channelSlug]
+      );
+
+      if (channels.length === 0) {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Channel not found.' });
+        return;
+      }
+
+      const channelGrouping = channels[0].grouping;
+
+      // Only allow editing if the channel belongs to the 'Welcome & Info' category
+      if (channelGrouping !== 'Welcome & Info') {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Message editing is only allowed in Welcome & Info channels.' });
+        return;
+      }
+
+      // Check modify_welcome_info_messages permission
+      const isAuthorized = user.role === 'superadmin' ||
+        (Array.isArray(user.permission_keys) && user.permission_keys.includes('modify_welcome_info_messages'));
+
+      if (!isAuthorized) {
+        console.log(`[WS] Edit rejected: User ${user.name} (ID: ${user.id}) lacks modify_welcome_info_messages permission`);
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'You do not have permission to modify messages in this channel.' });
+        return;
+      }
+
+      // Verify message exists and is not deleted
+      const [msgs] = await pool.query(
+        'SELECT id, is_deleted FROM chat_messages WHERE id = ? LIMIT 1',
+        [messageId]
+      );
+
+      if (msgs.length === 0) {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Message not found.' });
+        return;
+      }
+
+      if (msgs[0].is_deleted) {
+        this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Cannot edit a deleted message.' });
+        return;
+      }
+
+      // Update message content and TRANSFER user_id to the editor
+      await pool.query(
+        'UPDATE chat_messages SET content = ?, user_id = ?, updated_at = NOW() WHERE id = ?',
+        [newContent.trim(), user.id, messageId]
+      );
+
+      console.log(`[WS] Message ${messageId} modified by ${user.name} (ID: ${user.id}). Content ownership transferred.`);
+
+      // Broadcast the edited message update to all subscribers
+      this.broadcast(`chat:${channelSlug}`, 'message_edited', {
+        messageId,
+        channelId: channelSlug,
+        content: newContent.trim(),
+        author: user.name,
+        authorAvatar: user.avatar,
+        authorId: user.id,
+        authorUsername: user.username || null,
+        timestamp: new Date().toISOString(),
+      });
+
+    } catch (err) {
+      console.error('[WS] Error handling message edit:', err.message);
+      this.sendToClient(client, `chat:${channelSlug}`, 'error', { message: 'Failed to edit message.' });
     }
   }
 }

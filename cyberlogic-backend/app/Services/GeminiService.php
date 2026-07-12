@@ -80,4 +80,60 @@ class GeminiService
             ];
         }
     }
+
+    /**
+     * Moderate a batch of text messages using Gemini API.
+     *
+     * @param array $messages Array of items: [['id' => 123, 'content' => 'hello'], ...]
+     * @return array Array of results: [['id' => 123, 'is_harmful' => false, 'reason' => null], ...]
+     */
+    public static function moderateBatch(array $messages): array
+    {
+        $apiKey = config('gemini.api_key') ?: config('services.gemini.key');
+        $model = env('GEMINI_MODEL', 'gemini-3.1-flash-lite');
+
+        if (empty($apiKey) || empty($messages)) {
+            return [];
+        }
+
+        try {
+            $formattedMessages = json_encode($messages, JSON_PRETTY_PRINT);
+            $prompt = "You are a strict chat content moderator. Analyze the following list of user chat messages. Check each message for toxicity, inappropriateness, harm, hate speech, harassment, self-harm, sexual content, violence, or other violations of chat safety guidelines.\n\n" .
+                      "Respond strictly in JSON array format containing the evaluation of each message. Each item in the array must follow this exact structure:\n" .
+                      "{\n" .
+                      "    \"id\": the numeric ID of the message,\n" .
+                      "    \"is_harmful\": true or false,\n" .
+                      "    \"reason\": \"A short explanation (max 10 words) of why the message was flagged, or null if it is safe and appropriate.\"\n" .
+                      "}\n\n" .
+                      "Here is the list of messages in JSON format to analyze:\n" .
+                      "{$formattedMessages}";
+
+            $config = new GenerationConfig(
+                responseMimeType: ResponseMimeType::APPLICATION_JSON
+            );
+
+            $response = Gemini::generativeModel(model: $model)
+                ->withGenerationConfig($config)
+                ->generateContent($prompt);
+
+            $responseText = $response->text();
+
+            if (empty($responseText)) {
+                return [];
+            }
+
+            $result = json_decode(trim($responseText), true);
+
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($result)) {
+                Log::error('Failed to parse Gemini batch moderation JSON response: ' . $responseText);
+                return [];
+            }
+
+            return $result;
+
+        } catch (\Throwable $e) {
+            Log::error('Error occurred during Gemini batch content moderation: ' . $e->getMessage());
+            return [];
+        }
+    }
 }

@@ -293,6 +293,23 @@ export function useChat() {
         } else {
           setTypingUsers((prev) => prev.filter((u) => u.userId !== userId));
         }
+      } else if (type === "message_edited") {
+        const { messageId, content, author, authorAvatar, authorId, authorUsername } = payload;
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId
+              ? {
+                  ...msg,
+                  content,
+                  author,
+                  authorAvatar,
+                  authorId,
+                  authorUsername,
+                  isMe: currentUser && Number(authorId) === Number(currentUser.id) ? true : false,
+                }
+              : msg
+          )
+        );
       } else if (type === "message_deleted") {
         const { messageId, content } = payload;
         setMessages((prev) =>
@@ -533,6 +550,14 @@ export function useChat() {
     setDeletingMessage(null);
   };
 
+  const handleEditMessage = (messageId: number, newContent: string) => {
+    if (!activeChannel) return;
+    sendMessage("edit_message", `chat:${activeChannel}`, {
+      messageId,
+      newContent,
+    });
+  };
+
   const canDeleteMessages = hasPermission("manage_chat");
 
   return {
@@ -570,6 +595,7 @@ export function useChat() {
     handleSelectGif,
     handleToggleEmoji,
     handleConfirmDelete,
+    handleEditMessage,
     loadMoreHistory,
     loadNewerHistory,
     jumpToMessage,

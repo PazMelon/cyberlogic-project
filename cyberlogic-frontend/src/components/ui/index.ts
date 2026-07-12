@@ -7,3 +7,4 @@ export * from "./AnnouncementCard";
 export * from "./DataTable";
 export * from "./BlogCard";
 export * from "./Dialog";
+export * from "./PromptDialog";

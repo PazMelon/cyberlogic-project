@@ -39,6 +39,7 @@ Route::get('/api/officers', [OfficerController::class, 'index']);
 Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
 
 Route::post('/api/internal/chat/messages/moderate', [ChatController::class, 'moderateMessage']);
+Route::post('/api/internal/chat/messages/moderate-batch', [ChatController::class, 'moderateBatchMessages']);
 
 Route::get('/api/announcements', [AnnouncementController::class, 'index']);
 Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);

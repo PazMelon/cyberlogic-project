@@ -728,4 +728,74 @@ class ChatController extends Controller
             'reason' => $result['reason']
         ]);
     }
+
+    /**
+     * Internal endpoint for WebSocket server to request Gemini batch moderation (Secret header required).
+     */
+    public function moderateBatchMessages(Request $request): JsonResponse
+    {
+        $secretHeader = $request->header('X-Realtime-Secret');
+        $expectedSecret = config('services.realtime.secret');
+
+        if (empty($secretHeader) || $secretHeader !== $expectedSecret) {
+            return response()->json(['error' => 'Unauthorized internal call'], 401);
+        }
+
+        // Run the batch moderation
+        $messages = ChatMessage::where('moderation_status', 'none')
+            ->where('is_deleted', false)
+            ->limit(50)
+            ->get();
+
+        if ($messages->isEmpty()) {
+            return response()->json([
+                'processed' => 0,
+                'message' => 'No unprocessed messages found.'
+            ]);
+        }
+
+        $payload = $messages->map(fn($m) => [
+            'id' => $m->id,
+            'content' => $m->content
+        ])->toArray();
+
+        $results = \App\Services\GeminiService::moderateBatch($payload);
+
+        if (empty($results)) {
+            return response()->json([
+                'error' => 'Failed to receive or parse AI moderation evaluation.'
+            ], 500);
+        }
+
+        $flaggedCount = 0;
+        $approvedCount = 0;
+
+        foreach ($results as $item) {
+            $msgId = $item['id'] ?? null;
+            $isHarmful = filter_var($item['is_harmful'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $reason = $item['reason'] ?? null;
+
+            $message = ChatMessage::find($msgId);
+            if ($message) {
+                $message->update([
+                    'is_flagged' => $isHarmful,
+                    'flagged_reason' => $reason,
+                    'moderation_status' => $isHarmful ? 'flagged' : 'approved',
+                ]);
+
+                if ($isHarmful) {
+                    $flaggedCount++;
+                } else {
+                    $approvedCount++;
+                }
+            }
+        }
+
+        return response()->json([
+            'processed' => $messages->count(),
+            'approved' => $approvedCount,
+            'flagged' => $flaggedCount,
+            'message' => 'Batch moderation complete.'
+        ]);
+    }
 }

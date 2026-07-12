@@ -52,6 +52,7 @@ export default function Chat() {
     handleSelectGif,
     handleToggleEmoji,
     handleConfirmDelete,
+    handleEditMessage,
     loadMoreHistory,
     loadNewerHistory,
     jumpToMessage,
@@ -217,6 +218,13 @@ export default function Chat() {
             isFetchingMore={isFetchingMoreMessages}
             onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
             onDelete={canDeleteMessages && !activeChannelData?.is_protected ? handleDeleteClick : undefined}
+            onEdit={
+              activeChannelData?.grouping === "Welcome & Info" &&
+              (currentUser?.role === "superadmin" ||
+                currentUser?.permission_keys?.includes("modify_welcome_info_messages"))
+                ? handleEditMessage
+                : undefined
+            }
             onToast={triggerToast}
             onJumpToMessage={jumpToMessage}
             onLoadNewer={loadNewerHistory}

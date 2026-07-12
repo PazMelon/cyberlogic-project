@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Shield, Check, Trash2, Clock, AlertTriangle, User } from "lucide-react";
-import { Button, Card, DataTable } from "../../components/ui";
+import { Button, Card, DataTable, PromptDialog } from "../../components/ui";
 import { apiRequest, useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
 import { useSEO } from "../../utils/useSEO";
@@ -29,6 +29,7 @@ export default function FreedomWallModeration() {
   const { user: currentUser } = useAuth();
   const [flaggedMessages, setFlaggedMessages] = useState<FlaggedMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [rejectingMessageId, setRejectingMessageId] = useState<number | null>(null);
 
   const isSuperAdmin = currentUser?.role === "superadmin";
 
@@ -98,24 +99,14 @@ export default function FreedomWallModeration() {
     }
   };
 
-  const handleReject = async (id: number) => {
-    const reason = prompt("Please enter the reason for rejecting/deleting this message:");
-    if (reason === null) return;
-    if (!reason.trim()) {
-      showAlert({
-        title: "Reason Required",
-        message: "A reason is required to reject a message.",
-        type: "warning",
-      });
-      return;
-    }
+  const handleReject = (id: number) => {
+    setRejectingMessageId(id);
+  };
 
-    const confirmed = await showConfirm({
-      title: "Reject & Delete Message?",
-      message: `This will permanently hide and soft-delete the message. Reason: "${reason}". Proceed?`,
-      type: "warning",
-    });
-    if (!confirmed) return;
+  const handleConfirmReject = async (reason: string) => {
+    if (!rejectingMessageId) return;
+    const id = rejectingMessageId;
+    setRejectingMessageId(null);
 
     try {
       const res = await apiRequest(`/api/admin/chat/messages/${id}/reject`, {
@@ -318,6 +309,16 @@ export default function FreedomWallModeration() {
           />
         )}
       </Card>
+
+      <PromptDialog
+        isOpen={rejectingMessageId !== null}
+        title="Reject & Delete Message"
+        message="Please provide a reason for rejecting/deleting this message. This will permanently hide and soft-delete it."
+        placeholder="Enter rejection reason..."
+        confirmText="Reject Message"
+        onConfirm={handleConfirmReject}
+        onClose={() => setRejectingMessageId(null)}
+      />
     </div>
   );
 }

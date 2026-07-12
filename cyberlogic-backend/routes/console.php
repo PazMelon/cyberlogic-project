@@ -15,3 +15,5 @@ Schedule::call(function () {
         ->where('date', '<', now()->toDateString())
         ->update(['status' => 'completed']);
 })->daily()->name('auto-complete-events');
+
+Schedule::command('chat:moderate-batch')->hourly()->name('batch-chat-moderation');

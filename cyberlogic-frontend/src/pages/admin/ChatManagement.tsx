@@ -74,6 +74,15 @@ export default function ChatManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editingChannel, setEditingChannel] = useState<DbChatChannel | null>(null);
 
+  // Compute unique groupings from existing channels for the select-or-type dropdown
+  const defaultGroupings = ["Welcome & Info", "General Discussions", "Academic & Help", "System"];
+  const uniqueGroupings = Array.from(
+    new Set([
+      ...defaultGroupings,
+      ...channels.map((ch) => ch.grouping).filter(Boolean),
+    ])
+  );
+
   // Form Fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -747,12 +756,18 @@ export default function ChatManagement() {
                   <label className="text-xs font-semibold text-text-secondary">Group Category Name *</label>
                   <input
                     type="text"
+                    list="grouping-list"
                     required
                     value={grouping}
                     onChange={(e) => setGrouping(e.target.value)}
-                    placeholder="e.g. Academic & Help"
+                    placeholder="Select grouping or type custom..."
                     className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
                   />
+                  <datalist id="grouping-list">
+                    {uniqueGroupings.map((g) => (
+                      <option key={g} value={g} />
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
