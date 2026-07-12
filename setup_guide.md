@@ -1,6 +1,6 @@
-# Cyberlogic Realtime Service - Production Setup Guide
+# Cyberlogic Portal - Production & Realtime Setup Guide
 
-This document describes how to configure and deploy the Node.js Realtime WebSocket service alongside the Laravel backend in a production environment using **Laragon (Apache)** and **Cloudflare Tunneling**.
+This document describes how to configure and deploy the Node.js Realtime WebSocket service alongside the Laravel backend in a production environment using **Laragon (Apache)**, **Cloudflare Tunneling**, and the **AI Batch Moderation scheduler**.
 
 ---
 
@@ -11,6 +11,7 @@ In production, the application runs on a host machine (e.g., Mini-PC) with the f
 - **Node.js WebSocket Server**: Runs on local port `3001` (`cyberlogic-realtime`).
 - **Cloudflare Tunnel**: Exposes the site securely to the internet (`https://cyberlogic.pazmelon.com`).
 - **Apache Proxy Pass**: Configured only inside the project's VirtualHost block to route `/ws` path requests to port `3001` internally. This allows both HTTP and WebSocket traffic to share port `80/443` without opening extra port firewalls.
+- **Background Scheduler**: A background loop executes Laravel's scheduler once every minute to trigger batch AI moderation tasks and cleanups.
 
 ---
 
@@ -34,7 +35,14 @@ DB_PASSWORD=your_secure_password
 
 # Secret token shared with Node WebSocket server for system broadcasts
 REALTIME_WS_SECRET=secret_token_here
+
+# Gemini API Integration for Message Moderation
+GEMINI_API_KEY=your_actual_api_studio_key_here
+GEMINI_VERSION=v1beta
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
+> [!IMPORTANT]
+> The `GEMINI_API_KEY` is required for the batch AI moderation scanner to analyze flagged messages. Get a free API key from Google AI Studio.
 
 ### B. Realtime WebSocket Service (`cyberlogic-realtime/.env`)
 Ensure database settings match Laravel's production parameters:
@@ -50,59 +58,28 @@ DB_DATABASE=cyberlogic
 DB_USERNAME=root
 DB_PASSWORD=your_secure_password
 ```
-> [!NOTE]
-> The `LARAVEL_URL` points to `http://127.0.0.1:8000` by default to preserve the local development workspace, but our code dynamically overrides this to port `80` with virtual host headers when it detects production traffic.
-
-### C. Local Development Environment Configurations
-
-Below are the exact development variables currently configured on the repository:
-
-#### 1. Laravel Backend Development (`cyberlogic-backend/.env`)
-```env
-APP_NAME=Laravel
-APP_ENV=local
-APP_KEY=your_base64_key_here
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=cyberlogic-backend
-DB_USERNAME=root
-DB_PASSWORD=your_secure_password
-
-SESSION_DRIVER=database
-SESSION_LIFETIME=120
-SESSION_ENCRYPT=false
-SESSION_PATH=/
-SESSION_DOMAIN=null
-
-BROADCAST_CONNECTION=log
-FILESYSTEM_DISK=local
-QUEUE_CONNECTION=database
-CACHE_STORE=database
-
-REALTIME_WS_SECRET=secret_token_here
-```
-
-#### 2. Realtime WebSocket Service Development (`cyberlogic-realtime/.env`)
-```env
-WS_PORT=3001
-LARAVEL_URL=http://127.0.0.1:8000
-REALTIME_WS_SECRET=secret_token_here
-
-# Database configuration (matching development Laravel)
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=cyberlogic-backend
-DB_USERNAME=root
-DB_PASSWORD=your_secure_password
-```
 
 ---
 
-## 3. Apache Configuration inside Laragon
+## 3. Windows & Laragon Background Scheduler (AI Moderation Setup)
+
+The batch AI moderation pipeline runs automatically either when **50 messages** accumulate or **hourly** via the Laravel Task Scheduler. 
+
+Because Windows does not support native Linux cron jobs, you must set up the Windows Task Runner loop to keep the scheduler running:
+
+### Step 1: Locate the Batch Runner Script
+In the root directory of the project, we have created the [run-scheduler.bat](file:///c:/laragon/www/cyberlogic-project/run-scheduler.bat) file. This script runs a lightweight infinite Command Prompt loop that triggers Laravel's scheduler once every 60 seconds and releases 100% of its memory after each execution to prevent memory leaks/bloat.
+
+### Step 2: Set Up Automatic Boot Launch
+To ensure the scheduler starts automatically if the Windows machine restarts:
+1. Press `Win + R` on your keyboard.
+2. Type `shell:startup` and press Enter to open the Windows Startup directory.
+3. Right-click [run-scheduler.bat](file:///c:/laragon/www/cyberlogic-project/run-scheduler.bat), select **Create Shortcut**, and move the created shortcut into this Startup directory.
+4. Keep the command prompt running on the desktop server. If the process terminates, it is self-healing and will automatically restart PHP on the next loop iteration.
+
+---
+
+## 4. Apache Configuration inside Laragon
 
 To enable internal forwarding of WebSocket handshakes, you must turn on the proxy modules and add a proxy routing rule.
 
@@ -144,48 +121,6 @@ Add the `ProxyPass` directives **inside** the `<VirtualHost *:80>` block of your
 
 ---
 
-## 4. Key Design Implementation Details
-
-Our code incorporates several custom solutions to make production hosting through Cloudflare Tunnels smooth:
-
-### A. Dynamic Host Authentication Header Routing
-In production, Cloudflare requests come to Laragon Apache, which routes based on name-based hosting. We forward the `Host` header to ensure Apache directs the verification request to the correct site:
-```javascript
-// From cyberlogic-realtime/src/auth.js
-const hostHeader = req.headers.host || '';
-const laravelTargetUrl = hostHeader.includes('cyberlogic.pazmelon.com')
-  ? 'http://127.0.0.1:80'
-  : DEFAULT_LARAVEL_URL;
-
-const requestHeaders = {
-  'Accept': 'application/json',
-  'Cookie': rawCookies,
-};
-if (hostHeader.includes('cyberlogic.pazmelon.com')) {
-  requestHeaders['Host'] = 'cyberlogic.pazmelon.com';
-}
-```
-
-### B. Timezone Offset / Clock Drift Immunity
-To prevent ticket verification from failing due to clock drift or timezone differences between the MySQL database and PHP/Laravel, the ticket query allows a 24-hour buffer:
-```javascript
-const dbUserExpires = new Date(dbUser.expires_at).getTime();
-const currentSystemTime = new Date().getTime();
-if (dbUserExpires < currentSystemTime - (24 * 60 * 60 * 1000)) {
-  // Ticket is older than 24h
-}
-```
-
-### C. Relative WebSocket URL
-The frontend uses a relative WebSocket URL structure so it automatically inherits HTTP/HTTPS protocol handshakes seamlessly across local development and production domains:
-```typescript
-// From cyberlogic-frontend/src/utils/websocket.ts
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-this.url = `${protocol}//${window.location.host}/ws`;
-```
-
----
-
 ## 5. Troubleshooting Checklists
 
 ### 1. "Unexpected token < in JSON at position 0"
@@ -202,16 +137,7 @@ this.url = `${protocol}//${window.location.host}/ws`;
 
 ### 4. Uploaded files (avatars, announcement images) return 404
 * **Reason**: The public storage symbolic link (`public/storage`) is missing, broken, or misconfigured in production.
-* **Fix**:
-  1. Open a terminal on your production server.
-  2. Navigate to your backend directory (`cyberlogic-backend`).
-  3. Delete any existing broken/invalid symbolic link if it exists:
-     * **Linux/macOS**: `rm public/storage`
-     * **Windows (Command Prompt)**: `rmdir public\storage`
-     * **Windows (PowerShell)**: `Remove-Item public\storage`
-  4. Regenerate the symbolic link using Artisan:
-     ```bash
-     php artisan storage:link
-     ```
-  5. Ensure your web server allows following symbolic links:
-     * **Apache**: Ensure `Options FollowSymLinks` is active for your document root directory.
+* **Fix**: Regenerate the link inside `cyberlogic-backend`:
+  ```bash
+  php artisan storage:link
+  ```

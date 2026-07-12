@@ -74,11 +74,11 @@ The Cyberlogic Club Portal is built as a distributed full-stack application comp
 - **Mobile Drawer Menus**: Converted the notifications and user profile menus in `Topbar.tsx` into right-hand slide-out drawer menus (sidebars) on mobile/tablet viewports (`< lg`). Fixed a CSS stacking context rendering bug by positioning the mobile drawer overlays outside of the sticky glass `<header>` element. Added a body scroll lock hook to prevent background scrolling when any mobile drawer or navigation drawer is active.
 - **Resource Image Validation Fix**: Updated the backend validation in `ResourceController.php` (both `store` and `update` methods) to dynamically allow file uploads or pre-existing image URL strings, resolving validation issues when publishing resources.
 - **Rate-Limited Resource Counters (CGNAT Compatible)**: Implemented 5-minute throttled accesses and downloads counters for learning resources.
-  - Added an `access_count` column to the `resources` table via database migrations.
-  - Implemented `/api/resources/{id}/download` endpoint to handle download files and external links redirection.
-  - Added 5-minute counter increment throttling tracked via Laravel's cache.
-  - Used Laravel's unique session IDs for guest rate-limiting to prevent IP-sharing/CGNAT false rate limits.
-  - Re-designed the frontend to separate views and downloads statistics with `Eye` and `Download` Lucide icons.
+- **Hybrid Batch AI Messages Moderation**: Excludes bots and non-text system messages to conserve tokens. Automates message scanning in batches of 50 or hourly via scheduled task loops.
+- **Dynamic Message Moderation Panel**: Redesigned administrative hub including dynamic analytical metrics cards (Pending Flags, Total Rejected, Hotspot Channel) with daily trends, tab-based sorting filters (Pending, Approved History, Rejected History, All), and inline colored status badges.
+- **Admin Rejection notifications**: Sends real-time WebSocket alerts to the message owner when their message is manually rejected or deleted by an admin, featuring inline reasons and deep link redirects to the target channel with autoscrolling.
+- **Protected Chat Categories**: Restricts modifications or deletions of `"Welcome & Info"` category channels (`Welcome`, `Announcements`, `Rules`) using the new `modify_welcome_info_messages` matrix authorization check.
+- **PromptDialog Component**: Designed an interactive, modern dialog modal themed to match the website branding, replacing ugly standard browser popup input alerts.
 
 ---
 
@@ -98,7 +98,7 @@ cyberlogic-project/
 ├── cyberlogic-realtime/     # Node.js WebSocket service
 │   └── src/                 # Server logic, connection handling, database helpers
 ├── README.md                # Main project overview & developer startup guide
-└── REALTIME_SETUP_GUIDE.md  # Production deploy & Cloudflare tunnel guide
+└── setup_guide.md           # Production deploy, scheduler configurations, and tunnel guide
 ```
 
 ---
@@ -216,7 +216,7 @@ The portal uses CSS variables for styling. You can customize the look by changin
 
 ## 🌐 Production & Advanced Deployments
 
-For hosting the portal in a production environment with a Cloudflare tunnel and Apache proxy pass routing, please consult the detailed instructions in [REALTIME_SETUP_GUIDE.md](file:///c:/laragon/www/cyberlogic-project/REALTIME_SETUP_GUIDE.md).
+For hosting the portal in a production environment with a Cloudflare tunnel and Apache proxy pass routing, please consult the detailed instructions in [setup_guide.md](file:///c:/laragon/www/cyberlogic-project/setup_guide.md).
 
 ---
 
