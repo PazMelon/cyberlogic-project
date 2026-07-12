@@ -259,7 +259,21 @@ export default function Events() {
                 : "space-y-4"
             }
           >
-            {filtered.map((event) => {
+            {[...filtered].sort((a, b) => {
+              const statusWeights: Record<string, number> = {
+                ongoing: 1,
+                upcoming: 2,
+                completed: 3,
+                closed: 4,
+                postponed: 4,
+              };
+              const weightA = statusWeights[a.status.toLowerCase()] || 99;
+              const weightB = statusWeights[b.status.toLowerCase()] || 99;
+              if (weightA !== weightB) {
+                return weightA - weightB;
+              }
+              return b.date.localeCompare(a.date);
+            }).map((event) => {
               const eventDate = new Date(event.date);
               const month = eventDate.toLocaleString("default", {
                 month: "short",

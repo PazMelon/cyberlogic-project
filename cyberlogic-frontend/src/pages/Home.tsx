@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router";
 import {
   MessageSquare,
   MessagesSquare,
@@ -11,12 +12,16 @@ import {
   fetchEvents,
   fetchForumCategories,
   fetchForumThreads,
-  fetchDashboardStats
+  fetchDashboardStats,
+  fetchBlogs,
+  fetchResources,
 } from "../utils/api";
 import type {
   ForumCategoryMapped,
   ForumThreadMapped,
-  DashboardStats
+  DashboardStats,
+  BlogPost,
+  ResourceMapped,
 } from "../utils/api";
 import type { Announcement, Event } from "../data/mockData";
 import { SkeletonLine, SkeletonBox } from "../components/Skeleton";
@@ -26,7 +31,11 @@ import { StatCard } from "../components/dashboard/StatCard";
 import { DashboardCard } from "../components/dashboard/DashboardCard";
 import { ReputationLeaderboard } from "../components/dashboard/ReputationLeaderboard";
 import { ForumsActivityHub } from "../components/dashboard/ForumsActivityHub";
-import { CategoryNewestCard } from "../components/dashboard/CategoryNewestCard";
+
+// Redesigned modular sub-components
+import ForumPerformance from "../components/dashboard/ForumPerformance";
+import LatestBlogs from "../components/dashboard/LatestBlogs";
+import LatestResources from "../components/dashboard/LatestResources";
 
 import { useSEO } from "../utils/useSEO";
 
@@ -46,20 +55,26 @@ export default function Home() {
   const [categories, setCategories] = useState<ForumCategoryMapped[]>([]);
   const [threads, setThreads] = useState<ForumThreadMapped[]>([]);
   const [dbStats, setDbStats] = useState<DashboardStats | null>(null);
+  const [latestBlogs, setLatestBlogs] = useState<BlogPost[]>([]);
+  const [latestResources, setLatestResources] = useState<ResourceMapped[]>([]);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [annData, evData, catsData, threadsData, statsData] = await Promise.all([
+        const [annData, evData, catsData, threadsData, statsData, blogsData, resourcesData] = await Promise.all([
           fetchAnnouncements(),
           fetchEvents(),
           fetchForumCategories(),
           fetchForumThreads(),
-          fetchDashboardStats()
+          fetchDashboardStats(),
+          fetchBlogs(),
+          fetchResources({ status: "approved" }),
         ]);
         setCategories(catsData);
         setThreads(threadsData);
         setDbStats(statsData);
+        setLatestBlogs(blogsData.slice(0, 4));
+        setLatestResources(resourcesData.slice(0, 4));
 
         const todayStr = new Date().toISOString().split('T')[0];
         const upcoming = evData.filter((e) => e.date >= todayStr);
@@ -94,7 +109,7 @@ export default function Home() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-      {/* Left Column (2/3 width): Welcome, Stats, Forum Hub & Category Newest Threads */}
+      {/* Left Column (2/3 width): Welcome, Stats, Forum Hub & Performance Widgets */}
       <div className="lg:col-span-2 space-y-6">
         <WelcomeBanner name={user?.name || "Member"} totalUpcomingCount={totalUpcomingCount} />
 
@@ -136,18 +151,19 @@ export default function Home() {
           <ForumsActivityHub />
         )}
 
-        {/* Newest Threads Category Cards Stacked Vertically */}
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="glass rounded-2xl p-5 h-[280px] animate-pulse flex items-center justify-center">
-              <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
-            </div>
-          ))
-        ) : (
-          categories.map((cat) => (
-            <CategoryNewestCard key={cat.id} category={cat} threads={threads} />
-          ))
-        )}
+        {/* User's Forum Performance Metrics */}
+        <ForumPerformance
+          user={user}
+          threads={threads}
+          categories={categories}
+          isLoading={isLoading}
+        />
+
+        {/* Latest Blogs and Resources widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <LatestBlogs blogs={latestBlogs} isLoading={isLoading} />
+          <LatestResources resources={latestResources} isLoading={isLoading} />
+        </div>
       </div>
 
       {/* Right Column (1/3 width): sidebar with Events (non-sticky), Announcements (sticky), and Leaderboard (sticky) */}
