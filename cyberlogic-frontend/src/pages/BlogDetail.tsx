@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "react-router";
-import { ChevronLeft, Calendar, Clock, Star, Tag, User } from "lucide-react";
+import { Calendar, Clock, Star, Tag, User } from "lucide-react";
 import { fetchBlogById } from "../utils/api";
 import type { BlogPost } from "../data/mockData";
-import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
-import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
 import { useSEO } from "../utils/useSEO";
+import DetailLayout from "../components/common/DetailLayout";
 
 export default function BlogDetail() {
   const { id } = useParams();
@@ -15,10 +14,7 @@ export default function BlogDetail() {
   const [item, setItem] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isViewerOpen, setIsViewerOpen] = useState(false);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Cover image resolver helper function defined below can be resolved locally or duplicated.
   const getCoverImageUrl = () => {
     if (!item) return undefined;
     return item.image ? (item.image.startsWith("http") ? item.image : `${window.location.origin}/storage/${item.image}`) : undefined;
@@ -48,30 +44,6 @@ export default function BlogDetail() {
     loadDetail();
   }, [id]);
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-        <p className="text-xs text-text-muted">Retrieving blog details...</p>
-      </div>
-    );
-  }
-
-  if (error || !item) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <h2 className="text-xl font-bold text-text-primary">Blog Post Not Found</h2>
-        <p className="text-xs text-text-muted mt-1">{error}</p>
-        <Link
-          to={isPortal ? "/app/blogs" : "/blogs"}
-          className="text-primary hover:underline text-sm mt-4 flex items-center gap-1"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to blog feed
-        </Link>
-      </div>
-    );
-  }
-
   const categoryColors: Record<string, string> = {
     Tech: "bg-primary/10 text-primary border-primary/20",
     Tutorial: "bg-accent/10 text-accent border-accent/20",
@@ -81,363 +53,168 @@ export default function BlogDetail() {
     Academic: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   };
 
-  // Fallback image seed parser
-  const resolveCoverImage = (url?: string) => {
-    return resolveCmsUrl(url || "");
-  };
+  const authorAvatar = item ? ((item as any).user?.avatar || item.authorAvatar) : "";
+  const authorName = item ? ((item as any).user?.name || item.author) : "";
+  const authorUserId = item ? ((item as any).userId || (item as any).user?.id) : undefined;
 
-  const authorAvatar = (item as any).user?.avatar || item.authorAvatar;
-  const authorName = (item as any).user?.name || item.author;
-  const authorUserId = (item as any).userId || (item as any).user?.id;
+  const badges = item && (
+    <>
+      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${categoryColors[item.category] || "bg-surface-800 text-text-muted"} border`}>
+        {item.category}
+      </span>
+      {item.featured && (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <Star className="w-3.5 h-3.5 fill-amber-400" /> Featured Post
+        </span>
+      )}
+    </>
+  );
 
-  // Gather all images for the fullscreen viewer gallery
-  const allImages: string[] = [];
-  if (item) {
-    if (item.image) {
-      allImages.push(resolveCmsUrl(item.image));
-    }
-    if (item.sections) {
-      let sections: any[] = [];
-      if (typeof item.sections === "string") {
-        try {
-          sections = JSON.parse(item.sections);
-        } catch {}
-      } else if (Array.isArray(item.sections)) {
-        sections = item.sections;
-      }
-      sections.forEach((sec: any) => {
-        if (sec.type === "image" && sec.images) {
-          sec.images.forEach((img: any) => {
-            if (img.url) {
-              allImages.push(resolveCmsUrl(img.url));
-            }
-          });
-        }
-      });
-    }
-  }
-
-  const handleImageClick = (url: string) => {
-    const idx = allImages.indexOf(url);
-    if (idx !== -1) {
-      setActiveImageIndex(idx);
-      setIsViewerOpen(true);
-    }
-  };
-
-  if (isPortal) {
-    return (
-      <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
-        
-        {/* Back navigation */}
-        <Link
-          to="/app/blogs"
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors bg-surface-900/40 px-3 py-1.5 rounded-lg border border-border"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to Blogs
-        </Link>
-
-        {/* 2-Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
-          
-          {/* Left Column: Title, cover image, and body content */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {/* Header / Title block */}
-            <div className="glass rounded-2xl p-6 border border-border space-y-4">
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${categoryColors[item.category] || "bg-surface-800 text-text-muted"} border`}>
-                  {item.category}
-                </span>
-                {item.featured && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    <Star className="w-3.5 h-3.5 fill-amber-400" /> Featured Post
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
-                {item.title}
-              </h1>
-              {item.subtitle && (
-                <p className="text-base sm:text-lg text-text-muted leading-relaxed font-light">
-                  {item.subtitle}
-                </p>
-              )}
-            </div>
-
-            {/* Cover Image banner */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden border border-border max-h-[400px]">
-              <img
-                src={resolveCoverImage(item.image)}
-                alt={item.title}
-                onClick={() => handleImageClick(resolveCoverImage(item.image))}
-                className="w-full h-full object-cover cursor-zoom-in"
-              />
-            </div>
-
-            {/* Blog Post Content Body */}
-            <div className="glass rounded-2xl p-6 border border-border space-y-6">
-              {/* Main excerpt intro content */}
-              {item.excerpt && (
-                <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/50 pl-4 py-1">
-                  {item.excerpt}
-                </p>
-              )}
-
-              {/* Dynamically Render CMS Blog Sections */}
-              {item.sections && item.sections.length > 0 ? (
-                <div className="pt-6 border-t border-border/30 prose prose-invert max-w-none">
-                  <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
-                </div>
-              ) : (
-                <div className="text-xs text-text-muted py-2 italic">
-                  No further sections provided.
-                </div>
-              )}
-            </div>
-
-            {/* Tags Footer */}
-            {item.tags && item.tags.length > 0 && (
-              <div className="glass rounded-2xl p-6 border border-border">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Tag className="w-4 h-4 text-text-muted" />
-                  <span className="text-xs font-semibold text-text-muted uppercase tracking-wider mr-1">Tags:</span>
-                  {item.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-xs font-medium text-text-secondary bg-surface-900 border border-border/80 px-2.5 py-1 rounded-xl"
-                    >
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          </div>
-
-          {/* Right Column: Sticky Metadata & Author Panel */}
-          <div className="lg:col-span-4">
-            <div className="space-y-6 sticky top-20">
-              
-              {/* Metadata Panel */}
-              <div className="glass rounded-2xl border border-border overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-primary/40 to-accent/40" />
-                <div className="p-5 space-y-4">
-                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                    Post Information
-                  </h3>
-                  
-                  {authorUserId ? (
-                    <Link
-                      to={`/app/profile/${authorUserId}`}
-                      className="flex items-center gap-3 py-3 border-b border-border/50 hover:opacity-80 transition-opacity"
-                    >
-                      <img
-                        src={authorAvatar}
-                        alt={authorName}
-                        className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
-                      />
-                      <div>
-                        <p className="text-xs text-text-muted">Author</p>
-                        <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{authorName}</p>
-                      </div>
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-3 py-3 border-b border-border/50">
-                      <img
-                        src={authorAvatar}
-                        alt={authorName}
-                        className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
-                      />
-                      <div>
-                        <p className="text-xs text-text-muted">Author</p>
-                        <p className="text-sm font-bold text-text-primary">{authorName}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center gap-2 text-sm text-text-secondary">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span>Published: {item.date}</span>
-                    </div>
-                    {item.readTime && (
-                      <div className="flex items-center gap-2 text-sm text-text-secondary">
-                        <Clock className="w-4 h-4 text-accent" />
-                        <span>{item.readTime}</span>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Blogs info card */}
-              <div className="glass rounded-xl p-4 border border-border space-y-3">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                  About Cyberlogic Blogs
-                </h3>
-                <p className="text-[11px] text-text-muted leading-relaxed">
-                  Cyberlogic blog posts cover tech updates, tutorials, guides, and student academic highlights written by officers and members.
-                </p>
-              </div>
-
-            </div>
-          </div>
-
-        </div>
-
-        {allImages.length > 0 && (
-          <FullscreenImageViewer
-            images={allImages}
-            initialIndex={activeImageIndex}
-            isOpen={isViewerOpen}
-            onClose={() => setIsViewerOpen(false)}
-          />
-        )}
+  const footer = item && item.tags && item.tags.length > 0 && (
+    <div className={isPortal ? "glass rounded-2xl p-6 border border-border" : "pt-8 border-t border-border/40"}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Tag className="w-4 h-4 text-text-muted" />
+        <span className="text-xs font-semibold text-text-muted uppercase tracking-wider mr-1">Tags:</span>
+        {item.tags.map((tag) => (
+          <span
+            key={tag}
+            className="text-xs font-medium text-text-secondary bg-surface-900 border border-border/80 px-2.5 py-1 rounded-xl"
+          >
+            #{tag}
+          </span>
+        ))}
       </div>
-    );
-  }
+    </div>
+  );
 
-  return (
-    <div className="pt-24 pb-16">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        
-        {/* Back navigation */}
-        <Link
-          to="/blogs"
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors mb-6"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to blog feed
-        </Link>
-
-        {/* Hero Header */}
-        <div className="space-y-4 mb-8 animate-fadeIn">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${categoryColors[item.category] || "bg-surface-800 text-text-muted"} border`}>
-              {item.category}
-            </span>
-            {item.featured && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                <Star className="w-3.5 h-3.5 fill-amber-400" /> Featured Post
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
-            {item.title}
-          </h1>
-
-          {item.subtitle && (
-            <p className="text-lg sm:text-xl text-text-muted leading-relaxed font-light">
-              {item.subtitle}
-            </p>
-          )}
-
-          {/* Author Card & Date info */}
-          <div className="flex items-center gap-3 pt-4 border-t border-border/60">
-            {authorUserId ? (
-              <Link to={`/app/profile/${authorUserId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
-                <img
-                  src={authorAvatar}
-                  alt={authorName}
-                  className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
-                />
-              </Link>
-            ) : (
+  const sidebar = item && (
+    <>
+      {/* Metadata Panel */}
+      <div className="glass rounded-2xl border border-border overflow-hidden">
+        <div className="h-2 bg-gradient-to-r from-primary/40 to-accent/40" />
+        <div className="p-5 space-y-4">
+          <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+            Post Information
+          </h3>
+          
+          {authorUserId ? (
+            <Link
+              to={`/app/profile/${authorUserId}`}
+              className="flex items-center gap-3 py-3 border-b border-border/50 hover:opacity-80 transition-opacity"
+            >
               <img
                 src={authorAvatar}
                 alt={authorName}
                 className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
               />
-            )}
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-text-primary flex items-center gap-1">
-                <User className="w-3.5 h-3.5 text-text-muted" />
-                {authorUserId ? (
-                  <Link to={`/app/profile/${authorUserId}`} className="hover:text-primary transition-colors">
-                    {authorName}
-                  </Link>
-                ) : (
-                  authorName
-                )}
-              </p>
-              <p className="text-xs text-text-muted flex items-center gap-3 mt-0.5">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5" /> Published on {item.date}
-                </span>
-                {item.readTime && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {item.readTime}
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cover Image banner */}
-        <div className="relative aspect-video rounded-2xl overflow-hidden border border-border mb-8 max-h-[400px]">
-          <img
-            src={resolveCoverImage(item.image)}
-            alt={item.title}
-            onClick={() => handleImageClick(resolveCoverImage(item.image))}
-            className="w-full h-full object-cover cursor-zoom-in"
-          />
-        </div>
-
-        {/* Blog Post Content Body */}
-        <div className="space-y-8 animate-fadeIn">
-          
-          {/* Main excerpt intro content */}
-          {item.excerpt && (
-            <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/50 pl-4 py-1">
-              {item.excerpt}
-            </p>
-          )}
-
-          {/* Dynamically Render CMS Blog Sections */}
-          {item.sections && item.sections.length > 0 ? (
-            <div className="pt-6 border-t border-border/30 prose prose-invert max-w-none">
-              <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
-            </div>
+              <div>
+                <p className="text-xs text-text-muted">Author</p>
+                <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{authorName}</p>
+              </div>
+            </Link>
           ) : (
-            <div className="text-xs text-text-muted py-6 italic">
-              No further sections provided.
-            </div>
-          )}
-
-          {/* Tags Footer */}
-          {item.tags && item.tags.length > 0 && (
-            <div className="pt-8 border-t border-border/40">
-              <div className="flex flex-wrap items-center gap-2">
-                <Tag className="w-4 h-4 text-text-muted" />
-                <span className="text-xs font-semibold text-text-muted uppercase tracking-wider mr-1">Tags:</span>
-                {item.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-xs font-medium text-text-secondary bg-surface-900 border border-border/80 px-2.5 py-1 rounded-xl"
-                  >
-                    #{tag}
-                  </span>
-                ))}
+            <div className="flex items-center gap-3 py-3 border-b border-border/50">
+              <img
+                src={authorAvatar}
+                alt={authorName}
+                className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+              />
+              <div>
+                <p className="text-xs text-text-muted">Author</p>
+                <p className="text-sm font-bold text-text-primary">{authorName}</p>
               </div>
             </div>
           )}
 
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span>Published: {item.date}</span>
+            </div>
+            {item.readTime && (
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Clock className="w-4 h-4 text-accent" />
+                <span>{item.readTime}</span>
+              </div>
+            )}
+          </div>
         </div>
-
       </div>
-      
-      {allImages.length > 0 && (
-        <FullscreenImageViewer
-          images={allImages}
-          initialIndex={activeImageIndex}
-          isOpen={isViewerOpen}
-          onClose={() => setIsViewerOpen(false)}
+
+      {/* Blogs info card */}
+      <div className="glass rounded-xl p-4 border border-border space-y-3">
+        <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+          About Cyberlogic Blogs
+        </h3>
+        <p className="text-[11px] text-text-muted leading-relaxed">
+          Cyberlogic blog posts cover tech updates, tutorials, guides, and student academic highlights written by officers and members.
+        </p>
+      </div>
+    </>
+  );
+
+  const publicHeaderExtra = item && (
+    <div className="flex items-center gap-3 pt-4 border-t border-border/60">
+      {authorUserId ? (
+        <Link to={`/app/profile/${authorUserId}`} className="hover:opacity-85 transition-opacity flex-shrink-0">
+          <img
+            src={authorAvatar}
+            alt={authorName}
+            className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
+          />
+        </Link>
+      ) : (
+        <img
+          src={authorAvatar}
+          alt={authorName}
+          className="w-10 h-10 rounded-full bg-surface-700 border border-border/80 object-cover"
         />
       )}
+      <div className="flex-1">
+        <p className="text-sm font-semibold text-text-primary flex items-center gap-1">
+          <User className="w-3.5 h-3.5 text-text-muted" />
+          {authorUserId ? (
+            <Link to={`/app/profile/${authorUserId}`} className="hover:text-primary transition-colors">
+              {authorName}
+            </Link>
+          ) : (
+            authorName
+          )}
+        </p>
+        <p className="text-xs text-text-muted flex items-center gap-3 mt-0.5">
+          <span className="flex items-center gap-1">
+            <Calendar className="w-3.5 h-3.5" /> Published on {item.date}
+          </span>
+          {item.readTime && (
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5" /> {item.readTime}
+            </span>
+          )}
+        </p>
+      </div>
     </div>
+  );
+
+  return (
+    <DetailLayout
+      isPortal={isPortal}
+      backLink={{
+        to: isPortal ? "/app/blogs" : "/blogs",
+        label: isPortal ? "Back to Blogs" : "Back to blog feed",
+      }}
+      badges={badges}
+      title={item?.title || ""}
+      subtitle={item?.subtitle}
+      image={item?.image}
+      introText={item?.excerpt}
+      sections={item?.sections}
+      sidebar={sidebar}
+      footer={footer}
+      publicHeaderExtra={publicHeaderExtra}
+      loading={loading}
+      loadingText="Retrieving blog details..."
+      error={error}
+      errorTitle="Blog Post Not Found"
+    />
   );
 }

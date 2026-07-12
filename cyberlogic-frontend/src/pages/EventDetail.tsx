@@ -5,10 +5,9 @@ import { useAuth } from "../context/AuthContext";
 import { fetchEventById, registerForEvent, unregisterFromEvent, formatEventTime, fetchAttendanceQr } from "../utils/api";
 import { useDialog } from "../utils/useDialog";
 import type { Event } from "../data/mockData";
-import BlogContentRenderer, { resolveCmsUrl } from "../components/common/BlogContentRenderer";
 import { QRCodeSVG } from "qrcode.react";
-import { FullscreenImageViewer } from "../components/forum/FullscreenImageViewer";
 import { useSEO } from "../utils/useSEO";
+import DetailLayout from "../components/common/DetailLayout";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -22,8 +21,6 @@ export default function EventDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rsvpLoading, setRsvpLoading] = useState(false);
-  const [isViewerOpen, setIsViewerOpen] = useState(false);
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const getCoverImageUrl = () => {
     if (!item) return undefined;
@@ -116,30 +113,6 @@ export default function EventDetail() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-        <p className="text-xs text-text-muted">Retrieving event details...</p>
-      </div>
-    );
-  }
-
-  if (error || !item) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center">
-        <h2 className="text-xl font-bold text-text-primary">Event Not Found</h2>
-        <p className="text-xs text-text-muted mt-1">{error}</p>
-        <Link
-          to={isPortal ? "/app/events" : "/events"}
-          className="text-primary hover:underline text-sm mt-4 flex items-center gap-1"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to list
-        </Link>
-      </div>
-    );
-  }
-
   const typeColors: Record<string, string> = {
     Workshop: "bg-primary/10 text-primary border border-primary/20",
     Seminar: "bg-info/10 text-info border border-info/20",
@@ -156,46 +129,9 @@ export default function EventDetail() {
     postponed: "bg-warning/15 text-warning border border-warning/30",
   };
 
-  const isFull = item.capacity ? item.attendees >= item.capacity : false;
-
-  // Timings validation helpers
+  const isFull = item?.capacity ? item.attendees >= item.capacity : false;
   const now = new Date();
 
-  // Gather all images for the fullscreen viewer gallery
-  const allImages: string[] = [];
-  if (item) {
-    if (item.image) {
-      allImages.push(resolveCmsUrl(item.image));
-    }
-    if (item.sections) {
-      let sections: any[] = [];
-      if (typeof item.sections === "string") {
-        try {
-          sections = JSON.parse(item.sections);
-        } catch {}
-      } else if (Array.isArray(item.sections)) {
-        sections = item.sections;
-      }
-      sections.forEach((sec: any) => {
-        if (sec.type === "image" && sec.images) {
-          sec.images.forEach((img: any) => {
-            if (img.url) {
-              allImages.push(resolveCmsUrl(img.url));
-            }
-          });
-        }
-      });
-    }
-  }
-
-  const handleImageClick = (url: string) => {
-    const idx = allImages.indexOf(url);
-    if (idx !== -1) {
-      setActiveImageIndex(idx);
-      setIsViewerOpen(true);
-    }
-  };
-  
   const getWindowDateTime = (timeStr?: string) => {
     if (!timeStr || !item) return null;
     const [hours, minutes] = timeStr.split(":");
@@ -204,10 +140,10 @@ export default function EventDetail() {
     return d;
   };
 
-  const regStart = item.registrationStart ? new Date(item.registrationStart) : null;
-  const regEnd = item.registrationEnd ? new Date(item.registrationEnd) : null;
-  const attStart = getWindowDateTime(item.attendanceStart);
-  const attEnd = getWindowDateTime(item.attendanceEnd);
+  const regStart = item?.registrationStart ? new Date(item.registrationStart) : null;
+  const regEnd = item?.registrationEnd ? new Date(item.registrationEnd) : null;
+  const attStart = item ? getWindowDateTime(item.attendanceStart) : null;
+  const attEnd = item ? getWindowDateTime(item.attendanceEnd) : null;
 
   const isRegStarted = regStart ? now >= regStart : true;
   const isRegEnded = regEnd ? now > regEnd : false;
@@ -217,10 +153,11 @@ export default function EventDetail() {
   const isAttendanceEnded = attEnd ? now > attEnd : false;
 
   // Disable RSVP buttons
-  const isRsvpDisabled = rsvpLoading || item.status !== "upcoming" || !isRegOpen || (!item.isRegistered && isFull);
+  const isRsvpDisabled = !item || rsvpLoading || item.status !== "upcoming" || !isRegOpen || (!item.isRegistered && isFull);
 
   // Helper text for registration window
   const getRegistrationHelperText = () => {
+    if (!item) return "";
     if (item.status !== "upcoming") return `RSVP closed. Event is ${item.status}.`;
     if (!isRegStarted && item.registrationStart && regStart) {
       return `Registration opens on ${regStart.toLocaleString()}`;
@@ -233,6 +170,7 @@ export default function EventDetail() {
   };
 
   const renderQrTicket = () => {
+    if (!item) return null;
     if (!isAuthenticated) {
       return (
         <div className="bg-surface-900/60 p-4 rounded-xl border border-border text-center space-y-2">
@@ -321,357 +259,261 @@ export default function EventDetail() {
     );
   };
 
-  if (isPortal) {
-    return (
-      <div className="pb-12 w-full max-w-6xl mx-auto space-y-6">
-        {/* Back navigation */}
-        <Link
-          to="/app/events"
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors bg-surface-900/40 px-3 py-1.5 rounded-lg border border-border"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to Events
-        </Link>
+  const badges = item && (
+    <>
+      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${typeColors[item.type] || "bg-surface-700 text-text-secondary"}`}>
+        {item.type}
+      </span>
+      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[item.status] || "bg-surface-700 text-text-secondary"}`}>
+        {item.status.toUpperCase()}
+      </span>
+    </>
+  );
 
-        {/* 2-Column Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fadeIn">
-          {/* Left Column: Event Title, Cover Image, Content */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Header info */}
-            <div className="glass rounded-2xl p-6 border border-border space-y-4">
-              <div className="flex items-center gap-2">
-                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${typeColors[item.type] || "bg-surface-700 text-text-secondary"}`}>
-                  {item.type}
-                </span>
-                <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[item.status] || "bg-surface-700 text-text-secondary"}`}>
-                  {item.status.toUpperCase()}
-                </span>
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
-                {item.title}
-              </h1>
+  const sidebar = item && (
+    <>
+      {/* RSVP & Ticket Status Card */}
+      <div className="glass rounded-2xl border border-border overflow-hidden">
+        <div className="h-2 bg-gradient-to-r from-primary/45 to-accent/45" />
+        <div className="p-5 space-y-5">
+          <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+            Registration Desk
+          </h3>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span>{item.date}</span>
             </div>
-
-            {/* Cover Image banner */}
-            {item.image && (
-              <div className="relative aspect-video rounded-2xl overflow-hidden border border-border max-h-[400px]">
-                <img
-                  src={resolveCmsUrl(item.image)}
-                  alt={item.title}
-                  onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
-                  className="w-full h-full object-cover cursor-zoom-in"
-                />
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Clock className="w-4 h-4 text-accent" />
+              <span>{formatEventTime(item.startTime, item.endTime)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <MapPin className="w-4 h-4 text-warning" />
+              <span className="truncate">{item.location}</span>
+            </div>
+            {item.eventMode !== "attendance_only" && (
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Users className="w-4 h-4 text-success" />
+                <span>{item.attendees} / {item.capacity || "∞"} RSVP'd</span>
               </div>
             )}
-
-            {/* Event Content Body */}
-            <div className="glass rounded-2xl p-6 border border-border space-y-6">
-              {item.description && (
-                <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/20 pl-4">
-                  {item.description}
-                </p>
-              )}
-
-              {item.sections && item.sections.length > 0 ? (
-                <div className="pt-6 border-t border-border/30">
-                  <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
-                </div>
-              ) : (
-                <div className="text-xs text-text-muted py-2 italic">
-                  No further sections provided.
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Right Column: RSVP & Info Panels */}
-          <div className="lg:col-span-4">
-            <div className="space-y-6 sticky top-20">
-              {/* RSVP & Ticket Status Card */}
-              <div className="glass rounded-2xl border border-border overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-primary/45 to-accent/45" />
-                <div className="p-5 space-y-5">
-                  <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                    Registration Desk
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-text-secondary">
-                      <Calendar className="w-4 h-4 text-primary" />
-                      <span>{item.date}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-text-secondary">
-                      <Clock className="w-4 h-4 text-accent" />
-                      <span>{formatEventTime(item.startTime, item.endTime)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-text-secondary">
-                      <MapPin className="w-4 h-4 text-warning" />
-                      <span className="truncate">{item.location}</span>
-                    </div>
-                    {item.eventMode !== "attendance_only" && (
-                      <div className="flex items-center gap-2 text-sm text-text-secondary">
-                        <Users className="w-4 h-4 text-success" />
-                        <span>{item.attendees} / {item.capacity || "∞"} RSVP'd</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {item.eventMode !== "attendance_only" && (
-                    <div className="pt-4 border-t border-border/60 space-y-3">
-                      <button
-                        type="button"
-                        disabled={isRsvpDisabled}
-                        onClick={handleRsvp}
-                        className={`w-full px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                          item.isRegistered
-                            ? "bg-accent/15 border-accent/40 text-accent hover:bg-accent/25"
-                            : isRsvpDisabled
-                            ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
-                            : "bg-primary text-white hover:bg-primary-hover border-transparent"
-                        }`}
-                      >
-                        {rsvpLoading ? (
-                          <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                        ) : item.isRegistered ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            Registered
-                          </>
-                        ) : (
-                          <>
-                            <CalendarCheck className="w-4 h-4" />
-                            RSVP to Event
-                          </>
-                        )}
-                      </button>
-                      
-                      <p className="text-[10px] text-text-muted text-center leading-normal">
-                        {getRegistrationHelperText()}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Organizer Section */}
-                  {item.user && (
-                    <div className="pt-4 border-t border-border/60">
-                      <p className="text-xs font-semibold text-text-muted mb-2">Organizer</p>
-                      <Link
-                        to={`/app/profile/${item.user.id}`}
-                        className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-xl transition-all"
-                      >
-                        <img
-                          src={item.user.avatar}
-                          alt={item.user.name}
-                          className="w-8 h-8 rounded-full object-cover border border-border/40"
-                        />
-                        <div>
-                          <p className="text-xs font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
-                          <p className="text-[10px] text-text-muted">{item.user.role || "Officer"}</p>
-                        </div>
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Event Guidelines Card */}
-              <div className="glass rounded-xl p-4 border border-border space-y-3">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
-                  Event Guidelines
-                </h3>
-                <ul className="text-[11px] text-text-muted space-y-1.5 list-disc pl-4">
-                  {item.eventMode !== "attendance_only" && <li>Participants (players/speakers) must register.</li>}
-                  {item.eventMode !== "registration_only" && <li>Audience members must scan their QR codes to record attendance.</li>}
-                  <li>Arrive at least 10 minutes prior to session launch.</li>
-                  <li>Bring your own laptop for hands-on activities.</li>
-                </ul>
-              </div>
+          {item.eventMode !== "attendance_only" && (
+            <div className="pt-4 border-t border-border/60 space-y-3">
+              <button
+                type="button"
+                disabled={isRsvpDisabled}
+                onClick={handleRsvp}
+                className={`w-full px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  item.isRegistered
+                    ? "bg-accent/15 border-accent/40 text-accent hover:bg-accent/25"
+                    : isRsvpDisabled
+                    ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
+                    : "bg-primary text-white hover:bg-primary-hover border-transparent"
+                }`}
+              >
+                {rsvpLoading ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                ) : item.isRegistered ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Registered
+                  </>
+                ) : (
+                  <>
+                    <CalendarCheck className="w-4 h-4" />
+                    RSVP to Event
+                  </>
+                )}
+              </button>
+              
+              <p className="text-[10px] text-text-muted text-center leading-normal">
+                {getRegistrationHelperText()}
+              </p>
             </div>
-          </div>
+          )}
+
+          {/* Organizer Section */}
+          {item.user && (
+            <div className="pt-4 border-t border-border/60">
+              <p className="text-xs font-semibold text-text-muted mb-2">Organizer</p>
+              <Link
+                to={`/app/profile/${item.user.id}`}
+                className="flex items-center gap-3 hover:bg-white/5 p-1 rounded-xl transition-all"
+              >
+                <img
+                  src={item.user.avatar}
+                  alt={item.user.name}
+                  className="w-8 h-8 rounded-full object-cover border border-border/40"
+                />
+                <div>
+                  <p className="text-xs font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
+                  <p className="text-[10px] text-text-muted">{item.user.role || "Officer"}</p>
+                </div>
+              </Link>
+            </div>
+          )}
         </div>
-
-        {allImages.length > 0 && (
-          <FullscreenImageViewer
-            images={allImages}
-            initialIndex={activeImageIndex}
-            isOpen={isViewerOpen}
-            onClose={() => setIsViewerOpen(false)}
-          />
-        )}
       </div>
-    );
-  }
+
+      {/* Event Guidelines Card */}
+      <div className="glass rounded-xl p-4 border border-border space-y-3">
+        <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+          Event Guidelines
+        </h3>
+        <ul className="text-[11px] text-text-muted space-y-1.5 list-disc pl-4">
+          {item.eventMode !== "attendance_only" && <li>Participants (players/speakers) must register.</li>}
+          {item.eventMode !== "registration_only" && <li>Audience members must scan their QR codes to record attendance.</li>}
+          <li>Arrive at least 10 minutes prior to session launch.</li>
+          <li>Bring your own laptop for hands-on activities.</li>
+        </ul>
+      </div>
+    </>
+  );
+
+  const publicSidebar = item && (
+    <>
+      {/* Event Details & Registration Card */}
+      <div className="glass rounded-2xl border border-border overflow-hidden animate-fadeIn">
+        <div className="h-2 bg-gradient-to-r from-primary/45 to-accent/45" />
+        <div className="p-5 space-y-5">
+          <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+            Event Information
+          </h3>
+          
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span>{item.date}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <Clock className="w-4 h-4 text-accent" />
+              <span>{formatEventTime(item.startTime, item.endTime)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-text-secondary">
+              <MapPin className="w-4 h-4 text-warning" />
+              <span className="truncate">{item.location}</span>
+            </div>
+            {item.eventMode !== "attendance_only" && (
+              <div className="flex items-center gap-2 text-sm text-text-secondary">
+                <Users className="w-4 h-4 text-success" />
+                <span>{item.attendees} / {item.capacity || "∞"} Registered</span>
+              </div>
+            )}
+          </div>
+
+          {item.eventMode !== "attendance_only" ? (
+            <div className="pt-4 border-t border-border/60 space-y-3">
+              <button
+                type="button"
+                disabled={isRsvpDisabled}
+                onClick={handleRsvp}
+                className={`w-full px-4 py-2.5 rounded-xl border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                  item.isRegistered
+                    ? "bg-accent/15 border-accent/40 text-accent hover:bg-accent/25"
+                    : isRsvpDisabled
+                    ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
+                    : "bg-primary text-white hover:bg-primary-hover border-transparent"
+                }`}
+              >
+                {rsvpLoading ? (
+                  <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                ) : item.isRegistered ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Registered
+                  </>
+                ) : (
+                  <>
+                    <CalendarCheck className="w-4 h-4" />
+                    RSVP to Event
+                  </>
+                )}
+              </button>
+              
+              <p className="text-[10px] text-text-muted text-center leading-normal">
+                {getRegistrationHelperText()}
+              </p>
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-border/60 space-y-3">
+              <p className="text-xs font-semibold text-text-muted mb-2">Check-in Pass</p>
+              {renderQrTicket()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* QR Code Pass for Registration & Attendance (if registered) */}
+      {item.eventMode === "registration_and_attendance" && item.isRegistered && (
+        <div className="p-5 glass rounded-2xl border border-border space-y-4 animate-fadeIn">
+          {renderQrTicket()}
+        </div>
+      )}
+
+      {/* Organizer Card */}
+      {item.user && (
+        <div className="p-5 glass rounded-2xl border border-border space-y-3 animate-fadeIn">
+          <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Organizer</h3>
+          <Link
+            to={`/app/profile/${item.user.id}`}
+            className="flex items-center gap-3 hover:bg-white/5 p-2 rounded-xl transition-all block"
+          >
+            <div className="flex items-center gap-3">
+              <img
+                src={item.user.avatar}
+                alt={item.user.name}
+                className="w-10 h-10 rounded-full object-cover border border-border/40"
+              />
+              <div>
+                <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
+                <p className="text-xs text-text-muted">{item.user.role || "Officer"}</p>
+              </div>
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* Guidelines Card */}
+      <div className="glass rounded-xl p-4 border border-border space-y-3 animate-fadeIn">
+        <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">
+          Event Guidelines
+        </h3>
+        <ul className="text-[11px] text-text-muted space-y-1.5 list-disc pl-4">
+          {item.eventMode !== "attendance_only" && <li>Participants (players/speakers) must register.</li>}
+          {item.eventMode !== "registration_only" && <li>Audience members must scan their QR codes to record attendance.</li>}
+          <li>Arrive at least 10 minutes prior to session launch.</li>
+          <li>Bring your own laptop for hands-on activities.</li>
+        </ul>
+      </div>
+    </>
+  );
 
   return (
-    <div className="pt-24 pb-16">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        {/* Back navigation */}
-        <Link
-          to="/events"
-          className="inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-primary transition-colors mb-6"
-        >
-          <ChevronLeft className="w-4 h-4" /> Back to Events
-        </Link>
-
-        {/* Hero Header */}
-        <div className="space-y-4 mb-8 animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${typeColors[item.type] || "bg-surface-700 text-text-secondary"}`}>
-              {item.type}
-            </span>
-            <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusColors[item.status] || "bg-surface-700 text-text-secondary"}`}>
-              {item.status.toUpperCase()}
-            </span>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl font-extrabold font-[family-name:var(--font-heading)] text-text-primary tracking-tight leading-tight">
-            {item.title}
-          </h1>
-
-          {/* Quick Schedule Grid & RSVP bar */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-surface-900/60 p-5 rounded-2xl border border-border mt-6">
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-primary uppercase tracking-widest">Date & Location</h3>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Calendar className="w-4 h-4 text-text-muted" />
-                  <span>{item.date}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <Clock className="w-4 h-4 text-text-muted" />
-                  <span>{formatEventTime(item.startTime, item.endTime)}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-text-secondary">
-                  <MapPin className="w-4 h-4 text-text-muted" />
-                  <span>{item.location}</span>
-                </div>
-                {item.eventMode !== "attendance_only" && (
-                  <div className="flex items-center gap-2 text-sm text-text-secondary">
-                    <Users className="w-4 h-4 text-text-muted" />
-                    <span>{item.attendees} / {item.capacity || "∞"} Registered</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col justify-center items-start md:items-end gap-3 md:border-l border-border md:pl-6 w-full">
-              {item.eventMode !== "attendance_only" ? (
-                <>
-                  <h3 className="text-xs font-bold text-primary uppercase tracking-widest hidden md:block">Reservation</h3>
-                  <button
-                    type="button"
-                    disabled={isRsvpDisabled}
-                    onClick={handleRsvp}
-                    className={`w-full md:w-auto px-6 py-3 rounded-xl border text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                      item.isRegistered
-                        ? "bg-accent/15 border-accent/40 text-accent hover:bg-accent/25"
-                        : isRsvpDisabled
-                        ? "bg-surface-800 border-border text-text-muted cursor-not-allowed"
-                        : "bg-primary text-white hover:bg-primary-hover border-transparent"
-                    }`}
-                  >
-                    {rsvpLoading ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                    ) : item.isRegistered ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        You are Registered
-                      </>
-                    ) : (
-                      <>
-                        <CalendarCheck className="w-4 h-4" />
-                        RSVP to Event
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-text-muted mt-1">
-                    {getRegistrationHelperText()}
-                  </p>
-                </>
-              ) : (
-                <div className="w-full">
-                  <h3 className="text-xs font-bold text-primary uppercase tracking-widest mb-1.5">Check-in Pass</h3>
-                  {renderQrTicket()}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Cover Image banner */}
-        {item.image && (
-          <div className="relative aspect-video rounded-2xl overflow-hidden border border-border mb-8 max-h-[400px]">
-            <img
-              src={resolveCmsUrl(item.image)}
-              alt={item.title}
-              onClick={() => handleImageClick(resolveCmsUrl(item.image as string))}
-              className="w-full h-full object-cover cursor-zoom-in"
-            />
-          </div>
-        )}
-
-        {/* Event Content Body & QR (if RSVP + Attendance, display QR on public view also) */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 animate-fadeIn">
-          <div className="md:col-span-8 space-y-8">
-            {/* Main description */}
-            {item.description && (
-              <p className="text-base text-text-secondary leading-relaxed whitespace-pre-line font-medium border-l-2 border-primary/20 pl-4">
-                {item.description}
-              </p>
-            )}
-
-            {/* Dynamically Render CMS Blog Sections */}
-            {item.sections && item.sections.length > 0 ? (
-              <div className="pt-6 border-t border-border/30">
-                <BlogContentRenderer content={item.sections} onImageClick={handleImageClick} />
-              </div>
-            ) : (
-              <div className="text-xs text-text-muted py-6 italic">
-                No further sections provided.
-              </div>
-            )}
-          </div>
-
-          {/* Right sidebar on public view containing QR Code if registered & Organizer info */}
-          <div className="md:col-span-4 space-y-6">
-            {item.eventMode !== "registration_only" && item.eventMode !== "attendance_only" && item.isRegistered && (
-              <div className="p-5 glass rounded-2xl border border-border space-y-4">
-                {renderQrTicket()}
-              </div>
-            )}
-            
-            {item.user && (
-              <div className="p-5 glass rounded-2xl border border-border space-y-3">
-                <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Organizer</h3>
-                <Link
-                  to={`/app/profile/${item.user.id}`}
-                  className="flex items-center gap-3 hover:bg-white/5 p-2 rounded-xl transition-all block"
-                >
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={item.user.avatar}
-                      alt={item.user.name}
-                      className="w-10 h-10 rounded-full object-cover border border-border/40"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-text-primary hover:text-primary transition-colors">{item.user.name}</p>
-                      <p className="text-xs text-text-muted">{item.user.role || "Officer"}</p>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      
-      {allImages.length > 0 && (
-        <FullscreenImageViewer
-          images={allImages}
-          initialIndex={activeImageIndex}
-          isOpen={isViewerOpen}
-          onClose={() => setIsViewerOpen(false)}
-        />
-      )}
-    </div>
+    <DetailLayout
+      isPortal={isPortal}
+      backLink={{
+        to: isPortal ? "/app/events" : "/events",
+        label: "Back to Events",
+      }}
+      badges={badges}
+      title={item?.title || ""}
+      image={item?.image}
+      introText={item?.description}
+      sections={item?.sections}
+      sidebar={sidebar}
+      showSidebarOnPublic={true}
+      fullWidthHeaderPublic={true}
+      publicSidebar={publicSidebar}
+      publicHeaderExtra={undefined}
+      publicContainerClass="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6"
+      loading={loading}
+      loadingText="Retrieving event details..."
+      error={error}
+      errorTitle="Event Not Found"
+    />
   );
 }
