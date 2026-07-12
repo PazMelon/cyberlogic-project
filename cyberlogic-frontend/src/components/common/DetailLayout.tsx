@@ -9,7 +9,7 @@ export interface DetailLayoutProps {
   backLink: { to: string; label: string };
   badges?: React.ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: string | null;
   image?: string | null;
   introText?: string;
   sections?: any;
