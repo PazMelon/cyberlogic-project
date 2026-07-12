@@ -110,7 +110,15 @@ class User extends Authenticatable
     public function getPermissionKeysAttribute(): array
     {
         if ($this->role === 'superadmin') {
-            return Permission::pluck('key')->toArray();
+            static $allKeys = null;
+            if ($allKeys === null) {
+                $allKeys = Permission::pluck('key')->toArray();
+            }
+            return $allKeys;
+        }
+
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissions->pluck('key')->toArray();
         }
 
         return $this->permissions()->pluck('key')->toArray();
@@ -232,11 +240,14 @@ class User extends Authenticatable
      */
     public function getReputationAttribute(): array
     {
-        return [
-            'week' => $this->calculateReputationScore(now()->subWeek()),
-            'month' => $this->calculateReputationScore(now()->subMonth()),
-            'year' => $this->calculateReputationScore(now()->subYear()),
-            'allTime' => $this->calculateReputationScore(),
-        ];
+        $cacheKey = "user_reputation_{$this->id}";
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () {
+            return [
+                'week' => $this->calculateReputationScore(now()->subWeek()),
+                'month' => $this->calculateReputationScore(now()->subMonth()),
+                'year' => $this->calculateReputationScore(now()->subYear()),
+                'allTime' => $this->calculateReputationScore(),
+            ];
+        });
     }
 }

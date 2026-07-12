@@ -19,7 +19,7 @@ class DashboardController extends Controller
         $forumThreads = ForumThread::count();
         
         // Count chat messages from today
-        $chatMessagesToday = ChatMessage::whereDate('created_at', Carbon::today())->count();
+        $chatMessagesToday = ChatMessage::where('created_at', '>=', Carbon::today())->count();
         
         // Count active members (approved users)
         $activeMembers = User::where('status', 'approved')->count();

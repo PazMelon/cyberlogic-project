@@ -189,7 +189,7 @@ class AuthController extends Controller
             return response()->json(['error' => 'Forbidden. Access denied.'], 403);
         }
 
-        $users = User::orderBy('id', 'desc')->get();
+        $users = User::with(['permissions'])->orderBy('id', 'desc')->get();
         return response()->json($users);
     }
 
