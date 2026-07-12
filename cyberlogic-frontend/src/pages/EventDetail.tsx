@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation, useNavigate } from "react-router";
-import { ChevronLeft, Calendar, Clock, MapPin, Users, Check, CalendarCheck, QrCode, AlertCircle, CheckCircle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Check, CalendarCheck, QrCode, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { fetchEventById, registerForEvent, unregisterFromEvent, formatEventTime, fetchAttendanceQr } from "../utils/api";
 import { useDialog } from "../utils/useDialog";
