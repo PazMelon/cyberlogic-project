@@ -428,6 +428,9 @@ class ChannelManager {
         try {
           console.log(`[WS] Sending freedom-wall message ${messageId} to Laravel for content moderation check...`);
           let targetUrl = LARAVEL_URL;
+          if (targetUrl.endsWith('/')) {
+            targetUrl = targetUrl.slice(0, -1);
+          }
           const headers = {
             'Content-Type': 'application/json',
             'X-Realtime-Secret': REALTIME_WS_SECRET,
