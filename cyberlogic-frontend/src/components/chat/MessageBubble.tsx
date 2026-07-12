@@ -42,6 +42,8 @@ export interface MessageBubbleProps {
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
   readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
+  onToast?: (msg: string) => void;
+  onJumpToMessage?: (parentId: number) => void;
 }
 
 export default function MessageBubble({
@@ -54,6 +56,8 @@ export default function MessageBubble({
   onReply,
   onDelete,
   readReceipts = [],
+  onToast,
+  onJumpToMessage,
 }: MessageBubbleProps) {
   const touchTimerRef = useRef<any>(null);
   const isTouchMoved = useRef(false);
@@ -270,6 +274,11 @@ export default function MessageBubble({
   };
 
   const handleScrollToMessage = (parentId: number) => {
+    if (onJumpToMessage) {
+      onJumpToMessage(parentId);
+      return;
+    }
+
     const el = document.getElementById(`message-${parentId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -277,6 +286,10 @@ export default function MessageBubble({
       setTimeout(() => {
         el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950");
       }, 2000);
+    } else {
+      if (onToast) {
+        onToast("This message was sent earlier. Load older messages above to view.");
+      }
     }
   };
 

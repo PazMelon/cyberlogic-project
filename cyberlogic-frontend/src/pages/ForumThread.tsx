@@ -67,6 +67,7 @@ export default function ForumThread() {
   const [isVotingPoll, setIsVotingPoll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const hasScrolledRef = useRef<string | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -114,7 +115,9 @@ export default function ForumThread() {
   }, [threadId]);
 
   useEffect(() => {
-    if (!isLoading && highlightCommentId && comments.length > 0) {
+    const scrollKey = `${threadId}-${highlightCommentId}`;
+    if (!isLoading && highlightCommentId && comments.length > 0 && hasScrolledRef.current !== scrollKey) {
+      hasScrolledRef.current = scrollKey;
       const timer = setTimeout(() => {
         const element = document.getElementById(`comment-${highlightCommentId}`);
         if (element) {
@@ -132,7 +135,7 @@ export default function ForumThread() {
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isLoading, highlightCommentId, comments]);
+  }, [isLoading, highlightCommentId, comments, threadId]);
 
   useEffect(() => {
     if (!user || !threadId) return;

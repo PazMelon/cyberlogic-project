@@ -39,11 +39,21 @@ export default function Chat() {
 
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isFetchingMoreMessages, setIsFetchingMoreMessages] = useState(false);
+  const [hasNewerMessages, setHasNewerMessages] = useState(false);
+  const [isFetchingNewerMessages, setIsFetchingNewerMessages] = useState(false);
+  const hasNewerMessagesRef = useRef(false);
+
+  useEffect(() => {
+    hasNewerMessagesRef.current = hasNewerMessages;
+  }, [hasNewerMessages]);
+
   const [replyingTo, setReplyingTo] = useState<{ id: number; author: string; content: string } | null>(null);
   const [showChatEditorEmojiPicker, setShowChatEditorEmojiPicker] = useState(false);
 
   const [channelsLoading, setChannelsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
+  const [jumpToId, setJumpToId] = useState<number | null>(null);
+  const [isJumpingToMessage, setIsJumpingToMessage] = useState(false);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
   // Reaction states
@@ -229,6 +239,7 @@ export default function Chat() {
       try {
         setMessagesLoading(true);
         setHasMoreMessages(true);
+        setHasNewerMessages(false);
         const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages`);
         if (res.ok) {
           const resData = await res.json();
@@ -263,6 +274,7 @@ export default function Chat() {
     const wsChannel = `chat:${activeChannel}`;
     const unsubscribe = subscribe(wsChannel, (payload: any, type: string) => {
       if (type === "message") {
+        if (hasNewerMessagesRef.current) return;
         setMessages((prev) => {
           if (prev.some((m) => m.id === payload.id)) return prev;
 
@@ -376,6 +388,108 @@ export default function Chat() {
       console.error("Failed to load more chat history:", err);
     } finally {
       setIsFetchingMoreMessages(false);
+    }
+  }
+
+  // Jump to reply parent message by loading history if necessary
+  async function jumpToMessage(parentId: number) {
+    const el = document.getElementById(`message-${parentId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950", "rounded-2xl", "duration-500");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950");
+      }, 2000);
+      return;
+    }
+
+    triggerToast("Jumping to message...");
+    setIsJumpingToMessage(true);
+
+    try {
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages?around_id=${parentId}`);
+      if (res.ok) {
+        const resData = await res.json();
+        const data: ChatMessage[] = resData.messages || [];
+        if (data.length > 0) {
+          setMessages(data);
+          setHasNewerMessages(true);
+          setHasMoreMessages(true);
+          setJumpToId(parentId);
+
+          setTimeout(() => {
+            const targetEl = document.getElementById(`message-${parentId}`);
+            if (targetEl) {
+              targetEl.classList.add("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950", "rounded-2xl", "duration-500");
+              setTimeout(() => {
+                targetEl.classList.remove("ring-2", "ring-primary", "ring-offset-2", "ring-offset-surface-950");
+              }, 2000);
+            }
+          }, 100);
+        } else {
+          triggerToast("Message could not be found.");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to jump to reply message:", err);
+    } finally {
+      setIsJumpingToMessage(false);
+    }
+  }
+
+  // Jump back to the present (latest live messages)
+  async function jumpToPresent() {
+    setHasNewerMessages(false);
+    setIsFetchingNewerMessages(false);
+    setIsJumpingToMessage(true);
+    setHasMoreMessages(true);
+    try {
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages`);
+      if (res.ok) {
+        const resData = await res.json();
+        const data: ChatMessage[] = resData.messages || [];
+        setMessages(data);
+        if (data.length < 50) {
+          setHasMoreMessages(false);
+        }
+        // Scroll to bottom
+        setTimeout(() => {
+          const container = document.querySelector(".flex-1.overflow-y-auto");
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        }, 100);
+      }
+    } catch (err) {
+      console.error("Failed to jump to present:", err);
+    } finally {
+      setIsJumpingToMessage(false);
+    }
+  }
+
+  // Load newer history when viewing archives
+  async function loadNewerHistory() {
+    if (isFetchingNewerMessages || !hasNewerMessages || messages.length === 0) return;
+    try {
+      setIsFetchingNewerMessages(true);
+      const latestId = messages[messages.length - 1].id;
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages?after_id=${latestId}`);
+      if (res.ok) {
+        const resData = await res.json();
+        const data: ChatMessage[] = resData.messages || [];
+        if (data.length === 0) {
+          setHasNewerMessages(false);
+        } else {
+          setMessages((prev) => [...prev, ...data]);
+          if (data.length < 50) {
+            setHasNewerMessages(false);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load newer history:", err);
+    } finally {
+      setIsFetchingNewerMessages(false);
     }
   }
 
@@ -664,6 +778,15 @@ export default function Chat() {
             />
           )}
 
+          {isJumpingToMessage && (
+            <div className="absolute inset-0 bg-surface-950/45 backdrop-blur-xs flex items-center justify-center z-40 animate-fadeIn">
+              <div className="flex flex-col items-center gap-3 p-4 bg-surface-900/90 border border-border rounded-2xl shadow-xl">
+                <div className="w-6 h-6 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                <span className="text-xs font-semibold text-text-secondary">Loading message history...</span>
+              </div>
+            </div>
+          )}
+
           <MessageStream
             messages={messages}
             messagesLoading={messagesLoading}
@@ -680,10 +803,33 @@ export default function Chat() {
             isFetchingMore={isFetchingMoreMessages}
             onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
             onDelete={canDeleteMessages && !activeChannelData?.is_protected ? handleDeleteClick : undefined}
+            onToast={triggerToast}
+            onJumpToMessage={jumpToMessage}
+            onLoadNewer={loadNewerHistory}
+            hasNewer={hasNewerMessages}
+            isFetchingNewer={isFetchingNewerMessages}
+            jumpToId={jumpToId}
+            onJumpToIdCleared={() => setJumpToId(null)}
+            onJumpToPresent={jumpToPresent}
           />
 
           {/* Members Sidebar Panel removed from inner container to span full height */}
         </div>
+
+        {hasNewerMessages && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-amber-500/10 border-t border-b border-amber-500/20 text-xs animate-fadeIn">
+            <span className="text-text-secondary flex items-center gap-1.5 font-medium">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+              Viewing older messages history
+            </span>
+            <button
+              onClick={jumpToPresent}
+              className="text-primary hover:text-primary-light font-bold hover:underline cursor-pointer transition-colors"
+            >
+              Jump to Present
+            </button>
+          </div>
+        )}
 
         <MessageInput
           messageText={messageText}
