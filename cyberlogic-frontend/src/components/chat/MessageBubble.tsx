@@ -538,7 +538,9 @@ export default function MessageBubble({
                   <span>{reaction.count}</span>
                 </button>
 
-                <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-surface-900 border border-border text-[9px] text-text-secondary rounded-lg px-2 py-1 shadow-md opacity-0 pointer-events-none group-hover/pill:opacity-100 transition-opacity whitespace-nowrap z-30">
+                <div className={`absolute bottom-full mb-1 bg-surface-900 border border-border text-[9px] text-text-secondary rounded-lg px-2 py-1 shadow-md opacity-0 pointer-events-none group-hover/pill:opacity-100 transition-opacity whitespace-nowrap z-30 ${
+                  isMe ? "right-0" : "left-0"
+                }`}>
                   {reaction.users.join(", ")}
                 </div>
               </div>

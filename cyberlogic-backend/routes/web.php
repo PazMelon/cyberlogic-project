@@ -31,6 +31,8 @@ Route::get('/api/csrf-cookie', function () {
 
 Route::post('/api/register', [AuthController::class, 'register']);
 Route::post('/api/login', [AuthController::class, 'login']);
+Route::post('/api/forgot-password', [AuthController::class, 'forgotPassword']);
+Route::post('/api/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
 Route::get('/api/club-stats', [SiteSettingController::class, 'getClubStats']);
 Route::get('/api/officers', [OfficerController::class, 'index']);

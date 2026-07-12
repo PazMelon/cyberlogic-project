@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use App\Mail\RegistrationApprovedMail;
+use App\Mail\RegistrationRejectedMail;
+use App\Mail\ForgotPasswordMail;
 
 class AuthController extends Controller
 {
@@ -393,6 +399,12 @@ class AuthController extends Controller
         // Log mock email notification
         \Illuminate\Support\Facades\Log::info("Email notification: Account registration approved for User: {$user->email} ({$user->name})");
 
+        try {
+            Mail::to($user->email)->send(new RegistrationApprovedMail($user));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send approval email: " . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => "User {$user->name} has been approved successfully.",
@@ -421,6 +433,15 @@ class AuthController extends Controller
         $userName = $user->name;
         $userEmail = $user->email;
         $userId = $user->id;
+
+        if ($user->status === 'pending') {
+            try {
+                Mail::to($userEmail)->send(new RegistrationRejectedMail($userName));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error("Failed to send rejection email: " . $e->getMessage());
+            }
+        }
+
         $user->delete();
 
         AuditLogger::log('deleted', 'User', $userId, $userName, ['email' => $userEmail], $request);
@@ -619,6 +640,92 @@ class AuthController extends Controller
             'success' => true,
             'message' => "User {$user->name} suspension has been lifted.",
             'user' => $user,
+        ]);
+    }
+
+    /**
+     * POST /api/forgot-password
+     */
+    public function forgotPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+        ]);
+
+        $email = $request->email;
+        $user = User::where('email', $email)->first();
+
+        if ($user->status !== 'approved') {
+            return response()->json(['error' => 'Your account is not approved or is suspended.'], 403);
+        }
+
+        $token = Str::random(64);
+
+        DB::table('password_reset_tokens')->updateOrInsert(
+            ['email' => $email],
+            [
+                'token' => $token,
+                'created_at' => now(),
+            ]
+        );
+
+        $frontendUrl = rtrim(config('app.frontend_url', 'http://localhost:5173'), '/');
+        $resetUrl = "{$frontendUrl}/forgot-password?token={$token}&email=" . urlencode($email);
+
+        try {
+            Mail::to($email)->send(new ForgotPasswordMail($user->first_name, $resetUrl));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error("Failed to send forgot password email: " . $e->getMessage());
+            return response()->json(['error' => 'Failed to send reset email. Please try again later.'], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'We have emailed your password reset link!',
+        ]);
+    }
+
+    /**
+     * POST /api/reset-password
+     */
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email|exists:users,email',
+            'token' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->where('token', $request->token)
+            ->first();
+
+        if (!$record) {
+            return response()->json(['error' => 'Invalid email or token.'], 400);
+        }
+
+        if (now()->subMinutes(60)->gt(\Carbon\Carbon::parse($record->created_at))) {
+            DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+            return response()->json(['error' => 'This password reset token has expired.'], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return response()->json(['error' => 'User not found.'], 404);
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+        ]);
+
+        DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+
+        AuditLogger::log('password_reset', 'User', $user->id, $user->name, null, $request);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your password has been reset successfully.',
         ]);
     }
 }

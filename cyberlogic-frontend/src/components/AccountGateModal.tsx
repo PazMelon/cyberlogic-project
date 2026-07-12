@@ -88,7 +88,7 @@ export function AccountGateModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-xl overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center p-4 bg-surface-950/80 backdrop-blur-xl overflow-y-auto">
       <div className="w-full max-w-2xl bg-surface-900 border border-primary/30 rounded-2xl p-6 md:p-8 shadow-[0_0_50px_rgba(var(--color-primary-rgb),0.15)] glass my-8 animate-dialog-content">
         {/* Header */}
         <div className="flex items-center gap-4 border-b border-border pb-5 mb-6">

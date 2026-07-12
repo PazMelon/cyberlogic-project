@@ -18,6 +18,7 @@ import About from "./pages/About";
 import OfficerDetail from "./pages/OfficerDetail";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import Forums from "./pages/Forums";
 import CreateThread from "./pages/CreateThread";
@@ -204,6 +205,14 @@ function AppRoutes() {
         element={
           <GuestGate>
             <Register />
+          </GuestGate>
+        }
+      />
+      <Route
+        path="forgot-password"
+        element={
+          <GuestGate>
+            <ForgotPassword />
           </GuestGate>
         }
       />
