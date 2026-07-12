@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { BookOpen } from "lucide-react";
-import type { BlogPost } from "../../utils/api";
+import type { BlogPost } from "../../data/mockData";
 
 interface LatestBlogsProps {
   blogs: BlogPost[];

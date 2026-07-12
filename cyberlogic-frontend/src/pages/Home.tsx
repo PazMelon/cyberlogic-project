@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
 import {
   MessageSquare,
   MessagesSquare,
@@ -20,10 +19,9 @@ import type {
   ForumCategoryMapped,
   ForumThreadMapped,
   DashboardStats,
-  BlogPost,
   ResourceMapped,
 } from "../utils/api";
-import type { Announcement, Event } from "../data/mockData";
+import type { Announcement, Event, BlogPost } from "../data/mockData";
 import { SkeletonLine, SkeletonBox } from "../components/Skeleton";
 import { EventCard, AnnouncementCard } from "../components/ui";
 import { WelcomeBanner } from "../components/dashboard/WelcomeBanner";
