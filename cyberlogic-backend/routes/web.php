@@ -187,11 +187,10 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/storage/{path}', function ($path) {
-    $filePath = storage_path('app/public/' . $path);
-    if (!file_exists($filePath)) {
+    if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
         abort(404);
     }
-    return response()->file($filePath);
+    return response()->file(\Illuminate\Support\Facades\Storage::disk('public')->path($path));
 })->where('path', '.*');
 
 // React SPA fallback handler with dynamic SEO injection

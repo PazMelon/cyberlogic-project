@@ -558,12 +558,11 @@ class ChatController extends Controller
             );
 
             \App\Services\RealtimeService::broadcast("chat:{$slug}", [
-                'event' => 'message_seen',
                 'user_id' => $user->id,
                 'name' => $user->username ?: $user->name,
                 'avatar' => $user->avatar,
                 'message_id' => $messageId
-            ]);
+            ], 'message_seen');
         }
 
         return response()->json(['success' => true]);
