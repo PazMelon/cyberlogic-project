@@ -620,12 +620,27 @@ class ChannelManager {
         );
         if (unprocessedCount[0].count >= 50) {
           console.log(`[WS] Unprocessed queue reached ${unprocessedCount[0].count} messages. Triggering batch AI moderation...`);
-          fetch(`${LARAVEL_URL}/api/internal/chat/messages/moderate-batch`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Realtime-Secret': REALTIME_WS_SECRET,
+          let targetUrl = LARAVEL_URL;
+          if (targetUrl.endsWith('/')) {
+            targetUrl = targetUrl.slice(0, -1);
+          }
+          const headers = {
+            'Content-Type': 'application/json',
+            'X-Realtime-Secret': REALTIME_WS_SECRET,
+          };
+
+          if (targetUrl.includes('127.0.0.1:8000') || targetUrl.includes('localhost:8000')) {
+            if (process.env.DB_DATABASE === 'cyberlogic') {
+              targetUrl = 'http://127.0.0.1:80';
+              headers['Host'] = 'cyberlogic.pazmelon.com';
             }
+          } else if (targetUrl.includes('cyberlogic.pazmelon.com')) {
+            headers['Host'] = 'cyberlogic.pazmelon.com';
+          }
+
+          fetch(`${targetUrl}/api/internal/chat/messages/moderate-batch`, {
+            method: 'POST',
+            headers: headers
           }).catch(triggerErr => {
             console.error('[WS] Failed to trigger batch AI moderation webhook:', triggerErr.message);
           });

@@ -8,6 +8,7 @@ use App\Models\ChatMessageReaction;
 use App\Models\ChatSavedMedia;
 use App\Models\ChatChannelRead;
 use App\Services\AuditLogger;
+use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -558,22 +559,24 @@ class ChatController extends Controller
 
         $messageId = $validated['message_id'];
 
-        $existing = ChatChannelRead::where('user_id', $user->id)
-            ->where('channel_id', $channel->id)
-            ->first();
+        if ($slug !== 'freedom-wall') {
+            $existing = ChatChannelRead::where('user_id', $user->id)
+                ->where('channel_id', $channel->id)
+                ->first();
 
-        if (!$existing || $existing->last_seen_message_id < $messageId) {
-            ChatChannelRead::updateOrCreate(
-                ['user_id' => $user->id, 'channel_id' => $channel->id],
-                ['last_seen_message_id' => $messageId]
-            );
+            if (!$existing || $existing->last_seen_message_id < $messageId) {
+                ChatChannelRead::updateOrCreate(
+                    ['user_id' => $user->id, 'channel_id' => $channel->id],
+                    ['last_seen_message_id' => $messageId]
+                );
 
-            \App\Services\RealtimeService::broadcast("chat:{$slug}", [
-                'user_id' => $user->id,
-                'name' => $user->username ?: $user->name,
-                'avatar' => $user->avatar,
-                'message_id' => $messageId
-            ], 'message_seen');
+                \App\Services\RealtimeService::broadcast("chat:{$slug}", [
+                    'user_id' => $user->id,
+                    'name' => $user->username ?: $user->name,
+                    'avatar' => $user->avatar,
+                    'message_id' => $messageId
+                ], 'message_seen');
+            }
         }
 
         return response()->json(['success' => true]);
@@ -742,7 +745,7 @@ class ChatController extends Controller
         $messageId = $validated['messageId'];
         $content = $validated['content'];
 
-        $result = \App\Services\GeminiService::moderate($content);
+        $result = GeminiService::moderate($content);
 
         $message = ChatMessage::find($messageId);
         if ($message) {
@@ -796,7 +799,7 @@ class ChatController extends Controller
             'content' => $m->content
         ])->toArray();
 
-        $results = \App\Services\GeminiService::moderateBatch($payload);
+        $results = GeminiService::moderateBatch($payload);
 
         if (empty($results)) {
             return response()->json([
