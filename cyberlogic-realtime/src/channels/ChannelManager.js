@@ -427,12 +427,22 @@ class ChannelManager {
       if (channelSlug === 'freedom-wall') {
         try {
           console.log(`[WS] Sending freedom-wall message ${messageId} to Laravel for content moderation check...`);
-          const response = await fetch(`${LARAVEL_URL}/api/internal/chat/messages/moderate`, {
+          let targetUrl = LARAVEL_URL;
+          const headers = {
+            'Content-Type': 'application/json',
+            'X-Realtime-Secret': REALTIME_WS_SECRET,
+          };
+
+          if (process.env.DB_DATABASE === 'cyberlogic') {
+            targetUrl = 'http://127.0.0.1:80';
+            headers['Host'] = 'cyberlogic.pazmelon.com';
+          } else if (targetUrl.includes('cyberlogic.pazmelon.com')) {
+            headers['Host'] = 'cyberlogic.pazmelon.com';
+          }
+
+          const response = await fetch(`${targetUrl}/api/internal/chat/messages/moderate`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Realtime-Secret': REALTIME_WS_SECRET,
-            },
+            headers: headers,
             body: JSON.stringify({
               messageId: messageId,
               content: content
