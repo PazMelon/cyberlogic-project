@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
         ]);
-        $middleware->validateCsrfTokens(except: [
+        $middleware->preventRequestForgery(except: [
             'api/internal/chat/messages/moderate',
             'api/internal/chat/messages/moderate-batch',
         ]);

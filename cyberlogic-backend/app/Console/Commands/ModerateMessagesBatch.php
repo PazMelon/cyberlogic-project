@@ -32,6 +32,13 @@ class ModerateMessagesBatch extends Command
 
         // Fetch messages where moderation_status is 'none', limit to 50
         $messages = ChatMessage::where('moderation_status', 'none')
+            ->where('type', 'text')
+            ->where(function($query) {
+                $query->whereNull('user_id')
+                      ->orWhereHas('user', function($q) {
+                          $q->where('role', '!=', 'bot');
+                      });
+            })
             ->where('is_deleted', false)
             ->limit(50)
             ->get();

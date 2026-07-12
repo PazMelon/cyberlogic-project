@@ -50,7 +50,7 @@ const adminNavSections: NavSection[] = [
       { icon: Users, label: "Members", path: "/admin/members", badgeKey: "pendingMembers", permission: "manage_users" },
       { icon: MessagesSquare, label: "Forums", path: "/admin/forums", permission: "manage_forums" },
       { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat", permission: "manage_chat" },
-      { icon: Shield, label: "Freedom Wall", path: "/admin/freedom-wall", permission: "manage_chat" },
+      { icon: Shield, label: "Message Moderation", path: "/admin/message-moderation", permission: "manage_chat" },
       { icon: Megaphone, label: "Announcements", path: "/admin/announcements", permission: "manage_announcements" },
       { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
       { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },

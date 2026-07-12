@@ -272,7 +272,7 @@ function AppRoutes() {
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />
         <Route path="chat" element={<ChatManagement />} />
-        <Route path="freedom-wall" element={<FreedomWallModeration />} />
+        <Route path="message-moderation" element={<FreedomWallModeration />} />
         <Route path="settings" element={<SiteSettings />} />
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="roles" element={<RoleManagement />} />

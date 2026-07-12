@@ -100,8 +100,11 @@ class ChatController extends Controller
         $afterId = request()->query('after_id');
         $aroundId = request()->query('around_id');
 
-        $baseQuery = ChatMessage::where('channel_id', $channel->id)
-            ->where('is_flagged', false);
+        $baseQuery = ChatMessage::where('channel_id', $channel->id);
+
+        if ($slug === 'freedom-wall') {
+            $baseQuery->where('is_flagged', false);
+        }
 
         if ($aroundId) {
             $aroundId = (int)$aroundId;
@@ -683,6 +686,25 @@ class ChatController extends Controller
             'deleted_at_timestamp' => now(),
         ]);
 
+        if ($message->user_id) {
+            $channelName = $message->channel ? $message->channel->name : 'chat';
+            $channelSlug = $message->channel ? $message->channel->slug : null;
+
+            \App\Services\NotificationService::notifyUser(
+                $message->user_id,
+                'chat_moderation',
+                'Message Rejected',
+                "Your message in #{$channelName} was rejected by an admin. Reason: " . $validated['reason'],
+                [
+                    'message_id' => $message->id,
+                    'reason' => $validated['reason'],
+                    'channel_slug' => $channelSlug,
+                ],
+                'shield-alert',
+                "/app/chat?channel={$channelSlug}&message_id={$message->id}"
+            );
+        }
+
         AuditLogger::log('rejected_flagged_message', 'ChatMessage', $message->id, substr($message->content, 0, 80), [
             'reason' => $validated['reason'],
             'channel_id' => $message->channel_id,
@@ -743,6 +765,13 @@ class ChatController extends Controller
 
         // Run the batch moderation
         $messages = ChatMessage::where('moderation_status', 'none')
+            ->where('type', 'text')
+            ->where(function($query) {
+                $query->whereNull('user_id')
+                      ->orWhereHas('user', function($q) {
+                          $q->where('role', '!=', 'bot');
+                      });
+            })
             ->where('is_deleted', false)
             ->limit(50)
             ->get();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Shield, Check, Trash2, Clock, AlertTriangle, User } from "lucide-react";
-import { Button, Card, DataTable, PromptDialog } from "../../components/ui";
+import { Check, Trash2, Clock, AlertTriangle, User } from "lucide-react";
+import { Button, DataTable, PromptDialog } from "../../components/ui";
 import { apiRequest, useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
 import { useSEO } from "../../utils/useSEO";
@@ -21,8 +21,8 @@ interface FlaggedMessage {
 
 export default function FreedomWallModeration() {
   useSEO({
-    title: "Freedom Wall Moderation",
-    description: "Review flagged anonymous messages and manage wall posts.",
+    title: "Message Moderation",
+    description: "Review flagged chat messages and manage community posts.",
   });
 
   const { showAlert, showConfirm } = useDialog();
@@ -66,7 +66,7 @@ export default function FreedomWallModeration() {
   const handleApprove = async (id: number) => {
     const confirmed = await showConfirm({
       title: "Approve Message?",
-      message: "This will dismiss the AI flag and publish the message anonymously to the Freedom Wall channel. Are you sure?",
+      message: "This will dismiss the AI flag and publish the message. Are you sure?",
       type: "info",
     });
     if (!confirmed) return;
@@ -228,87 +228,31 @@ export default function FreedomWallModeration() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-error/20 to-error/5 border border-error/20 flex items-center justify-center shadow-lg shadow-error/5">
-            <Shield className="w-6 h-6 text-error animate-pulse" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary tracking-tight">
-              Freedom Wall Moderation
-            </h1>
-            <p className="text-xs text-text-muted mt-0.5">
-              Review messages flagged by Gemini 3.5 Flash Lite before they are published to the channel.
-            </p>
-          </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+        <div>
+          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
+            Message Moderation
+          </h1>
+          <p className="text-sm text-text-muted mt-1">
+            {flaggedMessages.length} flagged messages pending review · {isSuperAdmin ? "Superadmin View (Author Visible)" : "Officer View (Author Hidden)"}
+          </p>
         </div>
       </div>
 
-      {/* Stats Summary Card */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-surface-900/60 border-border/50 backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">
-                Pending Flagged Posts
-              </span>
-              <span className="text-2xl font-black text-error mt-1">{flaggedMessages.length}</span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-error/15 flex items-center justify-center text-error border border-error/10">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-surface-900/60 border-border/50 backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">
-                Moderation System
-              </span>
-              <span className="text-sm font-semibold text-text-secondary mt-2">
-                Gemini 3.5 Flash Lite Active
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center text-success border border-success/10">
-              <Shield className="w-5 h-5" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-surface-900/60 border-border/50 backdrop-blur-md">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">
-                Access Status
-              </span>
-              <span className="text-xs font-semibold text-amber-500 mt-2">
-                {isSuperAdmin ? "Superadmin View (Author Visible)" : "Officer View (Author Hidden)"}
-              </span>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center text-amber-400 border border-amber-500/10">
-              <User className="w-5 h-5" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Flagged Message Table list */}
-      <Card className="p-0 overflow-hidden bg-surface-900/40 border-border/50 backdrop-blur-md">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-16">
-            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          </div>
-        ) : (
-          <DataTable
-            data={flaggedMessages}
-            columns={columns}
-            searchPlaceholder="Search flagged messages content or reason..."
-            searchField={(row: FlaggedMessage) => row.content + " " + row.flagged_reason}
-            emptyStateText="No flagged posts pending review. The Freedom Wall is clean!"
-          />
-        )}
-      </Card>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-xs text-text-muted">Loading flagged messages...</p>
+        </div>
+      ) : (
+        <DataTable
+          data={flaggedMessages}
+          columns={columns}
+          searchPlaceholder="Search flagged messages content or reason..."
+          searchField={(row: FlaggedMessage) => row.content + " " + row.flagged_reason}
+          emptyStateText="No flagged messages pending review."
+        />
+      )}
 
       <PromptDialog
         isOpen={rejectingMessageId !== null}
