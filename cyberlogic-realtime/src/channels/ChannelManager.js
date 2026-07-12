@@ -436,9 +436,11 @@ class ChannelManager {
             'X-Realtime-Secret': REALTIME_WS_SECRET,
           };
 
-          if (process.env.DB_DATABASE === 'cyberlogic') {
-            targetUrl = 'http://127.0.0.1:80';
-            headers['Host'] = 'cyberlogic.pazmelon.com';
+          if (targetUrl.includes('127.0.0.1:8000') || targetUrl.includes('localhost:8000')) {
+            if (process.env.DB_DATABASE === 'cyberlogic') {
+              targetUrl = 'http://127.0.0.1:80';
+              headers['Host'] = 'cyberlogic.pazmelon.com';
+            }
           } else if (targetUrl.includes('cyberlogic.pazmelon.com')) {
             headers['Host'] = 'cyberlogic.pazmelon.com';
           }
