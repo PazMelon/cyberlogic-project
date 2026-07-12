@@ -6,6 +6,7 @@ use App\Models\ChatChannel;
 use App\Models\ChatMessage;
 use App\Models\ChatMessageReaction;
 use App\Models\ChatSavedMedia;
+use App\Models\ChatChannelRead;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -165,7 +166,22 @@ class ChatController extends Controller
             ];
         });
 
-        return response()->json($mappedMessages);
+        $readReceipts = ChatChannelRead::where('channel_id', $channel->id)
+            ->with(['user'])
+            ->get()
+            ->map(function ($receipt) {
+                return [
+                    'user_id' => $receipt->user_id,
+                    'name' => $receipt->user ? ($receipt->user->username ?: $receipt->user->name) : 'Anonymous',
+                    'avatar' => $receipt->user ? $receipt->user->avatar : null,
+                    'message_id' => (int)$receipt->last_seen_message_id,
+                ];
+            });
+
+        return response()->json([
+            'messages' => $mappedMessages,
+            'read_receipts' => $readReceipts
+        ]);
     }
 
     /**
@@ -488,5 +504,41 @@ class ChatController extends Controller
             'message' => 'Message deleted successfully',
             'messageId' => $message->id,
         ]);
+    }
+
+    /**
+     * Mark a channel as read up to a message ID.
+     */
+    public function markAsRead(Request $request, string $slug): JsonResponse
+    {
+        $user = $request->user();
+        $channel = ChatChannel::where('slug', $slug)->firstOrFail();
+
+        $validated = $request->validate([
+            'message_id' => 'required|integer',
+        ]);
+
+        $messageId = $validated['message_id'];
+
+        $existing = ChatChannelRead::where('user_id', $user->id)
+            ->where('channel_id', $channel->id)
+            ->first();
+
+        if (!$existing || $existing->last_seen_message_id < $messageId) {
+            ChatChannelRead::updateOrCreate(
+                ['user_id' => $user->id, 'channel_id' => $channel->id],
+                ['last_seen_message_id' => $messageId]
+            );
+
+            \App\Services\RealtimeService::broadcast("chat:{$slug}", [
+                'event' => 'message_seen',
+                'user_id' => $user->id,
+                'name' => $user->username ?: $user->name,
+                'avatar' => $user->avatar,
+                'message_id' => $messageId
+            ]);
+        }
+
+        return response()->json(['success' => true]);
     }
 }

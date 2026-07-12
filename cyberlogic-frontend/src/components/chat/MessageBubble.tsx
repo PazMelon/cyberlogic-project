@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router";
 import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 import ReactionPicker from "./ReactionPicker";
 
 export interface ChatMessage {
@@ -40,6 +41,7 @@ export interface MessageBubbleProps {
   onOpenFullPicker: (messageId: number) => void;
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
+  readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
 }
 
 export default function MessageBubble({
@@ -51,6 +53,7 @@ export default function MessageBubble({
   onOpenFullPicker,
   onReply,
   onDelete,
+  readReceipts = [],
 }: MessageBubbleProps) {
   const touchTimerRef = useRef<any>(null);
   const isTouchMoved = useRef(false);
@@ -58,6 +61,11 @@ export default function MessageBubble({
   const startX = useRef(0);
   const startY = useRef(0);
   const isSwiping = useRef(false);
+
+  const { user } = useAuth();
+  const seenUsers = readReceipts.filter(
+    (r) => r.message_id === message.id && (user ? Number(r.user_id) !== Number(user.id) : true)
+  );
 
   if (message.isSystem) {
     return (
@@ -545,6 +553,31 @@ export default function MessageBubble({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Seen Indicators */}
+        {seenUsers.length > 0 && (
+          <div className={`flex items-center gap-1 mt-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
+            <div className="flex -space-x-1 overflow-hidden items-center">
+              {seenUsers.slice(0, 10).map((u) => (
+                <img
+                  key={u.user_id}
+                  src={u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.name}`}
+                  alt={u.name}
+                  title={`Seen by ${u.name}`}
+                  className="h-4 w-4 rounded-full ring-1 ring-surface-950 object-cover bg-surface-800"
+                />
+              ))}
+              {seenUsers.length > 10 && (
+                <span 
+                  title={seenUsers.slice(10).map(u => u.name).join(", ")}
+                  className="flex items-center justify-center h-4 min-w-[16px] px-1 rounded-full bg-surface-800 border border-border/40 text-[8px] font-bold text-text-secondary select-none ml-1 ring-1 ring-surface-950"
+                >
+                  +{seenUsers.length - 10}
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

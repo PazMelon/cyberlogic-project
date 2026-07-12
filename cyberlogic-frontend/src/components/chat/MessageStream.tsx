@@ -26,6 +26,7 @@ export interface MessageStreamProps {
   isFetchingMore?: boolean;
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
+  readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
 }
 
 export default function MessageStream({
@@ -43,6 +44,7 @@ export default function MessageStream({
   isFetchingMore = false,
   onReply,
   onDelete,
+  readReceipts = [],
 }: MessageStreamProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastFirstMessageIdRef = useRef<number | null>(null);
@@ -135,6 +137,7 @@ export default function MessageStream({
             onOpenFullPicker={onOpenFullPicker}
             onReply={onReply}
             onDelete={onDelete}
+            readReceipts={readReceipts}
           />
         ))
       )}

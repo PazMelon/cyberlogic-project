@@ -32,6 +32,7 @@ export default function Chat() {
   const [activeChannel, setActiveChannel] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState("");
+  const [readReceipts, setReadReceipts] = useState<{ user_id: number; name: string; avatar: string | null; message_id: number }[]>([]);
 
   const [showMobileChannels, setShowMobileChannels] = useState(false);
   const [showMembersList, setShowMembersList] = useState(window.innerWidth >= 1024);
@@ -212,6 +213,17 @@ export default function Chat() {
       stopTypingTimerRef.current = null;
     }
 
+    const sendReadReceipt = async (messageId: number) => {
+      try {
+        await apiRequest(`/api/chat/channels/${activeChannel}/read`, {
+          method: "POST",
+          body: JSON.stringify({ message_id: messageId }),
+        });
+      } catch (err) {
+        console.error("Failed to send read receipt:", err);
+      }
+    };
+
     // Load history
     async function loadHistory() {
       try {
@@ -219,8 +231,11 @@ export default function Chat() {
         setHasMoreMessages(true);
         const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages`);
         if (res.ok) {
-          const data: ChatMessage[] = await res.json();
+          const resData = await res.json();
+          const data: ChatMessage[] = resData.messages || [];
+          const receipts = resData.read_receipts || [];
           setMessages(data);
+          setReadReceipts(receipts);
           if (data.length < 50) {
             setHasMoreMessages(false);
           }
@@ -232,6 +247,7 @@ export default function Chat() {
               const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
               lastRead[activeChannel] = latestMsg.id;
               localStorage.setItem("chat_last_read", JSON.stringify(lastRead));
+              sendReadReceipt(latestMsg.id);
             }
           }
         }
@@ -255,9 +271,16 @@ export default function Chat() {
             const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
             lastRead[activeChannel] = payload.id;
             localStorage.setItem("chat_last_read", JSON.stringify(lastRead));
+            sendReadReceipt(payload.id);
           }
 
           return [...prev, { ...payload, animate: "animate-message-arrive" }];
+        });
+      } else if (type === "message_seen") {
+        const { user_id, name, avatar, message_id } = payload;
+        setReadReceipts((prev) => {
+          const filtered = prev.filter((r) => r.user_id !== user_id);
+          return [...filtered, { user_id, name, avatar, message_id }];
         });
       } else if (type === "reaction_update") {
         const { messageId, reactions } = payload;
@@ -336,7 +359,10 @@ export default function Chat() {
       const oldestId = messages[0].id;
       const res = await apiRequest(`/api/chat/channels/${activeChannel}/messages?before_id=${oldestId}`);
       if (res.ok) {
-        const data: ChatMessage[] = await res.json();
+        const resData = await res.json();
+        const data: ChatMessage[] = resData.messages || [];
+        const receipts = resData.read_receipts || [];
+        setReadReceipts(receipts);
         if (data.length === 0) {
           setHasMoreMessages(false);
         } else {
@@ -644,6 +670,7 @@ export default function Chat() {
             typingUsers={typingUsers}
             currentUserId={currentUser?.id}
             activeChannelName={activeChannelData?.name}
+            readReceipts={readReceipts}
             onReact={handleToggleEmoji}
             activePickerId={activeReactionPickerMessageId}
             setActivePickerId={setActiveReactionPickerMessageId}
