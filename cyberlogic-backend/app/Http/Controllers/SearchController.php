@@ -88,6 +88,7 @@ class SearchController extends Controller
                 ->where(function ($query) use ($q) {
                     $query->where('first_name', 'like', "%{$q}%")
                         ->orWhere('last_name', 'like', "%{$q}%")
+                        ->orWhere('username', 'like', "%{$q}%")
                         ->orWhere('email', 'like', "%{$q}%")
                         ->orWhere('department', 'like', "%{$q}%")
                         ->orWhere('expertise', 'like', "%{$q}%");

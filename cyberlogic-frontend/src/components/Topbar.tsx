@@ -7,6 +7,7 @@ import {
   Settings,
   User,
   Menu,
+  Search,
   LayoutDashboard,
   MessagesSquare,
   MessageSquare,
@@ -216,6 +217,7 @@ const formatRelativeTime = (dateString: string) => {
 
 export default function Topbar() {
   const { user, logout, isAdmin, isSuperAdmin, hasPermission } = useAuth();
+  const location = useLocation();
   const {
     myStatus,
     updateMyStatus,
@@ -226,13 +228,21 @@ export default function Topbar() {
     clearLatestNotification
   } = useWebSocket();
 
+  // Close mobile search and menus on route changes
+  useEffect(() => {
+    setShowMobileSearch(false);
+    setShowMobileMenu(false);
+    setShowDropdown(false);
+    setShowNotifDropdown(false);
+  }, [location.pathname]);
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [activeToast, setActiveToast] = useState<any | null>(null);
-  const location = useLocation();
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
@@ -429,32 +439,58 @@ export default function Topbar() {
   return (
     <>
       <header className="sticky top-0 z-40 h-16 glass border-b border-border flex items-center px-4 sm:px-6 gap-4">
-        {/* Mobile Menu Button */}
-        <button
-          type="button"
-          onClick={() => setShowMobileMenu(!showMobileMenu)}
-          className="lg:hidden p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
-          aria-label="Toggle menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
-        {/* Mobile Logo */}
-        <Link to="/app" className="lg:hidden flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-            <Shield className="w-3.5 h-3.5 text-white" />
+        {showMobileSearch ? (
+          <div className="flex-1 flex items-center gap-2 z-50">
+            <button
+              type="button"
+              onClick={() => setShowMobileSearch(false)}
+              className="p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+              aria-label="Close search"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="flex-1 max-w-full">
+              <GlobalSearch />
+            </div>
           </div>
-          <span className="text-sm font-bold font-[family-name:var(--font-heading)]">
-            <span className="text-gradient">Cyber</span><span className="text-text-primary">logic</span>
-          </span>
-        </Link>
+        ) : (
+          <>
+            {/* Mobile Menu Button */}
+            <button
+              type="button"
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className="lg:hidden p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+              aria-label="Toggle menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
-        {/* Search */}
-        <div className="hidden sm:block flex-1 max-w-md">
-          <GlobalSearch />
-        </div>
+            {/* Mobile Logo */}
+            <Link to="/app" className="lg:hidden flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Shield className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="text-sm font-bold font-[family-name:var(--font-heading)]">
+                <span className="text-gradient">Cyber</span><span className="text-text-primary">logic</span>
+              </span>
+            </Link>
 
-        <div className="flex-1" />
+            {/* Search */}
+            <div className="hidden lg:block flex-1 max-w-md">
+              <GlobalSearch />
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Mobile Search Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowMobileSearch(true)}
+              className="lg:hidden p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors cursor-pointer"
+              aria-label="Search"
+            >
+              <Search className="w-5 h-5" />
+            </button>
 
         {/* Notifications */}
         <div className="relative">
@@ -598,6 +634,8 @@ export default function Topbar() {
             </div>
           )}
         </div>
+          </>
+        )}
       </header>
 
       {/* Mobile/Tablet Notifications Sidebar Drawer */}
