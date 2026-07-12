@@ -19,10 +19,14 @@ class ChatMessage extends Model
         'deleted_by',
         'deletion_reason',
         'deleted_at_timestamp',
+        'is_flagged',
+        'flagged_reason',
+        'moderation_status',
     ];
 
     protected $casts = [
         'is_deleted' => 'boolean',
+        'is_flagged' => 'boolean',
         'deleted_at_timestamp' => 'datetime',
     ];
 

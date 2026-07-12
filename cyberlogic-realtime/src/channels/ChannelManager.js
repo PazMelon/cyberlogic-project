@@ -1,5 +1,8 @@
 const pool = require('../db');
 const ActivityTracker = require('./ActivityTracker');
+const LARAVEL_URL = process.env.LARAVEL_URL || 'http://127.0.0.1:8000';
+const REALTIME_WS_SECRET = process.env.REALTIME_WS_SECRET || 'cyberlogic_secret_token_123';
+
 
 class ChannelManager {
   constructor() {
@@ -113,16 +116,54 @@ class ChannelManager {
   broadcast(channelName, type, payload) {
     if (!this.channels.has(channelName)) return;
 
-    const message = JSON.stringify({
-      type,
-      channel: channelName,
-      payload,
-    });
-
     const clients = this.channels.get(channelName);
+    const isFreedomWall = channelName === 'chat:freedom-wall';
+
     for (const client of clients) {
       if (client.readyState === 1) { // OPEN
-        client.send(message);
+        const clientUser = this.clientUsers.get(client);
+        let finalPayload = payload;
+
+        if (isFreedomWall) {
+          if (type === 'reaction_update') {
+            finalPayload = { ...payload };
+            if (finalPayload.reactions) {
+              finalPayload.reactions = finalPayload.reactions.map(r => {
+                const userIds = Array.isArray(r.userIds) ? r.userIds.map(id => Number(id)) : [];
+                return {
+                  emoji: r.emoji,
+                  count: r.count,
+                  users: [], // hide names of users who reacted
+                  reacted: clientUser && userIds.includes(Number(clientUser.id))
+                };
+              });
+            }
+          } else if (type !== 'typing') {
+            const originalAuthorId = payload._originalAuthorId || payload.authorId;
+            finalPayload = { ...payload };
+            delete finalPayload._originalAuthorId;
+            
+            finalPayload.author = 'Anonymous';
+            finalPayload.authorAvatar = 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous';
+            finalPayload.authorId = null;
+            finalPayload.authorUsername = null;
+            finalPayload.isMe = clientUser && originalAuthorId && Number(clientUser.id) === Number(originalAuthorId);
+
+            if (finalPayload.replyTo) {
+              finalPayload.replyTo = {
+                ...finalPayload.replyTo,
+                author: 'Anonymous',
+                authorUsername: null
+              };
+            }
+          }
+        }
+
+        client.send(JSON.stringify({
+          type,
+          channel: channelName,
+          payload: finalPayload,
+        }));
       }
     }
   }
@@ -354,11 +395,60 @@ class ChannelManager {
         return;
       }
 
+      // Daily Limit Check for Freedom Wall
+      if (channelSlug === 'freedom-wall') {
+        const [dailyCount] = await pool.query(
+          'SELECT COUNT(*) as count FROM chat_messages WHERE channel_id = ? AND user_id = ? AND created_at >= CURDATE()',
+          [channelId, user.id]
+        );
+        if (dailyCount[0].count >= 5) {
+          console.log(`[WS] Freedom Wall limit hit: User ${user.name} (ID: ${user.id}) has already posted 5 messages today.`);
+          this.sendToClient(client, `chat:${channelSlug}`, 'rate_limit', {
+            message: 'You have reached your daily limit of 5 anonymous messages on the Freedom Wall.'
+          });
+          return;
+        }
+      }
+
       // 2. Persist message to DB
       const [result] = await pool.query(
         'INSERT INTO chat_messages (channel_id, user_id, parent_id, content, type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
         [channelId, user.id, parentId || null, content, 'text']
       );
+      const messageId = result.insertId;
+
+      // AI content moderation check for Freedom Wall
+      if (channelSlug === 'freedom-wall') {
+        try {
+          console.log(`[WS] Sending freedom-wall message ${messageId} to Laravel for content moderation check...`);
+          const response = await fetch(`${LARAVEL_URL}/api/internal/chat/messages/moderate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Realtime-Secret': REALTIME_WS_SECRET,
+            },
+            body: JSON.stringify({
+              messageId: messageId,
+              content: content
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Laravel moderation returned status ${response.status}`);
+          }
+
+          const modResult = await response.json();
+          if (modResult.is_harmful) {
+            console.log(`[WS] Message ${messageId} flagged as toxic: "${modResult.reason}"`);
+            this.sendToClient(client, `chat:${channelSlug}`, 'rate_limit', {
+              message: `Your post was flagged by AI for moderator review: ${modResult.reason || 'toxic content detected'}`
+            });
+            return;
+          }
+        } catch (modErr) {
+          console.error('[WS] Moderation check connection error:', modErr.message);
+        }
+      }
 
       // 3. Format message payload to send
       let replyTo = null;
@@ -385,7 +475,7 @@ class ChannelManager {
       }
 
       const formattedMsg = {
-        id: result.insertId,
+        id: messageId,
         channelId: channelSlug,
         author: user.name,
         authorAvatar: user.avatar,
@@ -395,6 +485,7 @@ class ChannelManager {
         timestamp: new Date().toISOString(),
         isSystem: false,
         replyTo: replyTo,
+        _originalAuthorId: user.id,
       };
 
       // 4. Broadcast message to the channel subscribers
@@ -529,14 +620,16 @@ class ChannelManager {
       return;
     }
 
+    const isFreedomWall = channelSlug === 'freedom-wall';
+
     const message = JSON.stringify({
       type: 'typing',
       channel: channelName,
       payload: {
-        userId: user.id,
-        firstName: user.username || user.first_name || user.name.split(' ')[0],
-        name: user.name,
-        avatar: user.avatar,
+        userId: isFreedomWall ? 0 : user.id,
+        firstName: isFreedomWall ? 'Someone' : (user.username || user.first_name || user.name.split(' ')[0]),
+        name: isFreedomWall ? 'Someone' : user.name,
+        avatar: isFreedomWall ? 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous' : user.avatar,
         isTyping: !!isTyping,
       },
     });

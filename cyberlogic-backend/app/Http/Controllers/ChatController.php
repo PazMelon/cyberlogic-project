@@ -100,17 +100,20 @@ class ChatController extends Controller
         $afterId = request()->query('after_id');
         $aroundId = request()->query('around_id');
 
+        $baseQuery = ChatMessage::where('channel_id', $channel->id)
+            ->where('is_flagged', false);
+
         if ($aroundId) {
             $aroundId = (int)$aroundId;
             // Get 25 messages before and 25 messages after around_id
-            $older = ChatMessage::where('channel_id', $channel->id)
+            $older = (clone $baseQuery)
                 ->where('id', '<=', $aroundId)
                 ->with(['user', 'reactions.user', 'parent.user'])
                 ->orderBy('id', 'desc')
                 ->limit(25)
                 ->get();
 
-            $newer = ChatMessage::where('channel_id', $channel->id)
+            $newer = (clone $baseQuery)
                 ->where('id', '>', $aroundId)
                 ->with(['user', 'reactions.user', 'parent.user'])
                 ->orderBy('id', 'asc')
@@ -119,7 +122,7 @@ class ChatController extends Controller
 
             $messages = $older->merge($newer)->sortBy('id')->values();
         } elseif ($afterId) {
-            $messages = ChatMessage::where('channel_id', $channel->id)
+            $messages = (clone $baseQuery)
                 ->where('id', '>', (int)$afterId)
                 ->with(['user', 'reactions.user', 'parent.user'])
                 ->orderBy('id', 'asc')
@@ -128,7 +131,7 @@ class ChatController extends Controller
                 ->values();
         } else {
             // Get last 50 messages, ordered oldest to newest for the chat stream
-            $query = ChatMessage::where('channel_id', $channel->id)
+            $query = (clone $baseQuery)
                 ->with(['user', 'reactions.user', 'parent.user'])
                 ->orderBy('id', 'desc')
                 ->limit(50);
@@ -143,9 +146,10 @@ class ChatController extends Controller
         }
 
         $currentUser = request()->user();
+        $isFreedomWall = $slug === 'freedom-wall';
 
         // Map messages to format expected by the frontend
-        $mappedMessages = $messages->map(function ($msg) use ($slug, $currentUser) {
+        $mappedMessages = $messages->map(function ($msg) use ($isFreedomWall, $slug, $currentUser) {
             // Group reactions by emoji
             $reactionsGrouped = $msg->reactions->groupBy('emoji');
             $reactionsSummary = [];
@@ -155,8 +159,8 @@ class ChatController extends Controller
                 $reactionsSummary[] = [
                     'emoji' => $emoji,
                     'count' => $reactions->count(),
-                    'users' => $reactions->map(function ($r) {
-                        return $r->user ? $r->user->name : 'Anonymous';
+                    'users' => $isFreedomWall ? [] : $reactions->map(function ($r) {
+                        return $r->user ? ($r->user->username ?: $r->user->name) : 'Anonymous';
                     })->values()->toArray(),
                     'reacted' => $currentUser ? in_array($currentUser->id, $userIds) : false,
                 ];
@@ -174,36 +178,40 @@ class ChatController extends Controller
             return [
                 'id' => $msg->id,
                 'channelId' => $slug,
-                'author' => $msg->user ? ($msg->user->username ?: $msg->user->name) : 'Anonymous',
-                'authorAvatar' => $msg->user ? $msg->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user',
-                'authorId' => $msg->user_id,
-                'authorUsername' => $msg->user ? $msg->user->username : null,
+                'author' => $isFreedomWall ? 'Anonymous' : ($msg->user ? ($msg->user->username ?: $msg->user->name) : 'Anonymous'),
+                'authorAvatar' => $isFreedomWall ? 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous' : ($msg->user ? $msg->user->avatar : 'https://api.dicebear.com/9.x/avataaars/svg?seed=user'),
+                'authorId' => $isFreedomWall ? null : $msg->user_id,
+                'authorUsername' => $isFreedomWall ? null : ($msg->user ? $msg->user->username : null),
                 'content' => $content,
                 'timestamp' => $msg->created_at ? $msg->created_at->toIso8601String() : now()->toIso8601String(),
                 'isSystem' => $msg->type === 'system',
                 'isDeleted' => $isDeleted,
                 'deletionReason' => $deletionReason,
                 'reactions' => $isDeleted ? [] : $reactionsSummary,
+                'isMe' => $currentUser && $msg->user_id === $currentUser->id,
                 'replyTo' => $msg->parent ? [
                     'id' => $msg->parent->id,
                     'content' => $msg->parent->content,
-                    'author' => $msg->parent->user ? ($msg->parent->user->username ?: $msg->parent->user->name) : 'Anonymous',
-                    'authorUsername' => $msg->parent->user ? $msg->parent->user->username : null,
+                    'author' => $isFreedomWall ? 'Anonymous' : ($msg->parent->user ? ($msg->parent->user->username ?: $msg->parent->user->name) : 'Anonymous'),
+                    'authorUsername' => $isFreedomWall ? null : ($msg->parent->user ? $msg->parent->user->username : null),
                 ] : null,
             ];
         });
 
-        $readReceipts = ChatChannelRead::where('channel_id', $channel->id)
-            ->with(['user'])
-            ->get()
-            ->map(function ($receipt) {
-                return [
-                    'user_id' => $receipt->user_id,
-                    'name' => $receipt->user ? ($receipt->user->username ?: $receipt->user->name) : 'Anonymous',
-                    'avatar' => $receipt->user ? $receipt->user->avatar : null,
-                    'message_id' => (int)$receipt->last_seen_message_id,
-                ];
-            });
+        $readReceipts = [];
+        if (!$isFreedomWall) {
+            $readReceipts = ChatChannelRead::where('channel_id', $channel->id)
+                ->with(['user'])
+                ->get()
+                ->map(function ($receipt) {
+                    return [
+                        'user_id' => $receipt->user_id,
+                        'name' => $receipt->user ? ($receipt->user->username ?: $receipt->user->name) : 'Anonymous',
+                        'avatar' => $receipt->user ? $receipt->user->avatar : null,
+                        'message_id' => (int)$receipt->last_seen_message_id,
+                    ];
+                });
+        }
 
         return response()->json([
             'messages' => $mappedMessages,
@@ -566,5 +574,158 @@ class ChatController extends Controller
         }
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Get all flagged messages (Admin/Superadmin only).
+     */
+    public function flaggedMessages(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $messages = ChatMessage::where('is_flagged', true)
+            ->with(['user', 'channel'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $isSuperAdmin = $currentUser->isSuperAdmin();
+
+        $mapped = $messages->map(function ($msg) use ($isSuperAdmin) {
+            return [
+                'id' => $msg->id,
+                'content' => $msg->content,
+                'flagged_reason' => $msg->flagged_reason ?: 'Potential violation flagged by AI',
+                'moderation_status' => $msg->moderation_status,
+                'channel_name' => $msg->channel ? $msg->channel->name : 'Unknown',
+                'channel_slug' => $msg->channel ? $msg->channel->slug : '',
+                'created_at' => $msg->created_at ? $msg->created_at->toIso8601String() : now()->toIso8601String(),
+                // Only disclose author details if user is superadmin
+                'author_name' => $isSuperAdmin ? ($msg->user ? $msg->user->name : 'Anonymous') : 'Anonymous',
+                'author_email' => $isSuperAdmin ? ($msg->user ? $msg->user->email : 'N/A') : 'Hidden',
+                'author_avatar' => $isSuperAdmin ? ($msg->user ? $msg->user->avatar : null) : 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous',
+                'author_role' => $isSuperAdmin ? ($msg->user ? $msg->user->role : 'N/A') : 'Hidden',
+            ];
+        });
+
+        return response()->json($mapped);
+    }
+
+    /**
+     * Approve a flagged message (Admin/Superadmin only).
+     */
+    public function approveFlaggedMessage(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $message = ChatMessage::findOrFail($id);
+        $message->update([
+            'is_flagged' => false,
+            'moderation_status' => 'approved',
+        ]);
+
+        $channel = $message->channel;
+        $channelSlug = $channel ? $channel->slug : 'freedom-wall';
+
+        // Format message for WebSocket broadcast (anonymized)
+        $formattedMsg = [
+            'id' => $message->id,
+            'channelId' => $channelSlug,
+            'author' => 'Anonymous',
+            'authorAvatar' => 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous',
+            'authorId' => null,
+            'authorUsername' => null,
+            'content' => $message->content,
+            'timestamp' => $message->created_at ? $message->created_at->toIso8601String() : now()->toIso8601String(),
+            'isSystem' => $message->type === 'system',
+            'isDeleted' => false,
+            'reactions' => [],
+            'replyTo' => null,
+            '_originalAuthorId' => $message->user_id, // helper for Node to set isMe
+        ];
+
+        // Broadcast to channel
+        \App\Services\RealtimeService::broadcast("chat:{$channelSlug}", $formattedMsg, 'message');
+
+        AuditLogger::log('approved_flagged_message', 'ChatMessage', $message->id, substr($message->content, 0, 80), [
+            'channel_id' => $message->channel_id,
+        ], $request);
+
+        return response()->json(['message' => 'Message approved successfully']);
+    }
+
+    /**
+     * Reject/delete a flagged message (Admin/Superadmin only).
+     */
+    public function rejectFlaggedMessage(Request $request, int $id): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $message = ChatMessage::findOrFail($id);
+        $message->update([
+            'is_flagged' => false,
+            'is_deleted' => true,
+            'deleted_by' => $currentUser->id,
+            'deletion_reason' => $validated['reason'],
+            'moderation_status' => 'rejected',
+            'deleted_at_timestamp' => now(),
+        ]);
+
+        AuditLogger::log('rejected_flagged_message', 'ChatMessage', $message->id, substr($message->content, 0, 80), [
+            'reason' => $validated['reason'],
+            'channel_id' => $message->channel_id,
+            'original_author_id' => $message->user_id,
+        ], $request);
+
+        return response()->json(['message' => 'Message rejected and deleted successfully']);
+    }
+
+    /**
+     * Internal endpoint for WebSocket server to request Gemini moderation (Secret header required).
+     */
+    public function moderateMessage(Request $request): JsonResponse
+    {
+        $secretHeader = $request->header('X-Realtime-Secret');
+        $expectedSecret = config('services.realtime.secret');
+
+        if (empty($secretHeader) || $secretHeader !== $expectedSecret) {
+            return response()->json(['error' => 'Unauthorized internal call'], 401);
+        }
+
+        $validated = $request->validate([
+            'messageId' => 'required|integer|exists:chat_messages,id',
+            'content' => 'required|string',
+        ]);
+
+        $messageId = $validated['messageId'];
+        $content = $validated['content'];
+
+        $result = \App\Services\GeminiService::moderate($content);
+
+        $message = ChatMessage::find($messageId);
+        if ($message) {
+            $message->update([
+                'is_flagged' => $result['is_harmful'],
+                'flagged_reason' => $result['reason'],
+                'moderation_status' => $result['is_harmful'] ? 'flagged' : 'approved',
+            ]);
+        }
+
+        return response()->json([
+            'is_harmful' => $result['is_harmful'],
+            'reason' => $result['reason']
+        ]);
     }
 }

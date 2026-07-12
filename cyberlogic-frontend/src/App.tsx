@@ -40,6 +40,7 @@ import EventAttendeesView from "./pages/admin/EventAttendeesView";
 import ResourceManagement from "./pages/admin/ResourceManagement";
 import ForumModeration from "./pages/admin/ForumModeration";
 import ChatManagement from "./pages/admin/ChatManagement";
+import FreedomWallModeration from "./pages/admin/FreedomWallModeration";
 import SiteSettings from "./pages/admin/SiteSettings";
 import AuditLogs from "./pages/admin/AuditLogs";
 import Blogs from "./pages/Blogs";
@@ -271,6 +272,7 @@ function AppRoutes() {
         <Route path="resources" element={<ResourceManagement />} />
         <Route path="forums" element={<ForumModeration />} />
         <Route path="chat" element={<ChatManagement />} />
+        <Route path="freedom-wall" element={<FreedomWallModeration />} />
         <Route path="settings" element={<SiteSettings />} />
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="roles" element={<RoleManagement />} />

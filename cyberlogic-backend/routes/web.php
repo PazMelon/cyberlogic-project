@@ -38,6 +38,8 @@ Route::get('/api/club-stats', [SiteSettingController::class, 'getClubStats']);
 Route::get('/api/officers', [OfficerController::class, 'index']);
 Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
 
+Route::post('/api/internal/chat/messages/moderate', [ChatController::class, 'moderateMessage']);
+
 Route::get('/api/announcements', [AnnouncementController::class, 'index']);
 Route::get('/api/announcements/{id}', [AnnouncementController::class, 'show']);
 
@@ -137,6 +139,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/admin/chat/channels/reorder', [ChatController::class, 'reorder']);
     Route::post('/api/admin/chat/gifs', [ChatController::class, 'storeGif']);
     Route::delete('/api/admin/chat/gifs/{id}', [ChatController::class, 'destroyGif']);
+
+    // Freedom Wall Moderation
+    Route::get('/api/admin/chat/flagged', [ChatController::class, 'flaggedMessages']);
+    Route::post('/api/admin/chat/messages/{id}/approve', [ChatController::class, 'approveFlaggedMessage']);
+    Route::post('/api/admin/chat/messages/{id}/reject', [ChatController::class, 'rejectFlaggedMessage']);
 
     Route::post('/api/admin/forum/categories', [ForumCategoryController::class, 'store']);
     Route::put('/api/admin/forum/categories/{id}', [ForumCategoryController::class, 'update']);

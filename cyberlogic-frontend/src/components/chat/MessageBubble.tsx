@@ -15,6 +15,7 @@ export interface ChatMessage {
   timestamp: string;
   isSystem?: boolean;
   isDeleted?: boolean;
+  isMe?: boolean;
   deletionReason?: string | null;
   reactions?: {
     emoji: string;
@@ -94,6 +95,8 @@ export default function MessageBubble({
     (r) => r.message_id === message.id && (user ? Number(r.user_id) !== Number(user.id) : true)
   );
 
+  const isFreedomWall = message.channelId === 'freedom-wall';
+
   if (message.isSystem) {
     return (
       <div className="flex flex-col items-center justify-center my-2 space-y-1">
@@ -118,13 +121,23 @@ export default function MessageBubble({
         className={`flex items-start gap-3 p-1 ${isMe ? "justify-end" : "justify-start"}`}
       >
         {!isMe && (
-          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-            <img
-              src={message.authorAvatar}
-              alt={message.author}
-              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border opacity-50"
-            />
-          </Link>
+          isFreedomWall ? (
+            <div className="flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border opacity-50"
+              />
+            </div>
+          ) : (
+            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border opacity-50"
+              />
+            </Link>
+          )
         )}
         <div className="flex flex-col w-fit max-w-[70%]">
           <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
@@ -137,13 +150,23 @@ export default function MessageBubble({
           </div>
         </div>
         {isMe && (
-          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-            <img
-              src={message.authorAvatar}
-              alt={message.author}
-              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
-            />
-          </Link>
+          isFreedomWall ? (
+            <div className="flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
+              />
+            </div>
+          ) : (
+            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
+              />
+            </Link>
+          )
         )}
       </div>
     );
@@ -509,7 +532,7 @@ export default function MessageBubble({
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-text-muted mt-0.5">
               <CornerUpLeft className="w-3 h-3 text-primary flex-shrink-0" />
-              {message.replyTo.authorUsername ? (
+              {message.replyTo.authorUsername && !isFreedomWall ? (
                 <Link to={`/app/u/${message.replyTo.authorUsername}`} className="font-bold text-primary hover:underline">
                   @{message.replyTo.author}
                 </Link>
@@ -524,21 +547,33 @@ export default function MessageBubble({
       <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
           {!isMe && (
-            <Link
-              to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
-              className="text-xs font-semibold text-text-primary hover:text-primary transition-colors select-none"
-            >
-              {message.author}
-            </Link>
+            isFreedomWall ? (
+              <span className="text-xs font-semibold text-text-primary select-none">
+                {message.author}
+              </span>
+            ) : (
+              <Link
+                to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
+                className="text-xs font-semibold text-text-primary hover:text-primary transition-colors select-none"
+              >
+                {message.author}
+              </Link>
+            )
           )}
           <span className="text-[10px] text-text-muted select-none">{formatMessageTimestamp(message.timestamp)}</span>
           {isMe && (
-            <Link
-              to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
-              className="text-xs font-semibold text-primary hover:text-primary transition-colors select-none"
-            >
-              {message.author}
-            </Link>
+            isFreedomWall ? (
+              <span className="text-xs font-semibold text-primary select-none">
+                {message.author}
+              </span>
+            ) : (
+              <Link
+                to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
+                className="text-xs font-semibold text-primary hover:text-primary transition-colors select-none"
+              >
+                {message.author}
+              </Link>
+            )
           )}
         </div>
 
@@ -650,23 +685,43 @@ export default function MessageBubble({
         } ${message.animate || ""}`}
       >
         {!isMe && (
-          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-            <img
-              src={message.authorAvatar}
-              alt={message.author}
-              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
-            />
-          </Link>
+          isFreedomWall ? (
+            <div className="flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
+              />
+            </div>
+          ) : (
+            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-border"
+              />
+            </Link>
+          )
         )}
         {contentContainer}
         {isMe && (
-          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-            <img
-              src={message.authorAvatar}
-              alt={message.author}
-              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
-            />
-          </Link>
+          isFreedomWall ? (
+            <div className="flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
+              />
+            </div>
+          ) : (
+            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+              <img
+                src={message.authorAvatar}
+                alt={message.author}
+                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
+              />
+            </Link>
+          )
         )}
       </div>
     </div>

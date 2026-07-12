@@ -40,4 +40,9 @@ return [
         'secret' => env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123'),
     ],
 
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+    ],
+
 ];

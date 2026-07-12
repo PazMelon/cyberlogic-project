@@ -206,7 +206,7 @@ export default function MessageStream({
             <MessageBubble
               key={msg.id}
               message={msg}
-              isMe={msg.authorId === currentUserId}
+              isMe={!!msg.isMe || msg.authorId === currentUserId}
               onReact={onReact}
               activePickerId={activePickerId}
               setActivePickerId={setActivePickerId}
