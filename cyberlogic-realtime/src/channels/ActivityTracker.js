@@ -513,7 +513,7 @@ class ActivityTracker {
         authorId: 0,
         authorUsername: null,
         content: content,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toISOString(),
         isSystem: true,
         replyTo: null,
       };

@@ -179,7 +179,7 @@ class ChatController extends Controller
                 'authorId' => $msg->user_id,
                 'authorUsername' => $msg->user ? $msg->user->username : null,
                 'content' => $content,
-                'timestamp' => $msg->created_at ? $msg->created_at->format('g:i A') : now()->format('g:i A'),
+                'timestamp' => $msg->created_at ? $msg->created_at->toIso8601String() : now()->toIso8601String(),
                 'isSystem' => $msg->type === 'system',
                 'isDeleted' => $isDeleted,
                 'deletionReason' => $deletionReason,

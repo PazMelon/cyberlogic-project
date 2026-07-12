@@ -392,7 +392,7 @@ class ChannelManager {
         authorId: user.id,
         authorUsername: user.username || null,
         content: content,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toISOString(),
         isSystem: false,
         replyTo: replyTo,
       };

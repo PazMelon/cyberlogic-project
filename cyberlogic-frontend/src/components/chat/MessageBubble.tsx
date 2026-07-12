@@ -46,6 +46,29 @@ export interface MessageBubbleProps {
   onJumpToMessage?: (parentId: number) => void;
 }
 
+const formatMessageTimestamp = (timestampStr: string) => {
+  if (!timestampStr) return "";
+  try {
+    const d = new Date(timestampStr);
+    if (isNaN(d.getTime())) {
+      return timestampStr;
+    }
+    const today = new Date();
+    const isToday =
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+    
+    if (isToday) {
+      return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+    } else {
+      return d.toLocaleDateString([], { month: "short", day: "numeric" }) + ", " + d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+  } catch {
+    return timestampStr;
+  }
+};
+
 export default function MessageBubble({
   message,
   isMe,
@@ -73,9 +96,16 @@ export default function MessageBubble({
 
   if (message.isSystem) {
     return (
-      <div className="flex items-center justify-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50 my-2 max-w-md mx-auto">
-        <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        <span>{message.content}</span>
+      <div className="flex flex-col items-center justify-center my-2 space-y-1">
+        <div className="flex items-center justify-center gap-2 text-xs text-text-muted px-3 py-2 rounded-lg bg-surface-800/50 max-w-md mx-auto">
+          <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+          <span>{message.content}</span>
+        </div>
+        {message.timestamp && (
+          <span className="text-[9px] text-text-muted/40 font-medium">
+            {formatMessageTimestamp(message.timestamp)}
+          </span>
+        )}
       </div>
     );
   }
@@ -99,7 +129,7 @@ export default function MessageBubble({
         <div className="flex flex-col w-fit max-w-[70%]">
           <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
             <span className="text-xs font-semibold text-text-muted/60">{message.author}</span>
-            <span className="text-[10px] text-text-muted/40">{message.timestamp}</span>
+            <span className="text-[10px] text-text-muted/40">{formatMessageTimestamp(message.timestamp)}</span>
           </div>
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-error/5 border border-error/15">
             <ShieldAlert className="w-3.5 h-3.5 text-error/50 flex-shrink-0" />
@@ -501,7 +531,7 @@ export default function MessageBubble({
               {message.author}
             </Link>
           )}
-          <span className="text-[10px] text-text-muted select-none">{message.timestamp}</span>
+          <span className="text-[10px] text-text-muted select-none">{formatMessageTimestamp(message.timestamp)}</span>
           {isMe && (
             <Link
               to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
