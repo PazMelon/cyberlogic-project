@@ -143,6 +143,7 @@ Route::middleware('auth')->group(function () {
 
     // Freedom Wall Moderation
     Route::get('/api/admin/chat/flagged', [ChatController::class, 'flaggedMessages']);
+    Route::get('/api/admin/chat/moderation-stats', [ChatController::class, 'moderationStats']);
     Route::post('/api/admin/chat/messages/{id}/approve', [ChatController::class, 'approveFlaggedMessage']);
     Route::post('/api/admin/chat/messages/{id}/reject', [ChatController::class, 'rejectFlaggedMessage']);
 

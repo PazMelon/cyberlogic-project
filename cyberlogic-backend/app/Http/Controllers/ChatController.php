@@ -589,10 +589,18 @@ class ChatController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $messages = ChatMessage::where('is_flagged', true)
-            ->with(['user', 'channel'])
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $messages = ChatMessage::where(function($query) {
+            $query->where('moderation_status', 'flagged')
+                  ->orWhere(function($q) {
+                      $q->where('moderation_status', 'approved')
+                        ->whereNotNull('flagged_reason');
+                  })
+                  ->orWhere('moderation_status', 'rejected')
+                  ->orWhere('is_deleted', true);
+        })
+        ->with(['user', 'channel'])
+        ->orderBy('created_at', 'desc')
+        ->get();
 
         $isSuperAdmin = $currentUser->isSuperAdmin();
 
@@ -825,6 +833,67 @@ class ChatController extends Controller
             'approved' => $approvedCount,
             'flagged' => $flaggedCount,
             'message' => 'Batch moderation complete.'
+        ]);
+    }
+
+    /**
+     * Get statistics and comparison metrics for message moderation.
+     */
+    public function moderationStats(Request $request): JsonResponse
+    {
+        $currentUser = $request->user();
+        if (!$currentUser->hasPermission('manage_chat')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        // 1. Pending Flagged Count
+        $pendingFlags = ChatMessage::where('moderation_status', 'flagged')->count();
+
+        // 2. Total Actioned/Rejected
+        $totalRejected = ChatMessage::where('moderation_status', 'rejected')->count();
+
+        // 3. Flagged Today vs Yesterday Comparison
+        $todayStart = now()->startOfDay();
+        $yesterdayStart = now()->subDay()->startOfDay();
+        $yesterdayEnd = now()->subDay()->endOfDay();
+
+        $flaggedToday = ChatMessage::where('is_flagged', true)
+            ->where('created_at', '>=', $todayStart)
+            ->count();
+
+        $flaggedYesterday = ChatMessage::where('is_flagged', true)
+            ->whereBetween('created_at', [$yesterdayStart, $yesterdayEnd])
+            ->count();
+
+        if ($flaggedYesterday > 0) {
+            $comparePct = round((($flaggedToday - $flaggedYesterday) / $flaggedYesterday) * 100, 1);
+        } else {
+            $comparePct = $flaggedToday > 0 ? 100.0 : 0.0;
+        }
+
+        // 4. Most Flagged Channel
+        $mostFlaggedChannel = ChatMessage::where('is_flagged', true)
+            ->select('channel_id', DB::raw('count(*) as total'))
+            ->groupBy('channel_id')
+            ->orderBy('total', 'desc')
+            ->first();
+
+        $hotspotChannelName = 'None';
+        $hotspotCount = 0;
+        if ($mostFlaggedChannel) {
+            $channel = ChatChannel::find($mostFlaggedChannel->channel_id);
+            if ($channel) {
+                $hotspotChannelName = $channel->name;
+                $hotspotCount = $mostFlaggedChannel->total;
+            }
+        }
+
+        return response()->json([
+            'pending_flags' => $pendingFlags,
+            'total_rejected' => $totalRejected,
+            'compare_yesterday_pct' => $comparePct,
+            'most_flagged_channel' => $hotspotChannelName,
+            'most_flagged_count' => $hotspotCount,
         ]);
     }
 }
