@@ -14,7 +14,11 @@ export function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
     async function load() {
       try {
         const data = await fetchEvents();
-        const sorted = [...data].sort((a, b) => b.id - a.id);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const upcomingFiltered = data.filter(
+          (e) => e.status === "upcoming" && e.date >= todayStr
+        );
+        const sorted = [...upcomingFiltered].sort((a, b) => a.date.localeCompare(b.date));
         setUpcoming(sorted.slice(0, 4));
       } catch (err) {
         console.error("Failed to load landing events:", err);

@@ -75,7 +75,7 @@ export default function Home() {
         setLatestResources(resourcesData.slice(0, 4));
 
         const todayStr = new Date().toISOString().split('T')[0];
-        const upcoming = evData.filter((e) => e.date >= todayStr);
+        const upcoming = evData.filter((e) => e.status === "upcoming" && e.date >= todayStr);
         const sortedUpcoming = [...upcoming].sort((a, b) => a.date.localeCompare(b.date));
 
         setLatestAnnouncements(annData.slice(0, 2));

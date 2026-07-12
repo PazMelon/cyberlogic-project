@@ -100,6 +100,7 @@ export default function MessageBubble({
   );
 
   const isFreedomWall = message.channelId === 'freedom-wall';
+  const isMeLayout = isMe && !isFreedomWall;
 
   if (message.isSystem) {
     return (
@@ -108,7 +109,7 @@ export default function MessageBubble({
           <Info className="w-3.5 h-3.5 text-primary flex-shrink-0" />
           <span>{message.content}</span>
         </div>
-        {message.timestamp && (
+        {message.timestamp && !isFreedomWall && (
           <span className="text-[9px] text-text-muted/40 font-medium">
             {formatMessageTimestamp(message.timestamp)}
           </span>
@@ -122,9 +123,9 @@ export default function MessageBubble({
     return (
       <div
         id={`message-${message.id}`}
-        className={`flex items-start gap-3 p-1 ${isMe ? "justify-end" : "justify-start"}`}
+        className={`flex items-start gap-3 p-1 ${isMeLayout ? "justify-end" : "justify-start"}`}
       >
-        {!isMe && (
+        {!isMeLayout && (
           isFreedomWall ? (
             <div className="flex-shrink-0 mt-5">
               <img
@@ -144,33 +145,25 @@ export default function MessageBubble({
           )
         )}
         <div className="flex flex-col w-fit max-w-[70%]">
-          <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
+          <div className={`flex items-baseline gap-2 mb-1 ${isMeLayout ? "justify-end" : "justify-start"}`}>
             <span className="text-xs font-semibold text-text-muted/60">{message.author}</span>
-            <span className="text-[10px] text-text-muted/40">{formatMessageTimestamp(message.timestamp)}</span>
+            {!isFreedomWall && (
+              <span className="text-[10px] text-text-muted/40">{formatMessageTimestamp(message.timestamp)}</span>
+            )}
           </div>
           <div className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-error/5 border border-error/15">
             <ShieldAlert className="w-3.5 h-3.5 text-error/50 flex-shrink-0" />
             <span className="text-xs text-text-muted italic">{message.content}</span>
           </div>
         </div>
-        {isMe && (
-          isFreedomWall ? (
-            <div className="flex-shrink-0 mt-5">
-              <img
-                src={message.authorAvatar}
-                alt={message.author}
-                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
-              />
-            </div>
-          ) : (
-            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-              <img
-                src={message.authorAvatar}
-                alt={message.author}
-                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
-              />
-            </Link>
-          )
+        {isMeLayout && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/20 opacity-50"
+            />
+          </Link>
         )}
       </div>
     );
@@ -215,7 +208,7 @@ export default function MessageBubble({
       if (e.cancelable) e.preventDefault();
 
       let translation = 0;
-      if (isMe) {
+      if (isMeLayout) {
         // Outgoing: swipe left to reply (negative translation)
         translation = Math.min(0, Math.max(-75, diffX));
       } else {
@@ -279,7 +272,7 @@ export default function MessageBubble({
 
       if (Math.abs(diffX) > Math.abs(diffY) * 1.2) {
         let translation = 0;
-        if (isMe) {
+        if (isMeLayout) {
           translation = Math.min(0, Math.max(-75, diffX));
         } else {
           translation = Math.max(0, Math.min(75, diffX));
@@ -450,7 +443,7 @@ export default function MessageBubble({
       {/* Desktop hover controls: Smile picker trigger & Reply button */}
       <div
         className={`absolute bottom-0 translate-y-1/4 hidden md:group-hover/message:flex items-center gap-1 z-10 ${
-          isMe ? "right-full pr-2 -mr-0.5" : "left-full pl-2 -ml-0.5"
+          isMeLayout ? "right-full pr-2 -mr-0.5" : "left-full pl-2 -ml-0.5"
         }`}
       >
         <button
@@ -518,7 +511,7 @@ export default function MessageBubble({
           <div
             onClick={() => handleScrollToMessage(message.replyTo!.id)}
             className={`flex flex-col gap-1 text-xs text-text-secondary mb-1.5 px-3 py-1.5 rounded-xl bg-surface-800 border border-border/50 hover:text-text-primary hover:border-primary/50 cursor-pointer transition-all max-w-[85%] ${
-              isMe ? "self-end origin-bottom-right" : "self-start origin-bottom-left"
+              isMeLayout ? "self-end origin-bottom-right" : "self-start origin-bottom-left"
             }`}
           >
             <div className="min-w-0">
@@ -558,9 +551,9 @@ export default function MessageBubble({
         );
       })()}
 
-      <div className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-        <div className={`flex items-baseline gap-2 mb-1 ${isMe ? "justify-end" : "justify-start"}`}>
-          {!isMe && (
+      <div className={`flex flex-col ${isMeLayout ? "items-end" : "items-start"}`}>
+        <div className={`flex items-baseline gap-2 mb-1 ${isMeLayout ? "justify-end" : "justify-start"}`}>
+          {!isMeLayout && (
             isFreedomWall ? (
               <span className="text-xs font-semibold text-text-primary select-none">
                 {message.author}
@@ -574,26 +567,22 @@ export default function MessageBubble({
               </Link>
             )
           )}
-          <span className="text-[10px] text-text-muted select-none">{formatMessageTimestamp(message.timestamp)}</span>
-          {isMe && (
-            isFreedomWall ? (
-              <span className="text-xs font-semibold text-primary select-none">
-                {message.author}
-              </span>
-            ) : (
-              <Link
-                to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
-                className="text-xs font-semibold text-primary hover:text-primary transition-colors select-none"
-              >
-                {message.author}
-              </Link>
-            )
+          {!isFreedomWall && (
+            <span className="text-[10px] text-text-muted select-none">{formatMessageTimestamp(message.timestamp)}</span>
+          )}
+          {isMeLayout && (
+            <Link
+              to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`}
+              className="text-xs font-semibold text-primary hover:text-primary transition-colors select-none"
+            >
+              {message.author}
+            </Link>
           )}
         </div>
 
         <div
           className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit ${
-            isMe
+            isMeLayout
               ? "bg-primary/15 border-primary/30 rounded-tr-none"
               : "bg-white/[0.03] border-border/40 rounded-tl-none"
           }`}
@@ -603,7 +592,7 @@ export default function MessageBubble({
           {/* Facebook-style reaction badges overlay placed on the bottom corner edge of the message bubble */}
           {message.reactions && message.reactions.length > 0 && (
             <div className={`absolute bottom-[-10px] flex items-center gap-0.5 bg-surface-900 border border-border/50 rounded-full px-1.5 py-0.5 shadow-md z-10 transition-all ${
-              isMe ? "left-3" : "right-3"
+              isMeLayout ? "left-3" : "right-3"
             }`}>
               {[...message.reactions]
                 .sort((a, b) => (b.reacted ? 1 : 0) - (a.reacted ? 1 : 0))
@@ -622,7 +611,7 @@ export default function MessageBubble({
 
         {/* Aggregate reaction lists pills underneath the message row (still keeping clickable pills for details) */}
         {message.reactions && message.reactions.length > 0 && (
-          <div className={`flex flex-wrap gap-1 mt-3 ${isMe ? "justify-end" : "justify-start"}`}>
+          <div className={`flex flex-wrap gap-1 mt-3 ${isMeLayout ? "justify-end" : "justify-start"}`}>
             {message.reactions.map((reaction) => (
               <div key={reaction.emoji} className="group/pill relative">
                 <button
@@ -639,7 +628,7 @@ export default function MessageBubble({
                 </button>
 
                 <div className={`absolute bottom-full mb-1 bg-surface-900 border border-border text-[9px] text-text-secondary rounded-lg px-2 py-1 shadow-md opacity-0 pointer-events-none group-hover/pill:opacity-100 transition-opacity whitespace-nowrap z-30 ${
-                  isMe ? "right-0" : "left-0"
+                  isMeLayout ? "right-0" : "left-0"
                 }`}>
                   {reaction.users.join(", ")}
                 </div>
@@ -650,7 +639,7 @@ export default function MessageBubble({
 
         {/* Seen Indicators */}
         {seenUsers.length > 0 && (
-          <div className={`flex items-center gap-1 mt-1.5 ${isMe ? "justify-end" : "justify-start"}`}>
+          <div className={`flex items-center gap-1 mt-1.5 ${isMeLayout ? "justify-end" : "justify-start"}`}>
             <div className="flex -space-x-1 overflow-hidden items-center">
               {seenUsers.slice(0, 10).map((u) => (
                 <img
@@ -685,7 +674,7 @@ export default function MessageBubble({
         <div
           id={`reply-indicator-${message.id}`}
           className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 border border-primary/30 text-primary transition-all scale-75 opacity-0 pointer-events-none z-0 ${
-            isMe ? "right-16" : "left-16"
+            isMeLayout ? "right-16" : "left-16"
           }`}
           style={{ transform: "translateY(-50%) scale(0.75)" }}
         >
@@ -695,10 +684,10 @@ export default function MessageBubble({
       <div
         id={`message-${message.id}`}
         className={`flex items-start gap-3 p-1 transition-all duration-300 ${
-          isMe ? "justify-end" : "justify-start"
+          isMeLayout ? "justify-end" : "justify-start"
         } ${message.animate || ""}`}
       >
-        {!isMe && (
+        {!isMeLayout && (
           isFreedomWall ? (
             <div className="flex-shrink-0 mt-5">
               <img
@@ -718,24 +707,14 @@ export default function MessageBubble({
           )
         )}
         {contentContainer}
-        {isMe && (
-          isFreedomWall ? (
-            <div className="flex-shrink-0 mt-5">
-              <img
-                src={message.authorAvatar}
-                alt={message.author}
-                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
-              />
-            </div>
-          ) : (
-            <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
-              <img
-                src={message.authorAvatar}
-                alt={message.author}
-                className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
-              />
-            </Link>
-          )
+        {isMeLayout && (
+          <Link to={message.authorUsername ? `/app/u/${message.authorUsername}` : `/app/profile/${message.authorId}`} className="hover:opacity-85 transition-opacity flex-shrink-0 mt-5">
+            <img
+              src={message.authorAvatar}
+              alt={message.author}
+              className="w-8 h-8 rounded-full bg-surface-700 object-cover border border-primary/30"
+            />
+          </Link>
         )}
       </div>
       {onEdit && (
