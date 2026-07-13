@@ -173,6 +173,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's portfolio projects.
+     */
+    public function projects()
+    {
+        return $this->hasMany(UserProject::class);
+    }
+
+    /**
+     * Get the user's gallery photos.
+     */
+    public function galleryPhotos()
+    {
+        return $this->hasMany(UserGalleryPhoto::class);
+    }
+
+    /**
      * Calculate reputation score based on starting date.
      */
     public function calculateReputationScore(?\Carbon\Carbon $startDate = null): int
@@ -243,6 +259,7 @@ class User extends Authenticatable
         $cacheKey = "user_reputation_{$this->id}";
         return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () {
             return [
+                'today' => $this->calculateReputationScore(now()->startOfDay()),
                 'week' => $this->calculateReputationScore(now()->subWeek()),
                 'month' => $this->calculateReputationScore(now()->subMonth()),
                 'year' => $this->calculateReputationScore(now()->subYear()),
