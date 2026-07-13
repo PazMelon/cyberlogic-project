@@ -19,6 +19,7 @@ use App\Http\Controllers\ResourceController;
 use App\Http\Controllers\ReputationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileShowcaseController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -193,6 +194,21 @@ Route::middleware('auth')->group(function () {
     // Reputation endpoints
     Route::get('/api/reputation/leaderboard', [ReputationController::class, 'leaderboard']);
     Route::get('/api/reputation/{id}', [ReputationController::class, 'show']);
+
+    // Profile Showcase: Projects
+    Route::get('/api/user/projects', [ProfileShowcaseController::class, 'myProjects']);
+    Route::get('/api/users/{userId}/projects', [ProfileShowcaseController::class, 'userProjects']);
+    Route::post('/api/user/projects', [ProfileShowcaseController::class, 'storeProject']);
+    Route::put('/api/user/projects/{id}', [ProfileShowcaseController::class, 'updateProject']);
+    Route::delete('/api/user/projects/{id}', [ProfileShowcaseController::class, 'destroyProject']);
+    Route::post('/api/user/projects/upload-image', [ProfileShowcaseController::class, 'uploadProjectImage'])->middleware('throttle:15,1');
+
+    // Profile Showcase: Gallery
+    Route::get('/api/user/gallery', [ProfileShowcaseController::class, 'myGallery']);
+    Route::get('/api/users/{userId}/gallery', [ProfileShowcaseController::class, 'userGallery']);
+    Route::post('/api/user/gallery', [ProfileShowcaseController::class, 'storeGalleryPhoto'])->middleware('throttle:30,1');
+    Route::put('/api/user/gallery/{id}', [ProfileShowcaseController::class, 'updateGalleryPhoto']);
+    Route::delete('/api/user/gallery/{id}', [ProfileShowcaseController::class, 'destroyGalleryPhoto']);
 });
 
 Route::get('/storage/{path}', function ($path) {
