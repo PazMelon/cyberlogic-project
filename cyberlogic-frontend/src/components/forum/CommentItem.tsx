@@ -74,8 +74,8 @@ export function CommentItem({
   // Collapsed Thread View (Reddit-style)
   if (isCollapsed) {
     return (
-      <div 
-        id={`comment-${comment.id}`} 
+      <div
+        id={`comment-${comment.id}`}
         className="flex items-center gap-2.5 text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer py-1.5 scroll-mt-24 bg-surface-900/10 border-l border-border/10 pl-2 rounded"
         onClick={() => setIsCollapsed(false)}
         title="Expand comment thread"
@@ -100,11 +100,11 @@ export function CommentItem({
           {/* Masking box to cover the parent line below the curve on the last child.
               Starts at top-[15px] so it does not block the curve's bottom border at 14px. */}
           {isLastReply && (
-            <div className="absolute -left-[12px] top-[12px] bottom-0 w-[3px] bg-surface-950 pointer-events-none z-20" />
+            <div className="absolute -left-[14px] top-[10px] -bottom-2 w-[6px] bg-surface-950 pointer-events-none z-20" />
           )}
 
           {/* Curved Connector Line. Width 25px and height 14px extends from parent line center (-11px) to child avatar center (14px). */}
-          <div 
+          <div
             className={`absolute -left-[11px] top-0 w-[25px] h-[14px] rounded-bl-lg border-l-2 border-b-2 border-border/30 pointer-events-none select-none z-10 transition-colors duration-200 last-reply-curve-${parentIdForLastCurve}`}
           />
         </>
@@ -113,7 +113,7 @@ export function CommentItem({
       {/* Parent thread line collapse hitbox (Only if has child replies). 
           Starts directly under parent avatar (top-7) and runs to the bottom of parent wrapper. */}
       {childReplies.length > 0 && (
-        <div 
+        <div
           onClick={() => setIsCollapsed(true)}
           title="Collapse comment thread"
           className={`absolute left-[8px] top-7 bottom-0 w-[12px] group/line-hitbox-${comment.id} cursor-pointer z-10 select-none`}
@@ -245,9 +245,8 @@ export function CommentItem({
                     <button
                       type="button"
                       onClick={() => onSelectSolution(isSolution ? null : comment.id)}
-                      className={`text-[11px] font-medium flex items-center gap-1 transition-colors hover:text-success cursor-pointer ${
-                        isSolution ? "text-success" : "text-text-muted"
-                      }`}
+                      className={`text-[11px] font-medium flex items-center gap-1 transition-colors hover:text-success cursor-pointer ${isSolution ? "text-success" : "text-text-muted"
+                        }`}
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
                       {isSolution ? "Unmark Solution" : "Mark as Solution"}
