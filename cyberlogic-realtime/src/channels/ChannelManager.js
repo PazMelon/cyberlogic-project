@@ -516,11 +516,14 @@ class ChannelManager {
 
       // 5. Send notification for reply
       if (parentAuthorId && parentAuthorId !== user.id) {
+        const isFreedomWall = channelSlug === 'freedom-wall';
         await this.createNotification(
           parentAuthorId,
           'chat_reply',
           'Chat Reply',
-          `${user.name} replied to your message in #${channelName}`,
+          isFreedomWall 
+            ? `Someone replied to your message in #Freedom Wall`
+            : `${user.name} replied to your message in #${channelName}`,
           'reply',
           `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
           { channel_slug: channelSlug, message_id: result.insertId, parent_id: parentId }
@@ -598,16 +601,19 @@ class ChannelManager {
       }
 
       // Deliver notifications to all targets (excluding those already notified via reply / sender)
+      const isFreedomWall = channelSlug === 'freedom-wall';
       for (const targetId of mentionTargetUserIds) {
         if (!notifiedUserIds.has(targetId)) {
           await this.createNotification(
             targetId,
             'chat_mention',
             'New Mention',
-            `${user.name} mentioned you in #${channelName}`,
+            isFreedomWall 
+              ? `Someone mentioned you in #Freedom Wall`
+              : `${user.name} mentioned you in #${channelName}`,
             'message-square',
             `/app/chat?channel=${channelSlug}&message_id=${result.insertId}`,
-            { channel_slug: channelSlug, sender_id: user.id }
+            { channel_slug: channelSlug, sender_id: isFreedomWall ? null : user.id }
           );
           notifiedUserIds.add(targetId);
         }
