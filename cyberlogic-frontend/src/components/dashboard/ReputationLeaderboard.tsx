@@ -3,10 +3,10 @@ import { Link } from "react-router";
 import { Award, Trophy } from "lucide-react";
 import { fetchReputationLeaderboard, type ReputationUser } from "../../utils/api";
 
-type Timeframe = "week" | "month" | "year" | "allTime";
+type Timeframe = "today" | "week" | "month" | "year" | "allTime";
 
 export function ReputationLeaderboard({ className = "h-[390px]" }: { className?: string }) {
-  const [timeframe, setTimeframe] = useState<Timeframe>("week");
+  const [timeframe, setTimeframe] = useState<Timeframe>("today");
   const [leaderboardData, setLeaderboardData] = useState<ReputationUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,6 +26,7 @@ export function ReputationLeaderboard({ className = "h-[390px]" }: { className?:
   }, [timeframe]);
 
   const timeframes: { id: Timeframe; label: string }[] = [
+    { id: "today", label: "Today" },
     { id: "week", label: "Week" },
     { id: "month", label: "Month" },
     { id: "year", label: "Year" },
@@ -97,7 +98,7 @@ export function ReputationLeaderboard({ className = "h-[390px]" }: { className?:
               medalIcon = "🥉";
             }
 
-            const score = member.reputation ? member.reputation[timeframe] : 0;
+            const score = member.reputation ? (member.reputation[timeframe] ?? 0) : 0;
 
             return (
               <div

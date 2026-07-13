@@ -15,7 +15,7 @@ class ReputationController extends Controller
     public function leaderboard(Request $request): JsonResponse
     {
         $timeframe = $request->query('timeframe', 'week');
-        if (!in_array($timeframe, ['week', 'month', 'year', 'allTime'])) {
+        if (!in_array($timeframe, ['today', 'week', 'month', 'year', 'allTime'])) {
             $timeframe = 'week';
         }
 
