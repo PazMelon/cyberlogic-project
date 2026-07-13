@@ -57,6 +57,28 @@ class ImageOptimizer
         try {
             if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
                 $image = @imagecreatefromjpeg($filePath);
+                
+                // Rotate based on EXIF Orientation metadata (for mobile camera portrait photos)
+                if ($image && function_exists('exif_read_data')) {
+                    try {
+                        $exif = @exif_read_data($filePath);
+                        if (!empty($exif['Orientation'])) {
+                            switch ($exif['Orientation']) {
+                                case 3:
+                                    $image = imagerotate($image, 180, 0);
+                                    break;
+                                case 6:
+                                    $image = imagerotate($image, -90, 0);
+                                    break;
+                                case 8:
+                                    $image = imagerotate($image, 90, 0);
+                                    break;
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // Fail silently if EXIF reading is not supported or fails
+                    }
+                }
             } elseif ($mime === 'image/png') {
                 $image = @imagecreatefrompng($filePath);
             } elseif ($mime === 'image/webp') {
