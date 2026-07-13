@@ -17,7 +17,6 @@ export default function Directory() {
   const [members, setMembers] = useState<DirectoryMember[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +72,7 @@ export default function Directory() {
         setRoleFilter={setRoleFilter}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {isLoading ? (
           <DirectorySkeleton />
         ) : (
@@ -81,8 +80,6 @@ export default function Directory() {
             <DirectoryCard
               key={member.id}
               member={member}
-              isExpanded={expandedId === member.id}
-              onToggleExpand={() => setExpandedId(expandedId === member.id ? null : member.id)}
             />
           ))
         )}
