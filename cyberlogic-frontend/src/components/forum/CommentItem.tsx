@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { MessageSquare, Shield, CheckCircle, Trash2, Edit3, Flag } from "lucide-react";
+import { MessageSquare, Shield, CheckCircle, Trash2, Edit3, Flag, AlertTriangle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
 import type { ForumCommentMapped } from "../../utils/api";
@@ -62,6 +62,10 @@ export function CommentItem({
     setShowEditForm(false);
   };
 
+  const isRemoved = comment.content.startsWith("[This comment was removed by moderation");
+  const authorDisplay = isRemoved ? "[Removed]" : `u/${comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}`;
+  const avatarDisplay = isRemoved ? "https://api.dicebear.com/9.x/avataaars/svg?seed=removed" : comment.authorAvatar;
+
   return (
     <div id={`comment-${comment.id}`} className="space-y-2 scroll-mt-24">
       <div
@@ -71,25 +75,41 @@ export function CommentItem({
             : "border-none bg-transparent"
         } ${(comment as any).animate || ""}`}
       >
-        <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
-          <img
-            src={comment.authorAvatar}
-            alt={comment.author}
-            className="w-7 h-7 rounded-full bg-surface-700 object-cover border border-border/30"
-          />
-        </Link>
+        {isRemoved ? (
+          <div className="flex-shrink-0 mt-0.5 select-none">
+            <img
+              src={avatarDisplay}
+              alt="removed author"
+              className="w-7 h-7 rounded-full bg-surface-800 object-cover border border-border/30 grayscale opacity-60"
+            />
+          </div>
+        ) : (
+          <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="hover:opacity-80 flex-shrink-0 mt-0.5">
+            <img
+              src={avatarDisplay}
+              alt={comment.author}
+              className="w-7 h-7 rounded-full bg-surface-700 object-cover border border-border/30"
+            />
+          </Link>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
-                u/{comment.authorUsername || comment.author.toLowerCase().replace(/\s+/g, "")}
-              </Link>
-              {comment.authorRole !== "Member" && (
+              {isRemoved ? (
+                <span className="font-semibold text-text-muted select-none">
+                  {authorDisplay}
+                </span>
+              ) : (
+                <Link to={comment.authorUsername ? `/app/u/${comment.authorUsername}` : `/app/profile/${comment.authorId}`} className="font-semibold text-text-secondary hover:text-primary transition-colors">
+                  {authorDisplay}
+                </Link>
+              )}
+              {!isRemoved && comment.authorRole !== "Member" && (
                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.25 text-[9px] font-bold rounded bg-primary/10 text-primary border border-primary/20">
                   <Shield className="w-2.5 h-2.5" /> {comment.authorRole}
                 </span>
               )}
-              {comment.authorId === threadAuthorId && (
+              {!isRemoved && comment.authorId === threadAuthorId && (
                 <span className="inline-flex items-center text-[9px] font-semibold text-accent bg-accent/10 px-1.5 py-0.25 rounded border border-accent/25 uppercase tracking-wide">
                   OP
                 </span>
@@ -117,95 +137,115 @@ export function CommentItem({
             </div>
           ) : (
             <div className="text-text-primary">
-              <SpoilerGate isSpoiler={comment.isSpoiler}>
-                <RedactedFormatter content={comment.content} isRedacted={comment.isRedacted} />
-              </SpoilerGate>
+              {isRemoved ? (
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-error/5 border border-error/15 text-xs text-text-muted italic select-none mt-1 shadow-inner">
+                  <AlertTriangle className="w-4 h-4 text-error/85 flex-shrink-0 mt-0.5 animate-pulse" />
+                  <span>{comment.content.replace(/^\[|\]$/g, "")}</span>
+                </div>
+              ) : (
+                <SpoilerGate isSpoiler={comment.isSpoiler}>
+                  <RedactedFormatter content={comment.content} isRedacted={comment.isRedacted} />
+                </SpoilerGate>
+              )}
             </div>
           )}
 
           {/* Comment Action Toolbar */}
           {!showEditForm && (
             <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-text-muted border-t border-border/10 pt-1.5">
-              {/* Vote controls */}
-              <VoteControl
-                score={comment.likes}
-                userVote={comment.userVote}
-                onVote={(direction) => onVote(comment.id, direction)}
-                orientation="horizontal"
-                size="sm"
-                animateClass={(comment as any).voteAnimate}
-              />
+              {isRemoved ? (
+                /* Simplified toolbar for moderated comments to preserve replies nesting only */
+                !isThreadClosed && user && (
+                  <button
+                    type="button"
+                    onClick={() => setShowReplyForm(!showReplyForm)}
+                    className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Reply
+                  </button>
+                )
+              ) : (
+                /* Full action options for active comments */
+                <>
+                  <VoteControl
+                    score={comment.likes}
+                    userVote={comment.userVote}
+                    onVote={(direction) => onVote(comment.id, direction)}
+                    orientation="horizontal"
+                    size="sm"
+                    animateClass={(comment as any).voteAnimate}
+                  />
 
-              {/* Reply */}
-              {!isThreadClosed && user && (
-                <button
-                  type="button"
-                  onClick={() => setShowReplyForm(!showReplyForm)}
-                  className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Reply
-                </button>
-              )}
+                  {!isThreadClosed && user && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReplyForm(!showReplyForm)}
+                      className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      Reply
+                    </button>
+                  )}
 
-              {/* Accepted Answer selection toggle */}
-              {canSelectSolution && (
-                <button
-                  type="button"
-                  onClick={() => onSelectSolution(isSolution ? null : comment.id)}
-                  className={`text-[11px] font-medium flex items-center gap-1 transition-colors hover:text-success cursor-pointer ${
-                    isSolution ? "text-success" : "text-text-muted"
-                  }`}
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  {isSolution ? "Unmark Solution" : "Mark as Solution"}
-                </button>
-              )}
+                  {canSelectSolution && (
+                    <button
+                      type="button"
+                      onClick={() => onSelectSolution(isSolution ? null : comment.id)}
+                      className={`text-[11px] font-medium flex items-center gap-1 transition-colors hover:text-success cursor-pointer ${
+                        isSolution ? "text-success" : "text-text-muted"
+                      }`}
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      {isSolution ? "Unmark Solution" : "Mark as Solution"}
+                    </button>
+                  )}
 
-              {/* Edit Comment */}
-              {isOwner && (
-                <button
-                  type="button"
-                  onClick={() => setShowEditForm(true)}
-                  className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  Edit
-                </button>
-              )}
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => setShowEditForm(true)}
+                      className="flex items-center gap-1 font-medium hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  )}
 
-              {/* Report Comment */}
-              {!isOwner && user && (
-                <button
-                  type="button"
-                  onClick={() => onReport(comment.id)}
-                  className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer"
-                >
-                  <Flag className="w-3.5 h-3.5" />
-                  Report
-                </button>
-              )}
+                  {/* Report Comment */}
+                  {!isOwner && user && (
+                    <button
+                      type="button"
+                      onClick={() => onReport(comment.id)}
+                      className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer"
+                    >
+                      <Flag className="w-3.5 h-3.5" />
+                      Report
+                    </button>
+                  )}
 
-              {/* Delete Comment */}
-              {(isOwner || isAdmin) && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const confirmed = await showConfirm({
-                      title: "Delete Comment",
-                      message: "Are you sure you want to delete this comment?",
-                      type: "danger",
-                      confirmText: "Delete",
-                    });
-                    if (confirmed) {
-                      onDelete(comment.id);
-                    }
-                  }}
-                  className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer ml-auto"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete
-                </button>
+                  {/* Delete Comment */}
+                  {(isOwner || isAdmin) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const confirmed = await showConfirm({
+                          title: "Delete Comment",
+                          message: "Are you sure you want to delete this comment?",
+                          type: "danger",
+                          confirmText: "Delete",
+                        });
+                        if (confirmed) {
+                          onDelete(comment.id);
+                        }
+                      }}
+                      className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer ml-auto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}

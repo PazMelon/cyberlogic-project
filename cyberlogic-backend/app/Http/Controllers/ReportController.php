@@ -165,12 +165,17 @@ class ReportController extends Controller
         $action = $request->input('action');
         $contentTypeLabel = $report->reportable_type === ForumThread::class ? 'forum thread' :
                             ($report->reportable_type === ForumComment::class ? 'comment' : 'showcase project');
-
         if ($action === 'remove') {
-            // Delete actual content
+            // Delete or redact actual content
             $content = $report->reportable;
             if ($content) {
-                $content->delete();
+                if ($report->reportable_type === \App\Models\ForumComment::class) {
+                    $content->update([
+                        'content' => '[This comment was removed by moderation for violating community rules: ' . $report->reason . ']',
+                    ]);
+                } else {
+                    $content->delete();
+                }
             }
 
             // Update report record
