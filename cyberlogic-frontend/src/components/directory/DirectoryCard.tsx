@@ -1,6 +1,5 @@
 import { Link } from "react-router";
-import { Mail, MapPin, Award, ChevronDown, ChevronUp } from "lucide-react";
-import { Card, Badge, Button } from "../ui";
+import { Card } from "../ui";
 import type { DirectoryMember } from "../../utils/api";
 
 const statusColors: Record<string, string> = {
@@ -11,109 +10,70 @@ const statusColors: Record<string, string> = {
 
 interface DirectoryCardProps {
   member: DirectoryMember;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
 }
 
-export function DirectoryCard({ member, isExpanded, onToggleExpand }: DirectoryCardProps) {
+export function DirectoryCard({ member }: DirectoryCardProps) {
   return (
-    <Card
-      hoverEffect
-      glowColor="primary"
-      className="p-5 flex flex-col justify-between h-full animate-fadeIn"
+    <Link
+      to={member.username ? `/app/u/${member.username}` : `/app/profile/${member.id}`}
+      className="block h-full group select-none"
     >
-      <div>
-        {/* Top Bar: Avatar & Role */}
-        <div className="flex items-start gap-4 mb-4">
-          <div className="relative flex-shrink-0">
-            <img
-              src={member.avatar}
-              alt={member.name}
-              className="w-14 h-14 rounded-full bg-surface-700 object-cover"
-            />
-            <span
-              className={`absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full border-2 border-surface-950 ${
-                statusColors[member.status] || "bg-text-muted"
-              }`}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-text-primary truncate">
-              {member.name}
-            </h3>
-            <p className="text-xs text-primary font-medium mt-0.5">
-              {member.role}
-            </p>
-            <p className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">
-              {member.department}
-            </p>
+      <Card
+        hoverEffect
+        glowColor="primary"
+        className="p-6 flex flex-col items-center text-center justify-center h-full animate-fadeIn border border-border/40 hover:border-primary/40 transition-all duration-300 bg-surface-900/40 backdrop-blur-sm"
+      >
+        {/* Profile Pic in Circle */}
+        <div className="relative mb-3.5">
+          <img
+            src={member.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${member.name}`}
+            alt={member.name}
+            className="w-20 h-20 rounded-full bg-surface-700 object-cover border-2 border-border group-hover:border-primary/50 transition-colors duration-300"
+          />
+          <span
+            className={`absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-surface-950 ${
+              statusColors[member.status] || "bg-text-muted"
+            }`}
+          />
+        </div>
+
+        {/* Identity Details */}
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold text-text-primary group-hover:text-primary transition-colors duration-200 line-clamp-1">
+            {member.name}
+          </h3>
+          <p className="text-xs font-semibold text-primary capitalize">
+            {member.role}
+          </p>
+          <div className="text-[10px] text-text-muted space-y-0.5 pt-0.5">
+            <p className="font-medium truncate">{member.department}</p>
+            {member.yearLevel && member.yearLevel !== "N/A" && (
+              <p className="font-medium font-mono">{member.yearLevel}</p>
+            )}
           </div>
         </div>
 
-        {/* Badges */}
-        {member.badges && member.badges.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {member.badges.map((badge) => (
-              <Badge
-                key={badge}
-                variant="accent"
-                className="font-bold tracking-wider text-[10px] py-0.5"
-              >
-                <Award className="w-2.5 h-2.5" /> {badge}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        {/* Skills/Expertise */}
+        {/* Skillsets / Expertise */}
         {member.expertise && member.expertise.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {member.expertise.map((skill) => (
+          <div className="flex flex-wrap justify-center gap-1 mt-3 pt-3 border-t border-border/20 w-full">
+            {member.expertise.slice(0, 3).map((exp, idx) => (
               <span
-                key={skill}
-                className="px-2 py-0.5 rounded bg-surface-800 border border-border/50 text-[10px] text-text-secondary"
+                key={idx}
+                className="text-[9px] px-2 py-0.5 rounded bg-primary/10 border border-primary/20 text-primary-400 font-medium whitespace-nowrap"
               >
-                {skill}
+                {exp}
               </span>
             ))}
+            {member.expertise.length > 3 && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-surface-800 text-text-muted font-medium whitespace-nowrap">
+                +{member.expertise.length - 3}
+              </span>
+            )}
           </div>
         )}
-
-        {/* Expanded Bio Info */}
-        {isExpanded && (
-          <div className="pt-3 border-t border-border/50 text-xs text-text-secondary space-y-2 mt-2 animate-fadeIn">
-            <p className="leading-relaxed">{member.bio}</p>
-            <div className="flex items-center gap-1.5 text-text-muted">
-              <MapPin className="w-3.5 h-3.5" />
-              <span>Year: {member.yearLevel}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-text-muted">
-              <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">{member.email}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer Toolbar: Action Buttons */}
-      <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/30">
-        <Button
-          variant="secondary"
-          onClick={onToggleExpand}
-          className="flex-1 py-1.5 text-xs font-semibold flex items-center justify-center gap-1"
-          icon={isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          iconPosition="right"
-        >
-          {isExpanded ? "Collapse" : "View Bio"}
-        </Button>
-        <Link
-          to={member.username ? `/app/u/${member.username}` : `/app/profile/${member.id}`}
-          className="px-3 py-1.5 text-center text-xs font-semibold rounded-lg bg-gradient-to-r from-primary to-accent hover:shadow-md hover:shadow-primary/10 text-white transition-all"
-        >
-          Profile
-        </Link>
-      </div>
-    </Card>
+      </Card>
+    </Link>
   );
 }
 export type { DirectoryMember };
+
