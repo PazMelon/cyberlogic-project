@@ -12,6 +12,7 @@ interface CommentTreeProps {
   onReply: (parentId: number, content: string) => Promise<void>;
   onEdit: (commentId: number, content: string) => Promise<void>;
   onDelete: (commentId: number) => Promise<void>;
+  onReport: (commentId: number) => void;
 }
 
 export function CommentTree({
@@ -24,7 +25,8 @@ export function CommentTree({
   onVote,
   onReply,
   onEdit,
-  onDelete
+  onDelete,
+  onReport
 }: CommentTreeProps) {
   // Find top level comments: where parentId is null
   // Note: if there is any orphan comment, treat it as top-level
@@ -57,6 +59,7 @@ export function CommentTree({
           onEdit={onEdit}
           onDelete={onDelete}
           allComments={comments}
+          onReport={onReport}
         />
       ))}
     </div>

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router";
 import {
-  Shield, Mail, MapPin, Cake, GraduationCap, Calendar, Camera, X
+  Shield, Mail, MapPin, Cake, GraduationCap, Calendar, Camera
 } from "lucide-react";
 import { BottomSheet, FullscreenImageViewer } from "../ui";
 import { SkeletonCircle, SkeletonLine } from "../Skeleton";

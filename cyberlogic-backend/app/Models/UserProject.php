@@ -23,6 +23,20 @@ class UserProject extends Model
     protected $appends = ['image_urls'];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted()
+    {
+        static::deleting(function ($project) {
+            if ($project->images && is_array($project->images)) {
+                foreach ($project->images as $path) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+                }
+            }
+        });
+    }
+
+    /**
      * Get the user that owns the project.
      */
     public function user(): BelongsTo

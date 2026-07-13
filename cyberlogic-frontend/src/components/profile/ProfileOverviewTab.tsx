@@ -6,7 +6,6 @@ import { ImageCarousel } from "../ui";
 import type { UserProject, UserGalleryPhoto } from "../../utils/api";
 
 interface ProfileOverviewTabProps {
-  bio: string;
   userActivities: any[];
   activitiesLoading: boolean;
   projects: UserProject[];
@@ -17,7 +16,6 @@ interface ProfileOverviewTabProps {
 }
 
 export function ProfileOverviewTab({
-  bio,
   userActivities,
   activitiesLoading,
   projects = [],

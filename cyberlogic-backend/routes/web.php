@@ -20,6 +20,7 @@ use App\Http\Controllers\ReputationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileShowcaseController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -209,6 +210,12 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/user/gallery', [ProfileShowcaseController::class, 'storeGalleryPhoto'])->middleware('throttle:30,1');
     Route::put('/api/user/gallery/{id}', [ProfileShowcaseController::class, 'updateGalleryPhoto']);
     Route::delete('/api/user/gallery/{id}', [ProfileShowcaseController::class, 'destroyGalleryPhoto']);
+
+    // Reporting endpoints
+    Route::post('/api/reports', [ReportController::class, 'store']);
+    Route::get('/api/admin/reports', [ReportController::class, 'index']);
+    Route::put('/api/admin/reports/{id}', [ReportController::class, 'update']);
+    Route::delete('/api/admin/reports/{id}', [ReportController::class, 'destroy']);
 });
 
 Route::get('/storage/{path}', function ($path) {

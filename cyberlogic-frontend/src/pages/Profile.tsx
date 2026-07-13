@@ -41,9 +41,9 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [targetUser, setTargetUser] = useState<DirectoryMember | null>(null);
 
-  const isOwnProfile = (!userId && !urlUsername) ||
+  const isOwnProfile = !!((!userId && !urlUsername) ||
                        (userId && parseInt(userId, 10) === user?.id) ||
-                       (urlUsername && user?.username && urlUsername.toLowerCase() === user.username.toLowerCase());
+                       (urlUsername && user?.username && urlUsername.toLowerCase() === user.username.toLowerCase()));
 
   useSEO({
     title: targetUser ? `${targetUser.name}'s Profile` : isOwnProfile ? "My Profile" : "User Profile",
@@ -361,7 +361,6 @@ export default function Profile() {
             <>
               {activeTab === "overview" && (
                 <ProfileOverviewTab
-                  bio={bio}
                   userActivities={userActivities}
                   activitiesLoading={activitiesLoading}
                   projects={showcaseProjects}

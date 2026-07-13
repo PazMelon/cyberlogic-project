@@ -2570,3 +2570,81 @@ export async function deleteGalleryPhoto(id: number): Promise<{ success: boolean
   }
   return res.json();
 }
+
+// ─── Content Reporting ────────────────────────────────────────────────────────
+
+export interface DbReport {
+  id: number;
+  reporter: {
+    id: number;
+    name: string;
+  } | null;
+  content_owner: {
+    id: number;
+    name: string;
+  } | null;
+  moderator: {
+    id: number;
+    name: string;
+  } | null;
+  reportable_type: "thread" | "comment" | "project";
+  reportable_id: number;
+  reportable_title: string;
+  reason: string;
+  details: string | null;
+  status: "pending" | "resolved";
+  action_taken: "removed" | "dismissed" | null;
+  created_at: string;
+  content_exists: boolean;
+  content_link: string | null;
+}
+
+export async function createReport(data: {
+  reportable_type: "thread" | "comment" | "project";
+  reportable_id: number;
+  reason: string;
+  details?: string;
+}): Promise<{ success: boolean; report: DbReport }> {
+  const res = await apiRequest("/api/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to submit report.");
+  }
+  return res.json();
+}
+
+export async function fetchAdminReports(): Promise<DbReport[]> {
+  const res = await apiRequest("/api/admin/reports");
+  if (!res.ok) {
+    throw new Error("Failed to load reports.");
+  }
+  return res.json();
+}
+
+export async function updateReportStatus(
+  id: number,
+  action: "remove" | "dismiss"
+): Promise<{ success: boolean; report: DbReport }> {
+  const res = await apiRequest(`/api/admin/reports/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to resolve report.");
+  }
+  return res.json();
+}
+
+export async function deleteReport(id: number): Promise<{ success: boolean }> {
+  const res = await apiRequest(`/api/admin/reports/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error("Failed to delete report history.");
+  }
+  return res.json();
+}

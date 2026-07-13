@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { MessageSquare, Shield, CheckCircle, Trash2, Edit3 } from "lucide-react";
+import { MessageSquare, Shield, CheckCircle, Trash2, Edit3, Flag } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
 import type { ForumCommentMapped } from "../../utils/api";
@@ -20,6 +20,7 @@ interface CommentItemProps {
   onReply: (parentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => Promise<void>;
   onEdit: (commentId: number, content: string, isSpoiler?: boolean, isRedacted?: boolean) => Promise<void>;
   onDelete: (commentId: number) => Promise<void>;
+  onReport: (commentId: number) => void;
   allComments: ForumCommentMapped[];
   depth?: number;
 }
@@ -35,6 +36,7 @@ export function CommentItem({
   onReply,
   onEdit,
   onDelete,
+  onReport,
   allComments,
   depth = 0
 }: CommentItemProps) {
@@ -172,6 +174,18 @@ export function CommentItem({
                 </button>
               )}
 
+              {/* Report Comment */}
+              {!isOwner && user && (
+                <button
+                  type="button"
+                  onClick={() => onReport(comment.id)}
+                  className="flex items-center gap-1 font-medium hover:text-error transition-colors cursor-pointer"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  Report
+                </button>
+              )}
+
               {/* Delete Comment */}
               {(isOwner || isAdmin) && (
                 <button
@@ -227,6 +241,7 @@ export function CommentItem({
               onReply={onReply}
               onEdit={onEdit}
               onDelete={onDelete}
+              onReport={onReport}
               allComments={allComments}
               depth={depth + 1}
             />

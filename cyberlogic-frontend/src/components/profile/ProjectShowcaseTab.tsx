@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { Plus, ExternalLink, Pencil, Trash2, Briefcase, Loader2 } from "lucide-react";
+import { Plus, ExternalLink, Pencil, Trash2, Briefcase, Loader2, Flag } from "lucide-react";
 import { ImageCarousel, FullscreenImageViewer } from "../ui";
 import { ProjectFormModal } from "./ProjectFormModal";
+import { ReportModal } from "../forum/ReportModal";
 import {
   fetchUserProjects,
   createUserProject,
@@ -21,6 +22,7 @@ export function ProjectShowcaseTab({ userId, isOwnProfile }: ProjectShowcaseTabP
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<UserProject | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reportProjectId, setReportProjectId] = useState<number | null>(null);
 
   // Fullscreen viewer state
   const [fullscreenImages, setFullscreenImages] = useState<string[]>([]);
@@ -148,32 +150,42 @@ export function ProjectShowcaseTab({ userId, isOwnProfile }: ProjectShowcaseTabP
                       <p className="text-xs text-text-secondary mt-1 line-clamp-3 leading-relaxed">{project.description}</p>
                     )}
                   </div>
-                  {isOwnProfile && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    {isOwnProfile && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => { setEditingProject(project); setIsModalOpen(true); }}
+                          className="p-1.5 rounded-lg hover:bg-white/5 text-text-muted hover:text-primary transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(project.id)}
+                          disabled={deletingId === project.id}
+                          className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error transition-colors cursor-pointer disabled:opacity-50"
+                          title="Delete"
+                        >
+                          {deletingId === project.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
+                    {!isOwnProfile && (
                       <button
                         type="button"
-                        onClick={() => { setEditingProject(project); setIsModalOpen(true); }}
-                        className="p-1.5 rounded-lg hover:bg-white/5 text-text-muted hover:text-primary transition-colors cursor-pointer"
-                        title="Edit"
+                        onClick={() => setReportProjectId(project.id)}
+                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error transition-colors cursor-pointer flex-shrink-0"
+                        title="Report Project"
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Flag className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(project.id)}
-                        disabled={deletingId === project.id}
-                        className="p-1.5 rounded-lg hover:bg-error/10 text-text-muted hover:text-error transition-colors cursor-pointer disabled:opacity-50"
-                        title="Delete"
-                      >
-                        {deletingId === project.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
 
                 {project.link && (
                   <a
@@ -214,6 +226,15 @@ export function ProjectShowcaseTab({ userId, isOwnProfile }: ProjectShowcaseTabP
         defaultIndex={fullscreenIndex}
         alt="Project image"
       />
+
+      {reportProjectId !== null && (
+        <ReportModal
+          isOpen={reportProjectId !== null}
+          onClose={() => setReportProjectId(null)}
+          reportableType="project"
+          reportableId={reportProjectId}
+        />
+      )}
     </div>
   );
 }

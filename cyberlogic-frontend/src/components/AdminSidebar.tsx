@@ -17,6 +17,7 @@ import {
   FileText,
   ScrollText,
   KeyRound,
+  Flag,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -51,6 +52,7 @@ const adminNavSections: NavSection[] = [
       { icon: MessagesSquare, label: "Forums", path: "/admin/forums", permission: "manage_forums" },
       { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat", permission: "manage_chat" },
       { icon: Shield, label: "Message Moderation", path: "/admin/message-moderation", permission: "manage_chat" },
+      { icon: Flag, label: "Content Reports", path: "/admin/reports", permission: "manage_forums" },
       { icon: Megaphone, label: "Announcements", path: "/admin/announcements", permission: "manage_announcements" },
       { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
       { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },

@@ -3,7 +3,6 @@ import { Link, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Eye,
-  Share2,
   Flag,
   CheckCircle,
   Award,
@@ -49,6 +48,7 @@ import {
   ImageCarousel,
   FullscreenImageViewer
 } from "../components/forum";
+import { ReportModal } from "../components/forum/ReportModal";
 
 export default function ForumThread() {
   const { threadId } = useParams();
@@ -66,6 +66,7 @@ export default function ForumThread() {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isVotingPoll, setIsVotingPoll] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState<{ type: "thread" | "comment" | "project"; id: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const hasScrolledRef = useRef<string | null>(null);
 
@@ -461,28 +462,19 @@ export default function ForumThread() {
 
                   {isMenuOpen && (
                     <div className="absolute right-0 mt-1 w-48 rounded-xl bg-surface-900/95 border border-border shadow-xl py-1 z-50 animate-fadeIn backdrop-blur-md">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          // share logic
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <Share2 className="w-3.5 h-3.5" />
-                        <span>Share</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMenuOpen(false);
-                          // report logic
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-error hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
-                      >
-                        <Flag className="w-3.5 h-3.5" />
-                        <span>Report</span>
-                      </button>
+                      {user && thread && user.id !== thread.authorId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            setReportTarget({ type: "thread", id: thread.id });
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs font-semibold text-text-secondary hover:text-error hover:bg-white/5 transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <Flag className="w-3.5 h-3.5" />
+                          <span>Report</span>
+                        </button>
+                      )}
 
                       {isAdmin && (
                         <>
@@ -676,18 +668,15 @@ export default function ForumThread() {
                   <Bookmark className={`w-3.5 h-3.5 ${isSaved ? "fill-primary/20" : ""}`} />
                   <span>{isSaved ? "Saved" : "Save"}</span>
                 </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 hover:text-accent transition-colors cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" /> Share
-                </button>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 hover:text-error transition-colors cursor-pointer"
-                >
-                  <Flag className="w-3.5 h-3.5" /> Report
-                </button>
+                {user && thread && user.id !== thread.authorId && (
+                  <button
+                    type="button"
+                    onClick={() => setReportTarget({ type: "thread", id: thread.id })}
+                    className="inline-flex items-center gap-1 hover:text-error transition-colors cursor-pointer"
+                  >
+                    <Flag className="w-3.5 h-3.5" /> Report
+                  </button>
+                )}
               </div>
 
               {/* Mobile/Tablet View */}
@@ -766,6 +755,7 @@ export default function ForumThread() {
                 onReply={handlePostReply}
                 onEdit={handleEditComment}
                 onDelete={handleDeleteComment}
+                onReport={(commentId) => setReportTarget({ type: "comment", id: commentId })}
               />
             </div>
           </div>
@@ -853,6 +843,15 @@ export default function ForumThread() {
           initialIndex={activeImageIndex}
           isOpen={isViewerOpen}
           onClose={() => setIsViewerOpen(false)}
+        />
+      )}
+
+      {reportTarget && (
+        <ReportModal
+          isOpen={reportTarget !== null}
+          onClose={() => setReportTarget(null)}
+          reportableType={reportTarget.type}
+          reportableId={reportTarget.id}
         />
       )}
     </div>

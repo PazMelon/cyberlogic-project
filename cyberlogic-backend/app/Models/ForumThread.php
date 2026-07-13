@@ -39,6 +39,20 @@ class ForumThread extends Model
     protected $appends = ['voteScore', 'commentCount', 'userVote'];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted()
+    {
+        static::deleting(function ($thread) {
+            if ($thread->images && is_array($thread->images)) {
+                foreach ($thread->images as $path) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($path);
+                }
+            }
+        });
+    }
+
+    /**
      * Get the user who created the thread.
      */
     public function user()

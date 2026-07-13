@@ -97,8 +97,8 @@ export function PhotoGalleryTab({ userId, isOwnProfile }: PhotoGalleryTabProps) 
     try {
       await deleteGalleryPhoto(id);
       setPhotos((prev) => prev.filter((p) => p.id !== id));
-      if (fullscreenPhoto?.id === id) {
-        setFullscreenPhoto(null);
+      if (fullscreenIndex !== null && photos[fullscreenIndex]?.id === id) {
+        setFullscreenIndex(null);
       }
     } catch (err) {
       console.error("Failed to delete gallery photo:", err);

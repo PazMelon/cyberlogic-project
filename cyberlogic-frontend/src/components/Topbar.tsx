@@ -243,6 +243,7 @@ export default function Topbar() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [activeToast, setActiveToast] = useState<any | null>(null);
+  const [expandedNotifIds, setExpandedNotifIds] = useState<Record<number, boolean>>({});
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
@@ -418,9 +419,27 @@ export default function Topbar() {
                 {formatRelativeTime(notif.created_at)}
               </span>
             </div>
-            <p className="text-xs text-text-secondary leading-relaxed line-clamp-2 pr-6">
-              {notif.body}
-            </p>
+            <div className="text-xs text-text-secondary leading-relaxed pr-6 mt-0.5">
+              <p className={expandedNotifIds[notif.id] ? "" : "line-clamp-2"}>
+                {notif.body}
+              </p>
+              {notif.body && notif.body.length > 80 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setExpandedNotifIds((prev) => ({
+                      ...prev,
+                      [notif.id]: !prev[notif.id],
+                    }));
+                  }}
+                  className="text-[10px] text-primary hover:underline font-bold mt-1 block cursor-pointer"
+                >
+                  {expandedNotifIds[notif.id] ? "Show Less" : "Show More"}
+                </button>
+              )}
+            </div>
           </div>
 
           <button

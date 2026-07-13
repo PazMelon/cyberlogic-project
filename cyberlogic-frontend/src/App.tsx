@@ -43,6 +43,7 @@ import ChatManagement from "./pages/admin/ChatManagement";
 import FreedomWallModeration from "./pages/admin/FreedomWallModeration";
 import SiteSettings from "./pages/admin/SiteSettings";
 import AuditLogs from "./pages/admin/AuditLogs";
+import ReportManagement from "./pages/admin/ReportManagement";
 import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
 import RoleManagement from "./pages/admin/RoleManagement";
@@ -273,6 +274,7 @@ function AppRoutes() {
         <Route path="forums" element={<ForumModeration />} />
         <Route path="chat" element={<ChatManagement />} />
         <Route path="message-moderation" element={<FreedomWallModeration />} />
+        <Route path="reports" element={<ReportManagement />} />
         <Route path="settings" element={<SiteSettings />} />
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="roles" element={<RoleManagement />} />
