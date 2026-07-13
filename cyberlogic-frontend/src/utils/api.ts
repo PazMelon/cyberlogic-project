@@ -2233,6 +2233,7 @@ export interface ReputationUser {
   avatar: string;
   role: string;
   reputation: {
+    today: number;
     week: number;
     month: number;
     year: number;
@@ -2413,3 +2414,159 @@ export async function fetchDirectoryMemberByUsername(username: string): Promise<
   return res.json();
 }
 
+// ─── Profile Showcase: Projects ──────────────────────────────────────────────
+
+export interface UserProject {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string | null;
+  link: string | null;
+  images: string[] | null;
+  image_urls: string[];
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchUserProjects(userId: number): Promise<UserProject[]> {
+  const res = await apiRequest(`/api/users/${userId}/projects`);
+  if (!res.ok) {
+    throw new Error("Failed to load user projects.");
+  }
+  return res.json();
+}
+
+export async function fetchMyProjects(): Promise<UserProject[]> {
+  const res = await apiRequest("/api/user/projects");
+  if (!res.ok) {
+    throw new Error("Failed to load your projects.");
+  }
+  return res.json();
+}
+
+export async function createUserProject(data: {
+  title: string;
+  description?: string;
+  link?: string;
+  images?: string[];
+}): Promise<{ success: boolean; project: UserProject }> {
+  const res = await apiRequest("/api/user/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to create project.");
+  }
+  return res.json();
+}
+
+export async function updateUserProject(
+  id: number,
+  data: { title: string; description?: string; link?: string; images?: string[] }
+): Promise<{ success: boolean; project: UserProject }> {
+  const res = await apiRequest(`/api/user/projects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to update project.");
+  }
+  return res.json();
+}
+
+export async function deleteUserProject(id: number): Promise<{ success: boolean }> {
+  const res = await apiRequest(`/api/user/projects/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error("Failed to delete project.");
+  }
+  return res.json();
+}
+
+export async function uploadProjectImage(file: File): Promise<{ path: string; url: string }> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await apiRequest("/api/user/projects/upload-image", {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to upload project image.");
+  }
+  return res.json();
+}
+
+// ─── Profile Showcase: Gallery ───────────────────────────────────────────────
+
+export interface UserGalleryPhoto {
+  id: number;
+  user_id: number;
+  image_path: string;
+  image_url: string;
+  caption: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchUserGallery(userId: number): Promise<UserGalleryPhoto[]> {
+  const res = await apiRequest(`/api/users/${userId}/gallery`);
+  if (!res.ok) {
+    throw new Error("Failed to load user gallery.");
+  }
+  return res.json();
+}
+
+export async function fetchMyGallery(): Promise<UserGalleryPhoto[]> {
+  const res = await apiRequest("/api/user/gallery");
+  if (!res.ok) {
+    throw new Error("Failed to load your gallery.");
+  }
+  return res.json();
+}
+
+export async function uploadGalleryPhoto(
+  file: File,
+  caption?: string
+): Promise<{ success: boolean; photo: UserGalleryPhoto }> {
+  const formData = new FormData();
+  formData.append("image", file);
+  if (caption) formData.append("caption", caption);
+  const res = await apiRequest("/api/user/gallery", {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || err.error || "Failed to upload gallery photo.");
+  }
+  return res.json();
+}
+
+export async function updateGalleryCaption(
+  id: number,
+  caption: string | null
+): Promise<{ success: boolean; photo: UserGalleryPhoto }> {
+  const res = await apiRequest(`/api/user/gallery/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ caption }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update gallery photo.");
+  }
+  return res.json();
+}
+
+export async function deleteGalleryPhoto(id: number): Promise<{ success: boolean }> {
+  const res = await apiRequest(`/api/user/gallery/${id}`, { method: "DELETE" });
+  if (!res.ok) {
+    throw new Error("Failed to delete gallery photo.");
+  }
+  return res.json();
+}

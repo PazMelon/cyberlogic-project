@@ -8,3 +8,7 @@ export * from "./DataTable";
 export * from "./BlogCard";
 export * from "./Dialog";
 export * from "./PromptDialog";
+export * from "./BottomSheet";
+export * from "./FullscreenImageViewer";
+export * from "./ImageCarousel";
+
