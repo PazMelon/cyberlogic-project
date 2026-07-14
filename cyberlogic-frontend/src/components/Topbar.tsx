@@ -37,10 +37,12 @@ import {
   UserCheck,
   UserX,
   Info,
+  Flag,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
 import GlobalSearch from "./search/GlobalSearch";
+import { fetchUsers } from "../utils/api";
 
 const memberNavSections = [
   {
@@ -55,8 +57,8 @@ const memberNavSections = [
     items: [
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
+      { icon: Newspaper, label: "Blog", path: "/app/blogs" },
       { icon: Users, label: "Directory", path: "/app/directory" },
-      { icon: Newspaper, label: "Blogs", path: "/app/blogs" },
     ],
   },
   {
@@ -73,6 +75,7 @@ interface SidebarNavItem {
   label: string;
   path: string;
   badge?: number;
+  badgeKey?: string;
   permission?: string;
   superAdminOnly?: boolean;
 }
@@ -92,9 +95,11 @@ const adminNavSections: NavSection[] = [
   {
     title: "Management",
     items: [
-      { icon: Users, label: "Members", path: "/admin/members", badge: 3, permission: "manage_users" },
+      { icon: Users, label: "Members", path: "/admin/members", badgeKey: "pendingMembers", permission: "manage_users" },
       { icon: MessagesSquare, label: "Forums", path: "/admin/forums", permission: "manage_forums" },
       { icon: MessageSquare, label: "Chat Channels", path: "/admin/chat", permission: "manage_chat" },
+      { icon: Shield, label: "Message Moderation", path: "/admin/message-moderation", permission: "manage_chat" },
+      { icon: Flag, label: "Content Reports", path: "/admin/reports", permission: "manage_forums" },
       { icon: Megaphone, label: "Announcements", path: "/admin/announcements", permission: "manage_announcements" },
       { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
       { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },
@@ -225,8 +230,42 @@ export default function Topbar() {
     resetUnreadNotifCount,
     decrementUnreadNotifCount,
     latestNotification,
-    clearLatestNotification
+    clearLatestNotification,
+    subscribe
   } = useWebSocket();
+
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // Fetch initial pending count for mobile sidebar
+  useEffect(() => {
+    if (!isAdmin) return;
+    async function loadPendingCount() {
+      try {
+        const users = await fetchUsers();
+        const pendingUsers = users.filter((u) => u.status === "pending");
+        setPendingCount(pendingUsers.length);
+      } catch (err) {
+        console.error("Failed to load initial pending count in Topbar:", err);
+      }
+    }
+    loadPendingCount();
+  }, [isAdmin]);
+
+  // Listen for real-time member registrations updates for mobile sidebar
+  useEffect(() => {
+    if (!isAdmin) return;
+    const unsubscribe = subscribe("admin:member_management", (payload) => {
+      if (payload.event === "registration_pending") {
+        setPendingCount((prev) => prev + 1);
+      } else if (payload.event === "registration_approved" || payload.event === "registration_rejected") {
+        setPendingCount((prev) => Math.max(0, prev - 1));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAdmin, subscribe]);
 
   // Close mobile search and menus on route changes
   useEffect(() => {
@@ -846,31 +885,34 @@ export default function Topbar() {
                         {section.title}
                       </span>
                       <div className="space-y-1">
-                        {visibleItems.map((item) => (
-                          <Link
-                            key={item.path}
-                            to={item.path}
-                            onClick={() => setShowMobileMenu(false)}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive(item.path)
-                                ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
-                                : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
-                              }`}
-                          >
-                            <item.icon
-                              className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                        {visibleItems.map((item) => {
+                          const badgeValue = item.badgeKey === "pendingMembers" ? pendingCount : (item.badge || 0);
+                          return (
+                            <Link
+                              key={item.path}
+                              to={item.path}
+                              onClick={() => setShowMobileMenu(false)}
+                              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group border ${isActive(item.path)
+                                  ? "bg-gradient-to-r from-amber-500/15 to-amber-500/5 text-text-primary border-amber-500/25 shadow-sm shadow-amber-500/5"
+                                  : "text-text-muted hover:text-text-primary hover:bg-white/5 border-transparent"
                                 }`}
-                            />
-                            <span className="flex-1 truncate">{item.label}</span>
-                            {item.badge && (
-                              <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
-                                {item.badge}
-                              </span>
-                            )}
-                            {isActive(item.path) && !item.badge && (
-                              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                            )}
-                          </Link>
-                        ))}
+                            >
+                              <item.icon
+                                className={`w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-105 ${isActive(item.path) ? "text-amber-400" : "text-text-muted group-hover:text-text-secondary"
+                                  }`}
+                              />
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {badgeValue > 0 && (
+                                <span className="w-5 h-5 rounded-full bg-error text-white text-[10px] font-bold flex items-center justify-center">
+                                  {badgeValue}
+                                </span>
+                              )}
+                              {isActive(item.path) && badgeValue === 0 && (
+                                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              )}
+                            </Link>
+                          );
+                        })}
                       </div>
                     </div>
                   );
