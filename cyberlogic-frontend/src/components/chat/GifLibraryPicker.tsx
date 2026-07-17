@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Image as ImageIcon, Plus, Search, Loader2, Sparkles, Check } from "lucide-react";
-import { apiRequest } from "../../context/AuthContext";
+import { Image as ImageIcon, Plus, Search, Loader2, Sparkles, Check, Trash2 } from "lucide-react";
+import { apiRequest, useAuth } from "../../context/AuthContext";
 
 interface SavedGif {
   id: number;
@@ -21,6 +21,7 @@ interface GifLibraryPickerProps {
 }
 
 export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPickerProps) {
+  const { user: currentUser } = useAuth();
   const [gifs, setGifs] = useState<SavedGif[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -147,6 +148,25 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
       setError("An unexpected error occurred.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteGif = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this media link from the library?")) return;
+
+    try {
+      const res = await apiRequest(`/api/admin/chat/gifs/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setGifs((prev) => prev.filter((gif) => gif.id !== id));
+        setOffset((prev) => Math.max(0, prev - 1));
+      } else {
+        alert("Failed to delete media link.");
+      }
+    } catch (err) {
+      console.error("Error deleting GIF:", err);
+      alert("Something went wrong.");
     }
   };
 
@@ -334,39 +354,68 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-2">
-                  {gifs.map((gif) => (
-                    <button
-                      key={gif.id}
-                      onClick={() => {
-                        onSelectGif(gif.url);
-                        onClose();
-                      }}
-                      className="group relative flex flex-col rounded-xl overflow-hidden border border-border bg-surface-950 hover:border-primary/50 transition-all text-left shadow-xs cursor-pointer"
-                    >
-                      <div className="h-24 w-full bg-surface-900 overflow-hidden relative">
-                        <img
-                          src={gif.url}
-                          alt={gif.title}
-                          loading="lazy"
-                          className="w-full h-full object-contain transition-transform group-hover:scale-105"
-                        />
-                      </div>
-                      <div className="p-1.5 min-w-0 w-full">
-                        <p className="text-[10px] font-semibold text-text-primary truncate">{gif.title}</p>
-                        {gif.user ? (
-                          <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
-                            <img src={gif.user.avatar} className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" />
-                            <span className="text-[8px] text-text-muted truncate">By {gif.user.first_name}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
-                            <div className="w-3.5 h-3.5 rounded-full bg-surface-800 flex items-center justify-center text-[7px] text-text-muted flex-shrink-0 font-bold">S</div>
-                            <span className="text-[8px] text-text-muted truncate">System</span>
-                          </div>
+                  {gifs.map((gif) => {
+                    const isOwner = gif.user?.id === currentUser?.id;
+                    const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
+                    const canDelete = isOwner || isAdmin;
+
+                    return (
+                      <div
+                        key={gif.id}
+                        className="group relative flex flex-col rounded-xl overflow-hidden border border-border bg-surface-950 hover:border-primary/50 transition-all text-left shadow-xs"
+                      >
+                        <div
+                          onClick={() => {
+                            onSelectGif(gif.url);
+                            onClose();
+                          }}
+                          className="h-24 w-full bg-surface-900 overflow-hidden relative cursor-pointer"
+                        >
+                          <img
+                            src={gif.url}
+                            alt={gif.title}
+                            loading="lazy"
+                            className="w-full h-full object-contain transition-transform group-hover:scale-105"
+                          />
+                        </div>
+
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGif(gif.id);
+                            }}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-error/90 hover:bg-error border border-error/20 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-md cursor-pointer z-10"
+                            title="Delete from library"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
+
+                        <div
+                          onClick={() => {
+                            onSelectGif(gif.url);
+                            onClose();
+                          }}
+                          className="p-1.5 min-w-0 w-full cursor-pointer"
+                        >
+                          <p className="text-[10px] font-semibold text-text-primary truncate">{gif.title}</p>
+                          {gif.user ? (
+                            <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
+                              <img src={gif.user.avatar} className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0" />
+                              <span className="text-[8px] text-text-muted truncate">By {gif.user.first_name}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 mt-1 border-t border-border/30 pt-1 min-w-0">
+                              <div className="w-3.5 h-3.5 rounded-full bg-surface-800 flex items-center justify-center text-[7px] text-text-muted flex-shrink-0 font-bold">S</div>
+                              <span className="text-[8px] text-text-muted truncate">System</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {loadingMore && (

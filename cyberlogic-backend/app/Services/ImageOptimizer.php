@@ -122,7 +122,6 @@ class ImageOptimizer
                     $height
                 );
 
-                imagedestroy($image);
                 $image = $resized;
             }
 
@@ -131,8 +130,6 @@ class ImageOptimizer
             imagewebp($image, null, $quality);
             $webpData = ob_get_clean();
             
-            imagedestroy($image);
-
             // Save binary stream as .webp
             $filename = Str::random(40) . '.webp';
             $targetPath = $directory . '/' . $filename;

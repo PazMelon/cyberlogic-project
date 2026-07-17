@@ -169,7 +169,7 @@ class ReportController extends Controller
             // Delete or redact actual content
             $content = $report->reportable;
             if ($content) {
-                if ($report->reportable_type === \App\Models\ForumComment::class) {
+                if ($report->reportable_type === ForumComment::class) {
                     $content->update([
                         'content' => '[This comment was removed by moderation for violating community rules: ' . $report->reason . ']',
                     ]);

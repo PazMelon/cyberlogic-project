@@ -272,7 +272,8 @@ export default function ChatManagement() {
         method: "DELETE",
       });
       if (res.ok) {
-        loadLibrary();
+        setLibrary((prev) => prev.filter((item) => item.id !== id));
+        setLibraryOffset((prev) => Math.max(0, prev - 1));
         showAlert({
           title: "Success",
           message: "Media link deleted successfully",

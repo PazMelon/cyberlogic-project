@@ -478,7 +478,7 @@ class ChatController extends Controller
     {
         $validated = $request->validate([
             'title' => 'required|string|max:100',
-            'url' => 'required|url',
+            'url' => 'required|url|unique:chat_saved_media,url',
             'category' => 'nullable|string|max:50',
         ]);
 
