@@ -100,6 +100,9 @@ class ChatController extends Controller
                 $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
                 $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
                 $channel->description = "Direct message with " . $otherUser->first_name;
+            } elseif ($channel->type === 'group' && $channel->allowed_roles === null) {
+                $memberNames = $channel->members->pluck('first_name')->toArray();
+                $channel->description = "Group messages with " . implode(', ', $memberNames) . ". . . .";
             }
         });
 
@@ -940,7 +943,13 @@ class ChatController extends Controller
         if ($existingChannel) {
             // Load members to return same structure as index
             $existingChannel->load(['members']);
-            $otherUser = $existingChannel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+            $otherUser = $user;
+            foreach ($existingChannel->members as $m) {
+                if ($m->id !== $user->id) {
+                    $otherUser = $m;
+                    break;
+                }
+            }
             $existingChannel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
             $existingChannel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
             $existingChannel->description = "Direct message with " . $otherUser->first_name;
@@ -966,10 +975,34 @@ class ChatController extends Controller
 
         // Load members to return dynamic name
         $channel->load(['members']);
-        $otherUser = $channel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+        $otherUser = $user;
+        foreach ($channel->members as $m) {
+            if ($m->id !== $user->id) {
+                $otherUser = $m;
+                break;
+            }
+        }
         $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
         $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
         $channel->description = "Direct message with " . $otherUser->first_name;
+
+        // Broadcast realtime new channel update to recipient
+        \App\Services\RealtimeService::broadcast(
+            'presence',
+            [
+                'id' => $channel->id,
+                'name' => $user->first_name . ' ' . $user->last_name,
+                'slug' => $channel->slug,
+                'description' => "Direct message with " . $user->first_name,
+                'type' => $channel->type,
+                'icon' => $user->avatar_path ? asset('storage/' . $user->avatar_path) : 'avatar',
+                'grouping' => $channel->grouping,
+                'is_protected' => $channel->is_protected,
+                'is_archived' => $channel->is_archived,
+            ],
+            'channel_created',
+            $recipientId
+        );
 
         return response()->json($channel, 201);
     }
@@ -1013,6 +1046,22 @@ class ChatController extends Controller
 
         // Add all members
         $channel->members()->attach($userIds);
+
+        // Load members to build description and return same structure
+        $channel->load(['members']);
+        $memberNames = $channel->members->pluck('first_name')->toArray();
+        $channel->description = "Group messages with " . implode(', ', $memberNames) . ". . . .";
+
+        // Broadcast realtime new channel update to all other members
+        foreach ($userIds as $memberId) {
+            if ($memberId === $user->id) continue;
+            \App\Services\RealtimeService::broadcast(
+                'presence',
+                $channel->toArray(),
+                'channel_created',
+                $memberId
+            );
+        }
 
         return response()->json($channel, 201);
     }

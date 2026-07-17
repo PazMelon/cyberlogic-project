@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { 
   Hash, 
   ChevronDown, 
@@ -19,11 +18,9 @@ import {
   Users,
   Bot,
   Plus,
-  X,
   UserPlus
 } from "lucide-react";
 import { SkeletonLine } from "../Skeleton";
-import { useAuth } from "../../context/AuthContext";
 
 export interface ChatChannel {
   id: number;
@@ -39,6 +36,7 @@ export interface ChatChannel {
   is_archived?: boolean;
   is_protected?: boolean;
   latest_message_id?: number;
+  members?: any[];
 }
 
 export interface OnlineUser {
@@ -55,15 +53,14 @@ export interface ChannelSidebarProps {
   setActiveChannel: (slug: string) => void;
   channelsLoading: boolean;
   onlineUsers: OnlineUser[];
-  allUsers?: any[];
   isConnected: boolean;
   onChannelSelect?: () => void;
   collapsedGroups: Record<string, boolean>;
   setCollapsedGroups: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   className?: string;
   unreadStatus?: Record<string, boolean>;
-  startDm?: (recipientId: number) => void;
-  createGroupChat?: (name: string, userIds: number[]) => void;
+  onStartDmClick?: () => void;
+  onStartGroupClick?: () => void;
 }
 
 const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
@@ -109,25 +106,15 @@ export default function ChannelSidebar({
   setActiveChannel,
   channelsLoading,
   onlineUsers,
-  allUsers = [],
   isConnected,
   onChannelSelect,
   collapsedGroups,
   setCollapsedGroups,
   className,
   unreadStatus = {},
-  startDm,
-  createGroupChat,
+  onStartDmClick,
+  onStartGroupClick,
 }: ChannelSidebarProps) {
-  const { user: currentUser } = useAuth();
-  
-  // Modal states
-  const [showDmModal, setShowDmModal] = useState(false);
-  const [showGroupModal, setShowGroupModal] = useState(false);
-  const [selectedRecipientId, setSelectedRecipientId] = useState<number | "">("");
-  const [newGroupName, setNewGroupName] = useState("");
-  const [selectedGroupUserIds, setSelectedGroupUserIds] = useState<number[]>([]);
-
   if (onlineUsers.length > 9999) {
     console.log(onlineUsers);
   }
@@ -182,7 +169,7 @@ export default function ChannelSidebar({
                 <>
                   <button
                     type="button"
-                    onClick={() => setShowDmModal(true)}
+                    onClick={() => onStartDmClick && onStartDmClick()}
                     className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
                     title="Start DM"
                   >
@@ -190,7 +177,7 @@ export default function ChannelSidebar({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowGroupModal(true)}
+                    onClick={() => onStartGroupClick && onStartGroupClick()}
                     className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
                     title="Create Group Chat"
                   >
@@ -289,137 +276,6 @@ export default function ChannelSidebar({
           renderChannelList()
         )}
       </div>
-
-      {/* Start DM Modal */}
-      {showDmModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm p-5 border border-border bg-surface-900 rounded-2xl shadow-2xl relative">
-            <button
-              onClick={() => {
-                setShowDmModal(false);
-                setSelectedRecipientId("");
-              }}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-sm font-bold text-text-primary mb-1 font-[family-name:var(--font-heading)]">Start Direct Message</h3>
-            <p className="text-xs text-text-muted mb-4">Select a club member to start a private chat.</p>
-
-            <div className="space-y-3">
-              <label className="block text-[10px] uppercase font-bold tracking-wider text-text-muted">Select Member</label>
-              <select
-                value={selectedRecipientId}
-                onChange={(e) => setSelectedRecipientId(e.target.value === "" ? "" : Number(e.target.value))}
-                className="w-full text-xs px-3 py-2.5 rounded-lg bg-surface-950 border border-border text-text-primary focus:outline-none focus:border-primary/50 transition-colors cursor-pointer"
-              >
-                <option value="">-- Choose a user --</option>
-                {allUsers
-                  ?.filter((u) => u.id !== currentUser?.id)
-                  ?.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.first_name} {u.last_name} ({u.username || u.email})
-                    </option>
-                  ))}
-              </select>
-
-              <button
-                disabled={!selectedRecipientId}
-                onClick={() => {
-                  if (startDm && selectedRecipientId) {
-                    startDm(Number(selectedRecipientId));
-                    setShowDmModal(false);
-                    setSelectedRecipientId("");
-                  }
-                }}
-                className="w-full bg-primary hover:bg-primary-light disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors cursor-pointer mt-2"
-              >
-                Start Chat
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Group Chat Modal */}
-      {showGroupModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-sm p-5 border border-border bg-surface-900 rounded-2xl shadow-2xl relative">
-            <button
-              onClick={() => {
-                setShowGroupModal(false);
-                setNewGroupName("");
-                setSelectedGroupUserIds([]);
-              }}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-sm font-bold text-text-primary mb-1 font-[family-name:var(--font-heading)]">Create Group Chat</h3>
-            <p className="text-xs text-text-muted mb-4">Choose a group name and select members to add.</p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-text-muted mb-1">Group Name</label>
-                <input
-                  type="text"
-                  required
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  placeholder="e.g. Study Group"
-                  className="w-full text-xs px-3 py-2 rounded-lg bg-surface-950 border border-border text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase font-bold tracking-wider text-text-muted mb-1.5">Select Members</label>
-                <div className="max-h-36 overflow-y-auto space-y-1 bg-surface-950/50 p-2 rounded-lg border border-border/60">
-                  {allUsers
-                    ?.filter((u) => u.id !== currentUser?.id)
-                    ?.map((u) => {
-                      const isSelected = selectedGroupUserIds.includes(u.id);
-                      return (
-                        <label
-                          key={u.id}
-                          className="flex items-center gap-2 text-xs text-text-muted cursor-pointer hover:text-text-primary transition-colors py-0.5 select-none"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              setSelectedGroupUserIds((prev) =>
-                                isSelected
-                                  ? prev.filter((id) => id !== u.id)
-                                  : [...prev, u.id]
-                              );
-                            }}
-                            className="rounded border-border text-primary focus:ring-0 w-3.5 h-3.5 cursor-pointer"
-                          />
-                          <span className="truncate">{u.first_name} {u.last_name}</span>
-                        </label>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <button
-                disabled={!newGroupName.trim() || selectedGroupUserIds.length === 0}
-                onClick={() => {
-                  if (createGroupChat && newGroupName.trim() && selectedGroupUserIds.length > 0) {
-                    createGroupChat(newGroupName.trim(), selectedGroupUserIds);
-                    setShowGroupModal(false);
-                    setNewGroupName("");
-                    setSelectedGroupUserIds([]);
-                  }
-                }}
-                className="w-full bg-primary hover:bg-primary-light disabled:opacity-50 text-white text-xs font-semibold py-2.5 rounded-xl transition-colors cursor-pointer"
-              >
-                Create Group
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

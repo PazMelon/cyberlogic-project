@@ -138,6 +138,22 @@ export function useChat() {
     loadChannels();
   }, []);
 
+  // Listen for realtime channel creations (DMs and custom group chats)
+  useEffect(() => {
+    if (isConnected) {
+      const unsubscribe = subscribe("presence", (payload: any, type: string) => {
+        if (type === "channel_created" && payload) {
+          const newChan: ChatChannel = payload;
+          setChannels((prev) => {
+            if (prev.some((c) => c.id === newChan.id)) return prev;
+            return [...prev, newChan];
+          });
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [isConnected, subscribe]);
+
   // Subscribe to all channels dynamically to track unreads
   useEffect(() => {
     if (channelsLoading || channels.length === 0) return;

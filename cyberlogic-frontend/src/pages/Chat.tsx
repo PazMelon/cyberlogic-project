@@ -69,6 +69,11 @@ export default function Chat() {
   const [showMobileChannels, setShowMobileChannels] = useState(false);
   const [showMembersList, setShowMembersList] = useState(window.innerWidth >= 1024);
 
+  // Lifted Direct Message & Group Chat creation states
+  const [messageCreationMode, setMessageCreationMode] = useState<"dm" | "group" | null>(null);
+  const [selectedGroupMembers, setSelectedGroupMembers] = useState<number[]>([]);
+  const [groupNameInput, setGroupNameInput] = useState("");
+
   // Reaction states
   const [activeReactionPickerMessageId, setActiveReactionPickerMessageId] = useState<number | null>(null);
   const [activeFullPickerMessageId, setActiveFullPickerMessageId] = useState<number | null>(null);
@@ -88,6 +93,45 @@ export default function Chat() {
       document.removeEventListener("touchstart", handleGlobalClick);
     };
   }, []);
+
+  // Derive the list of all members that belong to or are allowed in the active channel, with their online statuses
+  const channelMembersList = (() => {
+    if (!activeChannelData) return [];
+
+    let membersToMap: any[] = [];
+
+    // For DMs and Private Custom Group Chats, show only joined members
+    if (activeChannelData.type === "dm" || (activeChannelData.type === "group" && activeChannelData.allowed_roles === null)) {
+      membersToMap = activeChannelData.members || [];
+    } else {
+      // For public or role-restricted channels, filter all directory users based on allowed_roles
+      const allowedRoles = activeChannelData.allowed_roles;
+      if (allowedRoles && Array.isArray(allowedRoles)) {
+        membersToMap = allUsers.filter((u) => {
+          const roleKey = u.role ? u.role.toLowerCase() : "member";
+          return allowedRoles.includes(roleKey);
+        });
+      } else {
+        // Default to all users
+        membersToMap = allUsers;
+      }
+    }
+
+    return membersToMap.map((m) => {
+      const isUserOnline = onlineUsers.some((online) => Number(online.id) === Number(m.id));
+      return {
+        id: m.id,
+        name: m.name || `${m.first_name || ""} ${m.last_name || ""}`,
+        avatar: m.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${m.name || m.first_name}`,
+        role: m.role || "Member",
+        status: isUserOnline ? "online" as const : "offline" as const,
+      };
+    }).sort((a, b) => {
+      if (a.status === "online" && b.status !== "online") return -1;
+      if (a.status !== "online" && b.status === "online") return 1;
+      return a.name.localeCompare(b.name);
+    });
+  })();
 
   const collapsedGroupsState = useState<Record<string, boolean>>({});
   const [collapsedGroups, setCollapsedGroups] = collapsedGroupsState;
@@ -130,9 +174,14 @@ export default function Chat() {
               setCollapsedGroups={setCollapsedGroups}
               className="flex flex-col h-full w-full"
               unreadStatus={unreadStatus}
-              startDm={startDm}
-              createGroupChat={createGroupChat}
-              allUsers={allUsers}
+              onStartDmClick={() => {
+                setMessageCreationMode("dm");
+                setShowMobileChannels(false);
+              }}
+              onStartGroupClick={() => {
+                setMessageCreationMode("group");
+                setShowMobileChannels(false);
+              }}
             />
           </div>
         </div>
@@ -148,7 +197,7 @@ export default function Chat() {
 
           <div className="relative flex w-60 max-w-xs flex-col bg-surface-900 border-l border-border animate-slideLeft h-full">
             <MembersList
-              onlineUsers={onlineUsers as any}
+              members={channelMembersList}
               onClose={() => setShowMembersList(false)}
               showCloseButton={true}
             />
@@ -167,9 +216,8 @@ export default function Chat() {
         collapsedGroups={collapsedGroups}
         setCollapsedGroups={setCollapsedGroups}
         unreadStatus={unreadStatus}
-        startDm={startDm}
-        createGroupChat={createGroupChat}
-        allUsers={allUsers}
+        onStartDmClick={() => setMessageCreationMode("dm")}
+        onStartGroupClick={() => setMessageCreationMode("group")}
       />
 
       {/* Main Chat Area */}
@@ -179,6 +227,39 @@ export default function Chat() {
           onOpenMobileMenu={() => setShowMobileChannels(true)}
           showMembersList={showMembersList}
           onToggleMembersList={() => setShowMembersList((prev) => !prev)}
+          creationMode={messageCreationMode}
+          onCancelCreation={() => {
+            setMessageCreationMode(null);
+            setSelectedGroupMembers([]);
+            setGroupNameInput("");
+          }}
+          allUsers={allUsers}
+          currentUser={currentUser}
+          onSelectRecipient={(userId) => {
+            if (startDm) {
+              startDm(userId);
+              setMessageCreationMode(null);
+            }
+          }}
+          selectedGroupMembers={selectedGroupMembers}
+          onAddGroupMember={(userId) => {
+            if (!selectedGroupMembers.includes(userId)) {
+              setSelectedGroupMembers((prev) => [...prev, userId]);
+            }
+          }}
+          onRemoveGroupMember={(userId) => {
+            setSelectedGroupMembers((prev) => prev.filter((id) => id !== userId));
+          }}
+          groupName={groupNameInput}
+          onChangeGroupName={setGroupNameInput}
+          onCreateGroup={() => {
+            if (createGroupChat && groupNameInput.trim() && selectedGroupMembers.length > 0) {
+              createGroupChat(groupNameInput.trim(), selectedGroupMembers);
+              setMessageCreationMode(null);
+              setSelectedGroupMembers([]);
+              setGroupNameInput("");
+            }
+          }}
         />
 
         <div className="flex-1 flex min-h-0 relative">
@@ -288,7 +369,7 @@ export default function Chat() {
       {/* Members Sidebar Panel */}
       {showMembersList && (
         <div className="hidden md:flex w-60 flex-shrink-0 border-l border-border bg-surface-900/30 flex-col animate-slideLeft">
-          <MembersList onlineUsers={onlineUsers as any} />
+          <MembersList members={channelMembersList} />
         </div>
       )}
     </div>
