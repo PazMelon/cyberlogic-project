@@ -16,7 +16,14 @@ import {
   Hash,
   ArrowUp,
   ArrowDown,
-  Activity
+  Activity,
+  MessageSquare,
+  Shield,
+  Code,
+  Flame,
+  Trophy,
+  Users,
+  Bot
 } from "lucide-react";
 import { Button, Card, DataTable } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
@@ -40,7 +47,14 @@ const availableIcons = [
   { value: "BookOpen", label: "Book Open (Study)" },
   { value: "HeartHandshake", label: "Heart Handshake (Support)" },
   { value: "HelpCircle", label: "Help Circle (FAQ)" },
-  { value: "Activity", label: "Activity (System/Logs)" }
+  { value: "Activity", label: "Activity (System/Logs)" },
+  { value: "MessageSquare", label: "Message Square (General Chat)" },
+  { value: "Shield", label: "Shield (Admin/Moderator)" },
+  { value: "Code", label: "Code (Tech/Development)" },
+  { value: "Flame", label: "Flame (Random/Off-topic)" },
+  { value: "Trophy", label: "Trophy (Achievements)" },
+  { value: "Users", label: "Users (Introductions/Social)" },
+  { value: "Bot", label: "Bot (Integrations/Commands)" }
 ];
 
 const ChannelIcon = ({ iconName, className }: { iconName?: string | null; className?: string }) => {
@@ -61,6 +75,20 @@ const ChannelIcon = ({ iconName, className }: { iconName?: string | null; classN
       return <HelpCircle className={className} />;
     case "Activity":
       return <Activity className={className} />;
+    case "MessageSquare":
+      return <MessageSquare className={className} />;
+    case "Shield":
+      return <Shield className={className} />;
+    case "Code":
+      return <Code className={className} />;
+    case "Flame":
+      return <Flame className={className} />;
+    case "Trophy":
+      return <Trophy className={className} />;
+    case "Users":
+      return <Users className={className} />;
+    case "Bot":
+      return <Bot className={className} />;
     default:
       return <Hash className={className} />;
   }
@@ -111,13 +139,29 @@ export default function ChatManagement() {
   const LIBRARY_LIMIT = 15;
   const observerTargetRef = useRef<HTMLDivElement>(null);
 
+  const sortChannels = (chList: DbChatChannel[]) => {
+    const groupOrder = ["Welcome & Info", "System", "General Discussions", "Academic & Help"];
+    return [...chList].sort((a, b) => {
+      const groupA = a.grouping || "General Discussions";
+      const groupB = b.grouping || "General Discussions";
+      const idxA = groupOrder.indexOf(groupA);
+      const idxB = groupOrder.indexOf(groupB);
+      
+      const compGroup = (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+      if (compGroup !== 0) {
+        return compGroup;
+      }
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+  };
+
   const loadChannels = async () => {
     try {
       setIsLoading(true);
       const res = await apiRequest("/api/chat/channels");
       if (res.ok) {
         const data = await res.json();
-        setChannels(data);
+        setChannels(sortChannels(data));
       }
     } catch (err) {
       console.error("Failed to load channels:", err);
@@ -380,21 +424,34 @@ export default function ChatManagement() {
   };
 
   const handleMoveChannel = async (index: number, direction: "up" | "down") => {
-    const newChannels = [...channels];
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    const targetChannel = channels[index];
+    const targetGroup = targetChannel.grouping || "General Discussions";
     
-    if (targetIndex < 0 || targetIndex >= newChannels.length) return;
+    // Find all channels in the same grouping
+    const groupChannels = channels.filter(c => (c.grouping || "General Discussions") === targetGroup);
+    const indexInGroup = groupChannels.findIndex(c => c.id === targetChannel.id);
+    
+    const targetIndexInGroup = direction === "up" ? indexInGroup - 1 : indexInGroup + 1;
+    if (targetIndexInGroup < 0 || targetIndexInGroup >= groupChannels.length) return;
+    
+    // Get the other channel in the group
+    const otherChannel = groupChannels[targetIndexInGroup];
+    
+    // Rebuild the channels array with the swapped sort_order
+    const tempOrder = targetChannel.sort_order ?? 0;
+    const otherOrder = otherChannel.sort_order ?? 0;
 
-    // Swap elements
-    const temp = newChannels[index];
-    newChannels[index] = newChannels[targetIndex];
-    newChannels[targetIndex] = temp;
+    const updatedChannels = channels.map(c => {
+      if (c.id === targetChannel.id) return { ...c, sort_order: otherOrder };
+      if (c.id === otherChannel.id) return { ...c, sort_order: tempOrder };
+      return c;
+    });
 
-    // Set state immediately for smooth UI feedback
-    setChannels(newChannels);
+    const sorted = sortChannels(updatedChannels);
+    setChannels(sorted);
 
     try {
-      const ids = newChannels.map((c) => c.id);
+      const ids = sorted.map((c) => c.id);
       await reorderChatChannels(ids);
     } catch (err: any) {
       console.error("Failed to save channel order:", err);
@@ -407,11 +464,17 @@ export default function ChatManagement() {
       header: "Sorting",
       accessor: (ch: DbChatChannel) => {
         const index = channels.findIndex((c) => c.id === ch.id);
+        const group = ch.grouping || "General Discussions";
+        const groupChannels = channels.filter(c => (c.grouping || "General Discussions") === group);
+        const indexInGroup = groupChannels.findIndex(c => c.id === ch.id);
+        const isFirstInGroup = indexInGroup <= 0;
+        const isLastInGroup = indexInGroup < 0 || indexInGroup === groupChannels.length - 1;
+
         return (
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              disabled={index <= 0}
+              disabled={isFirstInGroup}
               onClick={() => handleMoveChannel(index, "up")}
               className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
               title="Move Up"
@@ -420,7 +483,7 @@ export default function ChatManagement() {
             </button>
             <button
               type="button"
-              disabled={index < 0 || index === channels.length - 1}
+              disabled={isLastInGroup}
               onClick={() => handleMoveChannel(index, "down")}
               className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
               title="Move Down"

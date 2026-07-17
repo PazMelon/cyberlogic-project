@@ -9,7 +9,14 @@ import {
   BookOpen, 
   HeartHandshake, 
   HelpCircle,
-  Activity
+  Activity,
+  MessageSquare,
+  Shield,
+  Code,
+  Flame,
+  Trophy,
+  Users,
+  Bot
 } from "lucide-react";
 import { SkeletonLine } from "../Skeleton";
 
@@ -68,6 +75,20 @@ const ChannelIcon = ({ iconName, className }: { iconName?: string | null; classN
       return <HelpCircle className={className} />;
     case "Activity":
       return <Activity className={className} />;
+    case "MessageSquare":
+      return <MessageSquare className={className} />;
+    case "Shield":
+      return <Shield className={className} />;
+    case "Code":
+      return <Code className={className} />;
+    case "Flame":
+      return <Flame className={className} />;
+    case "Trophy":
+      return <Trophy className={className} />;
+    case "Users":
+      return <Users className={className} />;
+    case "Bot":
+      return <Bot className={className} />;
     default:
       return <Hash className={className} />;
   }
