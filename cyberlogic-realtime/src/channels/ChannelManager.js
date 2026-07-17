@@ -399,7 +399,7 @@ class ChannelManager {
       }
 
       // 1. Get channel ID, name and write_roles from DB
-      const [channels] = await pool.query('SELECT id, name, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+      const [channels] = await pool.query('SELECT id, name, type, allowed_roles, write_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
       if (channels.length === 0) {
         throw new Error(`Channel ${channelSlug} not found in database`);
       }
@@ -615,6 +615,29 @@ class ChannelManager {
           [uniqueUsernames, 'approved', user.id]
         );
         mentionedUsers.forEach(u => mentionTargetUserIds.add(u.id));
+      }
+
+      // Filter mention targets by channel access permissions
+      const chan = channels[0];
+      if (chan.type === 'dm' || (chan.type === 'group' && chan.allowed_roles === null)) {
+        const [allowedMembers] = await pool.query('SELECT user_id FROM chat_channel_members WHERE channel_id = ?', [channelId]);
+        const allowedMemberIds = new Set(allowedMembers.map(m => m.user_id));
+        for (const targetId of mentionTargetUserIds) {
+          if (!allowedMemberIds.has(targetId)) {
+            mentionTargetUserIds.delete(targetId);
+          }
+        }
+      } else if (chan.allowed_roles) {
+        let allowedRoles = typeof chan.allowed_roles === 'string' ? JSON.parse(chan.allowed_roles) : chan.allowed_roles;
+        if (allowedRoles && Array.isArray(allowedRoles)) {
+          const [allowedUsers] = await pool.query('SELECT id FROM users WHERE role IN (?) AND status = ?', [allowedRoles, 'approved']);
+          const allowedUserIds = new Set(allowedUsers.map(u => u.id));
+          for (const targetId of mentionTargetUserIds) {
+            if (!allowedUserIds.has(targetId)) {
+              mentionTargetUserIds.delete(targetId);
+            }
+          }
+        }
       }
 
       // Deliver notifications to all targets (excluding those already notified via reply / sender)

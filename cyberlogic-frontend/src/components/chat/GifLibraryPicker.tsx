@@ -192,11 +192,13 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
   }, [onClose]);
 
   return (
-    <div
-      ref={containerRef}
-      className="absolute bottom-20 left-4 w-80 sm:w-96 bg-surface-900 border border-border shadow-2xl rounded-2xl flex flex-col z-50 overflow-hidden animate-fade-in-up"
-      style={{ maxHeight: "450px" }}
-    >
+    <div className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4 animate-fadeIn">
+      <div
+        ref={containerRef}
+        className="w-full sm:max-w-2xl bg-surface-900 border-t sm:border border-border shadow-2xl rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden animate-slideUp sm:animate-scaleIn h-[75vh] sm:h-[540px] max-h-[90vh]"
+      >
+        {/* Mobile drag handle */}
+        <div className="sm:hidden w-12 h-1 bg-surface-700 rounded-full mx-auto my-2.5 flex-shrink-0" />
       {/* Header */}
       <div className="p-3.5 border-b border-border bg-surface-950 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -223,8 +225,9 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
           </p>
 
           <div>
-            <label className="block text-[10px] uppercase font-bold tracking-wider text-text-muted mb-1">
-              GIF Title / Keyword
+            <label className="block text-[10px] uppercase font-bold tracking-wider text-text-muted mb-1 flex items-center justify-between">
+              <span>GIF Title / Keyword</span>
+              <span className="text-[9px] text-error normal-case font-semibold">Avoid meaningless titles (e.g. "asdfas" or "1")</span>
             </label>
             <input
               type="text"
@@ -234,6 +237,9 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
               placeholder="e.g. Happy Dance"
               className="w-full text-xs px-3 py-2 rounded-lg bg-surface-950 border border-border text-text-primary focus:outline-none focus:border-primary/50 transition-colors"
             />
+            <p className="text-[10px] text-text-muted mt-1 italic select-none">
+              💡 Please put enough context in the title so other members can find it easily via keyword search. Avoid random characters or placeholders.
+            </p>
           </div>
 
           <div>
@@ -353,7 +359,7 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {gifs.map((gif) => {
                     const isOwner = gif.user?.id === currentUser?.id;
                     const isAdmin = currentUser?.role === "admin" || currentUser?.role === "superadmin";
@@ -428,6 +434,7 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

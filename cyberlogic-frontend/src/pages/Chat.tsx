@@ -64,6 +64,8 @@ export default function Chat() {
     unreadStatus,
     startDm,
     createGroupChat,
+    addMembersToActiveChannel,
+    leaveActiveChannel,
   } = useChat();
 
   const [showMobileChannels, setShowMobileChannels] = useState(false);
@@ -227,6 +229,8 @@ export default function Chat() {
           onOpenMobileMenu={() => setShowMobileChannels(true)}
           showMembersList={showMembersList}
           onToggleMembersList={() => setShowMembersList((prev) => !prev)}
+          onAddMembersToActiveChannel={addMembersToActiveChannel}
+          onLeaveActiveChannel={leaveActiveChannel}
           creationMode={messageCreationMode}
           onCancelCreation={() => {
             setMessageCreationMode(null);

@@ -161,7 +161,11 @@ export default function ChatManagement() {
       const res = await apiRequest("/api/chat/channels");
       if (res.ok) {
         const data = await res.json();
-        setChannels(sortChannels(data));
+        // Filter out private chats (DMs and custom groups) from Admin Channel List
+        const publicChannels = data.filter(
+          (ch: any) => ch.type !== "dm" && !(ch.type === "group" && ch.allowed_roles === null)
+        );
+        setChannels(sortChannels(publicChannels));
       }
     } catch (err) {
       console.error("Failed to load channels:", err);

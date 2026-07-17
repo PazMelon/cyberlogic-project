@@ -148,13 +148,19 @@ export function useChat() {
             if (prev.some((c) => c.id === newChan.id)) return prev;
             return [...prev, newChan];
           });
+        } else if (type === "channel_deleted" && payload) {
+          const deletedSlug = payload.slug;
+          setChannels((prev) => prev.filter((c) => c.slug !== deletedSlug));
+          if (activeChannel === deletedSlug) {
+            setActiveChannel("welcome");
+          }
         }
       });
       return () => unsubscribe();
     }
-  }, [isConnected, subscribe]);
+  }, [isConnected, subscribe, activeChannel]);
 
-  // Subscribe to all channels dynamically to track unreads
+  // Subscribe to all channels dynamically to track unreads and updates
   useEffect(() => {
     if (channelsLoading || channels.length === 0) return;
 
@@ -178,6 +184,11 @@ export function useChat() {
               )
             );
           }
+        } else if (type === "channel_updated" && payload) {
+          const updatedChan: ChatChannel = payload;
+          setChannels((prevChans) =>
+            prevChans.map((c) => (c.id === updatedChan.id ? updatedChan : c))
+          );
         }
       });
     });
@@ -673,6 +684,49 @@ export function useChat() {
     }
   };
 
+  const addMembersToActiveChannel = async (userIds: number[]) => {
+    if (!activeChannel) return;
+    try {
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/add-members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_ids: userIds }),
+      });
+      if (res.ok) {
+        const updatedChan = await res.json();
+        setChannels((prev) => {
+          const index = prev.findIndex((c) => c.id === updatedChan.id);
+          if (index !== -1) {
+            const copy = [...prev];
+            copy[index] = updatedChan;
+            return copy;
+          }
+          return [...prev, updatedChan];
+        });
+        if (updatedChan.slug !== activeChannel) {
+          setActiveChannel(updatedChan.slug);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to add members:", err);
+    }
+  };
+
+  const leaveActiveChannel = async () => {
+    if (!activeChannel) return;
+    try {
+      const res = await apiRequest(`/api/chat/channels/${activeChannel}/leave`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        setChannels((prev) => prev.filter((c) => c.slug !== activeChannel));
+        setActiveChannel("welcome");
+      }
+    } catch (err) {
+      console.error("Failed to leave channel:", err);
+    }
+  };
+
   return {
     isConnected,
     currentUser,
@@ -720,5 +774,7 @@ export function useChat() {
     unreadStatus,
     startDm,
     createGroupChat,
+    addMembersToActiveChannel,
+    leaveActiveChannel,
   };
 }

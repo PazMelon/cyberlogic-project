@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Menu, Hash, Users, X, UserPlus, Plus } from "lucide-react";
+import { Menu, Hash, Users, X, UserPlus, Plus, LogOut } from "lucide-react";
 import type { ChatChannel } from "./ChannelSidebar";
 
 export interface ChatHeaderProps {
@@ -20,6 +20,10 @@ export interface ChatHeaderProps {
   groupName?: string;
   onChangeGroupName?: (name: string) => void;
   onCreateGroup?: () => void;
+
+  // Active private channel member additions & leaving props
+  onAddMembersToActiveChannel?: (userIds: number[]) => void;
+  onLeaveActiveChannel?: () => void;
 }
 
 export default function ChatHeader({
@@ -38,17 +42,41 @@ export default function ChatHeader({
   groupName = "",
   onChangeGroupName,
   onCreateGroup,
+  onAddMembersToActiveChannel,
+  onLeaveActiveChannel,
 }: ChatHeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
+  const [isAddingMember, setIsAddingMember] = useState(false);
+  const [addSearchQuery, setAddSearchQuery] = useState("");
+  const [debouncedAddSearchQuery, setDebouncedAddSearchQuery] = useState("");
+
   // Debounce query search to avoid UI/filter lag
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAddSearchQuery(addSearchQuery);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [addSearchQuery]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 200);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Filter users that are not already in the group
+  const existingMemberIds = activeChannelData?.members?.map((m: any) => m.id) || [];
+  const filteredAddUsers = allUsers.filter((u) => {
+    if (u.id === currentUser?.id) return false;
+    if (existingMemberIds.includes(u.id)) return false;
+
+    const query = debouncedAddSearchQuery.toLowerCase();
+    const fullName = (u.name || "").toLowerCase();
+    return fullName.includes(query);
+  });
 
   // Reset query search on creationMode toggle
   useEffect(() => {
@@ -230,7 +258,89 @@ export default function ChatHeader({
         </div>
       )}
 
-      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+      <div className="flex items-center gap-2 flex-shrink-0 ml-2 relative">
+        {activeChannelData && (activeChannelData.type === "dm" || (activeChannelData.type === "group" && activeChannelData.allowed_roles === null)) && !creationMode && (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsAddingMember((prev) => !prev)}
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${
+                isAddingMember
+                  ? "text-primary bg-primary/10 hover:bg-primary/20"
+                  : "text-text-muted hover:text-text-primary hover:bg-white/5"
+              }`}
+              title="Add members to this conversation"
+            >
+              <UserPlus className="w-5 h-5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm("Are you sure you want to leave this conversation? If all members leave, it will be deleted.")) {
+                  if (onLeaveActiveChannel) onLeaveActiveChannel();
+                }
+              }}
+              className="p-2 rounded-lg text-error hover:bg-error/10 transition-colors cursor-pointer"
+              title="Leave conversation"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {isAddingMember && (
+          <div className="absolute top-[48px] right-0 bg-surface-900 border border-border rounded-xl shadow-2xl z-[100] p-3 w-64 space-y-2 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-text-primary">Add Member</span>
+              <button 
+                onClick={() => {
+                  setIsAddingMember(false);
+                  setAddSearchQuery("");
+                }} 
+                className="text-text-muted hover:text-text-primary text-xs font-bold"
+              >
+                ×
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Search member..."
+              value={addSearchQuery}
+              onChange={(e) => setAddSearchQuery(e.target.value)}
+              className="w-full text-xs px-2.5 py-1.5 rounded-lg bg-surface-950 border border-border text-text-primary focus:outline-none focus:border-primary/50 transition-colors shadow-inner"
+            />
+            {debouncedAddSearchQuery.trim() && (
+              <div className="max-h-40 overflow-y-auto space-y-0.5 pt-1">
+                {filteredAddUsers.length === 0 ? (
+                  <div className="text-[10px] text-text-muted italic p-1">No matching members.</div>
+                ) : (
+                  filteredAddUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => {
+                        if (onAddMembersToActiveChannel) {
+                          onAddMembersToActiveChannel([u.id]);
+                        }
+                        setIsAddingMember(false);
+                        setAddSearchQuery("");
+                      }}
+                      className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/5 text-[11px] text-text-primary hover:text-primary transition-colors cursor-pointer text-left"
+                    >
+                      <img 
+                        src={u.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${u.name}`} 
+                        className="w-4 h-4 rounded-full object-cover bg-surface-750" 
+                      />
+                      <span className="truncate flex-1">{u.name}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {onToggleMembersList && !creationMode && (
           <button
             type="button"

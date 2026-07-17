@@ -19,8 +19,10 @@ export default function EmojiSearchPicker({ onSelectEmoji, onClose }: EmojiSearc
   const [activeCategory, setActiveCategory] = useState("Smileys & Emotion");
 
   return (
-    <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-40 p-4">
-      <div className="bg-surface-900 border border-border rounded-2xl w-full max-w-sm max-h-[420px] flex flex-col shadow-2xl p-4 animate-fade-in-up">
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4 animate-fadeIn">
+      <div className="bg-surface-900 border-t sm:border border-border rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm h-[60vh] sm:h-auto sm:max-h-[420px] flex flex-col shadow-2xl p-4 sm:p-5 animate-slideUp sm:animate-scaleIn overflow-hidden">
+        {/* Mobile drag handle */}
+        <div className="sm:hidden w-12 h-1 bg-surface-700 rounded-full mx-auto mb-2.5 flex-shrink-0" />
         <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
           <span className="text-xs font-bold text-text-primary">React with any emoji</span>
           <button

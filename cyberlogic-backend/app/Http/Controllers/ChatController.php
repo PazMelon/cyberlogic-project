@@ -377,6 +377,9 @@ class ChatController extends Controller
         }
 
         $channel = ChatChannel::findOrFail($id);
+        if ($channel->type === 'dm' || ($channel->type === 'group' && $channel->allowed_roles === null)) {
+            return response()->json(['message' => 'Cannot modify private chats.'], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
@@ -425,6 +428,10 @@ class ChatController extends Controller
         }
 
         $channel = ChatChannel::findOrFail($id);
+        if ($channel->type === 'dm' || ($channel->type === 'group' && $channel->allowed_roles === null)) {
+            return response()->json(['message' => 'Cannot delete private chats.'], 403);
+        }
+
         if ($channel->is_protected) {
             return response()->json(['message' => 'This is a system protected channel and cannot be deleted.'], 403);
         }
@@ -1064,5 +1071,225 @@ class ChatController extends Controller
         }
 
         return response()->json($channel, 201);
+    }
+
+    /**
+     * Add members to a private group chat or transition a DM into a group.
+     */
+    public function addMembers(Request $request, string $slug): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'required|integer|exists:users,id',
+        ]);
+
+        $userIds = $validated['user_ids'];
+        $channel = ChatChannel::where('slug', $slug)->with(['members'])->firstOrFail();
+
+        // Must be a member to add others
+        if (!$channel->members->contains($user->id)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // If it is a DM, transition it into a new group chat!
+        if ($channel->type === 'dm') {
+            $existingMembers = $channel->members->pluck('id')->toArray();
+            $newGroupUserIds = array_unique(array_merge($existingMembers, $userIds));
+            
+            // Generate a random group name from member names
+            $memberNames = User::whereIn('id', $newGroupUserIds)->pluck('first_name')->toArray();
+            $groupName = implode(', ', array_slice($memberNames, 0, 3)) . ' Group';
+            
+            $newSlug = 'group-' . Str::random(12);
+            $newChannel = ChatChannel::create([
+                'name' => $groupName,
+                'slug' => $newSlug,
+                'description' => 'Group messages with ' . implode(', ', $memberNames) . '. . . .',
+                'type' => 'group',
+                'grouping' => 'Group Chats',
+                'created_by' => $user->id,
+                'is_protected' => false,
+                'is_archived' => false,
+                'allowed_roles' => null,
+                'write_roles' => null,
+            ]);
+
+            $newChannel->members()->attach($newGroupUserIds);
+            $newChannel->load(['members']);
+
+            // Send system message in the new channel
+            $joinedNames = User::whereIn('id', $userIds)->pluck('first_name')->toArray();
+            $content = $user->first_name . ' added ' . implode(', ', $joinedNames) . ' and created a new group chat.';
+            
+            $msg = ChatMessage::create([
+                'channel_id' => $newChannel->id,
+                'user_id' => $user->id,
+                'content' => $content,
+                'type' => 'system',
+            ]);
+
+            // Broadcast the new channel to all other members in real-time
+            foreach ($newGroupUserIds as $memberId) {
+                if ($memberId === $user->id) continue;
+                \App\Services\RealtimeService::broadcast(
+                    'presence',
+                    $newChannel->toArray(),
+                    'channel_created',
+                    $memberId
+                );
+            }
+
+            return response()->json($newChannel, 201);
+        }
+
+        // Otherwise, it is a private group chat
+        if ($channel->type === 'group' && $channel->allowed_roles === null) {
+            $existingMembers = $channel->members->pluck('id')->toArray();
+            $toAttach = array_diff($userIds, $existingMembers);
+
+            if (!empty($toAttach)) {
+                $channel->members()->attach($toAttach);
+                
+                // Reload members to update description
+                $channel->load(['members']);
+                $memberNames = $channel->members->pluck('first_name')->toArray();
+                $channel->description = "Group messages with " . implode(', ', $memberNames) . ". . . .";
+                $channel->save();
+
+                // Send system message in the channel
+                $addedNames = User::whereIn('id', $toAttach)->pluck('first_name')->toArray();
+                $content = $user->first_name . ' added ' . implode(', ', $addedNames) . ' to the group.';
+                $msg = ChatMessage::create([
+                    'channel_id' => $channel->id,
+                    'user_id' => $user->id,
+                    'content' => $content,
+                    'type' => 'system',
+                ]);
+
+                // Format the system message for WS broadcast
+                $formattedSystemMsg = [
+                    'id' => $msg->id,
+                    'channelId' => $channel->slug,
+                    'author' => 'System',
+                    'authorAvatar' => 'https://api.dicebear.com/9.x/identicon/svg?seed=system',
+                    'authorId' => null,
+                    'authorUsername' => null,
+                    'content' => $content,
+                    'timestamp' => now()->toIso8601String(),
+                    'isSystem' => true,
+                    'replyTo' => null,
+                    'intent' => 'general',
+                ];
+
+                // Broadcast system message to existing channel room subscribers
+                \App\Services\RealtimeService::broadcast(
+                    "chat:{$channel->slug}",
+                    $formattedSystemMsg,
+                    'message'
+                );
+
+                // Broadcast channel_updated to update active headers of other members
+                \App\Services\RealtimeService::broadcast(
+                    "chat:{$channel->slug}",
+                    $channel->toArray(),
+                    'channel_updated'
+                );
+
+                // Broadcast channel_created to the newly added members so it loads in their sidebar
+                foreach ($toAttach as $newMemberId) {
+                    \App\Services\RealtimeService::broadcast(
+                        'presence',
+                        $channel->toArray(),
+                        'channel_created',
+                        $newMemberId
+                    );
+                }
+            }
+
+            return response()->json($channel);
+        }
+
+        return response()->json(['message' => 'Cannot add members to this channel type.'], 400);
+    }
+
+    /**
+     * Leave a group chat or DM. If no members remain, delete the channel.
+     */
+    public function leaveChannel(Request $request, string $slug): JsonResponse
+    {
+        $user = $request->user();
+        $channel = ChatChannel::where('slug', $slug)->with(['members'])->firstOrFail();
+
+        // Must be a member to leave
+        if (!$channel->members->contains($user->id)) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        // Detach member
+        $channel->members()->detach($user->id);
+        $channel->load(['members']);
+
+        // Check if there are no members remaining
+        if ($channel->members->isEmpty()) {
+            // Delete messages and channel
+            $channel->messages()->delete();
+            $channel->delete();
+
+            // Broadcast that the channel has been deleted
+            \App\Services\RealtimeService::broadcast(
+                'presence',
+                ['slug' => $slug],
+                'channel_deleted'
+            );
+
+            return response()->json(['message' => 'Channel deleted since no members remain.']);
+        }
+
+        // Send system message that the user left
+        $content = $user->first_name . ' left the conversation.';
+        $msg = ChatMessage::create([
+            'channel_id' => $channel->id,
+            'user_id' => $user->id,
+            'content' => $content,
+            'type' => 'system',
+        ]);
+
+        $formattedSystemMsg = [
+            'id' => $msg->id,
+            'channelId' => $channel->slug,
+            'author' => 'System',
+            'authorAvatar' => 'https://api.dicebear.com/9.x/identicon/svg?seed=system',
+            'authorId' => null,
+            'authorUsername' => null,
+            'content' => $content,
+            'timestamp' => now()->toIso8601String(),
+            'isSystem' => true,
+            'replyTo' => null,
+            'intent' => 'general',
+        ];
+
+        // Broadcast system message to existing room subscribers
+        \App\Services\RealtimeService::broadcast(
+            "chat:{$channel->slug}",
+            $formattedSystemMsg,
+            'message'
+        );
+
+        // Update description for groups
+        if ($channel->type === 'group' && $channel->allowed_roles === null) {
+            $memberNames = $channel->members->pluck('first_name')->toArray();
+            $channel->description = "Group messages with " . implode(', ', $memberNames) . ". . . .";
+            $channel->save();
+
+            // Broadcast channel_updated to update headers of remaining members
+            \App\Services\RealtimeService::broadcast(
+                "chat:{$channel->slug}",
+                $channel->toArray(),
+                'channel_updated'
+            );
+        }
+
+        return response()->json(['message' => 'Left channel successfully.']);
     }
 }
