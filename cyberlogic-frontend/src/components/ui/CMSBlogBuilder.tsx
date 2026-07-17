@@ -30,6 +30,7 @@ import { Button, Card } from "../ui";
 import BlogContentRenderer, { resolveCmsUrl } from "../common/BlogContentRenderer";
 import { fetchDirectory } from "../../utils/api";
 import { FullscreenImageViewer } from "../forum/FullscreenImageViewer";
+import { useAuth } from "../../context/AuthContext";
 
 // Reusable Subcomponents and Types
 import type { CMSBlogState, ContentSection, ImageTemplate, SectionType } from "./cms/types";
@@ -97,6 +98,8 @@ export default function CMSBlogBuilder({
   titleLabel = "CMS Blog Builder",
   isSuperAdmin = false
 }: CMSBlogBuilderProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -982,11 +985,23 @@ export default function CMSBlogBuilder({
                 </label>
                 <select
                   value={state.status}
-                  onChange={e => updateState({ status: e.target.value as 'published' | 'draft' })}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all"
+                  onChange={e => updateState({ status: e.target.value as any })}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary/50 transition-all cursor-pointer"
                 >
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
+                  {isAdmin ? (
+                    <>
+                      <option value="published">Published</option>
+                      <option value="draft">Draft</option>
+                      <option value="pending">Pending Approval</option>
+                      <option value="rejected">Rejected</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="pending">Pending Approval</option>
+                      <option value="draft">Draft</option>
+                      {state.status === "rejected" && <option value="rejected">Rejected</option>}
+                    </>
+                  )}
                 </select>
               </div>
             )}

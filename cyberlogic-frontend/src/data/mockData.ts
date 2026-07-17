@@ -56,7 +56,7 @@ export interface BlogPost {
   date: string;
   tags: string[];
   featured: boolean;
-  status: "published" | "draft";
+  status: "published" | "draft" | "pending" | "rejected";
   sections?: ContentSection[];
   image?: string;
   readTime?: string;

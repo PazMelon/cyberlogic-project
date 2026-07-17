@@ -1,16 +1,22 @@
 
 import { Link, useLocation, useNavigate } from "react-router";
-import { Star, Clock } from "lucide-react";
+import { Star, Clock, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "./Badge";
 import { Card } from "./Card";
 import type { BlogPost } from "../../data/mockData";
+import { useAuth } from "../../context/AuthContext";
+import { useDialog } from "../../utils/useDialog";
+import { deleteMemberBlog } from "../../utils/api";
 
 interface BlogCardProps {
   blog: BlogPost;
   index?: number;
+  onRefresh?: () => void;
 }
 
-export function BlogCard({ blog, index = 0 }: BlogCardProps) {
+export function BlogCard({ blog, index = 0, onRefresh }: BlogCardProps) {
+  const { user } = useAuth();
+  const { showConfirm, showAlert } = useDialog();
   const navigate = useNavigate();
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
@@ -57,6 +63,30 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const confirmed = await showConfirm({
+      title: "Delete Blog Post",
+      message: "Are you sure you want to delete this blog post?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+
+    if (confirmed) {
+      try {
+        await deleteMemberBlog(blog.id);
+        if (onRefresh) onRefresh();
+      } catch (err: any) {
+        showAlert({
+          title: "Delete Failed",
+          message: err.message || "Failed to delete blog post.",
+          type: "error",
+        });
+      }
+    }
+  };
+
   return (
     <Link to={detailUrl} className="block h-full group">
       <Card
@@ -85,9 +115,20 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
           </div>
 
           <div className="p-5">
-            {/* Category */}
-            <div className="mb-3">
+            {/* Category and Status */}
+            <div className="mb-3 flex items-center justify-between gap-2">
               <Badge variant={selectedVariant}>{blog.category}</Badge>
+              {isPortal && blog.status && blog.status !== "published" && (
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                  blog.status === "pending"
+                    ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+                    : blog.status === "rejected"
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                    : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                }`}>
+                  {blog.status === "pending" ? "Pending" : blog.status === "rejected" ? "Rejected" : "Draft"}
+                </span>
+              )}
             </div>
 
             {/* Title */}
@@ -121,7 +162,7 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
           </div>
         </div>
 
-        {/* Footer info: Author + Publish Date */}
+        {/* Footer info: Author + Publish Date or Actions */}
         <div className="px-5 pb-5 pt-3 border-t border-border/40 flex items-center justify-between">
           <div
             onClick={handleAuthorClick}
@@ -134,7 +175,28 @@ export function BlogCard({ blog, index = 0 }: BlogCardProps) {
             />
             <span className="text-[11px] font-medium text-text-secondary">{authorName}</span>
           </div>
-          <time className="text-[10px] text-text-muted">{blog.date}</time>
+          {isPortal && user && authorUserId === user.id && blog.status !== "published" ? (
+            <div className="flex items-center gap-1">
+              <Link
+                to={`/app/blogs/edit/${blog.id}`}
+                className="p-1 rounded-md bg-white/5 hover:bg-primary/10 text-text-muted hover:text-primary transition-all cursor-pointer flex items-center justify-center"
+                title="Edit Post"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Pencil className="w-3 h-3" />
+              </Link>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="p-1 rounded-md bg-white/5 hover:bg-error/10 text-text-muted hover:text-error transition-all cursor-pointer flex items-center justify-center border-0"
+                title="Delete Post"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <time className="text-[10px] text-text-muted">{blog.date}</time>
+          )}
         </div>
       </Card>
     </Link>

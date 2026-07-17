@@ -46,6 +46,7 @@ import AuditLogs from "./pages/admin/AuditLogs";
 import ReportManagement from "./pages/admin/ReportManagement";
 import Blogs from "./pages/Blogs";
 import BlogDetail from "./pages/BlogDetail";
+import CreateMemberBlog from "./pages/CreateMemberBlog";
 import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
 import SearchResults from "./pages/SearchResults";
@@ -248,6 +249,8 @@ function AppRoutes() {
         <Route path="settings" element={<Settings />} />
         <Route path="blogs" element={<Blogs />} />
         <Route path="blogs/:id" element={<BlogDetail />} />
+        <Route path="blogs/create" element={<CreateMemberBlog />} />
+        <Route path="blogs/edit/:id" element={<CreateMemberBlog />} />
         <Route path="search" element={<SearchResults />} />
       </Route>
 

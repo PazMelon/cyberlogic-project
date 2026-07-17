@@ -99,6 +99,15 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/blogs/{id}', [BlogPostController::class, 'destroy']);
     Route::post('/api/blogs/upload-image', [BlogPostController::class, 'uploadImage'])->middleware('throttle:15,1');
 
+    Route::get('/api/my-blogs', [BlogPostController::class, 'myBlogs']);
+    Route::post('/api/member/blogs', [BlogPostController::class, 'memberStore'])->middleware('throttle:10,1');
+    Route::put('/api/member/blogs/{id}', [BlogPostController::class, 'memberUpdate'])->middleware('throttle:10,1');
+    Route::delete('/api/member/blogs/{id}', [BlogPostController::class, 'memberDestroy']);
+    Route::post('/api/member/blogs/upload-image', [BlogPostController::class, 'memberUploadImage'])->middleware('throttle:15,1');
+
+    Route::put('/api/admin/blogs/{id}/approve', [BlogPostController::class, 'approveBlog']);
+    Route::put('/api/admin/blogs/{id}/reject', [BlogPostController::class, 'rejectBlog']);
+
     // Secure Event actions
     Route::post('/api/events/{id}/register', [EventController::class, 'register']);
     Route::post('/api/events/{id}/unregister', [EventController::class, 'unregister']);

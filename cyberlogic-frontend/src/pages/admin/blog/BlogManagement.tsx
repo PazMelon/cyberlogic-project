@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Plus, Star, Pencil, Trash2 } from "lucide-react";
+import { Plus, Star, Pencil, Trash2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router";
-import { fetchBlogs, deleteBlog, updateBlog } from "../../../utils/api";
+import { fetchBlogs, deleteBlog, updateBlog, approveBlog, rejectBlog } from "../../../utils/api";
 import { Button, DataTable } from "../../../components/ui";
 import { useDialog } from "../../../utils/useDialog";
 import { BlogStatusBadge } from "./BlogStatusBadge";
@@ -12,6 +12,51 @@ export function BlogManagement() {
   const { showAlert, showConfirm } = useDialog();
   const [blogList, setBlogList] = useState<BlogPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const handleApprove = async (id: number) => {
+    try {
+      const updated = await approveBlog(id);
+      setBlogList(prev => prev.map(b => b.id === id ? updated : b));
+      showAlert({
+        title: "Approved",
+        message: "The blog post has been successfully approved and published.",
+        type: "success",
+      });
+    } catch (err: any) {
+      showAlert({
+        title: "Approval Failed",
+        message: err.message || "Failed to approve blog post.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    const confirmed = await showConfirm({
+      title: "Reject Blog Post",
+      message: "Are you sure you want to reject this blog post submission?",
+      type: "warning",
+      confirmText: "Reject",
+    });
+
+    if (confirmed) {
+      try {
+        const updated = await rejectBlog(id);
+        setBlogList(prev => prev.map(b => b.id === id ? updated : b));
+        showAlert({
+          title: "Rejected",
+          message: "The blog post submission has been rejected.",
+          type: "success",
+        });
+      } catch (err: any) {
+        showAlert({
+          title: "Rejection Failed",
+          message: err.message || "Failed to reject blog post.",
+          type: "error",
+        });
+      }
+    }
+  };
 
   const loadBlogs = async () => {
     try {
@@ -138,6 +183,26 @@ export function BlogManagement() {
       header: "Actions",
       accessor: (b: BlogPost) => (
         <div className="flex items-center justify-end gap-1">
+          {b.status === "pending" && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleApprove(b.id)}
+                className="p-1.5 rounded-lg text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                title="Approve & Publish"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleReject(b.id)}
+                className="p-1.5 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                title="Reject"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={() => navigate(`/admin/blogs/edit/${b.id}`)}
@@ -178,7 +243,9 @@ export function BlogManagement() {
       field: "status",
       options: [
         { label: "Published", value: "published" },
-        { label: "Draft", value: "draft" }
+        { label: "Draft", value: "draft" },
+        { label: "Pending", value: "pending" },
+        { label: "Rejected", value: "rejected" }
       ]
     }
   ];

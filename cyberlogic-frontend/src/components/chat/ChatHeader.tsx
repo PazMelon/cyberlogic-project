@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Menu, Hash, Users, X, UserPlus, Plus, LogOut } from "lucide-react";
 import type { ChatChannel } from "./ChannelSidebar";
+import { useDialog } from "../../utils/useDialog";
 
 export interface ChatHeaderProps {
   activeChannelData?: ChatChannel;
@@ -45,6 +46,7 @@ export default function ChatHeader({
   onAddMembersToActiveChannel,
   onLeaveActiveChannel,
 }: ChatHeaderProps) {
+  const { showConfirm } = useDialog();
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 
@@ -276,8 +278,14 @@ export default function ChatHeader({
 
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm("Are you sure you want to leave this conversation? If all members leave, it will be deleted.")) {
+              onClick={async () => {
+                const confirmed = await showConfirm({
+                  title: "Leave Conversation",
+                  message: "Are you sure you want to leave this conversation? If all members leave, it will be deleted.",
+                  type: "warning",
+                  confirmText: "Leave",
+                });
+                if (confirmed) {
                   if (onLeaveActiveChannel) onLeaveActiveChannel();
                 }
               }}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Image as ImageIcon, Plus, Search, Loader2, Sparkles, Check, Trash2 } from "lucide-react";
 import { apiRequest, useAuth } from "../../context/AuthContext";
+import { useDialog } from "../../utils/useDialog";
 
 interface SavedGif {
   id: number;
@@ -22,6 +23,7 @@ interface GifLibraryPickerProps {
 
 export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPickerProps) {
   const { user: currentUser } = useAuth();
+  const { showConfirm, showAlert } = useDialog();
   const [gifs, setGifs] = useState<SavedGif[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -152,7 +154,13 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
   };
 
   const handleDeleteGif = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this media link from the library?")) return;
+    const confirmed = await showConfirm({
+      title: "Delete Media",
+      message: "Are you sure you want to delete this media link from the library?",
+      type: "danger",
+      confirmText: "Delete",
+    });
+    if (!confirmed) return;
 
     try {
       const res = await apiRequest(`/api/admin/chat/gifs/${id}`, {
@@ -162,11 +170,19 @@ export default function GifLibraryPicker({ onSelectGif, onClose }: GifLibraryPic
         setGifs((prev) => prev.filter((gif) => gif.id !== id));
         setOffset((prev) => Math.max(0, prev - 1));
       } else {
-        alert("Failed to delete media link.");
+        showAlert({
+          title: "Delete Failed",
+          message: "Failed to delete media link.",
+          type: "error",
+        });
       }
     } catch (err) {
       console.error("Error deleting GIF:", err);
-      alert("Something went wrong.");
+      showAlert({
+        title: "Error",
+        message: "Something went wrong.",
+        type: "error",
+      });
     }
   };
 

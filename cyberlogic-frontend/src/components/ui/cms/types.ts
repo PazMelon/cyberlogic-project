@@ -73,7 +73,7 @@ export interface CMSBlogState {
   resourceFilePath?: string;
   resourceIcon?: string;
 
-  status?: 'published' | 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'closed' | 'postponed';
+  status?: 'published' | 'draft' | 'pending' | 'rejected' | 'upcoming' | 'ongoing' | 'completed' | 'closed' | 'postponed';
   tags?: string[];
 }
 

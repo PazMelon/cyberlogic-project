@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import { ChevronRight, Search, Filter } from "lucide-react";
-import { fetchBlogs } from "../utils/api";
+import { ChevronRight, Search, Filter, Plus } from "lucide-react";
+import { fetchBlogs, fetchMyBlogs } from "../utils/api";
 import { BlogCard } from "../components/ui";
 import { SkeletonCard } from "../components/Skeleton";
 import type { BlogPost } from "../data/mockData";
@@ -19,25 +19,33 @@ export default function Blogs() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [activeTab, setActiveTab] = useState<"all" | "my">("all");
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
   const categoriesScrollRef = useDragScroll();
 
   const categories = ["All", "Tech", "Tutorial", "News", "Lifestyle", "General", "Academic"] as const;
 
-  useEffect(() => {
-    async function loadBlogs() {
-      try {
+  async function loadBlogs() {
+    setLoading(true);
+    try {
+      if (activeTab === "my" && isPortal) {
+        const data = await fetchMyBlogs();
+        setBlogs(data);
+      } else {
         const data = await fetchBlogs();
         setBlogs(data);
-      } catch (err) {
-        console.error("Failed to load blogs:", err);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Failed to load blogs:", err);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  useEffect(() => {
     loadBlogs();
-  }, []);
+  }, [activeTab]);
 
   const filteredBlogs = blogs.filter((blog) => {
     const matchesSearch =
@@ -55,23 +63,67 @@ export default function Blogs() {
     <div className={isPortal ? "pb-8" : "pt-24 pb-16"}>
       <div className={isPortal ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
         {/* Page Header */}
-        <div className="mb-10">
-          {!isPortal && (
-            <div className="flex items-center gap-2 text-sm text-text-muted mb-4">
-              <Link to="/" className="hover:text-primary transition-colors">
-                Home
-              </Link>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span className="text-text-secondary">Blogs</span>
-            </div>
+        <div className="mb-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            {!isPortal && (
+              <div className="flex items-center gap-2 text-sm text-text-muted mb-4">
+                <Link to="/" className="hover:text-primary transition-colors">
+                  Home
+                </Link>
+                <ChevronRight className="w-3.5 h-3.5" />
+                <span className="text-text-secondary">Blogs</span>
+              </div>
+            )}
+            <h1 className={`${isPortal ? "text-2xl" : "text-3xl lg:text-4xl"} font-bold font-[family-name:var(--font-heading)] text-text-primary`}>
+              Blog Feed
+            </h1>
+            <p className={`${isPortal ? "text-sm mt-1" : "mt-2"} text-text-muted`}>
+              Read coding guides, hardware tips, cyber-security writeups, and academic news published by club officers and members.
+            </p>
+          </div>
+          {isPortal && (
+            <Link
+              to="/app/blogs/create"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer flex-shrink-0"
+            >
+              <Plus className="w-4 h-4" /> Write a Blog
+            </Link>
           )}
-          <h1 className={`${isPortal ? "text-2xl" : "text-3xl lg:text-4xl"} font-bold font-[family-name:var(--font-heading)] text-text-primary`}>
-            Blog Feed
-          </h1>
-          <p className={`${isPortal ? "text-sm mt-1" : "mt-2"} text-text-muted`}>
-            Read coding guides, hardware tips, cyber-security writeups, and academic news published by club officers and members.
-          </p>
         </div>
+
+        {/* Navigation Tabs (Member portal only) */}
+        {isPortal && (
+          <div className="flex border-b border-border/50 mb-6 p-0.5 bg-surface-950/40 rounded-xl max-w-[280px]">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("all");
+                setActiveCategory("All");
+              }}
+              className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTab === "all"
+                  ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
+                  : "text-text-muted hover:text-text-primary hover:bg-white/5"
+              }`}
+            >
+              All Blogs
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("my");
+                setActiveCategory("All");
+              }}
+              className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTab === "my"
+                  ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
+                  : "text-text-muted hover:text-text-primary hover:bg-white/5"
+              }`}
+            >
+              My Submissions
+            </button>
+          </div>
+        )}
 
         {/* Search + Categories */}
         <div className="flex flex-col lg:flex-row gap-4 lg:items-center justify-between mb-6">
@@ -121,7 +173,7 @@ export default function Blogs() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
             {filteredBlogs.map((blog, idx) => (
-              <BlogCard key={blog.id} blog={blog} index={idx} />
+              <BlogCard key={blog.id} blog={blog} index={idx} onRefresh={loadBlogs} />
             ))}
           </div>
         )}

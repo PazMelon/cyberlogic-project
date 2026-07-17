@@ -315,6 +315,166 @@ export async function uploadBlogImageFile(file: File): Promise<string> {
 }
 
 /**
+ * GET /api/my-blogs
+ * Retrieve all blog posts authored by the authenticated user.
+ */
+export async function fetchMyBlogs(): Promise<BlogPost[]> {
+  const res = await apiRequest("/api/my-blogs");
+  if (!res.ok) {
+    throw new Error("Failed to load your blog posts from database.");
+  }
+  const data = await res.json();
+  return data.map((b: any) => ({
+    id: b.id,
+    userId: b.user_id,
+    user: b.user,
+    title: b.title,
+    subtitle: b.subtitle,
+    excerpt: b.excerpt,
+    content: b.content,
+    category: b.category,
+    author: b.author,
+    authorAvatar: b.author_avatar,
+    date: b.date,
+    tags: b.tags || [],
+    featured: !!b.featured,
+    status: b.status,
+    sections: b.sections || [],
+    image: b.image,
+    readTime: b.read_time
+  }));
+}
+
+/**
+ * POST /api/member/blogs
+ * Create a new member blog post.
+ */
+export async function createMemberBlog(data: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await apiRequest("/api/member/blogs", {
+    method: "POST",
+    body: JSON.stringify({
+      title: data.title,
+      subtitle: data.subtitle,
+      excerpt: data.excerpt,
+      content: data.content,
+      category: data.category,
+      status: data.status,
+      sections: data.sections,
+      tags: data.tags,
+      image: data.image,
+      read_time: data.readTime
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to submit blog post.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/member/blogs/{id}
+ * Update a member blog post.
+ */
+export async function updateMemberBlog(id: number, data: Partial<BlogPost>): Promise<BlogPost> {
+  const res = await apiRequest(`/api/member/blogs/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      title: data.title,
+      subtitle: data.subtitle,
+      excerpt: data.excerpt,
+      content: data.content,
+      category: data.category,
+      status: data.status,
+      sections: data.sections,
+      tags: data.tags,
+      image: data.image,
+      read_time: data.readTime
+    })
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to update blog post.");
+  }
+
+  return res.json();
+}
+
+/**
+ * DELETE /api/member/blogs/{id}
+ * Delete a member blog post.
+ */
+export async function deleteMemberBlog(id: number): Promise<void> {
+  const res = await apiRequest(`/api/member/blogs/${id}`, {
+    method: "DELETE"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to delete blog post.");
+  }
+}
+
+/**
+ * POST /api/member/blogs/upload-image
+ * Uploads an image to the Laravel backend for member blogs.
+ */
+export async function uploadMemberBlogImage(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiRequest("/api/member/blogs/upload-image", {
+    method: "POST",
+    body: formData
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Image upload rejected by server.");
+  }
+
+  const data = await res.json();
+  return data.url;
+}
+
+/**
+ * PUT /api/admin/blogs/{id}/approve
+ * Approve a pending blog post.
+ */
+export async function approveBlog(id: number): Promise<BlogPost> {
+  const res = await apiRequest(`/api/admin/blogs/${id}/approve`, {
+    method: "PUT"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to approve blog post.");
+  }
+
+  return res.json();
+}
+
+/**
+ * PUT /api/admin/blogs/{id}/reject
+ * Reject a pending blog post.
+ */
+export async function rejectBlog(id: number): Promise<BlogPost> {
+  const res = await apiRequest(`/api/admin/blogs/${id}/reject`, {
+    method: "PUT"
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || errorData.error || "Failed to reject blog post.");
+  }
+
+  return res.json();
+}
+
+/**
  * POST /api/user/avatar
  * Uploads a profile picture (JPG, PNG, WEBP, GIF) to the Laravel backend.
  */
