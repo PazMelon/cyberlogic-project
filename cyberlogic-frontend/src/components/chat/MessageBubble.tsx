@@ -397,7 +397,7 @@ export default function MessageBubble({
 
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-text-secondary leading-relaxed break-words whitespace-pre-wrap">
+        <p className="text-sm text-text-secondary leading-relaxed break-all whitespace-pre-wrap">
           {renderedParts}
         </p>
 
@@ -551,7 +551,7 @@ export default function MessageBubble({
         );
       })()}
 
-      <div className={`flex flex-col ${isMeLayout ? "items-end" : "items-start"}`}>
+      <div className={`flex flex-col max-w-full ${isMeLayout ? "items-end" : "items-start"}`}>
         <div className={`flex items-baseline gap-2 mb-1 ${isMeLayout ? "justify-end" : "justify-start"}`}>
           {!isMeLayout && (
             isFreedomWall ? (
@@ -581,7 +581,7 @@ export default function MessageBubble({
         </div>
 
         <div
-          className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit ${
+          className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit max-w-full ${
             isMeLayout
               ? "bg-primary/15 border-primary/30 rounded-tr-none"
               : "bg-white/[0.03] border-border/40 rounded-tl-none"
