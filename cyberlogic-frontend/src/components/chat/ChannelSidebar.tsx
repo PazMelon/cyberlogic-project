@@ -19,7 +19,8 @@ import {
   Users,
   Bot,
   Plus,
-  X
+  X,
+  UserPlus
 } from "lucide-react";
 import { SkeletonLine } from "../Skeleton";
 import { useAuth } from "../../context/AuthContext";
@@ -132,15 +133,21 @@ export default function ChannelSidebar({
   }
 
   const groupedChannels: Record<string, ChatChannel[]> = {};
+  groupedChannels["Messages"] = [];
+
   channels.forEach((ch) => {
-    const groupName = ch.grouping || "General";
+    let groupName = ch.grouping || "General";
+    // Group both DM and Private Groups under "Messages"
+    if (groupName === "Direct Messages" || groupName === "Group Chats") {
+      groupName = "Messages";
+    }
     if (!groupedChannels[groupName]) {
       groupedChannels[groupName] = [];
     }
     groupedChannels[groupName].push(ch);
   });
 
-  const groupOrder = ["Welcome & Info", "System", "General Discussions", "Academic & Help", "Group Chats", "Direct Messages"];
+  const groupOrder = ["Welcome & Info", "System", "General Discussions", "Academic & Help", "Messages"];
   const sortedGroupNames = Object.keys(groupedChannels).sort((a, b) => {
     const idxA = groupOrder.indexOf(a);
     const idxB = groupOrder.indexOf(b);
@@ -161,7 +168,7 @@ export default function ChannelSidebar({
     return sortedGroupNames.map((groupName) => {
       const isCollapsed = !!collapsedGroups[groupName];
       const groupChannels = groupedChannels[groupName];
-      const hasCreateButton = groupName === "Direct Messages" || groupName === "Group Chats";
+      const isMessagesHeader = groupName === "Messages";
 
       return (
         <div key={groupName} className="space-y-0.5">
@@ -171,21 +178,25 @@ export default function ChannelSidebar({
           >
             <span className="truncate flex-1">{groupName}</span>
             <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-              {hasCreateButton && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (groupName === "Direct Messages") {
-                      setShowDmModal(true);
-                    } else {
-                      setShowGroupModal(true);
-                    }
-                  }}
-                  className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
-                  title={groupName === "Direct Messages" ? "Start DM" : "Create Group Chat"}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
+              {isMessagesHeader && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowDmModal(true)}
+                    className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
+                    title="Start DM"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowGroupModal(true)}
+                    className="p-0.5 rounded text-text-muted hover:text-text-primary hover:bg-white/5 cursor-pointer"
+                    title="Create Group Chat"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                </>
               )}
               {isCollapsed ? (
                 <button type="button" onClick={() => toggleGroupCollapse(groupName)} className="cursor-pointer">
@@ -200,37 +211,56 @@ export default function ChannelSidebar({
           </div>
 
           {!isCollapsed &&
-            groupChannels.map((ch) => {
-              const isUnread = !!unreadStatus[ch.slug];
+            (groupChannels.length === 0 ? (
+              <div className="px-3 py-1.5 text-xs text-text-muted italic select-none">
+                No active conversations.
+              </div>
+            ) : (
+              groupChannels.map((ch) => {
+                const isUnread = !!unreadStatus[ch.slug];
 
-              return (
-                <button
-                  key={ch.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveChannel(ch.slug);
-                    if (onChannelSelect) onChannelSelect();
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-                    activeChannel === ch.slug
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : isUnread
-                      ? "text-text-primary font-semibold bg-white/5"
-                      : "text-text-muted hover:text-text-primary hover:bg-white/5"
-                  }`}
-                >
-                  {ch.type === "dm" && ch.icon && ch.icon.startsWith("http") ? (
-                    <img src={ch.icon} className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <ChannelIcon iconName={ch.icon} className="w-4 h-4 flex-shrink-0 opacity-60" />
-                  )}
-                  <span className="truncate flex-1 text-left">{ch.name}</span>
-                  {isUnread && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary pulsate-unread flex-shrink-0" />
-                  )}
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={ch.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveChannel(ch.slug);
+                      if (onChannelSelect) onChannelSelect();
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
+                      activeChannel === ch.slug
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : isUnread
+                        ? "text-text-primary font-semibold bg-white/5"
+                        : "text-text-muted hover:text-text-primary hover:bg-white/5"
+                    }`}
+                  >
+                    {ch.type === "dm" ? (
+                      ch.icon && ch.icon.startsWith("http") ? (
+                        <img src={ch.icon} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                      ) : (
+                        <img 
+                          src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${ch.name}`} 
+                          className="w-5 h-5 rounded-full object-cover flex-shrink-0" 
+                        />
+                      )
+                    ) : ch.type === "group" && ch.allowed_roles === null ? (
+                      // Group Chat letters avatar
+                      <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 select-none">
+                        {ch.name.charAt(0).toUpperCase()}
+                      </div>
+                    ) : (
+                      <ChannelIcon iconName={ch.icon} className="w-4 h-4 flex-shrink-0 opacity-60" />
+                    )}
+                    <span className="truncate flex-1 text-left">{ch.name}</span>
+                    {isUnread && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary pulsate-unread flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })
+            ))
+          }
         </div>
       );
     });
