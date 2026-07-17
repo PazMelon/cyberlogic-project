@@ -50,6 +50,14 @@ class ChatChannel extends Model
     }
 
     /**
+     * Get the members of this private channel/DM.
+     */
+    public function members()
+    {
+        return $this->belongsToMany(User::class, 'chat_channel_members', 'channel_id', 'user_id');
+    }
+
+    /**
      * Get message count for this channel.
      */
     public function getMessageCountAttribute(): int

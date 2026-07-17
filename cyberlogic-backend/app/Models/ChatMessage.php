@@ -22,6 +22,7 @@ class ChatMessage extends Model
         'is_flagged',
         'flagged_reason',
         'moderation_status',
+        'intent',
     ];
 
     protected $casts = [

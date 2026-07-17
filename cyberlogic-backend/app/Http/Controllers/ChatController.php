@@ -22,7 +22,7 @@ class ChatController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $channels = ChatChannel::orderBy('sort_order', 'asc')->get();
+        $channels = ChatChannel::with(['members'])->orderBy('sort_order', 'asc')->get();
 
         if ($channels->isEmpty()) {
             $defaultChannels = [
@@ -68,17 +68,22 @@ class ChatController extends Controller
                 ChatChannel::create($chan);
             }
 
-            $channels = ChatChannel::all();
+            $channels = ChatChannel::with(['members'])->orderBy('sort_order', 'asc')->get();
         }
 
-        // Filter based on user role and archive status
+        // Filter based on user role, membership status, and archive status
         $filtered = $channels->filter(function ($channel) use ($user) {
             // Non-admins can't see archived channels
             if ($channel->is_archived && !$user->isAdmin()) {
                 return false;
             }
 
-            // Check if user role is in allowed_roles
+            // If it is a DM or has explicit members, verify membership
+            if ($channel->type === 'dm' || ($channel->type === 'group' && $channel->members->isNotEmpty())) {
+                return $channel->members->contains($user->id);
+            }
+
+            // Check if user role is in allowed_roles for public channels
             if (is_array($channel->allowed_roles)) {
                 return in_array($user->role, $channel->allowed_roles);
             }
@@ -86,9 +91,16 @@ class ChatController extends Controller
             return true;
         })->values();
 
-        // Attach latest message ID dynamically
-        $filtered->each(function ($channel) {
+        // Attach latest message ID dynamically and replace DM names/icons
+        $filtered->each(function ($channel) use ($user) {
             $channel->latest_message_id = $channel->messages()->max('id') ?: 0;
+
+            if ($channel->type === 'dm') {
+                $otherUser = $channel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+                $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
+                $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+                $channel->description = "Direct message with " . $otherUser->first_name;
+            }
         });
 
         return response()->json($filtered);
@@ -193,6 +205,7 @@ class ChatController extends Controller
                 'deletionReason' => $deletionReason,
                 'reactions' => $isDeleted ? [] : $reactionsSummary,
                 'isMe' => $currentUser && $msg->user_id === $currentUser->id,
+                'intent' => $msg->intent ?: 'general',
                 'replyTo' => $msg->parent ? [
                     'id' => $msg->parent->id,
                     'content' => $msg->parent->content,
@@ -753,12 +766,14 @@ class ChatController extends Controller
                 'is_flagged' => $result['is_harmful'],
                 'flagged_reason' => $result['reason'],
                 'moderation_status' => $result['is_harmful'] ? 'flagged' : 'approved',
+                'intent' => $result['intent'] ?? 'general',
             ]);
         }
 
         return response()->json([
             'is_harmful' => $result['is_harmful'],
-            'reason' => $result['reason']
+            'reason' => $result['reason'],
+            'intent' => $result['intent'] ?? 'general'
         ]);
     }
 
@@ -898,5 +913,107 @@ class ChatController extends Controller
             'most_flagged_channel' => $hotspotChannelName,
             'most_flagged_count' => $hotspotCount,
         ]);
+    }
+
+    /**
+     * Initiate or retrieve a 1-on-1 DM channel.
+     */
+    public function initiateDm(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'recipient_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $recipientId = $validated['recipient_id'];
+
+        // Prevent creating a duplicate DM by checking if a DM already exists between these two users
+        $existingChannel = ChatChannel::where('type', 'dm')
+            ->whereHas('members', function($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })
+            ->whereHas('members', function($q) use ($recipientId) {
+                $q->where('users.id', $recipientId);
+            })
+            ->first();
+
+        if ($existingChannel) {
+            // Load members to return same structure as index
+            $existingChannel->load(['members']);
+            $otherUser = $existingChannel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+            $existingChannel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
+            $existingChannel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+            $existingChannel->description = "Direct message with " . $otherUser->first_name;
+            return response()->json($existingChannel);
+        }
+
+        // Create new DM channel
+        $slug = 'dm-' . min($user->id, $recipientId) . '-' . max($user->id, $recipientId);
+        
+        $channel = ChatChannel::create([
+            'name' => 'Direct Message', // placeholder
+            'slug' => $slug,
+            'description' => 'Private DM channel',
+            'type' => 'dm',
+            'grouping' => 'Direct Messages',
+            'created_by' => $user->id,
+            'is_protected' => false,
+            'is_archived' => false,
+        ]);
+
+        // Add both users as members
+        $channel->members()->attach([$user->id, $recipientId]);
+
+        // Load members to return dynamic name
+        $channel->load(['members']);
+        $otherUser = $channel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+        $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
+        $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+        $channel->description = "Direct message with " . $otherUser->first_name;
+
+        return response()->json($channel, 201);
+    }
+
+    /**
+     * Create a private custom group chat.
+     */
+    public function createGroup(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'name' => 'required|string|max:100',
+            'description' => 'nullable|string|max:500',
+            'user_ids' => 'required|array',
+            'user_ids.*' => 'required|integer|exists:users,id',
+        ]);
+
+        $name = $validated['name'];
+        $description = $validated['description'] ?? null;
+        $userIds = $validated['user_ids'];
+
+        // Always include the creator
+        if (!in_array($user->id, $userIds)) {
+            $userIds[] = $user->id;
+        }
+
+        $slug = 'group-' . Str::random(12);
+
+        $channel = ChatChannel::create([
+            'name' => $name,
+            'slug' => $slug,
+            'description' => $description,
+            'type' => 'group',
+            'grouping' => 'Group Chats',
+            'created_by' => $user->id,
+            'is_protected' => false,
+            'is_archived' => false,
+            'allowed_roles' => null, // null allowed_roles means private group members only
+            'write_roles' => null,
+        ]);
+
+        // Add all members
+        $channel->members()->attach($userIds);
+
+        return response()->json($channel, 201);
     }
 }

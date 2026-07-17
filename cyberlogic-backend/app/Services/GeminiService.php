@@ -24,16 +24,20 @@ class GeminiService
             Log::warning('Gemini API key is not configured. Skipping content moderation checks.');
             return [
                 'is_harmful' => false,
-                'reason' => null
+                'reason' => null,
+                'intent' => 'general'
             ];
         }
 
         try {
-            $prompt = "You are a strict chat content moderator. Analyze the following user chat message. Check if the message is toxic, inappropriate, harmful, contains hate speech, harassment, self-harm, sexual content, violence, or otherwise violates chat safety guidelines.\n\n" .
+            $prompt = "You are a strict chat content moderator and sentiment analyzer. Analyze the following user chat message.\n" .
+                      "1. Check if the message is toxic, inappropriate, harmful, contains hate speech, harassment, self-harm, sexual content, violence, or otherwise violates safety guidelines.\n" .
+                      "2. Classify the main intent or vibe of the message into exactly one of these categories: 'general' (neutral, typical, default), 'love' (romance, appreciation, affection, kindness), 'confidence' (motivational, supportive, reassurance, courage), 'sadness' (venting pain, feeling down, grief, lonely), 'joy' (celebrating, excitement, laughter, happy), 'gratitude' (thankful, expressing appreciation/relief), 'curiosity' (asking questions, seeking information).\n\n" .
                       "Respond strictly in JSON format with the following structure:\n" .
                       "{\n" .
                       "    \"is_harmful\": true or false,\n" .
-                      "    \"reason\": \"A short explanation (max 10 words) of why the message was flagged, or null if it is safe and appropriate.\"\n" .
+                      "    \"reason\": \"A short explanation (max 10 words) of why the message was flagged, or null if it is safe.\",\n" .
+                      "    \"intent\": \"general\" or \"love\" or \"confidence\" or \"sadness\" or \"joy\" or \"gratitude\" or \"curiosity\"\n" .
                       "}\n\n" .
                       "Message to analyze:\n" .
                       "\"{$text}\"";
@@ -53,7 +57,8 @@ class GeminiService
                 Log::warning('Gemini API returned an empty response candidate.');
                 return [
                     'is_harmful' => false,
-                    'reason' => null
+                    'reason' => null,
+                    'intent' => 'general'
                 ];
             }
 
@@ -63,20 +68,23 @@ class GeminiService
                 Log::error('Failed to parse Gemini moderation JSON response: ' . $responseText);
                 return [
                     'is_harmful' => false,
-                    'reason' => null
+                    'reason' => null,
+                    'intent' => 'general'
                 ];
             }
 
             return [
                 'is_harmful' => filter_var($result['is_harmful'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'reason' => $result['reason'] ?? null
+                'reason' => $result['reason'] ?? null,
+                'intent' => $result['intent'] ?? 'general'
             ];
 
         } catch (\Throwable $e) {
             Log::error('Error occurred during Gemini content moderation: ' . $e->getMessage());
             return [
                 'is_harmful' => false,
-                'reason' => 'AI Moderation check failed with error'
+                'reason' => 'AI Moderation check failed with error',
+                'intent' => 'general'
             ];
         }
     }
@@ -98,12 +106,15 @@ class GeminiService
 
         try {
             $formattedMessages = json_encode($messages, JSON_PRETTY_PRINT);
-            $prompt = "You are a strict chat content moderator. Analyze the following list of user chat messages. Check each message for toxicity, inappropriateness, harm, hate speech, harassment, self-harm, sexual content, violence, or other violations of chat safety guidelines.\n\n" .
+            $prompt = "You are a strict chat content moderator and sentiment analyzer. Analyze the following list of user chat messages.\n" .
+                      "1. Check each message for toxicity, safety violations, hate speech, or inappropriate content.\n" .
+                      "2. Classify the intent/vibe of each message into exactly one of these: 'general', 'love', 'confidence', 'sadness', 'joy', 'gratitude', 'curiosity'.\n\n" .
                       "Respond strictly in JSON array format containing the evaluation of each message. Each item in the array must follow this exact structure:\n" .
                       "{\n" .
                       "    \"id\": the numeric ID of the message,\n" .
                       "    \"is_harmful\": true or false,\n" .
-                      "    \"reason\": \"A short explanation (max 10 words) of why the message was flagged, or null if it is safe and appropriate.\"\n" .
+                      "    \"reason\": \"A short explanation of why the message was flagged, or null if safe.\",\n" .
+                      "    \"intent\": \"general\" or \"love\" or \"confidence\" or \"sadness\" or \"joy\" or \"gratitude\" or \"curiosity\"\n" .
                       "}\n\n" .
                       "Here is the list of messages in JSON format to analyze:\n" .
                       "{$formattedMessages}";

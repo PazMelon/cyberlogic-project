@@ -134,6 +134,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/chat/ticket', [ChatController::class, 'ticket']);
     Route::get('/api/chat/gifs', [ChatController::class, 'getGifs']);
     Route::post('/api/chat/gifs', [ChatController::class, 'storeGif']);
+    Route::post('/api/chat/dm', [ChatController::class, 'initiateDm']);
+    Route::post('/api/chat/group', [ChatController::class, 'createGroup']);
 
     // Admin Chat & Forum Category Actions
     Route::post('/api/admin/chat/channels', [ChatController::class, 'store']);

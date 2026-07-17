@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert, Pencil } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -26,6 +26,7 @@ export interface ChatMessage {
     userIds?: number[];
   }[];
   animate?: string;
+  intent?: string;
   replyTo?: {
     id: number;
     author: string;
@@ -72,6 +73,31 @@ const formatMessageTimestamp = (timestampStr: string) => {
   }
 };
 
+const intentParticles: Record<string, string[]> = {
+  love: ["❤️", "💖", "💕", "💝", "💗", "💓"],
+  confidence: ["✨", "💪", "🔥", "⭐", "🌟", "⚡"],
+  sadness: ["🌧️", "😢", "💧", "😭", "☁️", "🌊"],
+  joy: ["🎉", "🥳", "🎈", "✨", "😂", "🎊"],
+  gratitude: ["🙏", "✨", "🤍", "🌸", "🌹", "🌻"],
+  curiosity: ["❓", "🤔", "💡", "🔍", "✨", "💭"],
+};
+
+const seedShuffle = (arr: string[], seed: number) => {
+  const shuffled = [...arr];
+  let tempSeed = seed;
+  const random = () => {
+    const x = Math.sin(tempSeed++) * 10000;
+    return x - Math.floor(x);
+  };
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const temp = shuffled[i];
+    shuffled[i] = shuffled[j];
+    shuffled[j] = temp;
+  }
+  return shuffled;
+};
+
 export default function MessageBubble({
   message,
   isMe,
@@ -101,6 +127,30 @@ export default function MessageBubble({
 
   const isFreedomWall = message.channelId === 'freedom-wall';
   const isMeLayout = isMe && !isFreedomWall;
+  const particles = message.intent && intentParticles[message.intent] ? seedShuffle(intentParticles[message.intent], message.id) : undefined;
+
+  const [isPlayingVibe, setIsPlayingVibe] = useState(true);
+  const hoverTimeoutRef = useRef<any>(null);
+
+  const handleBubbleMouseEnter = () => {
+    if (!isFreedomWall || !particles || isPlayingVibe) return;
+    setIsPlayingVibe(true);
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsPlayingVibe(false);
+    }, 5000);
+  };
+
+  useEffect(() => {
+    if (isFreedomWall && particles) {
+      hoverTimeoutRef.current = setTimeout(() => {
+        setIsPlayingVibe(false);
+      }, 5000);
+    }
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
 
   if (message.isSystem) {
     return (
@@ -581,12 +631,43 @@ export default function MessageBubble({
         </div>
 
         <div
-          className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit max-w-full ${
-            isMeLayout
+          onMouseEnter={handleBubbleMouseEnter}
+          className={`border rounded-2xl px-3.5 py-2 relative transition-all w-fit max-w-full vibe-bubble ${(() => {
+            const intent = message.intent;
+            const cornerClass = isMeLayout ? "rounded-tr-none" : "rounded-tl-none";
+
+            if (intent && intent !== "general" && intentParticles[intent]) {
+              switch (intent) {
+                case "love":
+                  return `vibe-border-love border-rose-500/30 ${cornerClass} shadow-[0_0_12px_rgba(244,63,94,0.15)]`;
+                case "confidence":
+                  return `vibe-border-confidence border-emerald-500/30 ${cornerClass} shadow-[0_0_12px_rgba(16,185,129,0.15)]`;
+                case "sadness":
+                  return `vibe-border-sadness border-blue-500/30 ${cornerClass} shadow-[0_0_12px_rgba(59,130,246,0.15)]`;
+                case "joy":
+                  return `vibe-border-joy border-amber-500/30 ${cornerClass} shadow-[0_0_12px_rgba(245,158,11,0.15)]`;
+                case "gratitude":
+                  return `vibe-border-gratitude border-purple-500/30 ${cornerClass} shadow-[0_0_12px_rgba(168,85,247,0.15)]`;
+                case "curiosity":
+                  return `vibe-border-curiosity border-cyan-500/30 ${cornerClass} shadow-[0_0_12px_rgba(6,182,212,0.15)]`;
+              }
+            }
+
+            return isMeLayout
               ? "bg-primary/15 border-primary/30 rounded-tr-none"
-              : "bg-white/[0.03] border-border/40 rounded-tl-none"
-          }`}
+              : "bg-white/[0.03] border-border/40 rounded-tl-none";
+          })()}`}
         >
+          {isFreedomWall && particles && isPlayingVibe && (
+            <div className="absolute inset-0 pointer-events-none overflow-visible z-20">
+              <span className="absolute vibe-particle vibe-particle-1 text-xs">{particles[0]}</span>
+              <span className="absolute vibe-particle vibe-particle-2 text-sm">{particles[1]}</span>
+              <span className="absolute vibe-particle vibe-particle-3 text-xs">{particles[2]}</span>
+              <span className="absolute vibe-particle vibe-particle-4 text-sm">{particles[3]}</span>
+              <span className="absolute vibe-particle vibe-particle-5 text-[10px]">{particles[4]}</span>
+              <span className="absolute vibe-particle vibe-particle-6 text-xs">{particles[5]}</span>
+            </div>
+          )}
           {renderMessageContent(message.content)}
 
           {/* Facebook-style reaction badges overlay placed on the bottom corner edge of the message bubble */}

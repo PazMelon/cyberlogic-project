@@ -239,14 +239,27 @@ class ChannelManager {
         // Enforce allowed_roles authorization for chat channels
         if (channel.startsWith('chat:')) {
           const channelSlug = channel.split(':')[1];
-          const [channels] = await pool.query('SELECT allowed_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
+          const [channels] = await pool.query('SELECT id, type, allowed_roles FROM chat_channels WHERE slug = ? LIMIT 1', [channelSlug]);
           if (channels.length > 0) {
-            const allowed = channels[0].allowed_roles;
-            let allowedRoles = typeof allowed === 'string' ? JSON.parse(allowed) : allowed;
-            if (allowedRoles && Array.isArray(allowedRoles) && !allowedRoles.includes(user.role)) {
-              console.log(`[WS] Subscription rejected: User ${user.name} (${user.role}) not allowed in ${channel}`);
-              this.sendToClient(client, channel, 'subscription_error', { message: 'Not allowed to view this channel.' });
-              return;
+            const chan = channels[0];
+            
+            // If the channel is a DM or a private group, check membership first
+            if (chan.type === 'dm' || (chan.type === 'group' && chan.allowed_roles === null)) {
+              const [membership] = await pool.query('SELECT 1 FROM chat_channel_members WHERE channel_id = ? AND user_id = ? LIMIT 1', [chan.id, user.id]);
+              if (membership.length === 0) {
+                console.log(`[WS] Subscription rejected: User ${user.name} (ID: ${user.id}) not a member of private channel ${channelSlug}`);
+                this.sendToClient(client, channel, 'subscription_error', { message: 'Not a member of this private channel.' });
+                return;
+              }
+            } else {
+              // Public role-restricted channels check
+              const allowed = chan.allowed_roles;
+              let allowedRoles = typeof allowed === 'string' ? JSON.parse(allowed) : allowed;
+              if (allowedRoles && Array.isArray(allowedRoles) && !allowedRoles.includes(user.role)) {
+                console.log(`[WS] Subscription rejected: User ${user.name} (${user.role}) not allowed in ${channel}`);
+                this.sendToClient(client, channel, 'subscription_error', { message: 'Not allowed to view this channel.' });
+                return;
+              }
             }
           }
         }
@@ -424,6 +437,7 @@ class ChannelManager {
       const messageId = result.insertId;
 
       // AI content moderation check for Freedom Wall
+      let messageIntent = 'general';
       if (channelSlug === 'freedom-wall') {
         try {
           console.log(`[WS] Sending freedom-wall message ${messageId} to Laravel for content moderation check...`);
@@ -466,6 +480,8 @@ class ChannelManager {
             });
             return;
           }
+
+          messageIntent = modResult.intent || 'general';
         } catch (modErr) {
           console.error('[WS] Moderation check connection error:', modErr.message);
         }
@@ -506,6 +522,7 @@ class ChannelManager {
         timestamp: new Date().toISOString(),
         isSystem: false,
         replyTo: replyTo,
+        intent: messageIntent,
         _originalAuthorId: user.id,
       };
 

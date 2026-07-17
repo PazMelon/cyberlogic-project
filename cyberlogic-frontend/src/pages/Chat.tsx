@@ -61,6 +61,9 @@ export default function Chat() {
     deletingMessage,
     setDeletingMessage,
     handleDeleteClick,
+    unreadStatus,
+    startDm,
+    createGroupChat,
   } = useChat();
 
   const [showMobileChannels, setShowMobileChannels] = useState(false);
@@ -126,6 +129,10 @@ export default function Chat() {
               collapsedGroups={collapsedGroups}
               setCollapsedGroups={setCollapsedGroups}
               className="flex flex-col h-full w-full"
+              unreadStatus={unreadStatus}
+              startDm={startDm}
+              createGroupChat={createGroupChat}
+              allUsers={allUsers}
             />
           </div>
         </div>
@@ -159,6 +166,10 @@ export default function Chat() {
         isConnected={!!isConnected}
         collapsedGroups={collapsedGroups}
         setCollapsedGroups={setCollapsedGroups}
+        unreadStatus={unreadStatus}
+        startDm={startDm}
+        createGroupChat={createGroupChat}
+        allUsers={allUsers}
       />
 
       {/* Main Chat Area */}

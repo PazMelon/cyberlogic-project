@@ -16,6 +16,7 @@ export function useChat() {
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [channels, setChannels] = useState<ChatChannel[]>([]);
   const [activeChannel, setActiveChannel] = useState<string>("");
+  const [unreadStatus, setUnreadStatus] = useState<Record<string, boolean>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageText, setMessageText] = useState("");
   const [readReceipts, setReadReceipts] = useState<{ user_id: number; name: string; avatar: string | null; message_id: number }[]>([]);
@@ -92,13 +93,22 @@ export function useChat() {
           const data: ChatChannel[] = await res.json();
           setChannels(data);
 
+          // Compute initial unreads
+          const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
+          const initialUnreads: Record<string, boolean> = {};
+          data.forEach(c => {
+            if (c.latest_message_id) {
+              initialUnreads[c.slug] = c.latest_message_id > (lastRead[c.slug] || 0);
+            }
+          });
+          setUnreadStatus(initialUnreads);
+
           // Check query parameters first
           const params = new URLSearchParams(window.location.search);
           const chan = params.get("channel");
           if (chan && data.some((c) => c.slug === chan)) {
             setActiveChannel(chan);
           } else if (data.length > 0) {
-            // Check unread status for Welcome, Announcements, and Rules
             const lastRead = JSON.parse(localStorage.getItem("chat_last_read") || "{}");
             const checkUnread = (slug: string) => {
               const chanObj = data.find((c) => c.slug === slug);
@@ -127,6 +137,53 @@ export function useChat() {
     }
     loadChannels();
   }, []);
+
+  // Subscribe to all channels dynamically to track unreads
+  useEffect(() => {
+    if (channelsLoading || channels.length === 0) return;
+
+    const unsubscribes = channels.map((chan) => {
+      const wsChannel = `chat:${chan.slug}`;
+      return subscribe(wsChannel, (payload: any, type: string) => {
+        if (type === "message") {
+          // If the message is not in the active channel, set unread indicator
+          if (activeChannel !== payload.channelId) {
+            setUnreadStatus((prev) => ({
+              ...prev,
+              [payload.channelId]: true,
+            }));
+            
+            // Also update the latest_message_id on the channel object in state so it is kept fresh
+            setChannels((prevChans) =>
+              prevChans.map((c) =>
+                c.slug === payload.channelId
+                  ? { ...c, latest_message_id: payload.id }
+                  : c
+              )
+            );
+          }
+        }
+      });
+    });
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [channels, channelsLoading, activeChannel, subscribe]);
+
+  // Clear unreads when active channel changes
+  useEffect(() => {
+    if (activeChannel) {
+      setUnreadStatus((prev) => {
+        if (prev[activeChannel]) {
+          const updated = { ...prev };
+          delete updated[activeChannel];
+          return updated;
+        }
+        return prev;
+      });
+    }
+  }, [activeChannel]);
 
   // Listen to channel changes from query param (e.g. notification click)
   useEffect(() => {
@@ -560,6 +617,46 @@ export function useChat() {
 
   const canDeleteMessages = hasPermission("manage_chat");
 
+  const startDm = async (recipientId: number) => {
+    try {
+      const res = await apiRequest("/api/chat/dm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient_id: recipientId }),
+      });
+      if (res.ok) {
+        const newChan = await res.json();
+        setChannels((prev) => {
+          if (prev.some((c) => c.slug === newChan.slug)) return prev;
+          return [...prev, newChan];
+        });
+        setActiveChannel(newChan.slug);
+      }
+    } catch (err) {
+      console.error("Failed to start DM:", err);
+    }
+  };
+
+  const createGroupChat = async (name: string, userIds: number[]) => {
+    try {
+      const res = await apiRequest("/api/chat/group", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, user_ids: userIds }),
+      });
+      if (res.ok) {
+        const newChan = await res.json();
+        setChannels((prev) => {
+          if (prev.some((c) => c.slug === newChan.slug)) return prev;
+          return [...prev, newChan];
+        });
+        setActiveChannel(newChan.slug);
+      }
+    } catch (err) {
+      console.error("Failed to create group chat:", err);
+    }
+  };
+
   return {
     isConnected,
     currentUser,
@@ -604,5 +701,8 @@ export function useChat() {
     deletingMessage,
     setDeletingMessage,
     handleDeleteClick,
+    unreadStatus,
+    startDm,
+    createGroupChat,
   };
 }
