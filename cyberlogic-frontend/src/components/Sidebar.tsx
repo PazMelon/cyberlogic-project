@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
-  Shield,
   LayoutDashboard,
   MessageSquare,
   MessagesSquare,
@@ -62,8 +61,8 @@ export default function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-2 px-5 h-16 border-b border-border flex-shrink-0">
         <Link to="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-            <Shield className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+            <img src="/icons.svg" alt="Cyberlogic" className="w-7 h-7 object-contain" />
           </div>
           {!collapsed && (
             <span className="text-lg font-bold font-[family-name:var(--font-heading)] tracking-tight">

@@ -17,12 +17,21 @@
           document.documentElement.setAttribute("data-theme", normalizedTheme);
           const presets = {
             cyber: { primary: "#06b6d4", primaryLight: "#22d3ee", primaryDark: "#0891b2", accent: "#a855f7", surface950: "#0a0e1a", surface900: "#0f1729", surface800: "#151d33" },
+            cyberpunk: { primary: "#06b6d4", primaryLight: "#22d3ee", primaryDark: "#0891b2", accent: "#a855f7", surface950: "#0a0e1a", surface900: "#0f1729", surface800: "#151d33" },
             matrix: { primary: "#22c55e", primaryLight: "#4ade80", primaryDark: "#16a34a", accent: "#10b981", surface950: "#030804", surface900: "#061208", surface800: "#0a1d0d" },
             amber: { primary: "#f59e0b", primaryLight: "#fbbf24", primaryDark: "#d97706", accent: "#ea580c", surface950: "#0d0702", surface900: "#160d04", surface800: "#231407" },
             rose: { primary: "#f43f5e", primaryLight: "#fb7185", primaryDark: "#e11d48", accent: "#d946ef", surface950: "#0e0207", surface900: "#17040d", surface800: "#250616" },
-            royal: { primary: "#3b82f6", primaryLight: "#60a5fa", primaryDark: "#2563eb", accent: "#6366f1", surface950: "#030712", surface900: "#0b0f19", surface800: "#121824" }
+            royal: { primary: "#3b82f6", primaryLight: "#60a5fa", primaryDark: "#2563eb", accent: "#6366f1", surface950: "#030712", surface900: "#0b0f19", surface800: "#121824" },
+            slate: { primary: "#38bdf8", primaryLight: "#7dd3fc", primaryDark: "#0284c7", accent: "#64748b", surface950: "#030712", surface900: "#0f172a", surface800: "#1e293b" },
+            glass: { primary: "#6366f1", primaryLight: "#818cf8", primaryDark: "#4f46e5", accent: "#ec4899", surface950: "#030712", surface900: "#0b0f19", surface800: "#121824" },
+            "maroon-spider": { primary: "#881337", primaryLight: "#be123c", primaryDark: "#4c0519", accent: "#dc2626", surface950: "#040102", surface900: "#0d0407", surface800: "#190a10" },
+            maroon_spider: { primary: "#881337", primaryLight: "#be123c", primaryDark: "#4c0519", accent: "#dc2626", surface950: "#040102", surface900: "#0d0407", surface800: "#190a10" },
+            "light-classic": { primary: "#d97706", primaryLight: "#f59e0b", primaryDark: "#b45309", accent: "#4f46e5", surface950: "#f8fafc", surface900: "#f1f5f9", surface800: "#e2e8f0" },
+            light_classic: { primary: "#d97706", primaryLight: "#f59e0b", primaryDark: "#b45309", accent: "#4f46e5", surface950: "#f8fafc", surface900: "#f1f5f9", surface800: "#e2e8f0" },
+            "light-neo": { primary: "#0891b2", primaryLight: "#06b6d4", primaryDark: "#0e7490", accent: "#db2777", surface950: "#ffffff", surface900: "#fafafa", surface800: "#f5f5f5" },
+            light_neo: { primary: "#0891b2", primaryLight: "#06b6d4", primaryDark: "#0e7490", accent: "#db2777", surface950: "#ffffff", surface900: "#fafafa", surface800: "#f5f5f5" }
           };
-          const p = presets[savedTheme];
+          const p = presets[savedTheme] || presets[normalizedTheme];
           if (p) {
             document.documentElement.style.setProperty("--cl-primary", p.primary);
             document.documentElement.style.setProperty("--cl-primary-light", p.primaryLight);

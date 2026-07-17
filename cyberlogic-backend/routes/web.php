@@ -367,6 +367,156 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
     $url = e($url);
     $keywordsStr = e(implode(', ', $keywords));
 
+    // Define preset inline styles for the pre-rendered loading screen
+    $themePresets = [
+        'cyberpunk' => [
+            '--cl-primary' => '#06b6d4',
+            '--cl-primary-light' => '#22d3ee',
+            '--cl-primary-dark' => '#0891b2',
+            '--cl-accent' => '#a855f7',
+            '--cl-surface-950' => '#0a0e1a',
+            '--cl-surface-900' => '#0f1729',
+            '--cl-surface-800' => '#151d33',
+        ],
+        'matrix' => [
+            '--cl-primary' => '#22c55e',
+            '--cl-primary-light' => '#4ade80',
+            '--cl-primary-dark' => '#16a34a',
+            '--cl-accent' => '#10b981',
+            '--cl-surface-950' => '#030804',
+            '--cl-surface-900' => '#061208',
+            '--cl-surface-800' => '#0a1d0d',
+        ],
+        'amber' => [
+            '--cl-primary' => '#f59e0b',
+            '--cl-primary-light' => '#fbbf24',
+            '--cl-primary-dark' => '#d97706',
+            '--cl-accent' => '#ea580c',
+            '--cl-surface-950' => '#0d0702',
+            '--cl-surface-900' => '#160d04',
+            '--cl-surface-800' => '#231407',
+        ],
+        'rose' => [
+            '--cl-primary' => '#f43f5e',
+            '--cl-primary-light' => '#fb7185',
+            '--cl-primary-dark' => '#e11d48',
+            '--cl-accent' => '#d946ef',
+            '--cl-surface-950' => '#0e0207',
+            '--cl-surface-900' => '#17040d',
+            '--cl-surface-800' => '#250616',
+        ],
+        'royal' => [
+            '--cl-primary' => '#3b82f6',
+            '--cl-primary-light' => '#60a5fa',
+            '--cl-primary-dark' => '#2563eb',
+            '--cl-accent' => '#6366f1',
+            '--cl-surface-950' => '#030712',
+            '--cl-surface-900' => '#0b0f19',
+            '--cl-surface-800' => '#121824',
+        ],
+        'slate' => [
+            '--cl-primary' => '#38bdf8',
+            '--cl-primary-light' => '#7dd3fc',
+            '--cl-primary-dark' => '#0284c7',
+            '--cl-accent' => '#64748b',
+            '--cl-surface-950' => '#030712',
+            '--cl-surface-900' => '#0f172a',
+            '--cl-surface-800' => '#1e293b',
+        ],
+        'glass' => [
+            '--cl-primary' => '#6366f1',
+            '--cl-primary-light' => '#818cf8',
+            '--cl-primary-dark' => '#4f46e5',
+            '--cl-accent' => '#ec4899',
+            '--cl-surface-950' => '#030712',
+            '--cl-surface-900' => '#0b0f19',
+            '--cl-surface-800' => '#121824',
+        ],
+        'maroon-spider' => [
+            '--cl-primary' => '#881337',
+            '--cl-primary-light' => '#be123c',
+            '--cl-primary-dark' => '#4c0519',
+            '--cl-accent' => '#dc2626',
+            '--cl-surface-950' => '#040102',
+            '--cl-surface-900' => '#0d0407',
+            '--cl-surface-800' => '#190a10',
+        ],
+        'maroon_spider' => [
+            '--cl-primary' => '#881337',
+            '--cl-primary-light' => '#be123c',
+            '--cl-primary-dark' => '#4c0519',
+            '--cl-accent' => '#dc2626',
+            '--cl-surface-950' => '#040102',
+            '--cl-surface-900' => '#0d0407',
+            '--cl-surface-800' => '#190a10',
+        ],
+        'light-classic' => [
+            '--cl-primary' => '#d97706',
+            '--cl-primary-light' => '#f59e0b',
+            '--cl-primary-dark' => '#b45309',
+            '--cl-accent' => '#4f46e5',
+            '--cl-surface-950' => '#f8fafc',
+            '--cl-surface-900' => '#f1f5f9',
+            '--cl-surface-800' => '#e2e8f0',
+        ],
+        'light_classic' => [
+            '--cl-primary' => '#d97706',
+            '--cl-primary-light' => '#f59e0b',
+            '--cl-primary-dark' => '#b45309',
+            '--cl-accent' => '#4f46e5',
+            '--cl-surface-950' => '#f8fafc',
+            '--cl-surface-900' => '#f1f5f9',
+            '--cl-surface-800' => '#e2e8f0',
+        ],
+        'light-neo' => [
+            '--cl-primary' => '#0891b2',
+            '--cl-primary-light' => '#06b6d4',
+            '--cl-primary-dark' => '#0e7490',
+            '--cl-accent' => '#db2777',
+            '--cl-surface-950' => '#ffffff',
+            '--cl-surface-900' => '#fafafa',
+            '--cl-surface-800' => '#f5f5f5',
+        ],
+        'light_neo' => [
+            '--cl-primary' => '#0891b2',
+            '--cl-primary-light' => '#06b6d4',
+            '--cl-primary-dark' => '#0e7490',
+            '--cl-accent' => '#db2777',
+            '--cl-surface-950' => '#ffffff',
+            '--cl-surface-900' => '#fafafa',
+            '--cl-surface-800' => '#f5f5f5',
+        ],
+        'light-mint' => [
+            '--cl-primary' => '#059669',
+            '--cl-primary-light' => '#10b981',
+            '--cl-primary-dark' => '#047857',
+            '--cl-accent' => '#0284c7',
+            '--cl-surface-950' => '#f0fdf4',
+            '--cl-surface-900' => '#dcfce7',
+            '--cl-surface-800' => '#bbf7d0',
+        ],
+        'light_mint' => [
+            '--cl-primary' => '#059669',
+            '--cl-primary-light' => '#10b981',
+            '--cl-primary-dark' => '#047857',
+            '--cl-accent' => '#0284c7',
+            '--cl-surface-950' => '#f0fdf4',
+            '--cl-surface-900' => '#dcfce7',
+            '--cl-surface-800' => '#bbf7d0',
+        ],
+    ];
+
+    $normalizedTheme = str_replace('_', '-', $defaultTheme);
+    $styleString = '';
+    if (isset($themePresets[$defaultTheme])) {
+        foreach ($themePresets[$defaultTheme] as $prop => $val) {
+            $styleString .= "{$prop}: {$val}; ";
+        }
+    }
+
+    // Inject data-theme and inline custom style properties onto <html> tag to prevent FOUC/flashes
+    $html = str_replace('<html lang="en">', '<html lang="en" data-theme="' . e($normalizedTheme) . '" style="' . e($styleString) . '">', $html);
+
     // Replace Title
     $html = preg_replace('/<title>.*?<\/title>/i', "<title>{$title}</title>", $html);
 

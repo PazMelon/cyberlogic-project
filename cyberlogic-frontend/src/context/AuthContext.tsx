@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { useDialog } from "../utils/useDialog";
 
 export interface User {
   id: number;
@@ -113,6 +114,7 @@ export async function apiRequest(url: string, options: RequestInit = {}) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showConfirm } = useDialog();
 
   useEffect(() => {
     async function checkSession() {
@@ -184,6 +186,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    const confirm = await showConfirm({
+      title: "Confirm Logout",
+      message: "Are you sure you want to log out of your session?",
+      type: "warning",
+      confirmText: "Logout",
+      cancelText: "Cancel",
+    });
+
+    if (!confirm) return;
+
     try {
       await apiRequest("/api/logout", { method: "POST" });
     } catch (e) {

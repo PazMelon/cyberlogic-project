@@ -136,6 +136,8 @@ export default function ChannelSidebar({
 
   const groupOrder = ["Welcome & Info", "System", "General Discussions", "Academic & Help", "Messages"];
   const sortedGroupNames = Object.keys(groupedChannels).sort((a, b) => {
+    if (a === "Messages") return 1;
+    if (b === "Messages") return -1;
     const idxA = groupOrder.indexOf(a);
     const idxB = groupOrder.indexOf(b);
     if (idxA === -1 && idxB === -1) return a.localeCompare(b);

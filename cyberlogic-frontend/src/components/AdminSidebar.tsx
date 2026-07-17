@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import {
-  Shield,
   LayoutDashboard,
   Users,
   Megaphone,
@@ -18,6 +17,7 @@ import {
   ScrollText,
   KeyRound,
   Flag,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -119,8 +119,8 @@ export default function AdminSidebar() {
       {/* Logo */}
       <div className="flex items-center gap-2 px-5 h-16 border-b border-border flex-shrink-0">
         <Link to="/admin" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
-            <Shield className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+            <img src="/icons.svg" alt="Cyberlogic" className="w-7 h-7 object-contain" />
           </div>
           {!collapsed && (
             <div className="flex flex-col">

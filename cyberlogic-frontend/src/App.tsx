@@ -523,14 +523,14 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WebSocketProvider>
-        <DialogProvider>
+    <DialogProvider>
+      <AuthProvider>
+        <WebSocketProvider>
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
-        </DialogProvider>
-      </WebSocketProvider>
-    </AuthProvider>
+        </WebSocketProvider>
+      </AuthProvider>
+    </DialogProvider>
   );
 }
