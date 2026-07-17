@@ -101,9 +101,11 @@ export default function ChatHeader({
   });
 
   return (
-    <div className="h-[57px] flex items-center justify-between px-4 sm:px-5 border-b border-border bg-surface-900/30 flex-shrink-0 relative">
+    <div className={`flex items-center justify-between px-4 sm:px-5 border-b border-border bg-surface-900/30 flex-shrink-0 relative ${
+      creationMode ? "min-h-[57px] py-1.5 h-auto" : "h-[57px]"
+    }`}>
       {creationMode ? (
-        <div className="flex-1 flex items-center gap-3 min-w-0">
+        <div className="flex-1 flex flex-wrap items-center justify-between gap-2.5 min-w-0">
           {creationMode === "dm" ? (
             <div className="flex-1 flex items-center gap-2 min-w-0">
               <span className="text-xs font-bold text-primary flex-shrink-0 flex items-center gap-1 select-none">
