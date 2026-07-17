@@ -330,19 +330,8 @@ export const CLI_THEMES: Record<string, Record<string, string>> = {
   },
 };
 
-export const applyGlobalTheme = (themeName: string, userId?: number | null) => {
+export const applyGlobalTheme = (themeName: string) => {
   if (!themeName) return;
-
-  // Save to appropriate local storage key
-  if (userId) {
-    localStorage.setItem(`cl-theme-user-${userId}`, themeName);
-  } else {
-    // If guest, save to cl-theme-guest
-    localStorage.setItem("cl-theme-guest", themeName);
-  }
-
-  // Also save to cl-theme for session compatibility
-  localStorage.setItem("cl-theme", themeName);
 
   // Normalize name for dataset attribute (e.g., light-classic instead of light_classic)
   const normalizedAttrTheme = themeName.replace("_", "-");
@@ -359,4 +348,22 @@ export const applyGlobalTheme = (themeName: string, userId?: number | null) => {
       document.documentElement.style.setProperty(variable, value);
     });
   }
+};
+
+export const saveAndApplyGlobalTheme = (themeName: string, userId?: number | null) => {
+  if (!themeName) return;
+
+  // Save to appropriate local storage key
+  if (userId) {
+    localStorage.setItem(`cl-theme-user-${userId}`, themeName);
+  } else {
+    // If guest, save to cl-theme-guest
+    localStorage.setItem("cl-theme-guest", themeName);
+  }
+
+  // Also save to cl-theme for session compatibility
+  localStorage.setItem("cl-theme", themeName);
+
+  // Apply to document DOM
+  applyGlobalTheme(themeName);
 };

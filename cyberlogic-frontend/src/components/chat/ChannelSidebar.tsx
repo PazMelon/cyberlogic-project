@@ -123,7 +123,7 @@ export default function ChannelSidebar({
   groupedChannels["Messages"] = [];
 
   channels.forEach((ch) => {
-    let groupName = ch.grouping || "General";
+    let groupName = ch.grouping || "General Discussions";
     // Group both DM and Private Groups under "Messages"
     if (groupName === "Direct Messages" || groupName === "Group Chats") {
       groupName = "Messages";
@@ -154,7 +154,19 @@ export default function ChannelSidebar({
   const renderChannelList = () => {
     return sortedGroupNames.map((groupName) => {
       const isCollapsed = !!collapsedGroups[groupName];
-      const groupChannels = groupedChannels[groupName];
+      const groupChannels = [...groupedChannels[groupName]].sort((a, b) => {
+        if (groupName === "Messages") {
+          const timeA = a.latest_message_id || 0;
+          const timeB = b.latest_message_id || 0;
+          return timeB - timeA;
+        }
+        const orderA = a.sort_order !== undefined && a.sort_order !== null ? a.sort_order : 9999;
+        const orderB = b.sort_order !== undefined && b.sort_order !== null ? b.sort_order : 9999;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return a.name.localeCompare(b.name);
+      });
       const isMessagesHeader = groupName === "Messages";
 
       return (

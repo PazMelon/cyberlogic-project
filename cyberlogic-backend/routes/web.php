@@ -150,9 +150,9 @@ Route::middleware('auth')->group(function () {
 
     // Admin Chat & Forum Category Actions
     Route::post('/api/admin/chat/channels', [ChatController::class, 'store']);
+    Route::put('/api/admin/chat/channels/reorder', [ChatController::class, 'reorder']);
     Route::put('/api/admin/chat/channels/{id}', [ChatController::class, 'update']);
     Route::delete('/api/admin/chat/channels/{id}', [ChatController::class, 'destroy']);
-    Route::put('/api/admin/chat/channels/reorder', [ChatController::class, 'reorder']);
     Route::post('/api/admin/chat/gifs', [ChatController::class, 'storeGif']);
     Route::delete('/api/admin/chat/gifs/{id}', [ChatController::class, 'destroyGif']);
 
@@ -254,6 +254,9 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
     $image = asset('favicon.svg'); // Fallback image
     $type = "website";
     $url = $request->fullUrl();
+
+    // Fetch site default theme from settings database
+    $defaultTheme = \App\Models\SiteSetting::where('key', 'default_theme')->value('value') ?: 'cyberpunk';
 
     // Parse the path segments
     $path = trim($request->getPathInfo(), '/');
@@ -373,6 +376,9 @@ Route::fallback(function (\Illuminate\Http\Request $request) {
         "<meta name=\"description\" content=\"{$description}\" />",
         $html
     );
+
+    // Replace default theme fallback in index.html script
+    $html = str_replace('|| "cyberpunk"', '|| "' . e($defaultTheme) . '"', $html);
 
     // Replace or Inject Keywords (check if exists first)
     if (preg_match('/<meta name="keywords" content=".*?"\s*\/?>/i', $html)) {

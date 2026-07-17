@@ -78,14 +78,14 @@ export default function SiteSettings() {
 
   const handleSelectTheme = (themeName: string) => {
     setDefaultTheme(themeName);
-    applyGlobalTheme(themeName, null);
+    applyGlobalTheme(themeName);
     setSaved(false);
   };
 
   const resetAll = async () => {
     try {
       setDefaultTheme("cyberpunk");
-      applyGlobalTheme("cyberpunk", null);
+      applyGlobalTheme("cyberpunk");
       await updateSiteSettings({ default_theme: "cyberpunk" });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

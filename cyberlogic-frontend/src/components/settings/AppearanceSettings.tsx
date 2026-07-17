@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Palette } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { applyGlobalTheme } from "../../utils/theme";
+import { saveAndApplyGlobalTheme } from "../../utils/theme";
 
 export default function AppearanceSettings() {
   const { user } = useAuth();
@@ -18,7 +18,7 @@ export default function AppearanceSettings() {
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme);
-    applyGlobalTheme(newTheme, user?.id);
+    saveAndApplyGlobalTheme(newTheme, user?.id);
   };
 
   return (

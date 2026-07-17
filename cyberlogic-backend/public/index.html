@@ -35,10 +35,212 @@
         } catch (e) {}
       })();
     </script>
-    <script type="module" crossorigin src="/assets/index-DMYma-fD.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CUAyr6Xx.css">
+    <script type="module" crossorigin src="/assets/index-CXnRLk8y.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CXWJAC-C.css">
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Loading Screen Styles — scoped to #cl-loader, zero external dependencies -->
+    <style>
+      #cl-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(
+          ellipse at 50% 40%,
+          var(--cl-surface-900, #0f1729) 0%,
+          var(--cl-surface-950, #0a0e1a) 70%
+        );
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+      }
+
+      /* Subtle background grid pattern */
+      #cl-loader::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(
+            var(--cl-border-light, rgba(148,163,184,0.05)) 1px,
+            transparent 1px
+          ),
+          linear-gradient(
+            90deg,
+            var(--cl-border-light, rgba(148,163,184,0.05)) 1px,
+            transparent 1px
+          );
+        background-size: 60px 60px;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+        -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+      }
+
+      /* Ambient glow behind logo */
+      #cl-loader::after {
+        content: '';
+        position: absolute;
+        width: 280px;
+        height: 280px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          color-mix(in srgb, var(--cl-primary, #06b6d4) 18%, transparent) 0%,
+          color-mix(in srgb, var(--cl-accent, #a855f7) 8%, transparent) 50%,
+          transparent 70%
+        );
+        filter: blur(40px);
+        animation: cl-ambient 4s ease-in-out infinite;
+      }
+
+      /* Logo container */
+      .cl-logo-wrap {
+        position: relative;
+        width: 160px;
+        height: 160px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+      }
+
+      /* The SVG logo itself */
+      .cl-logo-wrap img {
+        width: 96px;
+        height: 96px;
+        filter: drop-shadow(0 0 20px color-mix(in srgb, var(--cl-primary, #06b6d4) 40%, transparent));
+        animation: cl-breathe 2.5s ease-in-out infinite;
+      }
+
+      /* Orbital ring */
+      .cl-orbit {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        animation: cl-spin 2s linear infinite;
+      }
+      .cl-orbit::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        border-top-color: var(--cl-primary, #06b6d4);
+        border-right-color: color-mix(in srgb, var(--cl-primary, #06b6d4) 30%, transparent);
+        filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cl-primary, #06b6d4) 50%, transparent));
+      }
+
+      /* Second orbital — counter-rotating, accent color */
+      .cl-orbit-2 {
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        animation: cl-spin 3.5s linear infinite reverse;
+      }
+      .cl-orbit-2::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1px solid transparent;
+        border-bottom-color: color-mix(in srgb, var(--cl-accent, #a855f7) 50%, transparent);
+        border-left-color: color-mix(in srgb, var(--cl-accent, #a855f7) 15%, transparent);
+      }
+
+      /* Brand name */
+      .cl-brand {
+        margin-top: 32px;
+        font-family: 'Outfit', system-ui, sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 6px;
+        text-transform: uppercase;
+        color: var(--cl-text-primary, #f1f5f9);
+        background: linear-gradient(
+          90deg,
+          var(--cl-text-primary, #f1f5f9) 0%,
+          var(--cl-primary-light, #22d3ee) 50%,
+          var(--cl-text-primary, #f1f5f9) 100%
+        );
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: cl-shimmer 2.5s ease infinite;
+        z-index: 2;
+      }
+
+      /* Status line */
+      .cl-status {
+        margin-top: 16px;
+        font-size: 13px;
+        font-weight: 400;
+        letter-spacing: 1px;
+        color: var(--cl-text-muted, #64748b);
+        opacity: 0;
+        animation: cl-fadein 0.8s ease 0.5s forwards;
+        z-index: 2;
+      }
+      .cl-status .cl-dot {
+        display: inline-block;
+        width: 4px;
+        height: 4px;
+        margin-left: 2px;
+        border-radius: 50%;
+        background: var(--cl-text-muted, #64748b);
+        vertical-align: middle;
+        animation: cl-blink 1.4s ease-in-out infinite;
+      }
+      .cl-status .cl-dot:nth-child(2) { animation-delay: 0.2s; }
+      .cl-status .cl-dot:nth-child(3) { animation-delay: 0.4s; }
+
+      /* Keyframes */
+      @keyframes cl-breathe {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.06); }
+      }
+      @keyframes cl-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes cl-shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+      @keyframes cl-fadein {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes cl-blink {
+        0%, 80%, 100% { opacity: 0.2; }
+        40% { opacity: 1; }
+      }
+      @keyframes cl-ambient {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.15); opacity: 1; }
+      }
+    </style>
+
+    <div id="root">
+      <!-- Loading screen — automatically replaced when React mounts -->
+      <div id="cl-loader">
+        <div class="cl-logo-wrap">
+          <!-- Orbital rings -->
+          <div class="cl-orbit"></div>
+          <div class="cl-orbit-2"></div>
+          <!-- Club logo (icons.svg) for instant render -->
+          <img src="/icons.svg" alt="Cyberlogic" />
+        </div>
+        <div class="cl-brand">Cyberlogic</div>
+        <div class="cl-status">
+          Initializing secure portal
+          <span class="cl-dot"></span>
+          <span class="cl-dot"></span>
+          <span class="cl-dot"></span>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

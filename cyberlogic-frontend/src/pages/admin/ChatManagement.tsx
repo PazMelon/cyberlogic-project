@@ -25,7 +25,7 @@ import {
   Users,
   Bot
 } from "lucide-react";
-import { Button, Card, DataTable } from "../../components/ui";
+import { Button, Card } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
 import { 
@@ -103,13 +103,20 @@ export default function ChatManagement() {
   const [editingChannel, setEditingChannel] = useState<DbChatChannel | null>(null);
 
   // Compute unique groupings from existing channels for the select-or-type dropdown
-  const defaultGroupings = ["Welcome & Info", "General Discussions", "Academic & Help", "System"];
+  const defaultGroupings = ["Welcome & Info", "System", "General Discussions", "Academic & Help"];
   const uniqueGroupings = Array.from(
     new Set([
       ...defaultGroupings,
       ...channels.map((ch) => ch.grouping).filter(Boolean),
     ])
-  );
+  ).sort((a, b) => {
+    const idxA = defaultGroupings.indexOf(a);
+    const idxB = defaultGroupings.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
 
   // Form Fields
   const [name, setName] = useState("");
@@ -121,6 +128,7 @@ export default function ChatManagement() {
   const [writeRoles, setWriteRoles] = useState<string[]>(availableRoles);
   const [isArchived, setIsArchived] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // Tabs & Library States
   const [activeTab, setActiveTab] = useState<"channels" | "library">("channels");
@@ -368,8 +376,8 @@ export default function ChatManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
-
+    if (!name.trim() || !grouping.trim()) return;
+ 
     try {
       setErrorMsg("");
       const payload = {
@@ -377,7 +385,7 @@ export default function ChatManagement() {
         description,
         type,
         icon,
-        grouping,
+        grouping: grouping.trim(),
         allowed_roles: allowedRoles,
         write_roles: writeRoles,
         is_archived: isArchived,
@@ -427,27 +435,35 @@ export default function ChatManagement() {
     }
   };
 
-  const handleMoveChannel = async (index: number, direction: "up" | "down") => {
-    const targetChannel = channels[index];
+  const handleMoveChannel = async (id: number, direction: "up" | "down") => {
+    const targetChannel = channels.find(c => c.id === id);
+    if (!targetChannel) return;
     const targetGroup = targetChannel.grouping || "General Discussions";
     
     // Find all channels in the same grouping
     const groupChannels = channels.filter(c => (c.grouping || "General Discussions") === targetGroup);
-    const indexInGroup = groupChannels.findIndex(c => c.id === targetChannel.id);
+    const indexInGroup = groupChannels.findIndex(c => c.id === id);
     
     const targetIndexInGroup = direction === "up" ? indexInGroup - 1 : indexInGroup + 1;
     if (targetIndexInGroup < 0 || targetIndexInGroup >= groupChannels.length) return;
     
-    // Get the other channel in the group
-    const otherChannel = groupChannels[targetIndexInGroup];
+    // Reorder groupChannels in memory
+    const reorderedGroup = [...groupChannels];
+    const [moved] = reorderedGroup.splice(indexInGroup, 1);
+    reorderedGroup.splice(targetIndexInGroup, 0, moved);
     
-    // Rebuild the channels array with the swapped sort_order
-    const tempOrder = targetChannel.sort_order ?? 0;
-    const otherOrder = otherChannel.sort_order ?? 0;
-
+    // Update sort_order based on their new index in the group
+    const updatedGroup = reorderedGroup.map((c, idx) => ({
+      ...c,
+      sort_order: idx + 1
+    }));
+    
+    // Merge back into the main channels list
     const updatedChannels = channels.map(c => {
-      if (c.id === targetChannel.id) return { ...c, sort_order: otherOrder };
-      if (c.id === otherChannel.id) return { ...c, sort_order: tempOrder };
+      const match = updatedGroup.find(ug => ug.id === c.id);
+      if (match) {
+        return match;
+      }
       return c;
     });
 
@@ -462,163 +478,6 @@ export default function ChatManagement() {
       loadChannels(); // Rollback to database state
     }
   };
-
-  const channelColumns = [
-    {
-      header: "Sorting",
-      accessor: (ch: DbChatChannel) => {
-        const index = channels.findIndex((c) => c.id === ch.id);
-        const group = ch.grouping || "General Discussions";
-        const groupChannels = channels.filter(c => (c.grouping || "General Discussions") === group);
-        const indexInGroup = groupChannels.findIndex(c => c.id === ch.id);
-        const isFirstInGroup = indexInGroup <= 0;
-        const isLastInGroup = indexInGroup < 0 || indexInGroup === groupChannels.length - 1;
-
-        return (
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              disabled={isFirstInGroup}
-              onClick={() => handleMoveChannel(index, "up")}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
-              title="Move Up"
-            >
-              <ArrowUp className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              disabled={isLastInGroup}
-              onClick={() => handleMoveChannel(index, "down")}
-              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 disabled:opacity-20 transition-colors cursor-pointer"
-              title="Move Down"
-            >
-              <ArrowDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        );
-      },
-      className: "w-20"
-    },
-    {
-      header: "Channel",
-      accessor: (ch: DbChatChannel) => (
-        <div className="flex items-start gap-2.5">
-          <div className="p-2 rounded-lg bg-surface-800 border border-border/40 text-primary flex-shrink-0 mt-0.5">
-            <ChannelIcon iconName={ch.icon} className="w-4 h-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
-              {ch.name}
-              {ch.is_protected && (
-                <span className="text-[9px] bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase flex items-center gap-1 select-none">
-                  <Lock className="w-2.5 h-2.5" /> Protected
-                </span>
-              )}
-              {ch.is_archived && (
-                <span className="text-[10px] bg-warning/10 border border-warning/20 text-warning px-1.5 py-0.5 rounded font-bold uppercase">
-                  Archived
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-text-muted truncate max-w-xs mt-0.5">{ch.description || "No description."}</p>
-          </div>
-        </div>
-      ),
-      sortable: true,
-      sortKey: "name" as any,
-    },
-    {
-      header: "Group Category",
-      accessor: (ch: DbChatChannel) => (
-        <span className="text-xs font-semibold text-text-secondary bg-surface-800 border border-border/30 px-2.5 py-1 rounded-lg">
-          {ch.grouping}
-        </span>
-      ),
-      sortable: true,
-      sortKey: "grouping" as any,
-    },
-    {
-      header: "View Permission",
-      accessor: (ch: DbChatChannel) => (
-        <div className="flex flex-wrap gap-1 max-w-xs">
-          {ch.allowed_roles ? (
-            ch.allowed_roles.map((role) => (
-              <span key={role} className="text-[9px] font-bold bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded capitalize">
-                {role}
-              </span>
-            ))
-          ) : (
-            <span className="text-[9px] font-bold bg-success/10 text-success border border-success/20 px-1.5 py-0.5 rounded capitalize">
-              everyone
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: "Write Permission",
-      accessor: (ch: DbChatChannel) => (
-        <div className="flex flex-wrap gap-1 max-w-xs">
-          {ch.write_roles ? (
-            ch.write_roles.map((role) => (
-              <span key={role} className="text-[9px] font-bold bg-accent/10 text-accent border border-accent/20 px-1.5 py-0.5 rounded capitalize">
-                {role}
-              </span>
-            ))
-          ) : (
-            <span className="text-[9px] font-bold bg-success/10 text-success border border-success/20 px-1.5 py-0.5 rounded capitalize">
-              everyone
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: "Actions",
-      accessor: (ch: DbChatChannel) => (
-        <div className="flex items-center justify-end gap-1">
-          {ch.is_protected ? (
-            <span className="text-[10px] font-bold text-text-muted/50 px-2 py-1 bg-surface-800 border border-border/30 rounded-lg flex items-center gap-1 select-none mr-1">
-              <Lock className="w-3 h-3 text-text-muted/30" /> Locked
-            </span>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => handleOpenEdit(ch)}
-                className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer"
-                title="Edit settings"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-              {currentUser?.role === "superadmin" && (
-                <button
-                  type="button"
-                  onClick={() => handleDelete(ch.id)}
-                  className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
-                  title="Delete channel"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      ),
-      className: "text-right",
-    },
-  ];
-
-  const channelFilters = [
-    {
-      label: "Group Category",
-      field: "grouping",
-      options: Array.from(new Set(channels.map(ch => ch.grouping || "General"))).map(group => ({
-        label: group,
-        value: group
-      }))
-    }
-  ];
 
   // No client-side filtering needed as search is executed on the backend now.
 
@@ -685,13 +544,91 @@ export default function ChatManagement() {
             <p className="text-xs text-text-muted">Loading channels...</p>
           </div>
         ) : (
-          <DataTable
-            data={channels}
-            columns={channelColumns}
-            filterGroups={channelFilters}
-            searchPlaceholder="Search chat channels..."
-            emptyStateText="No chat channels configured."
-          />
+          <div className="space-y-6">
+            {uniqueGroupings.map((group) => {
+              const groupChannels = channels.filter(c => (c.grouping || "General Discussions") === group);
+              if (groupChannels.length === 0) return null;
+
+              return (
+                <div key={group} className="space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center justify-between border-b border-border/40 pb-1">
+                    <span>{group} ({groupChannels.length})</span>
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {groupChannels.map((ch, idx) => {
+                      const isFirst = idx === 0;
+                      const isLast = idx === groupChannels.length - 1;
+
+                      return (
+                        <div key={ch.id} className="p-3.5 rounded-xl bg-surface-950/40 border border-border/80 flex items-center justify-between gap-3 hover:border-border transition-all">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="p-2 rounded-lg bg-surface-800 text-text-primary flex-shrink-0">
+                              <ChannelIcon iconName={ch.icon} className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-text-primary flex items-center gap-1.5">
+                                #{ch.slug} <span className="text-text-muted">({ch.name})</span>
+                                {ch.is_protected && (
+                                  <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 py-0.5 rounded uppercase font-bold">
+                                    System
+                                  </span>
+                                )}
+                                {ch.is_archived && (
+                                  <span className="text-[9px] bg-rose-500/10 text-rose-400 border border-rose-500/20 px-1 py-0.5 rounded uppercase font-bold">
+                                    Archived
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-[10px] text-text-muted mt-0.5 truncate max-w-md">{ch.description || "No description provided."}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              disabled={isFirst}
+                              onClick={() => handleMoveChannel(ch.id, "up")}
+                              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors disabled:opacity-20 cursor-pointer"
+                              title="Move Up"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isLast}
+                              onClick={() => handleMoveChannel(ch.id, "down")}
+                              className="p-1 rounded text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors disabled:opacity-20 cursor-pointer"
+                              title="Move Down"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(ch)}
+                              className="p-1 rounded text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer"
+                              title="Edit Channel"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            {currentUser?.role === "superadmin" && !ch.is_protected && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(ch.id)}
+                                className="p-1 rounded text-text-muted hover:text-error hover:bg-white/5 transition-colors cursor-pointer"
+                                title="Delete Channel"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )
       ) : (
         <div className="space-y-4">
@@ -820,22 +757,51 @@ export default function ChatManagement() {
                   />
                 </div>
 
-                <div className="space-y-1.5 col-span-1">
+                <div className="space-y-1.5 col-span-1 relative">
                   <label className="text-xs font-semibold text-text-secondary">Group Category Name *</label>
-                  <input
-                    type="text"
-                    list="grouping-list"
-                    required
-                    value={grouping}
-                    onChange={(e) => setGrouping(e.target.value)}
-                    placeholder="Select grouping or type custom..."
-                    className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
-                  />
-                  <datalist id="grouping-list">
-                    {uniqueGroupings.map((g) => (
-                      <option key={g} value={g} />
-                    ))}
-                  </datalist>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={grouping}
+                      onChange={(e) => {
+                        setGrouping(e.target.value);
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => {
+                        // Delay hide slightly to allow option selection onMouseDown to trigger first
+                        setTimeout(() => setShowDropdown(false), 200);
+                      }}
+                      placeholder="Select grouping or type custom..."
+                      className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all pr-8"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDropdown(!showDropdown)}
+                      className="absolute inset-y-0 right-0 px-2.5 flex items-center text-text-muted hover:text-text-primary cursor-pointer"
+                    >
+                      <span className="text-[10px]">▼</span>
+                    </button>
+                  </div>
+
+                  {showDropdown && (
+                    <div className="absolute z-50 w-full mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-surface-800 shadow-xl scrollbar-thin">
+                      {uniqueGroupings.map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          onMouseDown={() => {
+                            setGrouping(g);
+                            setShowDropdown(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs text-text-primary hover:bg-surface-700 transition-colors cursor-pointer"
+                        >
+                          {g}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
