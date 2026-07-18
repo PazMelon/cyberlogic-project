@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface FullscreenImageViewerProps {
@@ -67,7 +68,7 @@ export function FullscreenImageViewer({
 
   const currentSrc = activeImages[currentIndex];
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       onClick={onClose}
@@ -150,7 +151,8 @@ export function FullscreenImageViewer({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

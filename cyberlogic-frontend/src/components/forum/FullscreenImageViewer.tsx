@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface FullscreenImageViewerProps {
@@ -51,8 +52,8 @@ export function FullscreenImageViewer({
     setIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   };
 
-  return (
-    <div className="fixed inset-0 w-full h-full z-50 flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 w-full h-full z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-md animate-fade-in">
       {/* Top Header Overlay */}
       <div className="absolute top-0 left-0 right-0 h-16 px-6 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent z-50">
         <span className="text-sm font-bold tracking-widest text-text-secondary uppercase">
@@ -111,6 +112,7 @@ export function FullscreenImageViewer({
           </button>
         </>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
