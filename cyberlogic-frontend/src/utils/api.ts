@@ -2808,3 +2808,68 @@ export async function deleteReport(id: number): Promise<{ success: boolean }> {
   }
   return res.json();
 }
+
+/**
+ * Public Contact Message submission wrapper
+ */
+export async function submitContactMessage(data: { name: string; email: string; message: string }): Promise<any> {
+  const res = await apiRequest("/api/contact", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.message || "Failed to send message. Please try again.");
+  }
+  return res.json();
+}
+
+/**
+ * Fetch all contact inbox messages (Admin/Superadmin only)
+ */
+export interface ContactMessageItem {
+  id: number;
+  name: string;
+  email: string;
+  message: string;
+  fingerprint: string | null;
+  status: "unread" | "read" | "archived";
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchContactMessages(): Promise<ContactMessageItem[]> {
+  const res = await apiRequest("/api/admin/contact-messages");
+  if (!res.ok) {
+    throw new Error("Failed to retrieve inbox messages.");
+  }
+  return res.json();
+}
+
+/**
+ * Update message status in admin inbox
+ */
+export async function updateContactMessage(id: number, status: "unread" | "read" | "archived"): Promise<ContactMessageItem> {
+  const res = await apiRequest(`/api/admin/contact-messages/${id}`, {
+    method: "PUT",
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update message status.");
+  }
+  return res.json();
+}
+
+/**
+ * Delete a message from database
+ */
+export async function deleteContactMessage(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/admin/contact-messages/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete contact message.");
+  }
+  return res.json();
+}
+

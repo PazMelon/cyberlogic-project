@@ -75,16 +75,15 @@ export default function Footer() {
   if (settings.connect_instagram) {
     socialLinks.push({ icon: InstagramIcon, label: "Instagram", href: settings.connect_instagram });
   }
-  if (settings.connect_email) {
-    socialLinks.push({ icon: Mail, label: "Email", href: `mailto:${settings.connect_email}` });
-  }
+  // Always add email link dynamically, falling back to support@cyberlogic.pazmelon.com
+  const contactEmail = settings.connect_email || "support@cyberlogic.pazmelon.com";
+  socialLinks.push({ icon: Mail, label: "Email", href: `mailto:${contactEmail}` });
 
-  // Use fallbacks if none are configured in settings
-  if (socialLinks.length === 0) {
-    socialLinks.push(
+  // Use fallbacks for website/source code if no other socials are configured
+  if (socialLinks.length === 1) {
+    socialLinks.unshift(
       { icon: Globe, label: "Website", href: "#" },
-      { icon: Code, label: "Source Code", href: "#" },
-      { icon: Mail, label: "Email", href: "mailto:cyberlogic@university.edu" }
+      { icon: Code, label: "Source Code", href: "#" }
     );
   }
 
@@ -148,7 +147,7 @@ export default function Footer() {
               ))}
             </div>
             <p className="text-sm text-text-muted mt-4">
-              {settings.connect_email || "cyberlogic@university.edu"}
+              {settings.connect_email || "support@cyberlogic.pazmelon.com"}
             </p>
           </div>
         </div>

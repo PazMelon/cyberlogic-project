@@ -49,6 +49,7 @@ import BlogDetail from "./pages/BlogDetail";
 import CreateMemberBlog from "./pages/CreateMemberBlog";
 import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
+import ContactMessages from "./pages/admin/ContactMessages";
 import SearchResults from "./pages/SearchResults";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -497,6 +498,7 @@ function AppRoutes() {
         <Route path="blogs" element={<BlogManagement />} />
         <Route path="blogs/create" element={<CreateBlog />} />
         <Route path="blogs/edit/:id" element={<CreateBlog />} />
+        <Route path="contact-messages" element={<ContactMessages />} />
       </Route>
 
       {/* Portal Routes */}

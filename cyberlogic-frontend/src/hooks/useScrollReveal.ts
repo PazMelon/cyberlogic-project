@@ -16,17 +16,20 @@ export function useScrollReveal() {
         });
       },
       {
-        threshold: 0.1,
-        rootMargin: "0px 0px -50px 0px", // triggers slightly before entering viewport
+        threshold: 0.05, // Lower threshold to make triggering more responsive
+        rootMargin: "0px 0px -20px 0px", // Trigger closer to viewport edge
       }
     );
 
     const observeElements = () => {
-      const elements = document.querySelectorAll(".reveal-element");
-      elements.forEach((el) => {
-        if (!el.classList.contains("revealed")) {
-          observer.observe(el);
-        }
+      // Use requestAnimationFrame to ensure the DOM has been fully laid out/painted
+      requestAnimationFrame(() => {
+        const elements = document.querySelectorAll(".reveal-element");
+        elements.forEach((el) => {
+          if (!el.classList.contains("revealed")) {
+            observer.observe(el);
+          }
+        });
       });
     };
 

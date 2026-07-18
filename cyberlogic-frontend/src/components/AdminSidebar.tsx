@@ -18,6 +18,7 @@ import {
   KeyRound,
   Flag,
   Shield,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -57,6 +58,7 @@ const adminNavSections: NavSection[] = [
       { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
       { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },
       { icon: BookOpen, label: "Resources", path: "/admin/resources", permission: "manage_resources" },
+      { icon: Mail, label: "Contact Inbox", path: "/admin/contact-messages", permission: "manage_settings" },
     ],
   },
   {

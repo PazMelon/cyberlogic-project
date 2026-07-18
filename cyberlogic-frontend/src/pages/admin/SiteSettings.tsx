@@ -51,6 +51,8 @@ export default function SiteSettings() {
   const [connectTwitter, setConnectTwitter] = useState("");
   const [connectInstagram, setConnectInstagram] = useState("");
   const [connectEmail, setConnectEmail] = useState("");
+  const [connectAddress, setConnectAddress] = useState("");
+  const [connectPhone, setConnectPhone] = useState("");
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -66,6 +68,8 @@ export default function SiteSettings() {
           setConnectTwitter(settings.connect_twitter || "");
           setConnectInstagram(settings.connect_instagram || "");
           setConnectEmail(settings.connect_email || "");
+          setConnectAddress(settings.connect_address || "");
+          setConnectPhone(settings.connect_phone || "");
         }
       } catch (err) {
         console.error("Failed to load site settings:", err);
@@ -109,6 +113,8 @@ export default function SiteSettings() {
         connect_twitter: connectTwitter,
         connect_instagram: connectInstagram,
         connect_email: connectEmail,
+        connect_address: connectAddress,
+        connect_phone: connectPhone,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -310,13 +316,35 @@ export default function SiteSettings() {
                     />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1.5">Contact Email Address</label>
+                    <input
+                      type="email"
+                      value={connectEmail}
+                      onChange={(e) => { setConnectEmail(e.target.value); setSaved(false); }}
+                      placeholder="support@cyberlogic.pazmelon.com"
+                      className="w-full bg-surface-900 border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-text-secondary mb-1.5">Contact Phone Number</label>
+                    <input
+                      type="text"
+                      value={connectPhone}
+                      onChange={(e) => { setConnectPhone(e.target.value); setSaved(false); }}
+                      placeholder="+63 912 345 6789"
+                      className="w-full bg-surface-900 border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary transition-colors"
+                    />
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1.5">Contact Email Address</label>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1.5">Office / Location Address</label>
                   <input
-                    type="email"
-                    value={connectEmail}
-                    onChange={(e) => { setConnectEmail(e.target.value); setSaved(false); }}
-                    placeholder="cyberlogic@university.edu"
+                    type="text"
+                    value={connectAddress}
+                    onChange={(e) => { setConnectAddress(e.target.value); setSaved(false); }}
+                    placeholder="Room 301, Building A, University Campus"
                     className="w-full bg-surface-900 border border-border rounded-xl px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>

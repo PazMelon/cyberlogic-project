@@ -21,6 +21,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileShowcaseController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ContactMessageController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -39,6 +40,7 @@ Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
 Route::get('/api/club-stats', [SiteSettingController::class, 'getClubStats']);
 Route::get('/api/officers', [OfficerController::class, 'index']);
 Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
+Route::post('/api/contact', [ContactMessageController::class, 'store']);
 
 Route::post('/api/internal/chat/messages/moderate', [ChatController::class, 'moderateMessage']);
 Route::post('/api/internal/chat/messages/moderate-batch', [ChatController::class, 'moderateBatchMessages']);
@@ -70,6 +72,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/user/profile', [AuthController::class, 'updateProfile']);
     Route::put('/api/user/password', [AuthController::class, 'updatePassword']);
     Route::post('/api/user/avatar', [AuthController::class, 'uploadAvatar']);
+
+    // Contact Messages admin endpoints
+    Route::get('/api/admin/contact-messages', [ContactMessageController::class, 'index']);
+    Route::put('/api/admin/contact-messages/{id}', [ContactMessageController::class, 'update']);
+    Route::delete('/api/admin/contact-messages/{id}', [ContactMessageController::class, 'destroy']);
 
     // Directory endpoints
     Route::get('/api/directory', [DirectoryController::class, 'index']);

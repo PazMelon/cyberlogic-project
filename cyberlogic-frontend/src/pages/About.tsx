@@ -12,7 +12,8 @@ import {
   Phone,
   Shield,
 } from "lucide-react";
-import { fetchSiteSettings, fetchOfficers } from "../utils/api";
+import { fetchSiteSettings, fetchOfficers, submitContactMessage } from "../utils/api";
+import { useDialog } from "../utils/useDialog";
 import { useSEO } from "../utils/useSEO";
 
 const defaultHistory = [
@@ -58,6 +59,14 @@ export default function About() {
   const [history, setHistory] = useState<typeof defaultHistory>([]);
   const [officers, setOfficers] = useState<any[]>([]);
 
+  const [email, setEmail] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const { showAlert } = useDialog();
+
   useSEO({
     title: "About Us & Club History",
     description: `About Cyberlogic Club: Mission: ${mission}. Vision: ${vision}. Values: ${values}`,
@@ -82,6 +91,9 @@ export default function About() {
           if (settings.about_mission) setMission(settings.about_mission);
           if (settings.about_vision) setVision(settings.about_vision);
           if (settings.about_values) setValues(settings.about_values);
+          setEmail(settings.connect_email || "");
+          setAddress(settings.connect_address || "");
+          setPhone(settings.connect_phone || "");
           if (settings.about_history) {
             try {
               setHistory(JSON.parse(settings.about_history));
@@ -108,6 +120,37 @@ export default function About() {
     };
     loadPageData();
   }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.message) {
+      showAlert({
+        title: "Missing Fields",
+        message: "Please fill in all form fields before sending.",
+        type: "error",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await submitContactMessage(formData);
+      showAlert({
+        title: "Message Sent!",
+        message: response.message || "Thank you! Your message has been received.",
+        type: "success",
+      });
+      setFormData({ name: "", email: "", message: "" });
+    } catch (err: any) {
+      showAlert({
+        title: "Submission Failed",
+        message: err.message || "An error occurred while sending your message. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const getVisibleCount = () => {
     if (windowWidth < 640) return 1;
@@ -320,6 +363,48 @@ export default function About() {
                               {member.bio || "No biography details configured for this profile."}
                             </p>
                           </div>
+                          {(member.email || member.github || member.linkedin) && (
+                            <div className="pt-3 mt-4 border-t border-border/30 flex items-center justify-center gap-3">
+                              {member.email && (
+                                <a
+                                  href={`mailto:${member.email}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-8 h-8 rounded-lg bg-surface-800 border border-border flex items-center justify-center text-text-muted hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all duration-200"
+                                  aria-label="Email"
+                                >
+                                  <Mail className="w-4 h-4" />
+                                </a>
+                              )}
+                              {member.github && (
+                                <a
+                                  href={member.github.startsWith("http") ? member.github : `https://${member.github}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-8 h-8 rounded-lg bg-surface-800 border border-border flex items-center justify-center text-text-muted hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all duration-200"
+                                  aria-label="GitHub"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                                  </svg>
+                                </a>
+                              )}
+                              {member.linkedin && (
+                                <a
+                                  href={member.linkedin.startsWith("http") ? member.linkedin : `https://${member.linkedin}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-8 h-8 rounded-lg bg-surface-800 border border-border flex items-center justify-center text-text-muted hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all duration-200"
+                                  aria-label="LinkedIn"
+                                >
+                                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                                  </svg>
+                                </a>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </Link>
                     </div>
@@ -378,49 +463,68 @@ export default function About() {
                 event? We&apos;d love to hear from you.
               </p>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-text-muted">
-                  <Mail className="w-4 h-4 text-primary" />
-                  cyberlogic@university.edu
-                </div>
-                <div className="flex items-center gap-3 text-sm text-text-muted">
-                  <MapPin className="w-4 h-4 text-primary" />
-                  Room 301, Building A, University Campus
-                </div>
-                <div className="flex items-center gap-3 text-sm text-text-muted">
-                  <Phone className="w-4 h-4 text-primary" />
-                  +63 912 345 6789
-                </div>
+                {email && (
+                  <div className="flex items-center gap-3 text-sm text-text-muted">
+                    <Mail className="w-4 h-4 text-primary" />
+                    {email}
+                  </div>
+                )}
+                {address && (
+                  <div className="flex items-center gap-3 text-sm text-text-muted">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    {address}
+                  </div>
+                )}
+                {phone && (
+                  <div className="flex items-center gap-3 text-sm text-text-muted">
+                    <Phone className="w-4 h-4 text-primary" />
+                    {phone}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Contact Form (non-functional) */}
-            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+            {/* Contact Form */}
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
                 <input
                   type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="Your name"
-                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all disabled:opacity-50"
+                  required
                 />
               </div>
               <div>
                 <input
                   type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                   placeholder="Your email"
-                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all disabled:opacity-50"
+                  required
                 />
               </div>
               <div>
                 <textarea
                   rows={4}
+                  value={formData.message}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, message: e.target.value }))}
                   placeholder="Your message"
-                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none"
+                  disabled={submitting}
+                  className="w-full px-4 py-3 rounded-xl bg-surface-800 border border-border text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all resize-none disabled:opacity-50"
+                  required
                 />
               </div>
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                disabled={submitting}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-sm hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Send Message <ArrowRight className="w-4 h-4" />
+                {submitting ? "Sending..." : "Send Message"} <ArrowRight className="w-4 h-4" />
               </button>
             </form>
           </div>

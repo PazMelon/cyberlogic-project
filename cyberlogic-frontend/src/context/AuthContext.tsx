@@ -89,6 +89,16 @@ export async function apiRequest(url: string, options: RequestInit = {}) {
     headers.set("X-CSRF-TOKEN", csrf);
   }
 
+  // Get or create unique browser fingerprint for rate-limiting
+  if (typeof window !== "undefined") {
+    let fp = localStorage.getItem("cyberlogic_contact_fingerprint");
+    if (!fp) {
+      fp = "fp_" + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem("cyberlogic_contact_fingerprint", fp);
+    }
+    headers.set("X-Client-Fingerprint", fp);
+  }
+
   const response = await fetch(url, {
     ...options,
     headers,

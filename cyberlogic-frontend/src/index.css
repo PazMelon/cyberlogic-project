@@ -1184,5 +1184,5 @@ input[type="datetime-local"] {
 
 /* Custom reveal duration */
 .reveal-duration-2s {
-  transition-duration: 2s !important;
+  transition: opacity 2s cubic-bezier(0.16, 1, 0.3, 1), transform 2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
