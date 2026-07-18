@@ -525,8 +525,8 @@ export default function Topbar() {
 
             {/* Mobile Logo */}
             <Link to="/app" className="lg:hidden flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <Shield className="w-3.5 h-3.5 text-white" />
+              <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                <img src="/icons.svg" alt="Cyberlogic" className="w-6 h-6 object-contain" />
               </div>
               <span className="text-sm font-bold font-[family-name:var(--font-heading)]">
                 <span className="text-gradient">Cyber</span><span className="text-text-primary">logic</span>
@@ -843,11 +843,8 @@ export default function Topbar() {
                 className="flex items-center gap-2"
                 onClick={() => setShowMobileMenu(false)}
               >
-                <div
-                  className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${isAdminRoute ? "from-amber-500 to-orange-600" : "from-primary to-accent"
-                    }`}
-                >
-                  <Shield className="w-4 h-4 text-white" />
+                <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                  <img src="/icons.svg" alt="Cyberlogic" className="w-7 h-7 object-contain" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-bold font-[family-name:var(--font-heading)] tracking-tight text-text-primary">

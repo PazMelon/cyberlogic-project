@@ -40,9 +40,7 @@ export default function Login() {
         <div className="relative z-10 max-w-md px-12 text-center">
           {/* Logo */}
           <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
-              <Shield className="w-7 h-7 text-white" />
-            </div>
+            <img src="/icons.svg" alt="Cyberlogic" className="w-14 h-14 object-contain animate-float" />
           </div>
           <h2 className="text-3xl font-bold font-[family-name:var(--font-heading)] text-text-primary mb-4">
             <span className="text-gradient">Cyber</span>logic Club
@@ -90,9 +88,7 @@ export default function Login() {
 
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center gap-2 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <img src="/icons.svg" alt="Cyberlogic" className="w-9 h-9 object-contain" />
             <span className="text-xl font-bold font-[family-name:var(--font-heading)]">
               <span className="text-gradient">Cyber</span><span className="text-text-primary">logic</span>
             </span>

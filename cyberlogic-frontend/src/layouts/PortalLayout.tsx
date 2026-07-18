@@ -1,6 +1,6 @@
 import { Outlet, Link, useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import { Shield, LogOut, LayoutDashboard } from "lucide-react";
+import { LogOut, LayoutDashboard } from "lucide-react";
 
 export default function PortalLayout() {
   const { user, logout } = useAuth();
@@ -27,7 +27,7 @@ export default function PortalLayout() {
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2 group">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-md shadow-primary/15 group-hover:scale-105 transition-transform">
-              <Shield className="w-5 h-5 text-white" />
+              <img src="/icons.svg" alt="Cyberlogic" className="w-6 h-6 object-contain" />
             </div>
             <span className="font-bold font-[family-name:var(--font-heading)] text-lg tracking-tight hidden sm:inline">
               <span className="text-gradient">Cyber</span>logic Portal

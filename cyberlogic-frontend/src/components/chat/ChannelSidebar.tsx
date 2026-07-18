@@ -236,7 +236,7 @@ export default function ChannelSidebar({
                         : "text-text-muted hover:text-text-primary hover:bg-white/5"
                     }`}
                   >
-                    {ch.type === "dm" ? (
+                    {ch.type === "dm" || ch.grouping === "Direct Messages" ? (
                       ch.icon && ch.icon.startsWith("http") ? (
                         <img src={ch.icon} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                       ) : (
@@ -245,7 +245,7 @@ export default function ChannelSidebar({
                           className="w-5 h-5 rounded-full object-cover flex-shrink-0" 
                         />
                       )
-                    ) : ch.type === "group" && ch.allowed_roles === null ? (
+                    ) : ch.type === "group" && (ch.grouping === "Group Chats" || !ch.allowed_roles || ch.allowed_roles.length === 0) ? (
                       // Group Chat letters avatar
                       <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 select-none">
                         {ch.name.charAt(0).toUpperCase()}

@@ -303,7 +303,23 @@ export default function ChatHeader({
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Hash className="w-5 h-5 text-text-muted flex-shrink-0" />
+          {activeChannelData?.type === "dm" || activeChannelData?.grouping === "Direct Messages" ? (
+            activeChannelData?.icon && activeChannelData.icon.startsWith("http") ? (
+              <img src={activeChannelData.icon} className="w-5 h-5 rounded-full object-cover flex-shrink-0" alt="" />
+            ) : (
+              <img 
+                src={`https://api.dicebear.com/9.x/avataaars/svg?seed=${activeChannelData?.name}`} 
+                className="w-5 h-5 rounded-full object-cover flex-shrink-0" 
+                alt=""
+              />
+            )
+          ) : activeChannelData?.type === "group" && (activeChannelData.grouping === "Group Chats" || !activeChannelData.allowed_roles || activeChannelData.allowed_roles.length === 0) ? (
+            <div className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center flex-shrink-0 select-none">
+              {activeChannelData?.name.charAt(0).toUpperCase()}
+            </div>
+          ) : (
+            <Hash className="w-5 h-5 text-text-muted flex-shrink-0" />
+          )}
           <h3 className="text-sm font-semibold text-text-primary truncate">
             {activeChannelData?.name || "Loading..."}
           </h3>

@@ -98,7 +98,7 @@ class ChatController extends Controller
             if ($channel->type === 'dm') {
                 $otherUser = $channel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
                 $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
-                $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+                $channel->icon = $otherUser->avatar;
                 $channel->description = "Direct message with " . $otherUser->first_name;
             } elseif ($channel->type === 'group' && $channel->allowed_roles === null) {
                 $memberNames = $channel->members->pluck('first_name')->toArray();
@@ -958,7 +958,7 @@ class ChatController extends Controller
                 }
             }
             $existingChannel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
-            $existingChannel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+            $existingChannel->icon = $otherUser->avatar;
             $existingChannel->description = "Direct message with " . $otherUser->first_name;
             return response()->json($existingChannel);
         }
@@ -990,7 +990,7 @@ class ChatController extends Controller
             }
         }
         $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
-        $channel->icon = $otherUser->avatar_path ? asset('storage/' . $otherUser->avatar_path) : 'avatar';
+        $channel->icon = $otherUser->avatar;
         $channel->description = "Direct message with " . $otherUser->first_name;
 
         // Broadcast realtime new channel update to recipient
@@ -1002,7 +1002,7 @@ class ChatController extends Controller
                 'slug' => $channel->slug,
                 'description' => "Direct message with " . $user->first_name,
                 'type' => $channel->type,
-                'icon' => $user->avatar_path ? asset('storage/' . $user->avatar_path) : 'avatar',
+                'icon' => $user->avatar,
                 'grouping' => $channel->grouping,
                 'is_protected' => $channel->is_protected,
                 'is_archived' => $channel->is_archived,
