@@ -71,7 +71,7 @@ export function FullscreenImageViewer({
     <div
       ref={overlayRef}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-dialog-backdrop cursor-pointer"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-4 bg-black/95 backdrop-blur-md animate-dialog-backdrop cursor-pointer"
     >
       {/* Top Close Button */}
       <button
