@@ -28,7 +28,7 @@ export function AnnouncementCard({
 }: AnnouncementCardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const isPortal = location.pathname.startsWith("/app");
+  const isPortal = location.pathname.startsWith("/app") || location.pathname.startsWith("/admin");
   const detailUrl = isPortal ? `/app/announcements/${announcement.id}` : `/announcements/${announcement.id}`;
 
   const categoryVariants: Record<string, "primary" | "accent" | "success" | "warning" | "error" | "info" | "neutral"> = {
@@ -65,8 +65,10 @@ export function AnnouncementCard({
     );
   }
 
-  // Animation delay classes
-  const delayClasses = index === 0 
+  // Animation delay classes (disabled in portal/admin views to prevent hidden elements bugs)
+  const delayClasses = isPortal
+    ? ""
+    : index === 0 
     ? "reveal-element reveal-fade-in-up" 
     : index === 1 
     ? "reveal-element reveal-fade-in-up reveal-delay-100" 

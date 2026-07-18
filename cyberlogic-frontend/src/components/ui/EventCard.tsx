@@ -24,10 +24,12 @@ interface EventCardProps {
 
 export function EventCard({ event, layout = "default", index = 0 }: EventCardProps) {
   const location = useLocation();
-  const isPortal = location.pathname.startsWith("/app");
+  const isPortal = location.pathname.startsWith("/app") || location.pathname.startsWith("/admin");
   const detailUrl = isPortal ? `/app/events/${event.id}` : `/events/${event.id}`;
 
-  const delayClasses = index === 0
+  const delayClasses = isPortal
+    ? ""
+    : index === 0
     ? "reveal-element reveal-fade-in-up"
     : index === 1
     ? "reveal-element reveal-fade-in-up reveal-delay-100"

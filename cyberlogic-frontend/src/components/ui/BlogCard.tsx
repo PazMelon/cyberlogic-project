@@ -19,7 +19,7 @@ export function BlogCard({ blog, index = 0, onRefresh }: BlogCardProps) {
   const { showConfirm, showAlert } = useDialog();
   const navigate = useNavigate();
   const location = useLocation();
-  const isPortal = location.pathname.startsWith("/app");
+  const isPortal = location.pathname.startsWith("/app") || location.pathname.startsWith("/admin");
   const detailUrl = isPortal ? `/app/blogs/${blog.id}` : `/blogs/${blog.id}`;
 
   const categoryVariants: Record<string, "primary" | "accent" | "success" | "warning" | "error" | "info" | "neutral"> = {
@@ -33,8 +33,10 @@ export function BlogCard({ blog, index = 0, onRefresh }: BlogCardProps) {
 
   const selectedVariant = categoryVariants[blog.category] || "neutral";
 
-  // Animation delay classes
-  const delayClasses = index === 0 
+  // Animation delay classes (disabled in portal/admin layout to prevent empty space bugs)
+  const delayClasses = isPortal
+    ? ""
+    : index === 0 
     ? "reveal-element reveal-fade-in-up" 
     : index === 1 
     ? "reveal-element reveal-fade-in-up reveal-delay-100" 
