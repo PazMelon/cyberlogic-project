@@ -19,6 +19,7 @@ import { useDialog } from "../utils/useDialog";
 import type { Event } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
+import { SkeletonEventCard } from "../components/Skeleton";
 
 const eventTypes = ["All", "Workshop", "Seminar", "Competition", "Social", "Meeting"] as const;
 const statusFilters = ["All", "Upcoming", "Ongoing", "Completed", "Closed", "Postponed"] as const;
@@ -235,9 +236,11 @@ export default function Events() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-3 animate-fadeIn">
-            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-xs text-text-muted">Loading events...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonEventCard />
+            <SkeletonEventCard />
+            <SkeletonEventCard />
+            <SkeletonEventCard />
           </div>
         ) : error ? (
           <div className="text-center py-16">

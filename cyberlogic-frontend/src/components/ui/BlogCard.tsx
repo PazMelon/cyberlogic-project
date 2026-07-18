@@ -35,10 +35,10 @@ export function BlogCard({ blog, index = 0, onRefresh }: BlogCardProps) {
 
   // Animation delay classes
   const delayClasses = index === 0 
-    ? "animate-fade-in-up" 
+    ? "reveal-element reveal-fade-in-up" 
     : index === 1 
-    ? "animate-fade-in-up delay-100" 
-    : "animate-fade-in-up delay-200";
+    ? "reveal-element reveal-fade-in-up reveal-delay-100" 
+    : "reveal-element reveal-fade-in-up reveal-delay-200";
 
   // Fallback image seed parser
   const resolveCoverImage = (url?: string) => {

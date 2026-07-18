@@ -39,7 +39,7 @@ export function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
     <section className="py-20 lg:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-end justify-between mb-12">
+        <div className="flex items-end justify-between mb-12 reveal-element reveal-fade-in-up">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-success">
               Learn & Grow
@@ -71,11 +71,19 @@ export function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
               ))}
             </>
           ) : featured.length > 0 ? (
-            featured.map((resource) => (
-              <div
-                key={resource.id}
-                className="glass rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group flex flex-col justify-between"
-              >
+            featured.map((resource, idx) => {
+              const delayClass = idx === 0
+                ? "reveal-element reveal-fade-in-up"
+                : idx === 1
+                ? "reveal-element reveal-fade-in-up reveal-delay-100"
+                : idx === 2
+                ? "reveal-element reveal-fade-in-up reveal-delay-200"
+                : "reveal-element reveal-fade-in-up reveal-delay-300";
+              return (
+                <div
+                  key={resource.id}
+                  className={`glass rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 group flex flex-col justify-between ${delayClass}`}
+                >
                 <div>
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-4 group-hover:bg-primary/20 transition-colors">
                     {iconMap[resource.icon] || <BookOpen className="w-5 h-5" />}
@@ -102,7 +110,8 @@ export function ResourcesHighlight({ isLoading }: { isLoading: boolean }) {
                   </Link>
                 </div>
               </div>
-            ))
+            );
+          })
           ) : (
             <div className="col-span-1 sm:col-span-2 lg:col-span-4 glass rounded-2xl p-8 border border-border/80 bg-surface-900/20 text-center space-y-4 max-w-lg mx-auto animate-fadeIn relative overflow-hidden group">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 opacity-50" />

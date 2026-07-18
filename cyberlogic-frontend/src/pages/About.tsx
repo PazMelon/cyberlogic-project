@@ -139,7 +139,7 @@ export default function About() {
         </div>
 
         {/* Hero */}
-        <div className="text-center mb-20">
+        <div className="text-center mb-20 reveal-element reveal-fade-in-up">
           <h1 className="text-4xl lg:text-5xl font-bold font-[family-name:var(--font-heading)] text-text-primary mb-4">
             About{" "}
             <span className="text-gradient">Cyberlogic Club</span>
@@ -174,11 +174,17 @@ export default function About() {
               color: "text-success",
               bgColor: "bg-success/10",
             },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="glass rounded-2xl p-8 text-center hover:border-primary/20 transition-all duration-300 group"
-            >
+          ].map((item, idx) => {
+            const delayClass = idx === 0 
+              ? "reveal-element reveal-fade-in-up" 
+              : idx === 1 
+              ? "reveal-element reveal-fade-in-up reveal-delay-100" 
+              : "reveal-element reveal-fade-in-up reveal-delay-200";
+            return (
+              <div
+                key={item.title}
+                className={`glass rounded-2xl p-8 text-center hover:border-primary/20 transition-all duration-300 group ${delayClass}`}
+              >
               <div
                 className={`w-14 h-14 rounded-xl ${item.bgColor} flex items-center justify-center ${item.color} mx-auto mb-5 group-hover:scale-110 transition-transform`}
               >
@@ -191,12 +197,13 @@ export default function About() {
                 {item.description}
               </p>
             </div>
-          ))}
+          );
+        })}
         </div>
 
         {/* History Timeline */}
         <div className="mb-20">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 reveal-element reveal-fade-in-up">
             <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               Our Journey
             </span>
@@ -209,13 +216,15 @@ export default function About() {
             {/* Timeline line */}
             <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-border" />
 
-            {history.map((event, idx) => (
-              <div
-                key={event.year}
-                className={`relative flex items-start gap-6 mb-10 ${
-                  idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
-                }`}
-              >
+            {history.map((event, idx) => {
+              const revealDir = idx % 2 === 0 ? "reveal-slide-in-left" : "reveal-slide-in-right";
+              return (
+                <div
+                  key={`${event.year}-${idx}`}
+                  className={`relative flex items-start gap-6 mb-10 reveal-element reveal-duration-2s ${revealDir} ${
+                    idx % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
+                  }`}
+                >
                 {/* Dot */}
                 <div className="absolute left-4 md:left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-primary ring-4 ring-surface-950 z-10" />
 
@@ -232,13 +241,14 @@ export default function About() {
                   <p className="text-sm text-text-muted">{event.desc}</p>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
 
         {/* Team */}
         <div className="mb-20">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 reveal-element reveal-fade-in-up">
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">
               The People
             </span>
@@ -247,7 +257,7 @@ export default function About() {
             </h2>
           </div>
           {officers.length > 0 ? (
-            <div className="relative max-w-6xl mx-auto px-4 md:px-12">
+            <div className="relative max-w-6xl mx-auto px-4 md:px-12 reveal-element reveal-zoom-in">
               {/* Arrows */}
               <button
                 onClick={handlePrev}

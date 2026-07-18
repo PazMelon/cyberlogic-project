@@ -28,6 +28,7 @@ import {
 } from "../utils/api";
 import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
+import { SkeletonResourceCard } from "../components/Skeleton";
 
 const categories = ["All", "Tutorials", "Documents", "Tools", "Links"] as const;
 
@@ -220,20 +221,8 @@ export default function Resources() {
         {/* Resource Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {isLoading ? (
-            [1, 2, 3].map((i) => (
-              <div key={i} className="glass rounded-2xl p-6 animate-pulse space-y-4">
-                <div className="flex justify-between items-start">
-                  <div className="w-12 h-12 rounded-xl bg-surface-800" />
-                  <div className="w-16 h-5 rounded bg-surface-800" />
-                </div>
-                <div className="w-3/4 h-5 rounded bg-surface-800" />
-                <div className="w-full h-4 rounded bg-surface-800" />
-                <div className="w-full h-4 rounded bg-surface-800" />
-                <div className="pt-4 border-t border-border flex justify-between">
-                  <div className="w-20 h-4 rounded bg-surface-800" />
-                  <div className="w-12 h-4 rounded bg-surface-800" />
-                </div>
-              </div>
+            Array.from({ length: 6 }).map((_, idx) => (
+              <SkeletonResourceCard key={idx} />
             ))
           ) : (
             filtered.map((resource) => (

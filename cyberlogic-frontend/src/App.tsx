@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
 import { useEffect, useState } from "react";
 import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -521,12 +521,23 @@ function AppRoutes() {
   );
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <DialogProvider>
       <AuthProvider>
         <WebSocketProvider>
           <BrowserRouter>
+            <ScrollToTop />
             <AppRoutes />
           </BrowserRouter>
         </WebSocketProvider>

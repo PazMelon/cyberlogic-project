@@ -35,7 +35,7 @@ export function BlogPreview({ isLoading }: { isLoading: boolean }) {
     <section className="py-20 lg:py-28 bg-surface-900/40 border-y border-border/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-end justify-between mb-12">
+        <div className="flex items-end justify-between mb-12 reveal-element reveal-fade-in-up">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               Read Our Thoughts

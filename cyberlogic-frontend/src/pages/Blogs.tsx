@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router";
 import { ChevronRight, Search, Filter, Plus } from "lucide-react";
 import { fetchBlogs, fetchMyBlogs } from "../utils/api";
 import { BlogCard } from "../components/ui";
-import { SkeletonCard } from "../components/Skeleton";
+import { SkeletonBlogCard } from "../components/Skeleton";
 import type { BlogPost } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
@@ -163,7 +163,7 @@ export default function Blogs() {
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, idx) => (
-              <SkeletonCard key={idx} />
+              <SkeletonBlogCard key={idx} />
             ))}
           </div>
         ) : filteredBlogs.length === 0 ? (

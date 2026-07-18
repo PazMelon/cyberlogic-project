@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Shield, Globe, Code, Mail } from "lucide-react";
+import { Globe, Code, Mail } from "lucide-react";
 import { fetchSiteSettings } from "../utils/api";
 
 const quickLinks = [
@@ -94,11 +94,11 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-16">
           {/* Brand */}
           <div className="space-y-4">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                <Shield className="w-5 h-5 text-white" />
+            <Link to="/" className="flex items-center gap-4">
+              <div className="w-20 h-20 flex items-center justify-center">
+                <img src="/icons.svg" alt="Cyberlogic" className="w-18 h-18 object-contain" />
               </div>
-              <span className="text-xl font-bold font-[family-name:var(--font-heading)] tracking-tight">
+              <span className="text-4xl font-bold font-[family-name:var(--font-heading)] tracking-tight">
                 <span className="text-gradient">Cyber</span>
                 <span className="text-text-primary">logic</span>
               </span>

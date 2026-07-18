@@ -66,7 +66,11 @@ export function AnnouncementCard({
   }
 
   // Animation delay classes
-  const delayClasses = index === 0 ? "animate-fade-in-up" : index === 1 ? "animate-fade-in-up delay-100" : "animate-fade-in-up delay-200";
+  const delayClasses = index === 0 
+    ? "reveal-element reveal-fade-in-up" 
+    : index === 1 
+    ? "reveal-element reveal-fade-in-up reveal-delay-100" 
+    : "reveal-element reveal-fade-in-up reveal-delay-200";
 
   return (
     <Link to={detailUrl} className="block h-full group">

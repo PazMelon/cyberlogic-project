@@ -20,6 +20,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'api/internal/chat/messages/moderate',
             'api/internal/chat/messages/moderate-batch',
         ]);
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return null;
+            }
+            return '/login';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -35,7 +35,7 @@ export function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
     <section className="py-20 lg:py-28 bg-surface-900/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex items-end justify-between mb-12">
+        <div className="flex items-end justify-between mb-12 reveal-element reveal-fade-in-up">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-accent">
               Don&apos;t Miss Out
@@ -68,8 +68,8 @@ export function UpcomingEvents({ isLoading }: { isLoading: boolean }) {
               ))}
             </>
           ) : upcoming.length > 0 ? (
-            upcoming.map((event) => (
-              <EventCard key={event.id} event={event} />
+            upcoming.map((event, idx) => (
+              <EventCard key={event.id} event={event} index={idx} />
             ))
           ) : (
             <div className="col-span-1 md:col-span-2 glass rounded-2xl p-8 border border-border/80 bg-surface-900/20 text-center space-y-4 max-w-lg mx-auto animate-fadeIn relative overflow-hidden group">

@@ -48,7 +48,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
     <section className="py-20 lg:py-28 bg-surface-900/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 text-left gap-4">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 text-left gap-4 reveal-element reveal-fade-in-up">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-primary">
               About Our Team
@@ -95,7 +95,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
         ) : officers.length > 0 && activeOfficer ? (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch text-left">
             {/* Active Details Showcase (8 cols) */}
-            <div className="lg:col-span-8 glass rounded-3xl p-6 sm:p-8 border border-border/80 relative overflow-hidden flex flex-col md:flex-row gap-6 sm:gap-8 items-center md:items-start group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+            <div className="lg:col-span-8 glass rounded-3xl p-6 sm:p-8 border border-border/80 relative overflow-hidden flex flex-col md:flex-row gap-6 sm:gap-8 items-center md:items-start group transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 reveal-element reveal-slide-in-left">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] pointer-events-none" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-[80px] pointer-events-none" />
               
@@ -191,7 +191,7 @@ export function AboutPreview({ isLoading }: { isLoading: boolean }) {
             </div>
 
             {/* Selection Column (4 cols) */}
-            <div className="lg:col-span-4 flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1 select-none">
+            <div className="lg:col-span-4 flex flex-col gap-3 max-h-[380px] overflow-y-auto pr-1 select-none reveal-element reveal-slide-in-right">
               {officers.map((officer) => {
                 const isActive = activeOfficer.id === officer.id;
                 return (

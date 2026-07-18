@@ -3,7 +3,6 @@ import { Link, useLocation } from "react-router";
 import {
   Menu,
   X,
-  Shield,
   Home,
   Bell,
   BookOpen,
@@ -64,8 +63,8 @@ export default function Navbar() {
           <div className="flex items-center justify-between h-16 lg:h-20">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center group-hover:shadow-lg group-hover:shadow-primary/30 transition-shadow duration-300">
-                <Shield className="w-5 h-5 text-white" />
+              <div className="w-9 h-9 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <img src="/icons.svg" alt="Cyberlogic" className="w-8 h-8 object-contain" />
               </div>
               <span className="text-xl font-bold font-[family-name:var(--font-heading)] tracking-tight">
                 <span className="text-gradient">Cyber</span>
@@ -146,8 +145,8 @@ export default function Navbar() {
           {/* Drawer Header */}
           <div className="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
             <Link to="/" className="flex items-center gap-2" onClick={() => setIsOpen(false)}>
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
-                <Shield className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                <img src="/icons.svg" alt="Cyberlogic" className="w-7 h-7 object-contain" />
               </div>
               <span className="text-lg font-bold font-[family-name:var(--font-heading)] tracking-tight">
                 <span className="text-gradient">Cyber</span>

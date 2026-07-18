@@ -8,7 +8,7 @@ export function CTABanner() {
       <div className="absolute top-0 left-1/4 w-72 h-72 bg-primary/8 rounded-full blur-[100px]" />
       <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-accent/8 rounded-full blur-[100px]" />
 
-      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 text-center reveal-element reveal-zoom-in">
         <h2 className="text-3xl lg:text-5xl font-bold font-[family-name:var(--font-heading)] text-text-primary mb-4">
           Ready to{" "}
           <span className="text-gradient">Level Up</span>?

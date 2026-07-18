@@ -1129,3 +1129,60 @@ input[type="datetime-local"] {
 .animate-fadeIn {
   animation: fadeIn 0.2s ease-out forwards;
 }
+
+/* ============================================
+   GLOBAL SCROLL REVEAL UTILITIES
+   ============================================ */
+.reveal-element {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+}
+
+.reveal-fade-in-up {
+  transform: translateY(30px);
+}
+
+.reveal-slide-in-left {
+  transform: translateX(-40px);
+}
+
+.reveal-slide-in-right {
+  transform: translateX(40px);
+}
+
+.reveal-zoom-in {
+  transform: scale(0.95);
+}
+
+/* Active class applied by observer when entering viewport */
+.reveal-element.revealed {
+  opacity: 1;
+  transform: translateY(0) translateX(0) scale(1);
+}
+
+/* Staggered transitions delays */
+.reveal-delay-100 {
+  transition-delay: 0.1s;
+}
+
+.reveal-delay-200 {
+  transition-delay: 0.2s;
+}
+
+.reveal-delay-300 {
+  transition-delay: 0.3s;
+}
+
+.reveal-delay-400 {
+  transition-delay: 0.4s;
+}
+
+.reveal-delay-500 {
+  transition-delay: 0.5s;
+}
+
+/* Custom reveal duration */
+.reveal-duration-2s {
+  transition-duration: 2s !important;
+}

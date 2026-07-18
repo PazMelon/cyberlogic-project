@@ -19,12 +19,21 @@ interface ClubEvent {
 interface EventCardProps {
   event: ClubEvent;
   layout?: "default" | "compact";
+  index?: number;
 }
 
-export function EventCard({ event, layout = "default" }: EventCardProps) {
+export function EventCard({ event, layout = "default", index = 0 }: EventCardProps) {
   const location = useLocation();
   const isPortal = location.pathname.startsWith("/app");
   const detailUrl = isPortal ? `/app/events/${event.id}` : `/events/${event.id}`;
+
+  const delayClasses = index === 0
+    ? "reveal-element reveal-fade-in-up"
+    : index === 1
+    ? "reveal-element reveal-fade-in-up reveal-delay-100"
+    : index === 2
+    ? "reveal-element reveal-fade-in-up reveal-delay-200"
+    : "reveal-element reveal-fade-in-up reveal-delay-300";
 
   const eventDate = new Date(event.date);
   const month = eventDate.toLocaleString("default", { month: "short" });
@@ -73,7 +82,7 @@ export function EventCard({ event, layout = "default" }: EventCardProps) {
 
   return (
     <Link to={detailUrl} className="block text-inherit hover:no-underline">
-      <Card hoverEffect={!isEnded} glowColor={isEnded ? "none" : "accent"} className={`p-6 flex gap-5 group transition-all ${isEnded ? "opacity-60 hover:opacity-85" : ""}`}>
+      <Card hoverEffect={!isEnded} glowColor={isEnded ? "none" : "accent"} className={`p-6 flex gap-5 group transition-all ${isEnded ? "opacity-60 hover:opacity-85" : ""} ${delayClasses}`}>
         {/* Date Badge */}
         <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-border flex flex-col items-center justify-center">
           <span className="text-xs font-semibold uppercase text-accent">{month}</span>

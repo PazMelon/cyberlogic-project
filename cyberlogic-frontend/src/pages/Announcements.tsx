@@ -5,6 +5,7 @@ import { fetchAnnouncements } from "../utils/api";
 import type { Announcement } from "../data/mockData";
 import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
+import { SkeletonAnnouncementCard } from "../components/Skeleton";
 
 const categories = ["All", "General", "Academic", "Events"] as const;
 
@@ -105,9 +106,11 @@ export default function Announcements() {
 
         {/* Loading Indicator */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-xs text-text-muted">Loading announcements from secure database...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonAnnouncementCard />
+            <SkeletonAnnouncementCard />
+            <SkeletonAnnouncementCard />
+            <SkeletonAnnouncementCard />
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-20 border border-dashed border-border/80 rounded-2xl">

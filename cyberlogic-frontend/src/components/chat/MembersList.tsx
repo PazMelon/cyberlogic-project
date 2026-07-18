@@ -59,7 +59,6 @@ export default function MembersList({
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-text-primary truncate">{m.name}</p>
-                <p className="text-[9px] text-text-muted truncate capitalize">{m.role}</p>
               </div>
             </div>
           );
