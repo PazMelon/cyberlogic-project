@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { Plus, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Lock, Settings } from "lucide-react";
 import type { CyberboardColumn, CyberboardCard } from "../../utils/api";
 import BoardCard from "./BoardCard";
 
 interface BoardColumnProps {
   column: CyberboardColumn;
   currentUserId?: number;
+  userRole?: string;
+  boardHostId?: number;
   isAdmin?: boolean;
   onCardClick: (card: CyberboardCard) => void;
   onVoteToggle: (cardId: number, e: React.MouseEvent) => void;
@@ -13,6 +15,8 @@ interface BoardColumnProps {
   onAddSuggestionClick: (columnId: number) => void;
   onCardDrop: (cardId: number, targetColumnId: number) => void;
   onDeleteColumn?: (columnId: number) => void;
+  onConfigureColumnClick?: (column: CyberboardColumn) => void;
+  onShowToast?: (message: string) => void;
   onCardDragStart?: (e: React.DragEvent, card: CyberboardCard) => void;
   onCardDragEnd?: (e: React.DragEvent, card: CyberboardCard) => void;
 }
@@ -20,6 +24,8 @@ interface BoardColumnProps {
 export default function BoardColumn({
   column,
   currentUserId,
+  userRole,
+  boardHostId,
   isAdmin,
   onCardClick,
   onVoteToggle,
@@ -27,15 +33,35 @@ export default function BoardColumn({
   onAddSuggestionClick,
   onCardDrop,
   onDeleteColumn,
+  onConfigureColumnClick,
+  onShowToast,
   onCardDragStart,
   onCardDragEnd,
 }: BoardColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
 
+  const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
+  const canManageColumn = isHost || isAdmin;
+
+  const allowedRoles = column.allowed_roles || [];
+  const allowedUsers = column.allowed_users || [];
+  const hasRestrictions = allowedRoles.length > 0 || allowedUsers.length > 0;
+
+  let isAllowedToDrop = true;
+  if (hasRestrictions && !canManageColumn) {
+    const roleMatch = allowedRoles.length > 0 && userRole && allowedRoles.includes(userRole);
+    const userMatch = allowedUsers.length > 0 && currentUserId && allowedUsers.includes(currentUserId);
+    isAllowedToDrop = Boolean(roleMatch || userMatch);
+  }
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    if (!isAllowedToDrop) {
+      e.dataTransfer.dropEffect = "none";
+    } else {
+      e.dataTransfer.dropEffect = "move";
+    }
     setIsDragOver(true);
   };
 
@@ -47,6 +73,13 @@ export default function BoardColumn({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    if (!isAllowedToDrop) {
+      if (onShowToast) {
+        onShowToast("You do not have permission to drag cards into this column.");
+      }
+      return;
+    }
+
     const cardIdStr = e.dataTransfer.getData("text/plain");
     if (cardIdStr) {
       const cardId = parseInt(cardIdStr, 10);
@@ -65,7 +98,9 @@ export default function BoardColumn({
       onDrop={handleDrop}
       className={`w-72 lg:w-80 flex-shrink-0 flex flex-col max-h-full rounded-2xl bg-surface-900/90 border transition-all duration-200 ${
         isDragOver
-          ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+          ? isAllowedToDrop
+            ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+            : "border-error ring-2 ring-error/20 bg-error/5"
           : "border-border/60"
       }`}
     >
@@ -82,6 +117,18 @@ export default function BoardColumn({
           >
             {cards.length}
           </span>
+          {hasRestrictions && (
+            <span
+              className="p-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              title={
+                isAllowedToDrop
+                  ? "Drop permissions restricted to designated roles/users"
+                  : "You do not have permission to drag cards here"
+              }
+            >
+              <Lock className="w-3 h-3" />
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
@@ -94,7 +141,7 @@ export default function BoardColumn({
             <Plus className="w-4 h-4" />
           </button>
 
-          {isAdmin && onDeleteColumn && (
+          {canManageColumn && (
             <div className="relative">
               <button
                 type="button"
@@ -105,18 +152,34 @@ export default function BoardColumn({
               </button>
 
               {showOptions && (
-                <div className="absolute right-0 mt-1 w-40 bg-surface-800 border border-border rounded-xl shadow-xl z-20 py-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowOptions(false);
-                      onDeleteColumn(column.id);
-                    }}
-                    className="w-full text-left px-3 py-2 text-error hover:bg-error/10 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete Column
-                  </button>
+                <div className="absolute right-0 mt-1 w-44 bg-surface-800 border border-border rounded-xl shadow-xl z-20 py-1 text-xs space-y-0.5">
+                  {onConfigureColumnClick && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        onConfigureColumnClick(column);
+                      }}
+                      className="w-full text-left px-3 py-2 text-text-primary hover:bg-surface-700 flex items-center gap-2 cursor-pointer font-medium"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-primary" />
+                      Column Settings
+                    </button>
+                  )}
+
+                  {onDeleteColumn && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowOptions(false);
+                        onDeleteColumn(column.id);
+                      }}
+                      className="w-full text-left px-3 py-2 text-error hover:bg-error/10 flex items-center gap-2 cursor-pointer font-medium"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete Column
+                    </button>
+                  )}
                 </div>
               )}
             </div>

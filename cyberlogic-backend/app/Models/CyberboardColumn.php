@@ -17,6 +17,13 @@ class CyberboardColumn extends Model
         'icon',
         'color',
         'position',
+        'allowed_roles',
+        'allowed_users',
+    ];
+
+    protected $casts = [
+        'allowed_roles' => 'array',
+        'allowed_users' => 'array',
     ];
 
     public function board(): BelongsTo

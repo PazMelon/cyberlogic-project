@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle, X } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
@@ -10,9 +10,11 @@ import {
   createCyberboardCardComment,
   deleteCyberboardCardComment,
   createCyberboardColumn,
+  updateCyberboardColumn,
   deleteCyberboardColumn,
   type CyberboardBoard,
   type CyberboardCard,
+  type CyberboardColumn,
 } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import { useCyberboardRealtime } from "../hooks/useCyberboardRealtime";
@@ -24,6 +26,8 @@ import MobileNoticeBanner from "../components/cyberboard/MobileNoticeBanner";
 import CardDetailModal from "../components/cyberboard/CardDetailModal";
 import NewSuggestionModal from "../components/cyberboard/NewSuggestionModal";
 import AddColumnModal from "../components/cyberboard/AddColumnModal";
+import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal";
+import ConfirmModal from "../components/cyberboard/ConfirmModal";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -35,11 +39,33 @@ export default function CyberBoardView() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Toast and Confirm Modal state
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "error" | "info" | "success" } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showToast = useCallback((text: string, type: "error" | "info" | "success" = "error") => {
+    setToastMessage({ text, type });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  }, []);
+
   // Modals state
   const [selectedCard, setSelectedCard] = useState<CyberboardCard | null>(null);
   const [showNewSuggestionModal, setShowNewSuggestionModal] = useState(false);
   const [targetColumnId, setTargetColumnId] = useState<number | undefined>(undefined);
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+  const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
 
@@ -229,7 +255,7 @@ export default function CyberBoardView() {
           }
           return prev;
         });
-      } else if (type === "column:created" || type === "column:deleted") {
+      } else if (type === "column:created" || type === "column:updated" || type === "column:deleted") {
         loadBoard();
       }
     },
@@ -242,6 +268,7 @@ export default function CyberBoardView() {
     isConnected,
     remoteCursors,
     remoteDraggingCards,
+    boardPresenceUsers,
     activeDragCard,
     handlePointerMove,
     handlePointerLeave,
@@ -317,8 +344,9 @@ export default function CyberBoardView() {
 
     try {
       await moveCyberboardCard(cardId, targetColId, newPos);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to move card on server:", err);
+      showToast(err.message || "Failed to move card.", "error");
       loadBoard();
     }
   };
@@ -417,57 +445,93 @@ export default function CyberBoardView() {
     });
   };
 
-  const handleDeleteCard = async (cardId: number, e?: React.MouseEvent) => {
+  const handleDeleteCard = (cardId: number, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    if (!window.confirm("Are you sure you want to delete this activity card?")) return;
 
-    try {
-      await deleteCyberboardCard(cardId);
-      setBoard((prev) => {
-        if (!prev || !prev.columns) return prev;
-        const updatedColumns = prev.columns.map((col) => ({
-          ...col,
-          cards: (col.cards || []).filter((c) => c.id !== cardId),
-        }));
-        return { ...prev, columns: updatedColumns };
-      });
-      if (selectedCard?.id === cardId) {
-        setSelectedCard(null);
-      }
-    } catch (err: any) {
-      alert(err.message || "Failed to delete card.");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Activity Card?",
+      message: "Are you sure you want to delete this activity card? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await deleteCyberboardCard(cardId);
+          setBoard((prev) => {
+            if (!prev || !prev.columns) return prev;
+            const updatedColumns = prev.columns.map((col) => ({
+              ...col,
+              cards: (col.cards || []).filter((c) => c.id !== cardId),
+            }));
+            return { ...prev, columns: updatedColumns };
+          });
+          if (selectedCard?.id === cardId) {
+            setSelectedCard(null);
+          }
+          showToast("Card deleted successfully.", "success");
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete card.", "error");
+        }
+      },
+    });
   };
 
-  const handleAddColumn = async (title: string) => {
+  const handleAddColumn = async (data: {
+    title: string;
+    color?: string;
+    allowed_roles?: string[] | null;
+    allowed_users?: number[] | null;
+  }) => {
     if (!numericBoardId) return;
-    const newCol = await createCyberboardColumn(numericBoardId, { title });
+    const newCol = await createCyberboardColumn(numericBoardId, data);
     setBoard((prev) => {
       if (!prev) return prev;
       const cols = prev.columns || [];
       return { ...prev, columns: [...cols, newCol] };
     });
+    showToast("New column created!", "success");
   };
 
-  const handleDeleteColumn = async (columnId: number) => {
-    if (!window.confirm("Are you sure you want to delete this column and all cards in it?")) {
-      return;
+  const handleUpdateColumnPermissions = async (
+    columnId: number,
+    data: {
+      title?: string;
+      color?: string;
+      allowed_roles?: string[] | null;
+      allowed_users?: number[] | null;
     }
-    try {
-      await deleteCyberboardColumn(columnId);
-      setBoard((prev) => {
-        if (!prev || !prev.columns) return prev;
-        return {
-          ...prev,
-          columns: prev.columns.filter((col) => col.id !== columnId),
-        };
-      });
-    } catch (err: any) {
-      alert(err.message || "Failed to delete column.");
-    }
+  ) => {
+    const updatedCol = await updateCyberboardColumn(columnId, data);
+    setBoard((prev) => {
+      if (!prev || !prev.columns) return prev;
+      const columns = prev.columns.map((col) => (col.id === columnId ? { ...col, ...updatedCol } : col));
+      return { ...prev, columns };
+    });
+    showToast("Column settings updated!", "success");
+  };
+
+  const handleDeleteColumn = (columnId: number) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Kanban Column?",
+      message: "Are you sure you want to delete this column? All cards in this column will be permanently removed.",
+      onConfirm: async () => {
+        try {
+          await deleteCyberboardColumn(columnId);
+          setBoard((prev) => {
+            if (!prev || !prev.columns) return prev;
+            return {
+              ...prev,
+              columns: prev.columns.filter((col) => col.id !== columnId),
+            };
+          });
+          showToast("Column deleted.", "success");
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete column.", "error");
+        }
+      },
+    });
   };
 
   const handleCopyShareLink = () => {
@@ -506,7 +570,7 @@ export default function CyberBoardView() {
   const columns = board.columns || [];
   const totalCardsCount = columns.reduce((acc, col) => acc + (col.cards?.length || 0), 0);
 
-  // Compute active collaborators list (Self + Remote cursors/draggers)
+  // Compute active collaborators list (Self + Remote board presence users)
   const activeCollaboratorsList = [
     ...(user
       ? [
@@ -522,16 +586,15 @@ export default function CyberBoardView() {
           },
         ]
       : []),
-    ...Object.entries(remoteCursors).map(([idStr, c]) => {
-      const uid = Number(idStr);
-      const isDragging = remoteDraggingCards[uid];
+    ...Object.values(boardPresenceUsers).map((pUser) => {
+      const isDragging = remoteDraggingCards[pUser.id];
       return {
-        id: uid,
-        name: c.name,
-        avatar: c.avatar,
+        id: pUser.id,
+        name: pUser.name,
+        avatar: pUser.avatar,
         role: "Member",
         isMe: false,
-        status: isDragging ? `Dragging "${isDragging.title}"` : "Active on board",
+        status: isDragging ? `Dragging "${isDragging.title}"` : pUser.status || "Viewing board",
       };
     }),
   ];
@@ -543,6 +606,29 @@ export default function CyberBoardView() {
       onPointerLeave={handlePointerLeave}
       className="relative flex flex-col h-full min-h-0 overflow-hidden bg-surface-950 select-none"
     >
+      {/* Sleek Floating Toast Notification */}
+      {toastMessage && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] border backdrop-blur-md text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200 ${
+            toastMessage.type === "success"
+              ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
+              : toastMessage.type === "info"
+              ? "bg-primary/90 border-primary/40 text-surface-950 font-semibold"
+              : "bg-error/90 border-error/50 text-white"
+          }`}
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{toastMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 opacity-80 hover:opacity-100 transition-opacity"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Mobile Experience Notice Banner */}
       <MobileNoticeBanner />
 
@@ -580,6 +666,8 @@ export default function CyberBoardView() {
               key={column.id}
               column={column}
               currentUserId={user?.id}
+              userRole={user?.role}
+              boardHostId={board.created_by}
               isAdmin={isAdmin}
               onCardClick={(card) => setSelectedCard(card)}
               onVoteToggle={(cardId) => handleVoteToggle(cardId)}
@@ -590,6 +678,8 @@ export default function CyberBoardView() {
               }}
               onCardDrop={handleCardDrop}
               onDeleteColumn={handleDeleteColumn}
+              onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
+              onShowToast={(msg) => showToast(msg, "error")}
               onCardDragStart={handleCardDragStart}
               onCardDragEnd={handleCardDragEnd}
             />
@@ -648,10 +738,30 @@ export default function CyberBoardView() {
       {/* Add Column Modal (Admin) */}
       {showAddColumnModal && (
         <AddColumnModal
+          collaboratorsList={activeCollaboratorsList}
           onClose={() => setShowAddColumnModal(false)}
           onSubmit={handleAddColumn}
         />
       )}
+
+      {/* Configure Column Permissions Modal */}
+      {selectedColumnToConfigure && (
+        <ConfigureColumnModal
+          column={selectedColumnToConfigure}
+          collaboratorsList={activeCollaboratorsList}
+          onClose={() => setSelectedColumnToConfigure(null)}
+          onSubmit={handleUpdateColumnPermissions}
+        />
+      )}
+
+      {/* Reusable Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 }

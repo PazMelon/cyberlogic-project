@@ -8,6 +8,8 @@ import {
   Trash2,
   Layers,
   Sparkles,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import {
   fetchCyberboardBoards,
@@ -19,6 +21,7 @@ import { useAuth } from "../context/AuthContext";
 import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
 import CreateBoardModal from "../components/cyberboard/CreateBoardModal";
+import ConfirmModal from "../components/cyberboard/ConfirmModal";
 
 export default function CyberBoard() {
   useSEO({
@@ -58,6 +61,24 @@ export default function CyberBoard() {
     loadBoards();
   }, []);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const showToast = (text: string) => {
+    setToastMessage(text);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   const handleCreateBoard = async (data: {
     title: string;
     description?: string;
@@ -65,22 +86,27 @@ export default function CyberBoard() {
   }) => {
     const newBoard = await createCyberboardBoard(data);
     setBoards((prev) => [newBoard, ...prev]);
+    showToast("Board created successfully!");
   };
 
-  const handleDeleteBoard = async (boardId: number, e: React.MouseEvent) => {
+  const handleDeleteBoard = (boardId: number, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!window.confirm("Are you sure you want to delete this board and all its cards?")) {
-      return;
-    }
-
-    try {
-      await deleteCyberboardBoard(boardId);
-      setBoards((prev) => prev.filter((b) => b.id !== boardId));
-    } catch (err: any) {
-      alert(err.message || "Failed to delete board.");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Board?",
+      message: "Are you sure you want to delete this board and all its cards? This action cannot be undone.",
+      onConfirm: async () => {
+        try {
+          await deleteCyberboardBoard(boardId);
+          setBoards((prev) => prev.filter((b) => b.id !== boardId));
+          showToast("Board deleted successfully.");
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete board.");
+        }
+      },
+    });
   };
 
   const filteredBoards = boards.filter((board) => {
@@ -302,6 +328,21 @@ export default function CyberBoard() {
         </div>
       )}
 
+      {/* Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-surface-900 border border-primary/40 backdrop-blur-md text-text-primary text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
+          <AlertCircle className="w-4 h-4 text-primary flex-shrink-0" />
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-text-muted hover:text-text-primary"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Create Board Modal */}
       {showCreateModal && (
         <CreateBoardModal
@@ -309,6 +350,15 @@ export default function CyberBoard() {
           onSubmit={handleCreateBoard}
         />
       )}
+
+      {/* Reusable Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+      />
     </div>
   );
 }

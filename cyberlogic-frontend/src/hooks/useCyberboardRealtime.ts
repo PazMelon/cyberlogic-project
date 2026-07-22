@@ -3,6 +3,14 @@ import { useWebSocket } from "../context/WebSocketContext";
 import type { CyberboardCard } from "../utils/api";
 import type { RemoteCursor, RemoteDraggingCard } from "../components/cyberboard/LiveCursorsOverlay";
 
+export interface BoardPresenceUser {
+  id: number;
+  name: string;
+  avatar?: string | null;
+  status: string;
+  lastSeen: number;
+}
+
 interface UseCyberboardRealtimeOptions {
   numericBoardId: number | null;
   userId?: number;
@@ -18,6 +26,7 @@ export function useCyberboardRealtime({
 
   const [remoteCursors, setRemoteCursors] = useState<Record<number, RemoteCursor>>({});
   const [remoteDraggingCards, setRemoteDraggingCards] = useState<Record<number, RemoteDraggingCard>>({});
+  const [boardPresenceUsers, setBoardPresenceUsers] = useState<Record<number, BoardPresenceUser>>({});
 
   const boardContainerRef = useRef<HTMLDivElement | null>(null);
   const lastMoveSentRef = useRef<number>(0);
@@ -28,6 +37,22 @@ export function useCyberboardRealtime({
   const handleWsEvent = useCallback(
     (payload: any, type: string) => {
       if (!payload) return;
+
+      if (type === "board_presence" || type === "cursor_move" || type === "card_drag") {
+        const { user_id, user_name, user_avatar, status } = payload;
+        if (user_id && user_id !== userId) {
+          setBoardPresenceUsers((prev) => ({
+            ...prev,
+            [user_id]: {
+              id: user_id,
+              name: user_name,
+              avatar: user_avatar,
+              status: type === "card_drag" ? `Dragging "${payload.title}"` : status || "Viewing board",
+              lastSeen: Date.now(),
+            },
+          }));
+        }
+      }
 
       if (type === "cursor_move") {
         const { user_id, user_name, user_avatar, x, y } = payload;
@@ -64,8 +89,24 @@ export function useCyberboardRealtime({
           delete next[user_id];
           return next;
         });
+      } else if (type === "page_leave") {
+        const { user_id } = payload;
+        setRemoteCursors((prev) => {
+          const next = { ...prev };
+          delete next[user_id];
+          return next;
+        });
+        setRemoteDraggingCards((prev) => {
+          const next = { ...prev };
+          delete next[user_id];
+          return next;
+        });
+        setBoardPresenceUsers((prev) => {
+          const next = { ...prev };
+          delete next[user_id];
+          return next;
+        });
       } else if (type === "card:moved") {
-        // Clean up any remote dragging indicator for this card
         const card_id = payload.card_id;
         setRemoteDraggingCards((prev) => {
           const next = { ...prev };
@@ -93,6 +134,22 @@ export function useCyberboardRealtime({
       unsubscribe();
     };
   }, [numericBoardId, subscribe, handleWsEvent]);
+
+  // Periodic heartbeat ping to announce board presence
+  useEffect(() => {
+    if (!numericBoardId) return;
+
+    // Initial presence announce
+    sendMessage("board_presence", `cyberboard:${numericBoardId}`, { status: "Viewing board" });
+
+    const pingInterval = setInterval(() => {
+      sendMessage("board_presence", `cyberboard:${numericBoardId}`, { status: "Viewing board" });
+    }, 10000);
+
+    return () => {
+      clearInterval(pingInterval);
+    };
+  }, [numericBoardId, sendMessage]);
 
   // Pointer move handler with deadzone radius & throttle
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -186,7 +243,7 @@ export function useCyberboardRealtime({
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        sendMessage("cursor_leave", `cyberboard:${numericBoardId}`, {});
+        sendMessage("page_leave", `cyberboard:${numericBoardId}`, {});
       }
     };
 
@@ -196,19 +253,21 @@ export function useCyberboardRealtime({
     return () => {
       window.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("beforeunload", handleVisibilityChange);
-      sendMessage("cursor_leave", `cyberboard:${numericBoardId}`, {});
+      sendMessage("page_leave", `cyberboard:${numericBoardId}`, {});
     };
   }, [numericBoardId, sendMessage]);
 
-  // Interval cleanup for stale cursors
+  // Interval cleanup for stale cursors and inactive presence
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
+
+      // Prune canvas SVG cursor arrow if mouse still for > 3s
       setRemoteCursors((prev) => {
         let changed = false;
         const next: typeof prev = {};
         Object.entries(prev).forEach(([uidStr, cursor]) => {
-          if (now - cursor.updatedAt < 2500) {
+          if (now - cursor.updatedAt < 3000) {
             next[Number(uidStr)] = cursor;
           } else {
             changed = true;
@@ -216,7 +275,21 @@ export function useCyberboardRealtime({
         });
         return changed ? next : prev;
       });
-    }, 1000);
+
+      // Prune board presence users ONLY if no ping or activity for > 30s
+      setBoardPresenceUsers((prev) => {
+        let changed = false;
+        const next: typeof prev = {};
+        Object.entries(prev).forEach(([uidStr, presenceUser]) => {
+          if (now - presenceUser.lastSeen < 30000) {
+            next[Number(uidStr)] = presenceUser;
+          } else {
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }, 2000);
 
     return () => clearInterval(interval);
   }, []);
@@ -226,6 +299,7 @@ export function useCyberboardRealtime({
     isConnected,
     remoteCursors,
     remoteDraggingCards,
+    boardPresenceUsers,
     activeDragCard: activeDragCardRef.current,
     handlePointerMove,
     handlePointerLeave,

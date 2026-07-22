@@ -317,7 +317,7 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleEditMessage(client, user, channelSlug, payload);
         }
-      } else if (['cursor_move', 'card_drag', 'card_drag_end', 'cursor_leave'].includes(type)) {
+      } else if (['cursor_move', 'card_drag', 'card_drag_end', 'cursor_leave', 'board_presence', 'page_leave'].includes(type)) {
         if (channel.startsWith('cyberboard:')) {
           this.broadcastExcept(client, channel, type, {
             ...payload,

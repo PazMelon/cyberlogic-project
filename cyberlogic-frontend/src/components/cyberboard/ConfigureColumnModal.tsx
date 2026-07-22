@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Plus, X, Lock, ShieldCheck, Users, Check, UserPlus } from "lucide-react";
+import { Settings, X, Lock, ShieldCheck, Users, Check, UserPlus } from "lucide-react";
+import type { CyberboardColumn } from "../../utils/api";
 
 interface CollaboratorOption {
   id: number;
@@ -7,26 +8,39 @@ interface CollaboratorOption {
   avatar?: string | null;
 }
 
-interface AddColumnModalProps {
-  collaboratorsList?: CollaboratorOption[];
+interface ConfigureColumnModalProps {
+  column: CyberboardColumn;
+  collaboratorsList: CollaboratorOption[];
   onClose: () => void;
-  onSubmit: (data: {
-    title: string;
+  onSubmit: (columnId: number, data: {
+    title?: string;
     color?: string;
     allowed_roles?: string[] | null;
     allowed_users?: number[] | null;
   }) => Promise<void>;
 }
 
-export default function AddColumnModal({
-  collaboratorsList = [],
+export default function ConfigureColumnModal({
+  column,
+  collaboratorsList,
   onClose,
   onSubmit,
-}: AddColumnModalProps) {
-  const [title, setTitle] = useState("");
-  const [color, setColor] = useState("#06b6d4");
-  const [permissionMode, setPermissionMode] = useState<string>("everyone");
-  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+}: ConfigureColumnModalProps) {
+  const [title, setTitle] = useState(column.title || "");
+  const [color, setColor] = useState(column.color || "#06b6d4");
+  
+  // Permission presets: 'everyone' | 'host_admin' | 'officer_admin' | 'custom'
+  const initialPreset = () => {
+    const roles = column.allowed_roles || [];
+    const users = column.allowed_users || [];
+    if (roles.length === 0 && users.length === 0) return "everyone";
+    if (roles.includes("host") && roles.length === 1 && users.length === 0) return "host_admin";
+    if (roles.includes("officer") && roles.length === 1 && users.length === 0) return "officer_admin";
+    return "custom";
+  };
+
+  const [permissionMode, setPermissionMode] = useState<string>(initialPreset());
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>(column.allowed_users || []);
   const [submitting, setSubmitting] = useState(false);
 
   const toggleUserSelection = (userId: number) => {
@@ -37,9 +51,8 @@ export default function AddColumnModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
-
     setSubmitting(true);
+
     try {
       let allowed_roles: string[] | null = null;
       let allowed_users: number[] | null = null;
@@ -53,7 +66,7 @@ export default function AddColumnModal({
         allowed_users = selectedUserIds.length > 0 ? selectedUserIds : null;
       }
 
-      await onSubmit({
+      await onSubmit(column.id, {
         title: title.trim(),
         color,
         allowed_roles,
@@ -61,7 +74,7 @@ export default function AddColumnModal({
       });
       onClose();
     } catch (err) {
-      console.error("Failed to add column:", err);
+      console.error("Failed to update column permissions:", err);
     } finally {
       setSubmitting(false);
     }
@@ -69,12 +82,14 @@ export default function AddColumnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+      <div className="bg-surface-900 border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-6">
         <div className="flex items-center justify-between border-b border-border/50 pb-4">
-          <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
-            <Plus className="w-5 h-5 text-primary" />
-            <span>Add New Kanban Column</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <Settings className="w-5 h-5 text-primary" />
+            <h2 className="text-base font-bold text-text-primary">
+              Column Settings & Drag Restrictions
+            </h2>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -84,18 +99,17 @@ export default function AddColumnModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Column Title & Color */}
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
               <label className="text-xs font-semibold text-text-muted">
-                Column Title <span className="text-error">*</span>
+                Column Title
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Ideas, Under Review, Approved, Done"
                 required
                 className="w-full px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:border-primary focus:outline-none transition-all"
               />
@@ -125,7 +139,7 @@ export default function AddColumnModal({
               <button
                 type="button"
                 onClick={() => setPermissionMode("everyone")}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                   permissionMode === "everyone"
                     ? "bg-primary/10 border-primary/40 text-text-primary"
                     : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
@@ -151,7 +165,7 @@ export default function AddColumnModal({
               <button
                 type="button"
                 onClick={() => setPermissionMode("host_admin")}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                   permissionMode === "host_admin"
                     ? "bg-primary/10 border-primary/40 text-text-primary"
                     : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
@@ -177,7 +191,7 @@ export default function AddColumnModal({
               <button
                 type="button"
                 onClick={() => setPermissionMode("officer_admin")}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                   permissionMode === "officer_admin"
                     ? "bg-primary/10 border-primary/40 text-text-primary"
                     : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
@@ -203,7 +217,7 @@ export default function AddColumnModal({
               <button
                 type="button"
                 onClick={() => setPermissionMode("custom")}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                   permissionMode === "custom"
                     ? "bg-primary/10 border-primary/40 text-text-primary"
                     : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
@@ -228,12 +242,12 @@ export default function AddColumnModal({
 
             {/* Individual Member Selector (When Custom mode is active) */}
             {permissionMode === "custom" && (
-              <div className="p-3 rounded-xl bg-surface-950/60 border border-border/60 space-y-2 animate-in fade-in duration-200">
+              <div className="p-3.5 rounded-xl bg-surface-950/60 border border-border/60 space-y-3 animate-in fade-in duration-200">
                 <span className="text-xs font-bold text-text-secondary block">
                   Select Permitted Members:
                 </span>
 
-                <div className="max-h-32 overflow-y-auto space-y-1 pr-1">
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
                   {collaboratorsList.map((member) => {
                     const isSelected = selectedUserIds.includes(member.id);
                     return (
@@ -266,7 +280,8 @@ export default function AddColumnModal({
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+          {/* Action CTAs */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
             <button
               type="button"
               onClick={onClose}
@@ -279,7 +294,7 @@ export default function AddColumnModal({
               disabled={submitting || !title.trim()}
               className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer"
             >
-              {submitting ? "Creating..." : "Create Column"}
+              {submitting ? "Saving..." : "Save Restrictions"}
             </button>
           </div>
         </form>

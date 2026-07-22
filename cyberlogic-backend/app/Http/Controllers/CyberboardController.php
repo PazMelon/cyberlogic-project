@@ -352,7 +352,33 @@ class CyberboardController extends Controller
         $fromColumnId = $card->column_id;
         $toColumnId = $validated['column_id'];
         $newPos = $validated['position'];
-        $boardId = $card->column->board_id;
+
+        $targetColumn = CyberboardColumn::with('board')->find($toColumnId);
+        if (!$targetColumn) {
+            return response()->json(['message' => 'Target column not found'], 404);
+        }
+
+        $board = $targetColumn->board;
+        $isHost = $board && $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        $allowedRoles = $targetColumn->allowed_roles;
+        $allowedUsers = $targetColumn->allowed_users;
+
+        $hasRestriction = (!empty($allowedRoles)) || (!empty($allowedUsers));
+
+        if ($hasRestriction && !$isHost && !$isAdmin) {
+            $roleAllowed = !empty($allowedRoles) && in_array($user->role, $allowedRoles);
+            $userAllowed = !empty($allowedUsers) && in_array($user->id, $allowedUsers);
+
+            if (!$roleAllowed && !$userAllowed) {
+                return response()->json([
+                    'message' => 'You do not have permission to move cards into this column.'
+                ], 403);
+            }
+        }
+
+        $boardId = $targetColumn->board_id;
 
         DB::transaction(function () use ($card, $fromColumnId, $toColumnId, $newPos) {
             // Update target column cards position
@@ -515,6 +541,10 @@ class CyberboardController extends Controller
             'title' => 'required|string|max:100',
             'icon' => 'nullable|string|max:20',
             'color' => 'nullable|string|max:30',
+            'allowed_roles' => 'nullable|array',
+            'allowed_roles.*' => 'string',
+            'allowed_users' => 'nullable|array',
+            'allowed_users.*' => 'integer|exists:users,id',
         ]);
 
         $maxPos = CyberboardColumn::where('board_id', $boardId)->max('position') ?? -1;
@@ -525,6 +555,8 @@ class CyberboardController extends Controller
             'icon' => $validated['icon'] ?? '📌',
             'color' => $validated['color'] ?? '#06b6d4',
             'position' => $maxPos + 1,
+            'allowed_roles' => $validated['allowed_roles'] ?? null,
+            'allowed_users' => $validated['allowed_users'] ?? null,
         ]);
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
@@ -556,6 +588,10 @@ class CyberboardController extends Controller
             'title' => 'sometimes|required|string|max:100',
             'icon' => 'nullable|string|max:20',
             'color' => 'nullable|string|max:30',
+            'allowed_roles' => 'nullable|array',
+            'allowed_roles.*' => 'string',
+            'allowed_users' => 'nullable|array',
+            'allowed_users.*' => 'integer|exists:users,id',
         ]);
 
         $column->update($validated);

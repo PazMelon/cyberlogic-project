@@ -2924,6 +2924,8 @@ export interface CyberboardColumn {
   icon?: string | null;
   color?: string | null;
   position: number;
+  allowed_roles?: string[] | null;
+  allowed_users?: number[] | null;
   created_at: string;
   updated_at: string;
   cards?: CyberboardCard[];
@@ -3106,7 +3108,13 @@ export async function deleteCyberboardCardComment(id: number): Promise<{ message
 
 export async function createCyberboardColumn(
   boardId: number,
-  data: { title: string; icon?: string; color?: string }
+  data: {
+    title: string;
+    icon?: string;
+    color?: string;
+    allowed_roles?: string[] | null;
+    allowed_users?: number[] | null;
+  }
 ): Promise<CyberboardColumn> {
   const res = await apiRequest(`/api/cyberboard/${boardId}/columns`, {
     method: "POST",
@@ -3120,7 +3128,13 @@ export async function createCyberboardColumn(
 
 export async function updateCyberboardColumn(
   id: number,
-  data: { title?: string; icon?: string; color?: string }
+  data: {
+    title?: string;
+    icon?: string;
+    color?: string;
+    allowed_roles?: string[] | null;
+    allowed_users?: number[] | null;
+  }
 ): Promise<CyberboardColumn> {
   const res = await apiRequest(`/api/cyberboard/columns/${id}`, {
     method: "PUT",
