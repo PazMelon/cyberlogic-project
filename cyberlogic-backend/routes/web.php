@@ -22,6 +22,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileShowcaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ContactMessageController;
+use App\Http\Controllers\CyberboardController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -236,6 +237,26 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/admin/reports', [ReportController::class, 'index']);
     Route::put('/api/admin/reports/{id}', [ReportController::class, 'update']);
     Route::delete('/api/admin/reports/{id}', [ReportController::class, 'destroy']);
+
+    // CyberBoard Activity Planner endpoints
+    Route::get('/api/cyberboard', [CyberboardController::class, 'index']);
+    Route::get('/api/cyberboard/{id}', [CyberboardController::class, 'show']);
+    Route::post('/api/cyberboard', [CyberboardController::class, 'storeBoard']);
+    Route::put('/api/cyberboard/{id}', [CyberboardController::class, 'updateBoard']);
+    Route::delete('/api/cyberboard/{id}', [CyberboardController::class, 'destroyBoard']);
+
+    Route::post('/api/cyberboard/{boardId}/cards', [CyberboardController::class, 'storeCard']);
+    Route::put('/api/cyberboard/cards/{id}', [CyberboardController::class, 'updateCard']);
+    Route::delete('/api/cyberboard/cards/{id}', [CyberboardController::class, 'destroyCard']);
+    Route::put('/api/cyberboard/cards/{id}/move', [CyberboardController::class, 'moveCard']);
+
+    Route::post('/api/cyberboard/cards/{id}/vote', [CyberboardController::class, 'toggleVote']);
+    Route::post('/api/cyberboard/cards/{id}/comments', [CyberboardController::class, 'storeComment']);
+    Route::delete('/api/cyberboard/comments/{id}', [CyberboardController::class, 'destroyComment']);
+
+    Route::post('/api/cyberboard/{boardId}/columns', [CyberboardController::class, 'storeColumn']);
+    Route::put('/api/cyberboard/columns/{id}', [CyberboardController::class, 'updateColumn']);
+    Route::delete('/api/cyberboard/columns/{id}', [CyberboardController::class, 'destroyColumn']);
 });
 
 Route::get('/storage/{path}', function ($path) {

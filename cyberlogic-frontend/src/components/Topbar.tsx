@@ -38,6 +38,7 @@ import {
   UserX,
   Info,
   Flag,
+  Kanban,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
@@ -55,6 +56,7 @@ const memberNavSections = [
   {
     title: "Community",
     items: [
+      { icon: Kanban, label: "CyberBoard", path: "/app/cyberboard" },
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
       { icon: Newspaper, label: "Blog", path: "/app/blogs" },

@@ -317,10 +317,39 @@ class ChannelManager {
           const channelSlug = channel.split(':')[1];
           await this.handleEditMessage(client, user, channelSlug, payload);
         }
+      } else if (['cursor_move', 'card_drag', 'card_drag_end', 'cursor_leave'].includes(type)) {
+        if (channel.startsWith('cyberboard:')) {
+          this.broadcastExcept(client, channel, type, {
+            ...payload,
+            user_id: user.id,
+            user_name: user.name,
+            user_avatar: user.avatar,
+          });
+        }
       }
     } catch (err) {
       console.error('[WS] Error handling message:', err.message);
       this.sendToClient(client, 'error', 'error', { message: 'Invalid payload or server error.' });
+    }
+  }
+
+  /**
+   * Broadcast a payload to all subscribers of a channel except the sender.
+   */
+  broadcastExcept(senderClient, channelName, type, payload) {
+    if (!this.channels.has(channelName)) return;
+
+    const clients = this.channels.get(channelName);
+    const message = JSON.stringify({
+      type,
+      channel: channelName,
+      payload,
+    });
+
+    for (const client of clients) {
+      if (client !== senderClient && client.readyState === 1) {
+        client.send(message);
+      }
     }
   }
 

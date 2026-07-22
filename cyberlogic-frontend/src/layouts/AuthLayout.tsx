@@ -7,6 +7,8 @@ import { AccountGateModal } from "../components/AccountGateModal";
 export default function AuthLayout() {
   const location = useLocation();
   const isChat = location.pathname.startsWith("/app/chat");
+  const isCyberboardView = /^\/app\/cyberboard\/\d+/.test(location.pathname);
+  const isFullHeight = isChat || isCyberboardView;
   const isForumsOrChat = location.pathname.startsWith("/app/forums") || location.pathname.startsWith("/app/chat");
 
   return (
@@ -15,7 +17,7 @@ export default function AuthLayout() {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar />
-        {isChat ? (
+        {isFullHeight ? (
           <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <Outlet />
           </main>

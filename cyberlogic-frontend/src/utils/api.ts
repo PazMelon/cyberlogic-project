@@ -2873,3 +2873,273 @@ export async function deleteContactMessage(id: number): Promise<{ message: strin
   return res.json();
 }
 
+/* ==========================================================================
+   CYBERBOARD ACTIVITY PLANNER API
+   ========================================================================== */
+
+export interface CyberboardUserSummary {
+  id: number;
+  first_name: string;
+  last_name: string;
+  name: string;
+  avatar: string;
+  role: "member" | "admin" | "superadmin";
+}
+
+export interface CyberboardComment {
+  id: number;
+  card_id: number;
+  user_id: number;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user?: CyberboardUserSummary;
+}
+
+export interface CyberboardCard {
+  id: number;
+  column_id: number;
+  user_id: number;
+  title: string;
+  description?: string | null;
+  activity_date?: string | null;
+  activity_end_date?: string | null;
+  color_tag?: string | null;
+  priority: "low" | "medium" | "high";
+  position: number;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: CyberboardUserSummary;
+  votes_count?: number;
+  comments_count?: number;
+  has_voted?: boolean;
+  comments?: CyberboardComment[];
+}
+
+export interface CyberboardColumn {
+  id: number;
+  board_id: number;
+  title: string;
+  icon?: string | null;
+  color?: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+  cards?: CyberboardCard[];
+}
+
+export interface CyberboardBoard {
+  id: number;
+  title: string;
+  description?: string | null;
+  cover_color?: string | null;
+  created_by: number;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  creator?: CyberboardUserSummary;
+  cards_count?: number;
+  columns?: CyberboardColumn[];
+}
+
+export async function fetchCyberboardBoards(): Promise<CyberboardBoard[]> {
+  const res = await apiRequest("/api/cyberboard");
+  if (!res.ok) {
+    throw new Error("Failed to fetch CyberBoard boards.");
+  }
+  return res.json();
+}
+
+export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard> {
+  const res = await apiRequest(`/api/cyberboard/${id}`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch board details.");
+  }
+  return res.json();
+}
+
+export async function createCyberboardBoard(data: {
+  title: string;
+  description?: string;
+  cover_color?: string;
+}): Promise<CyberboardBoard> {
+  const res = await apiRequest("/api/cyberboard", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create board.");
+  }
+  return res.json();
+}
+
+export async function updateCyberboardBoard(
+  id: number,
+  data: { title?: string; description?: string; cover_color?: string; is_archived?: boolean }
+): Promise<CyberboardBoard> {
+  const res = await apiRequest(`/api/cyberboard/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update board.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardBoard(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete board.");
+  }
+  return res.json();
+}
+
+export async function createCyberboardCard(
+  boardId: number,
+  data: {
+    column_id?: number;
+    title: string;
+    description?: string;
+    activity_date?: string;
+    activity_end_date?: string;
+    color_tag?: string;
+    priority?: "low" | "medium" | "high";
+  }
+): Promise<CyberboardCard> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/cards`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create card.");
+  }
+  return res.json();
+}
+
+export async function updateCyberboardCard(
+  id: number,
+  data: {
+    title?: string;
+    description?: string;
+    activity_date?: string;
+    activity_end_date?: string;
+    color_tag?: string;
+    priority?: "low" | "medium" | "high";
+  }
+): Promise<CyberboardCard> {
+  const res = await apiRequest(`/api/cyberboard/cards/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update card.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardCard(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/cards/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete card.");
+  }
+  return res.json();
+}
+
+export async function moveCyberboardCard(
+  id: number,
+  column_id: number,
+  position: number
+): Promise<{ message: string; card_id: number; column_id: number; position: number }> {
+  const res = await apiRequest(`/api/cyberboard/cards/${id}/move`, {
+    method: "PUT",
+    body: JSON.stringify({ column_id, position }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to move card.");
+  }
+  return res.json();
+}
+
+export async function toggleCyberboardCardVote(
+  id: number
+): Promise<{ card_id: number; votes_count: number; has_voted: boolean }> {
+  const res = await apiRequest(`/api/cyberboard/cards/${id}/vote`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to vote on card.");
+  }
+  return res.json();
+}
+
+export async function createCyberboardCardComment(
+  id: number,
+  content: string
+): Promise<CyberboardComment> {
+  const res = await apiRequest(`/api/cyberboard/cards/${id}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to add comment.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardCardComment(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/comments/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete comment.");
+  }
+  return res.json();
+}
+
+export async function createCyberboardColumn(
+  boardId: number,
+  data: { title: string; icon?: string; color?: string }
+): Promise<CyberboardColumn> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/columns`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to add column.");
+  }
+  return res.json();
+}
+
+export async function updateCyberboardColumn(
+  id: number,
+  data: { title?: string; icon?: string; color?: string }
+): Promise<CyberboardColumn> {
+  const res = await apiRequest(`/api/cyberboard/columns/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to update column.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardColumn(id: number): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/columns/${id}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete column.");
+  }
+  return res.json();
+}
+
+

@@ -53,6 +53,8 @@ import ContactMessages from "./pages/admin/ContactMessages";
 import SearchResults from "./pages/SearchResults";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import CyberBoard from "./pages/CyberBoard";
+import CyberBoardView from "./pages/CyberBoardView";
 import PortalLayout from "./layouts/PortalLayout";
 import AttendancePortal from "./pages/portal/AttendancePortal";
 import { NotFound, Forbidden, ServerError } from "./pages/errors";
@@ -466,6 +468,8 @@ function AppRoutes() {
         <Route path="blogs/create" element={<CreateMemberBlog />} />
         <Route path="blogs/edit/:id" element={<CreateMemberBlog />} />
         <Route path="search" element={<SearchResults />} />
+        <Route path="cyberboard" element={<CyberBoard />} />
+        <Route path="cyberboard/:boardId" element={<CyberBoardView />} />
       </Route>
 
       {/* Admin Routes */}
