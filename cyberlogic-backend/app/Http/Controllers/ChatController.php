@@ -93,7 +93,8 @@ class ChatController extends Controller
         })->values();
 
         // Attach latest message ID dynamically and replace DM names/icons
-        $filtered->each(function (ChatChannel $channel) use ($user) {
+        $filtered->each(function ($channel) use ($user) {
+            /** @var ChatChannel $channel */
             $channel->latest_message_id = $channel->messages()->max('id') ?: 0;
 
             if ($channel->type === 'dm') {

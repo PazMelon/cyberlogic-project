@@ -5,6 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $slug
+ * @property string|null $description
+ * @property string $type
+ * @property int|null $created_by
+ * @property array|null $allowed_roles
+ * @property array|null $write_roles
+ * @property bool $is_archived
+ * @property bool $is_protected
+ * @property string|null $icon
+ * @property string|null $grouping
+ * @property int $sort_order
+ * @property int|null $latest_message_id
+ * @property \Illuminate\Database\Eloquent\Collection|\App\Models\User[] $members
+ * @property \Illuminate\Database\Eloquent\Collection|\App\Models\ChatMessage[] $messages
+ * @mixin \Eloquent
+ */
 class ChatChannel extends Model
 {
     use HasFactory;
