@@ -440,7 +440,7 @@ class BlogPostController extends Controller
         ]);
 
         if ($request->file('image')->isValid()) {
-            $path = \App\Services\ImageOptimizer::optimize($request->file('image'), 'blogs');
+            $path = ImageOptimizer::optimize($request->file('image'), 'blogs');
             
             AuditLogger::log('uploaded', 'BlogPost', null, 'Member BlogPost Image', ['path' => $path], $request);
 

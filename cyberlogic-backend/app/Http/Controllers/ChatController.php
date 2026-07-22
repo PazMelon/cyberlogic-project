@@ -7,6 +7,7 @@ use App\Models\ChatMessage;
 use App\Models\ChatMessageReaction;
 use App\Models\ChatSavedMedia;
 use App\Models\ChatChannelRead;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
@@ -92,11 +93,11 @@ class ChatController extends Controller
         })->values();
 
         // Attach latest message ID dynamically and replace DM names/icons
-        $filtered->each(function ($channel) use ($user) {
+        $filtered->each(function (ChatChannel $channel) use ($user) {
             $channel->latest_message_id = $channel->messages()->max('id') ?: 0;
 
             if ($channel->type === 'dm') {
-                $otherUser = $channel->members->first(fn($m) => $m->id !== $user->id) ?? $user;
+                $otherUser = $channel->members->where('id', '!=', $user->id)->first() ?? $user;
                 $channel->name = $otherUser->first_name . ' ' . $otherUser->last_name;
                 $channel->icon = $otherUser->avatar;
                 $channel->description = "Direct message with " . $otherUser->first_name;
