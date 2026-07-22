@@ -63,8 +63,11 @@ export default function CardDetailModal({
   const comments = card.comments || [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface-900 border-t border-x sm:border border-border rounded-t-3xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+        {/* Mobile Swipe Handle */}
+        <div className="sm:hidden w-12 h-1 bg-text-muted/30 rounded-full mx-auto my-2.5 flex-shrink-0 cursor-pointer" onClick={onClose} />
+
         {/* Modal Header */}
         <div className="p-5 border-b border-border flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">

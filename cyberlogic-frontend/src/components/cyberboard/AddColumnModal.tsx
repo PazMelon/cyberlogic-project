@@ -68,8 +68,11 @@ export default function AddColumnModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface-900 border-t border-x sm:border border-border rounded-t-3xl sm:rounded-2xl w-full max-w-lg p-5 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
+        {/* Mobile Swipe Handle */}
+        <div className="sm:hidden w-12 h-1 bg-text-muted/30 rounded-full mx-auto mb-1 flex-shrink-0 cursor-pointer" onClick={onClose} />
+
         <div className="flex items-center justify-between border-b border-border/50 pb-4">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
             <Plus className="w-5 h-5 text-primary" />
