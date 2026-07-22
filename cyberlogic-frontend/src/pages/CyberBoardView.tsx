@@ -1,17 +1,6 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import {
-  ArrowLeft,
-  Plus,
-  Radio,
-  Share2,
-  AlertCircle,
-  MousePointer,
-  Smartphone,
-  Users,
-  X,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
@@ -26,44 +15,31 @@ import {
   type CyberboardCard,
 } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
-import { useWebSocket } from "../context/WebSocketContext";
+import { useCyberboardRealtime } from "../hooks/useCyberboardRealtime";
+import BoardHeader from "../components/cyberboard/BoardHeader";
 import BoardColumn from "../components/cyberboard/BoardColumn";
+import CollaboratorsSidebar from "../components/cyberboard/CollaboratorsSidebar";
+import LiveCursorsOverlay from "../components/cyberboard/LiveCursorsOverlay";
+import MobileNoticeBanner from "../components/cyberboard/MobileNoticeBanner";
 import CardDetailModal from "../components/cyberboard/CardDetailModal";
 import NewSuggestionModal from "../components/cyberboard/NewSuggestionModal";
+import AddColumnModal from "../components/cyberboard/AddColumnModal";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
   const numericBoardId = boardId ? parseInt(boardId, 10) : null;
 
   const { user, isAdmin } = useAuth();
-  const { subscribe, isConnected, sendMessage } = useWebSocket();
 
   const [board, setBoard] = useState<CyberboardBoard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Live real-time collaboration states: remote cursors & dragging cards
-  const [remoteCursors, setRemoteCursors] = useState<
-    Record<number, { x: number; y: number; name: string; avatar: string; updatedAt: number }>
-  >({});
-  const [remoteDraggingCards, setRemoteDraggingCards] = useState<
-    Record<
-      number,
-      { cardId: number; title: string; x: number; y: number; name: string; avatar: string }
-    >
-  >({});
-
-  const boardContainerRef = useRef<HTMLDivElement | null>(null);
-  const lastMoveSentRef = useRef<number>(0);
-  const lastSentPosRef = useRef<{ x: number; y: number } | null>(null);
-  const activeDragCardRef = useRef<CyberboardCard | null>(null);
 
   // Modals state
   const [selectedCard, setSelectedCard] = useState<CyberboardCard | null>(null);
   const [showNewSuggestionModal, setShowNewSuggestionModal] = useState(false);
   const [targetColumnId, setTargetColumnId] = useState<number | undefined>(undefined);
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
-  const [newColumnTitle, setNewColumnTitle] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
 
@@ -87,8 +63,8 @@ export default function CyberBoardView() {
     loadBoard();
   }, [loadBoard]);
 
-  // Real-time WebSocket event handler
-  const handleWsEvent = useCallback(
+  // Real-time WebSocket board event handler
+  const handleWsBoardEvent = useCallback(
     (payload: any, type: string) => {
       if (!payload) return;
 
@@ -132,25 +108,10 @@ export default function CyberBoardView() {
         setSelectedCard((prev) => (prev?.id === cardId ? null : prev));
       } else if (type === "card:moved") {
         const { card_id, to_column_id, position } = payload;
-
-        // Clean up any remote dragging indicator for this card
-        setRemoteDraggingCards((prev) => {
-          const next = { ...prev };
-          Object.keys(next).forEach((uidStr) => {
-            const uid = Number(uidStr);
-            if (next[uid]?.cardId === card_id) {
-              delete next[uid];
-            }
-          });
-          return next;
-        });
-
         setBoard((prev) => {
           if (!prev || !prev.columns) return prev;
 
           let targetCard: CyberboardCard | null = null;
-
-          // Find card from state
           for (const col of prev.columns) {
             const found = (col.cards || []).find((c) => c.id === card_id);
             if (found) {
@@ -162,14 +123,10 @@ export default function CyberBoardView() {
           if (!targetCard) return prev;
 
           const updatedColumns = prev.columns.map((col) => {
-            // Remove from source column
             let cards = (col.cards || []).filter((c) => c.id !== card_id);
-
-            // Add to target column
             if (col.id === to_column_id) {
               cards.splice(position, 0, targetCard!);
             }
-
             return { ...col, cards };
           });
 
@@ -274,175 +231,29 @@ export default function CyberBoardView() {
         });
       } else if (type === "column:created" || type === "column:deleted") {
         loadBoard();
-      } else if (type === "cursor_move") {
-        const { user_id, user_name, user_avatar, x, y } = payload;
-        if (user_id !== user?.id) {
-          setRemoteCursors((prev) => ({
-            ...prev,
-            [user_id]: { x, y, name: user_name, avatar: user_avatar, updatedAt: Date.now() },
-          }));
-        }
-      } else if (type === "card_drag") {
-        const { user_id, user_name, user_avatar, cardId, title, x, y } = payload;
-        if (user_id !== user?.id) {
-          setRemoteDraggingCards((prev) => ({
-            ...prev,
-            [user_id]: { cardId, title, x, y, name: user_name, avatar: user_avatar },
-          }));
-        }
-      } else if (type === "card_drag_end") {
-        const { user_id } = payload;
-        setRemoteDraggingCards((prev) => {
-          const next = { ...prev };
-          delete next[user_id];
-          return next;
-        });
-      } else if (type === "cursor_leave") {
-        const { user_id } = payload;
-        setRemoteCursors((prev) => {
-          const next = { ...prev };
-          delete next[user_id];
-          return next;
-        });
-        setRemoteDraggingCards((prev) => {
-          const next = { ...prev };
-          delete next[user_id];
-          return next;
-        });
       }
     },
     [user?.id, loadBoard]
   );
 
-  // Send live pointer position to channel (throttled ~40ms & 6px movement radius threshold)
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!numericBoardId || !boardContainerRef.current) return;
-    const now = Date.now();
-    if (now - lastMoveSentRef.current < 40) return;
-
-    const rect = boardContainerRef.current.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-
-    // 100px movement radius deadzone threshold: only transmit when cursor moves >= 100px
-    if (lastSentPosRef.current) {
-      const dx = x - lastSentPosRef.current.x;
-      const dy = y - lastSentPosRef.current.y;
-      if (dx * dx + dy * dy < 2000) return;
-    }
-
-    lastMoveSentRef.current = now;
-    lastSentPosRef.current = { x, y };
-
-    if (activeDragCardRef.current) {
-      sendMessage("card_drag", `cyberboard:${numericBoardId}`, {
-        cardId: activeDragCardRef.current.id,
-        title: activeDragCardRef.current.title,
-        x,
-        y,
-      });
-    } else {
-      sendMessage("cursor_move", `cyberboard:${numericBoardId}`, { x, y });
-    }
-  };
-
-  const handlePointerLeave = () => {
-    lastSentPosRef.current = null;
-    if (numericBoardId) {
-      sendMessage("cursor_leave", `cyberboard:${numericBoardId}`, {});
-    }
-  };
-
-  const handleBoardDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (!numericBoardId || !boardContainerRef.current) return;
-    const now = Date.now();
-    if (now - lastMoveSentRef.current < 40) return;
-
-    const rect = boardContainerRef.current.getBoundingClientRect();
-    const x = Math.round(e.clientX - rect.left);
-    const y = Math.round(e.clientY - rect.top);
-
-    // 100px movement radius deadzone threshold
-    if (lastSentPosRef.current) {
-      const dx = x - lastSentPosRef.current.x;
-      const dy = y - lastSentPosRef.current.y;
-      if (dx * dx + dy * dy < 10000) return;
-    }
-
-    lastMoveSentRef.current = now;
-    lastSentPosRef.current = { x, y };
-
-    if (activeDragCardRef.current) {
-      sendMessage("card_drag", `cyberboard:${numericBoardId}`, {
-        cardId: activeDragCardRef.current.id,
-        title: activeDragCardRef.current.title,
-        x,
-        y,
-      });
-    }
-  };
-
-  const handleCardDragStart = (_e: React.DragEvent, card: CyberboardCard) => {
-    activeDragCardRef.current = card;
-  };
-
-  const handleCardDragEnd = (_e: React.DragEvent, card: CyberboardCard) => {
-    activeDragCardRef.current = null;
-    if (numericBoardId) {
-      sendMessage("card_drag_end", `cyberboard:${numericBoardId}`, { cardId: card.id });
-    }
-  };
-
-  // Window visibility & tab blur listener: immediately remove cursor when user switches tabs or leaves
-  useEffect(() => {
-    if (!numericBoardId) return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        sendMessage("cursor_leave", `cyberboard:${numericBoardId}`, {});
-      }
-    };
-
-    window.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("beforeunload", handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("beforeunload", handleVisibilityChange);
-      sendMessage("cursor_leave", `cyberboard:${numericBoardId}`, {});
-    };
-  }, [numericBoardId, sendMessage]);
-
-  // Interval cleanup to prune stale remote cursors (older than 2.5s)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setRemoteCursors((prev) => {
-        let changed = false;
-        const next: typeof prev = {};
-        Object.entries(prev).forEach(([uidStr, cursor]) => {
-          if (now - cursor.updatedAt < 2500) {
-            next[Number(uidStr)] = cursor;
-          } else {
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Subscribe to board channel
-  useEffect(() => {
-    if (!numericBoardId) return;
-    const unsubscribe = subscribe(`cyberboard:${numericBoardId}`, handleWsEvent);
-    return () => {
-      unsubscribe();
-    };
-  }, [numericBoardId, subscribe, handleWsEvent]);
+  // Custom Realtime Hook
+  const {
+    boardContainerRef,
+    isConnected,
+    remoteCursors,
+    remoteDraggingCards,
+    activeDragCard,
+    handlePointerMove,
+    handlePointerLeave,
+    handleBoardDragOver,
+    handleCardDragStart,
+    handleCardDragEnd,
+    clearLocalDragState,
+  } = useCyberboardRealtime({
+    numericBoardId,
+    userId: user?.id,
+    onWsBoardEvent: handleWsBoardEvent,
+  });
 
   // Actions
   const handleAddSuggestion = async (data: {
@@ -470,15 +281,10 @@ export default function CyberBoardView() {
   };
 
   const handleCardDrop = async (cardId: number, targetColId: number) => {
-    // Immediately clear active drag reference & send drag end event to WebSocket
-    activeDragCardRef.current = null;
-    if (numericBoardId) {
-      sendMessage("card_drag_end", `cyberboard:${numericBoardId}`, { cardId });
-    }
+    clearLocalDragState(cardId);
 
     if (!board || !board.columns) return;
 
-    // Optimistic UI update
     let targetCard: CyberboardCard | null = null;
     let fromColId: number | null = null;
 
@@ -513,7 +319,7 @@ export default function CyberBoardView() {
       await moveCyberboardCard(cardId, targetColId, newPos);
     } catch (err) {
       console.error("Failed to move card on server:", err);
-      loadBoard(); // Revert on failure
+      loadBoard();
     }
   };
 
@@ -577,20 +383,47 @@ export default function CyberBoardView() {
     });
   };
 
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = async (cardId: number, commentId: number) => {
     await deleteCyberboardCardComment(commentId);
-    if (selectedCard) {
-      const updatedComments = (selectedCard.comments || []).filter((c) => c.id !== commentId);
-      setSelectedCard({
-        ...selectedCard,
-        comments_count: Math.max(0, (selectedCard.comments_count || 0) - 1),
-        comments: updatedComments,
+    setBoard((prev) => {
+      if (!prev || !prev.columns) return prev;
+      const updatedColumns = prev.columns.map((col) => {
+        const cards = (col.cards || []).map((c) => {
+          if (c.id === cardId) {
+            const comments = (c.comments || []).filter((cm) => cm.id !== commentId);
+            return {
+              ...c,
+              comments_count: Math.max(0, (c.comments_count || 0) - 1),
+              comments,
+            };
+          }
+          return c;
+        });
+        return { ...col, cards };
       });
-    }
+      return { ...prev, columns: updatedColumns };
+    });
+
+    setSelectedCard((prev) => {
+      if (prev?.id === cardId) {
+        const comments = (prev.comments || []).filter((cm) => cm.id !== commentId);
+        return {
+          ...prev,
+          comments_count: Math.max(0, (prev.comments_count || 0) - 1),
+          comments,
+        };
+      }
+      return prev;
+    });
   };
 
-  const handleDeleteCard = async (cardId: number) => {
-    if (!window.confirm("Are you sure you want to delete this card?")) return;
+  const handleDeleteCard = async (cardId: number, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!window.confirm("Are you sure you want to delete this activity card?")) return;
+
     try {
       await deleteCyberboardCard(cardId);
       setBoard((prev) => {
@@ -601,31 +434,37 @@ export default function CyberBoardView() {
         }));
         return { ...prev, columns: updatedColumns };
       });
-      setSelectedCard(null);
+      if (selectedCard?.id === cardId) {
+        setSelectedCard(null);
+      }
     } catch (err: any) {
       alert(err.message || "Failed to delete card.");
     }
   };
 
-  const handleAddColumn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!numericBoardId || !newColumnTitle.trim()) return;
-
-    try {
-      await createCyberboardColumn(numericBoardId, { title: newColumnTitle.trim() });
-      setNewColumnTitle("");
-      setShowAddColumnModal(false);
-      loadBoard();
-    } catch (err: any) {
-      alert(err.message || "Failed to add column.");
-    }
+  const handleAddColumn = async (title: string) => {
+    if (!numericBoardId) return;
+    const newCol = await createCyberboardColumn(numericBoardId, { title });
+    setBoard((prev) => {
+      if (!prev) return prev;
+      const cols = prev.columns || [];
+      return { ...prev, columns: [...cols, newCol] };
+    });
   };
 
   const handleDeleteColumn = async (columnId: number) => {
-    if (!window.confirm("Are you sure? Cards inside will be moved to the first column.")) return;
+    if (!window.confirm("Are you sure you want to delete this column and all cards in it?")) {
+      return;
+    }
     try {
       await deleteCyberboardColumn(columnId);
-      loadBoard();
+      setBoard((prev) => {
+        if (!prev || !prev.columns) return prev;
+        return {
+          ...prev,
+          columns: prev.columns.filter((col) => col.id !== columnId),
+        };
+      });
     } catch (err: any) {
       alert(err.message || "Failed to delete column.");
     }
@@ -667,7 +506,7 @@ export default function CyberBoardView() {
   const columns = board.columns || [];
   const totalCardsCount = columns.reduce((acc, col) => acc + (col.cards?.length || 0), 0);
 
-  // Compute active collaborators (Self + Remote cursors/draggers)
+  // Compute active collaborators list (Self + Remote cursors/draggers)
   const activeCollaboratorsList = [
     ...(user
       ? [
@@ -677,8 +516,8 @@ export default function CyberBoardView() {
             avatar: user.avatar,
             role: user.role,
             isMe: true,
-            status: activeDragCardRef.current
-              ? `Dragging "${activeDragCardRef.current.title}"`
+            status: activeDragCard
+              ? `Dragging "${activeDragCard.title}"`
               : "Active (You)",
           },
         ]
@@ -705,139 +544,31 @@ export default function CyberBoardView() {
       className="relative flex flex-col h-full min-h-0 overflow-hidden bg-surface-950 select-none"
     >
       {/* Mobile Experience Notice Banner */}
-      <div className="md:hidden bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between gap-2 flex-shrink-0 z-20">
-        <div className="flex items-center gap-2">
-          <Smartphone className="w-4 h-4 text-amber-400 flex-shrink-0" />
-          <span>
-            <strong>Mobile Notice:</strong> Drag-and-drop planning is optimized for desktop screens. Tap any card to view details or add comments!
-          </span>
-        </div>
-      </div>
+      <MobileNoticeBanner />
 
-      {/* Live Remote Cursors Overlay */}
-      {Object.entries(remoteCursors).map(([idStr, cursor]) => (
-        <div
-          key={`cursor-${idStr}`}
-          className="pointer-events-none absolute top-0 left-0 z-50 flex items-start gap-1 font-sans will-change-transform"
-          style={{
-            transform: `translate3d(${cursor.x}px, ${cursor.y}px, 0)`,
-            transition: "transform 60ms linear",
-          }}
-        >
-          <MousePointer className="w-5 h-5 text-primary fill-primary drop-shadow-md -rotate-45" />
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-surface-900/90 border border-primary/40 shadow-xl text-[10px] font-bold text-text-primary backdrop-blur-xs">
-            <img
-              src={cursor.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
-              alt={cursor.name}
-              className="w-3.5 h-3.5 rounded-full border border-primary object-cover"
-            />
-            <span>{cursor.name}</span>
-          </div>
-        </div>
-      ))}
+      {/* Live Remote Cursors & Drag Ghosts Overlay */}
+      <LiveCursorsOverlay
+        remoteCursors={remoteCursors}
+        remoteDraggingCards={remoteDraggingCards}
+      />
 
-      {/* Live Remote Dragging Cards Ghost Overlay */}
-      {Object.entries(remoteDraggingCards).map(([idStr, cardDrag]) => (
-        <div
-          key={`drag-${idStr}`}
-          className="pointer-events-none absolute top-0 left-0 z-50 p-3 rounded-xl bg-primary/20 border-2 border-primary border-dashed shadow-2xl backdrop-blur-md max-w-xs space-y-1.5 scale-105 will-change-transform"
-          style={{
-            transform: `translate3d(${cardDrag.x + 15}px, ${cardDrag.y + 15}px, 0)`,
-            transition: "transform 60ms linear",
-          }}
-        >
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
-            <img
-              src={cardDrag.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
-              alt={cardDrag.name}
-              className="w-4 h-4 rounded-full border border-primary object-cover"
-            />
-            <span>{cardDrag.name} is dragging...</span>
-          </div>
-          <p className="text-xs font-semibold text-text-primary line-clamp-1">
-            {cardDrag.title}
-          </p>
-        </div>
-      ))}
+      {/* Board Navigation Header */}
+      <BoardHeader
+        board={board}
+        totalCardsCount={totalCardsCount}
+        isConnected={isConnected}
+        activeCollaboratorsCount={activeCollaboratorsList.length}
+        showCollaborators={showCollaborators}
+        copiedLink={copiedLink}
+        onToggleCollaborators={() => setShowCollaborators((prev) => !prev)}
+        onCopyShareLink={handleCopyShareLink}
+        onSuggestActivityClick={() => {
+          setTargetColumnId(columns[0]?.id);
+          setShowNewSuggestionModal(true);
+        }}
+      />
 
-      {/* Board Navigation Header (Docked directly below Topbar) */}
-      <div className="bg-surface-900/95 backdrop-blur-md border-b border-border/80 p-3.5 sm:px-6 flex items-center justify-between gap-4 flex-shrink-0 sticky top-0 z-10 shadow-xs">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link
-            to="/app/cyberboard"
-            className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all flex-shrink-0"
-            title="Back to All Boards"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-
-          <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-text-primary truncate">
-                {board.title}
-              </h1>
-              <span className="px-2 py-0.5 rounded-full bg-surface-800 text-text-secondary text-[10px] font-bold border border-border">
-                {totalCardsCount} cards
-              </span>
-              {isConnected && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
-                  <Radio className="w-3 h-3 animate-pulse" /> Live Collab
-                </span>
-              )}
-            </div>
-
-            {board.description && (
-              <p className="text-xs text-text-muted truncate max-w-xl">
-                {board.description}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Action CTAs */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowCollaborators((prev) => !prev)}
-            className={`p-2 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-              showCollaborators
-                ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
-                : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
-            }`}
-            title="Toggle Active Collaborators Panel"
-          >
-            <Users className="w-4 h-4" />
-            <span className="hidden sm:inline">Collaborators</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">
-              {activeCollaboratorsList.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCopyShareLink}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-            title="Share Board Link"
-          >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">{copiedLink ? "Link Copied!" : "Share"}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setTargetColumnId(columns[0]?.id);
-              setShowNewSuggestionModal(true);
-            }}
-            className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Suggest Activity</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Workspace Flex Area (Board Columns + Active Collaborators Right Sidebar) */}
+      {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
         {/* Main Kanban Columns Workspace (Horizontal Scroll) */}
         <div
@@ -881,102 +612,11 @@ export default function CyberBoardView() {
 
         {/* Active Collaborators Right Sidebar */}
         {showCollaborators && (
-          <aside className="w-72 border-l border-border/70 bg-surface-900/95 backdrop-blur-md flex flex-col flex-shrink-0 z-20 h-full overflow-hidden transition-all animate-in slide-in-from-right duration-200">
-            {/* Sidebar Header */}
-            <div className="p-4 border-b border-border/60 flex items-center justify-between gap-2 bg-surface-950/40">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-bold text-text-primary">
-                  Collaborators ({activeCollaboratorsList.length})
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowCollaborators(false)}
-                className="p-1 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-800 transition-all cursor-pointer"
-                title="Close Sidebar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              {/* Live Online Section */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[11px] font-bold text-text-muted uppercase tracking-wider">
-                  <span>Live Online ({activeCollaboratorsList.length})</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                </div>
-
-                <div className="space-y-2">
-                  {activeCollaboratorsList.map((collab) => (
-                    <div
-                      key={collab.id}
-                      className="p-2.5 rounded-xl bg-surface-800/60 border border-border/50 flex items-center gap-2.5 transition-all hover:bg-surface-800"
-                    >
-                      <div className="relative flex-shrink-0">
-                        <img
-                          src={
-                            collab.avatar ||
-                            "https://api.dicebear.com/9.x/avataaars/svg?seed=user"
-                          }
-                          alt={collab.name}
-                          className="w-8 h-8 rounded-full border border-border object-cover"
-                        />
-                        <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-surface-900" />
-                      </div>
-
-                      <div className="space-y-0.5 min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-bold text-text-primary truncate">
-                            {collab.name}
-                          </span>
-                          {collab.isMe && (
-                            <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[9px] font-bold">
-                              You
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-text-muted truncate">
-                          {collab.status}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Board Creator Section */}
-              {board.creator && (
-                <div className="space-y-2.5 pt-4 border-t border-border/50">
-                  <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider block">
-                    Board Host
-                  </span>
-                  <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-2.5">
-                    <img
-                      src={
-                        board.creator.avatar ||
-                        "https://api.dicebear.com/9.x/avataaars/svg?seed=creator"
-                      }
-                      alt={board.creator.name}
-                      className="w-8 h-8 rounded-full border border-primary/40 object-cover"
-                    />
-                    <div className="space-y-0.5 min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-text-primary truncate">
-                          {board.creator.name}
-                        </span>
-                        <ShieldCheck className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                      </div>
-                      <p className="text-[10px] text-primary/80 font-medium">
-                        Board Host
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </aside>
+          <CollaboratorsSidebar
+            board={board}
+            collaborators={activeCollaboratorsList}
+            onClose={() => setShowCollaborators(false)}
+          />
         )}
       </div>
 
@@ -989,7 +629,7 @@ export default function CyberBoardView() {
           onClose={() => setSelectedCard(null)}
           onVoteToggle={handleVoteToggle}
           onAddComment={handleAddComment}
-          onDeleteComment={handleDeleteComment}
+          onDeleteComment={(commentId) => handleDeleteComment(selectedCard.id, commentId)}
           onDeleteCard={handleDeleteCard}
         />
       )}
@@ -1007,36 +647,10 @@ export default function CyberBoardView() {
 
       {/* Add Column Modal (Admin) */}
       {showAddColumnModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-surface-900 border border-border rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-base font-bold text-text-primary">Add New Column</h3>
-            <form onSubmit={handleAddColumn} className="space-y-4">
-              <input
-                type="text"
-                value={newColumnTitle}
-                onChange={(e) => setNewColumnTitle(e.target.value)}
-                placeholder="Column title (e.g. Planning)"
-                required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddColumnModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-text-muted hover:bg-surface-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold"
-                >
-                  Add Column
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddColumnModal
+          onClose={() => setShowAddColumnModal(false)}
+          onSubmit={handleAddColumn}
+        />
       )}
     </div>
   );
