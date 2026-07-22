@@ -142,7 +142,29 @@ export default function CyberBoardView() {
         });
         setSelectedCard((prev) => (prev?.id === cardId ? null : prev));
       } else if (type === "card:moved") {
-        const { card_id, to_column_id, position } = payload;
+        const { card_id, to_column_id, position, moved_by_user_id } = payload;
+
+        // Show toast notification if another collaborator moved a card
+        if (moved_by_user_id && moved_by_user_id !== user?.id) {
+          setBoard((latestBoard) => {
+            if (latestBoard?.columns) {
+              const targetCol = latestBoard.columns.find((c) => c.id === to_column_id);
+              let movedCardTitle = "";
+              for (const col of latestBoard.columns) {
+                const foundCard = (col.cards || []).find((c) => c.id === card_id);
+                if (foundCard) {
+                  movedCardTitle = foundCard.title;
+                  break;
+                }
+              }
+              if (targetCol && movedCardTitle) {
+                showToast(`Collaborator moved '${movedCardTitle}' to '${targetCol.title}'.`, "info");
+              }
+            }
+            return latestBoard;
+          });
+        }
+
         setBoard((prev) => {
           if (!prev || !prev.columns) return prev;
 
