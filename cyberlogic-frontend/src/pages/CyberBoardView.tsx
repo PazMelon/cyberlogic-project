@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Plus, AlertCircle, X } from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
@@ -23,6 +23,7 @@ import BoardColumn from "../components/cyberboard/BoardColumn";
 import CollaboratorsSidebar from "../components/cyberboard/CollaboratorsSidebar";
 import LiveCursorsOverlay from "../components/cyberboard/LiveCursorsOverlay";
 import MobileNoticeBanner from "../components/cyberboard/MobileNoticeBanner";
+import { Toast } from "../components/ui";
 import CardDetailModal from "../components/cyberboard/CardDetailModal";
 import NewSuggestionModal from "../components/cyberboard/NewSuggestionModal";
 import AddColumnModal from "../components/cyberboard/AddColumnModal";
@@ -88,6 +89,14 @@ export default function CyberBoardView() {
   useEffect(() => {
     loadBoard();
   }, [loadBoard]);
+
+  useEffect(() => {
+    if (board?.title) {
+      document.title = `${board.title} - CyberBoard | Cyberlogic`;
+    } else {
+      document.title = "CyberBoard | Cyberlogic";
+    }
+  }, [board?.title]);
 
   // Real-time WebSocket board event handler
   const handleWsBoardEvent = useCallback(
@@ -198,6 +207,7 @@ export default function CyberBoardView() {
             const cards = (col.cards || []).map((c) => {
               if (c.id === card_id) {
                 const existingComments = c.comments || [];
+                if (existingComments.some((cm) => cm.id === comment.id)) return c;
                 const commentsCount = (c.comments_count || 0) + 1;
                 return {
                   ...c,
@@ -215,6 +225,7 @@ export default function CyberBoardView() {
         setSelectedCard((prev) => {
           if (prev && prev.id === card_id) {
             const existingComments = prev.comments || [];
+            if (existingComments.some((cm) => cm.id === comment.id)) return prev;
             return {
               ...prev,
               comments_count: (prev.comments_count || 0) + 1,
@@ -299,6 +310,7 @@ export default function CyberBoardView() {
       const updatedColumns = prev.columns.map((col) => {
         if (col.id === newCard.column_id) {
           const cards = col.cards || [];
+          if (cards.some((c) => c.id === newCard.id)) return col;
           return { ...col, cards: [...cards, newCard] };
         }
         return col;
@@ -327,6 +339,27 @@ export default function CyberBoardView() {
     if (!targetCard || fromColId === targetColId) return;
 
     const targetColumn = board.columns.find((c) => c.id === targetColId);
+
+    if (targetColumn) {
+      const isHost = board.created_by === user?.id;
+      const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+      const allowedRoles = targetColumn.allowed_roles || [];
+      const allowedUsers = targetColumn.allowed_users || [];
+      const hasRestriction = allowedRoles.length > 0 || allowedUsers.length > 0;
+
+      if (hasRestriction && !isHost && !isAdmin) {
+        const roleAllowed = allowedRoles.includes(user?.role || "");
+        const userAllowed = user?.id ? allowedUsers.includes(user.id) : false;
+        if (!roleAllowed && !userAllowed) {
+          showToast(
+            `Permission Denied: You do not have permission to move cards into '${targetColumn.title}'.`,
+            "error"
+          );
+          return;
+        }
+      }
+    }
+
     const newPos = (targetColumn?.cards || []).length;
 
     // Optimistic state update
@@ -385,6 +418,7 @@ export default function CyberBoardView() {
         const cards = (col.cards || []).map((c) => {
           if (c.id === cardId) {
             const comments = c.comments || [];
+            if (comments.some((cm) => cm.id === comment.id)) return c;
             return {
               ...c,
               comments_count: (c.comments_count || 0) + 1,
@@ -401,6 +435,7 @@ export default function CyberBoardView() {
     setSelectedCard((prev) => {
       if (prev?.id === cardId) {
         const comments = prev.comments || [];
+        if (comments.some((cm) => cm.id === comment.id)) return prev;
         return {
           ...prev,
           comments_count: (prev.comments_count || 0) + 1,
@@ -606,27 +641,13 @@ export default function CyberBoardView() {
       onPointerLeave={handlePointerLeave}
       className="relative flex flex-col h-full min-h-0 overflow-hidden bg-surface-950 select-none"
     >
-      {/* Sleek Floating Toast Notification */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div
-          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[100] border backdrop-blur-md text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200 ${
-            toastMessage.type === "success"
-              ? "bg-emerald-950/90 border-emerald-500/40 text-emerald-200"
-              : toastMessage.type === "info"
-              ? "bg-primary/90 border-primary/40 text-surface-950 font-semibold"
-              : "bg-error/90 border-error/50 text-white"
-          }`}
-        >
-          <AlertCircle className="w-4 h-4 flex-shrink-0" />
-          <span>{toastMessage.text}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 opacity-80 hover:opacity-100 transition-opacity"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <Toast
+          message={toastMessage.text}
+          type={toastMessage.type}
+          onClose={() => setToastMessage(null)}
+        />
       )}
 
       {/* Mobile Experience Notice Banner */}

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Sparkles } from "lucide-react";
 import type { CyberboardColumn } from "../../utils/api";
+import { BottomSheet } from "../ui/BottomSheet";
 
 interface NewSuggestionModalProps {
   boardId: number;
@@ -41,14 +42,22 @@ export default function NewSuggestionModal({
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [colorTag, setColorTag] = useState<string>("#06b6d4");
+  const [colorTag, setColorTag] = useState(COLOR_PRESETS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("Please enter a title for your suggestion.");
+      setError("Title is required.");
       return;
     }
 
@@ -73,12 +82,165 @@ export default function NewSuggestionModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border-t border-x sm:border border-border rounded-t-3xl sm:rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[90vh] animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
-        {/* Mobile Swipe Handle */}
-        <div className="sm:hidden w-12 h-1 bg-text-muted/30 rounded-full mx-auto my-2.5 flex-shrink-0 cursor-pointer" onClick={onClose} />
+  const formBody = (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-xs text-error font-medium">
+          {error}
+        </div>
+      )}
 
+      {/* Target Column */}
+      {columns.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            Board Stage / Column
+          </label>
+          <select
+            value={columnId}
+            onChange={(e) => setColumnId(Number(e.target.value))}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            {columns.map((col) => (
+              <option key={col.id} value={col.id}>
+                {col.icon} {col.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Activity Title */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          Activity Title <span className="text-error">*</span>
+        </label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g., Annual Hackathon 2026, Cybersecurity Workshop"
+          required
+          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all"
+        />
+      </div>
+
+      {/* Description */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+          Description & Details
+        </label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Describe the objective, target audience, format, or preliminary requirements..."
+          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all resize-none"
+        />
+      </div>
+
+      {/* Target Dates Grid */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            Start Date
+          </label>
+          <input
+            type="date"
+            value={activityDate}
+            onChange={(e) => setActivityDate(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            End Date
+          </label>
+          <input
+            type="date"
+            value={activityEndDate}
+            onChange={(e) => setActivityEndDate(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Priority & Color Tag */}
+      <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            Priority Level
+          </label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as any)}
+            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            <option value="low">Low Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="high">High Priority</option>
+          </select>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block">
+            Color Accent
+          </label>
+          <div className="flex items-center gap-1.5 pt-1">
+            {COLOR_PRESETS.map((color) => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setColorTag(color)}
+                className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
+                  colorTag === color ? "scale-125 ring-2 ring-white" : "opacity-80 hover:opacity-100"
+                }`}
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Submit CTAs */}
+      <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/50">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="submit"
+          disabled={isSubmitting || !title.trim()}
+          className="px-5 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>{isSubmitting ? "Submitting..." : "Submit Suggestion"}</span>
+        </button>
+      </div>
+    </form>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        isOpen={true}
+        onClose={onClose}
+        title="Suggest Activity Idea"
+        initialSnap="3/4"
+      >
+        {formBody}
+      </BottomSheet>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface-900 border border-border rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="p-5 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -98,162 +260,16 @@ export default function NewSuggestionModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-800 rounded-xl transition-all cursor-pointer"
+            className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
-          {error && (
-            <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-xs text-error">
-              {error}
-            </div>
-          )}
-
-          {/* Target Column */}
-          {columns.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                Board Stage / Column
-              </label>
-              <select
-                value={columnId}
-                onChange={(e) => setColumnId(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-              >
-                {columns.map((col) => (
-                  <option key={col.id} value={col.id}>
-                    {col.icon} {col.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Activity Title */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Activity Title <span className="text-error">*</span>
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Capture The Flag Boot Camp"
-              required
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-all"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Proposal / Description
-            </label>
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Explain the activity plan, goals, target audience, and required setup..."
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-all resize-none"
-            />
-          </div>
-
-          {/* Dates */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                Planned Date
-              </label>
-              <input
-                type="date"
-                value={activityDate}
-                onChange={(e) => setActivityDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                End Date (Optional)
-              </label>
-              <input
-                type="date"
-                value={activityEndDate}
-                min={activityDate}
-                onChange={(e) => setActivityEndDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Priority */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Priority
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["low", "medium", "high"] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPriority(p)}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize transition-all cursor-pointer ${
-                    priority === p
-                      ? p === "high"
-                        ? "bg-error/20 border-error text-error"
-                        : p === "medium"
-                        ? "bg-amber-500/20 border-amber-500 text-amber-400"
-                        : "bg-emerald-500/20 border-emerald-500 text-emerald-400"
-                      : "bg-surface-800 border-border text-text-muted hover:bg-surface-700"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Color Tag Preset */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              Color Tag
-            </label>
-            <div className="flex items-center gap-3">
-              {COLOR_PRESETS.map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  onClick={() => setColorTag(hex)}
-                  className={`w-7 h-7 rounded-full border-2 transition-all cursor-pointer ${
-                    colorTag === hex ? "border-white scale-110 shadow-md" : "border-transparent"
-                  }`}
-                  style={{ backgroundColor: hex }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Footer Submit */}
-          <div className="pt-4 border-t border-border flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-border text-xs font-semibold text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light disabled:opacity-50 transition-all cursor-pointer shadow-lg shadow-primary/20"
-            >
-              {isSubmitting ? "Submitting..." : "Submit Suggestion"}
-            </button>
-          </div>
-        </form>
+        {/* Modal Content */}
+        <div className="p-6 overflow-y-auto">
+          {formBody}
+        </div>
       </div>
     </div>
   );

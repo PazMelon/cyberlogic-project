@@ -16,7 +16,7 @@ interface BoardColumnProps {
   onCardDrop: (cardId: number, targetColumnId: number) => void;
   onDeleteColumn?: (columnId: number) => void;
   onConfigureColumnClick?: (column: CyberboardColumn) => void;
-  onShowToast?: (message: string) => void;
+  onShowToast?: (message: string, type?: "error" | "info" | "success") => void;
   onCardDragStart?: (e: React.DragEvent, card: CyberboardCard) => void;
   onCardDragEnd?: (e: React.DragEvent, card: CyberboardCard) => void;
 }
@@ -75,7 +75,7 @@ export default function BoardColumn({
     setIsDragOver(false);
     if (!isAllowedToDrop) {
       if (onShowToast) {
-        onShowToast("You do not have permission to drag cards into this column.");
+        onShowToast(`Permission Denied: You do not have permission to move cards into '${column.title}'.`, "error");
       }
       return;
     }
@@ -89,32 +89,35 @@ export default function BoardColumn({
     }
   };
 
-  const cards = column.cards || [];
+  const rawCards = column.cards || [];
+  const cards = rawCards.filter(
+    (c, index, self) => index === self.findIndex((item) => item.id === c.id)
+  );
 
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`w-72 lg:w-80 flex-shrink-0 flex flex-col max-h-full rounded-2xl bg-surface-900/90 border transition-all duration-200 ${
+      className={`w-72 sm:w-80 flex-shrink-0 bg-surface-900/80 backdrop-blur-md rounded-2xl border transition-all flex flex-col max-h-full ${
         isDragOver
           ? isAllowedToDrop
-            ? "border-primary ring-2 ring-primary/20 bg-primary/5"
-            : "border-error ring-2 ring-error/20 bg-error/5"
-          : "border-border/60"
+            ? "border-primary/60 bg-primary/5 shadow-lg shadow-primary/10"
+            : "border-error/60 bg-error/5 shadow-lg shadow-error/10"
+          : "border-border/80"
       }`}
     >
       {/* Column Header */}
-      <div className="p-3.5 border-b border-border/50 flex items-center justify-between gap-2 flex-shrink-0">
+      <div className="p-3.5 border-b border-border/60 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg">{column.icon || "📌"}</span>
-          <h3 className="text-sm font-bold text-text-primary truncate">
+          <div
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: column.color || "#06b6d4" }}
+          />
+          <h3 className="font-bold text-xs uppercase tracking-wider text-text-primary truncate">
             {column.title}
           </h3>
-          <span
-            className="px-2 py-0.5 rounded-full text-xs font-semibold bg-surface-800 text-text-secondary border border-border/50"
-            style={{ color: column.color || undefined }}
-          >
+          <span className="px-2 py-0.5 rounded-full bg-surface-800 text-text-muted text-[10px] font-bold border border-border">
             {cards.length}
           </span>
           {hasRestrictions && (
@@ -160,10 +163,10 @@ export default function BoardColumn({
                         setShowOptions(false);
                         onConfigureColumnClick(column);
                       }}
-                      className="w-full text-left px-3 py-2 text-text-primary hover:bg-surface-700 flex items-center gap-2 cursor-pointer font-medium"
+                      className="w-full text-left px-3 py-2 text-text-primary hover:bg-surface-700 flex items-center gap-2 font-medium cursor-pointer"
                     >
                       <Settings className="w-3.5 h-3.5 text-primary" />
-                      Column Settings
+                      Configure Restrictions
                     </button>
                   )}
 
@@ -174,9 +177,9 @@ export default function BoardColumn({
                         setShowOptions(false);
                         onDeleteColumn(column.id);
                       }}
-                      className="w-full text-left px-3 py-2 text-error hover:bg-error/10 flex items-center gap-2 cursor-pointer font-medium"
+                      className="w-full text-left px-3 py-2 text-error hover:bg-error/10 flex items-center gap-2 font-medium cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 text-error" />
                       Delete Column
                     </button>
                   )}
@@ -201,9 +204,9 @@ export default function BoardColumn({
             </button>
           </div>
         ) : (
-          cards.map((card) => (
+          cards.map((card, idx) => (
             <BoardCard
-              key={card.id}
+              key={card.id ? `card-${card.id}` : `card-idx-${idx}`}
               card={card}
               currentUserId={currentUserId}
               isAdmin={isAdmin}

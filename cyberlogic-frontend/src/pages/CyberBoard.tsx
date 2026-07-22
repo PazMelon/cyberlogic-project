@@ -8,8 +8,6 @@ import {
   Trash2,
   Layers,
   Sparkles,
-  AlertCircle,
-  X,
 } from "lucide-react";
 import {
   fetchCyberboardBoards,
@@ -22,6 +20,8 @@ import { useDragScroll } from "../utils/scroll";
 import { useSEO } from "../utils/useSEO";
 import CreateBoardModal from "../components/cyberboard/CreateBoardModal";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
+
+import { Toast } from "../components/ui";
 
 export default function CyberBoard() {
   useSEO({
@@ -58,6 +58,7 @@ export default function CyberBoard() {
   };
 
   useEffect(() => {
+    document.title = "CyberBoard | Cyberlogic";
     loadBoards();
   }, []);
 
@@ -328,19 +329,13 @@ export default function CyberBoard() {
         </div>
       )}
 
-      {/* Floating Toast Notification */}
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-surface-900 border border-primary/40 backdrop-blur-md text-text-primary text-xs px-4 py-2.5 rounded-xl shadow-2xl transition-all flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-200">
-          <AlertCircle className="w-4 h-4 text-primary flex-shrink-0" />
-          <span>{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-text-muted hover:text-text-primary"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <Toast
+          message={toastMessage}
+          type="info"
+          onClose={() => setToastMessage(null)}
+        />
       )}
 
       {/* Create Board Modal */}

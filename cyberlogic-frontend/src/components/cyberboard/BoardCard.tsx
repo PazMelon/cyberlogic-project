@@ -85,7 +85,11 @@ export default function BoardCard({
         {canDelete && onDelete && (
           <button
             type="button"
-            onClick={(e) => onDelete(card.id, e)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(card.id, e);
+            }}
             className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error hover:bg-error/10 rounded-md transition-all cursor-pointer"
             title="Delete Card"
           >
@@ -135,7 +139,11 @@ export default function BoardCard({
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
             type="button"
-            onClick={(e) => onVoteToggle(card.id, e)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onVoteToggle(card.id, e);
+            }}
             className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
               card.has_voted
                 ? "bg-primary/20 text-primary border border-primary/30 shadow-sm"

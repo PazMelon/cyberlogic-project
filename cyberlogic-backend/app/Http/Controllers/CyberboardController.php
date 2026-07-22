@@ -7,6 +7,7 @@ use App\Models\CyberboardCard;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
 use App\Models\CyberboardColumn;
+use App\Services\NotificationService;
 use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -322,7 +323,22 @@ class CyberboardController extends Controller
 
         $boardId = $card->column->board_id;
         $cardId = $card->id;
+        $cardTitle = $card->title;
+        $cardOwnerId = $card->user_id;
+
         $card->delete();
+
+        if ($cardOwnerId !== $user->id) {
+            NotificationService::notifyUser(
+                $cardOwnerId,
+                'cyberboard_card_deleted',
+                "Your idea was removed",
+                "Your suggestion '{$cardTitle}' was deleted from CyberBoard.",
+                ['board_id' => $boardId],
+                'trash-2',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card_id' => $cardId,
@@ -400,6 +416,23 @@ class CyberboardController extends Controller
             'moved_by_user_id' => $user->id,
         ], 'card:moved');
 
+        if ($fromColumnId !== $toColumnId && $card->user_id !== $user->id) {
+            NotificationService::notifyUser(
+                $card->user_id,
+                'cyberboard_card_moved',
+                "Your idea was moved",
+                "Your suggestion '{$card->title}' was moved to the '{$targetColumn->title}' stage.",
+                [
+                    'board_id' => $boardId,
+                    'card_id' => $card->id,
+                    'column_id' => $toColumnId,
+                    'column_title' => $targetColumn->title,
+                ],
+                'arrow-right-circle',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
         return response()->json([
             'message' => 'Card moved successfully',
             'card_id' => $card->id,
@@ -446,6 +479,18 @@ class CyberboardController extends Controller
             'has_voted' => $hasVoted,
         ], 'card:voted');
 
+        if ($hasVoted && $card->user_id !== $user->id) {
+            NotificationService::notifyUser(
+                $card->user_id,
+                'cyberboard_like',
+                "New upvote on your idea",
+                "{$user->first_name} liked your suggestion '{$card->title}'",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'thumbs-up',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
         return response()->json([
             'card_id' => $id,
             'votes_count' => $votesCount,
@@ -483,6 +528,29 @@ class CyberboardController extends Controller
             'card_id' => $id,
             'comment' => $comment,
         ], 'card:commented');
+
+        if ($card->user_id !== $user->id) {
+            NotificationService::notifyUser(
+                $card->user_id,
+                'cyberboard_comment',
+                "New comment on your idea",
+                "{$user->first_name} commented on '{$card->title}'",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'message-square',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
+        NotificationService::notifyMentions(
+            $validated['content'],
+            $user,
+            'cyberboard_mention',
+            "Mentioned in CyberBoard",
+            "{$user->first_name} mentioned you in a comment on '{$card->title}'",
+            ['board_id' => $boardId, 'card_id' => $card->id],
+            'at-sign',
+            "/app/cyberboard/{$boardId}"
+        );
 
         return response()->json($comment, 201);
     }

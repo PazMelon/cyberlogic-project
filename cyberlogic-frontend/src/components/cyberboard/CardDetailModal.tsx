@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
+import { BottomSheet } from "../ui/BottomSheet";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
@@ -25,6 +26,13 @@ export default function CardDetailModal({
 }: CardDetailModalProps) {
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   if (!card) return null;
 
@@ -60,14 +68,142 @@ export default function CardDetailModal({
     }
   };
 
-  const comments = card.comments || [];
+  const rawComments = card.comments || [];
+  const comments = rawComments.filter(
+    (cm, index, self) => index === self.findIndex((c) => c.id === cm.id)
+  );
+
+  const modalBody = (
+    <div className="space-y-6">
+      {/* Description */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">
+          Description & Details
+        </h4>
+        <div className="p-4 rounded-xl bg-surface-800/60 border border-border/50 text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
+          {card.description || "No detailed description provided."}
+        </div>
+      </div>
+
+      {/* Upvote CTA Section */}
+      <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <h4 className="text-sm font-bold text-text-primary">
+            Support this suggestion
+          </h4>
+          <p className="text-xs text-text-muted">
+            Upvote to let event organizers know member interest level
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onVoteToggle(card.id)}
+          className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+            card.has_voted
+              ? "bg-primary text-surface-950 shadow-md shadow-primary/20 scale-105"
+              : "bg-surface-800 text-text-primary hover:bg-surface-700 border border-border"
+          }`}
+        >
+          <ThumbsUp className={`w-4 h-4 ${card.has_voted ? "fill-surface-950" : ""}`} />
+          <span>{card.votes_count || 0} Votes</span>
+        </button>
+      </div>
+
+      {/* Comments Section */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-primary" />
+            <span>Comments ({comments.length})</span>
+          </h4>
+        </div>
+
+        {/* New Comment Input */}
+        <form onSubmit={handleSubmitComment} className="flex gap-2">
+          <input
+            type="text"
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            placeholder="Write a comment..."
+            className="flex-1 px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all"
+          />
+          <button
+            type="submit"
+            disabled={!newComment.trim() || isSubmitting}
+            className="px-3.5 py-2 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Post</span>
+          </button>
+        </form>
+
+        {/* Comments List */}
+        <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+          {comments.length === 0 ? (
+            <p className="text-xs text-text-muted italic text-center py-4">
+              No comments yet. Be the first to comment!
+            </p>
+          ) : (
+            comments.map((cm, idx) => (
+              <div
+                key={cm.id ? `comment-${cm.id}` : `comment-idx-${idx}`}
+                className="p-3 rounded-xl bg-surface-800/40 border border-border/40 space-y-1"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src={
+                        cm.user?.avatar ||
+                        "https://api.dicebear.com/9.x/avataaars/svg?seed=user"
+                      }
+                      alt={cm.user?.name || "User"}
+                      className="w-5 h-5 rounded-full border border-border object-cover"
+                    />
+                    <span className="text-xs font-bold text-text-primary">
+                      {cm.user?.name || "Member"}
+                    </span>
+                  </div>
+
+                  {(cm.user_id === currentUserId || isAdmin) && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteComment(cm.id)}
+                      className="text-text-muted hover:text-error transition-all p-1"
+                      title="Delete comment"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs text-text-secondary pl-7 whitespace-pre-wrap">
+                  {cm.content}
+                </p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <BottomSheet
+        isOpen={true}
+        onClose={onClose}
+        title={card.title}
+        initialSnap="3/4"
+      >
+        {modalBody}
+      </BottomSheet>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border-t border-x sm:border border-border rounded-t-3xl sm:rounded-2xl max-w-2xl w-full max-h-[85vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-200">
-        {/* Mobile Swipe Handle */}
-        <div className="sm:hidden w-12 h-1 bg-text-muted/30 rounded-full mx-auto my-2.5 flex-shrink-0 cursor-pointer" onClick={onClose} />
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-surface-900 border border-border rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="p-5 border-b border-border flex items-start justify-between gap-4">
           <div className="space-y-1 min-w-0">
@@ -95,155 +231,44 @@ export default function CardDetailModal({
               )}
             </div>
 
-            <h2 className="text-xl font-bold text-text-primary leading-snug mt-1">
+            <h2 className="text-lg font-bold text-text-primary leading-tight pt-1">
               {card.title}
             </h2>
+
+            {card.user && (
+              <p className="text-xs text-text-muted flex items-center gap-1.5 pt-0.5">
+                <span>Suggested by</span>
+                <span className="font-bold text-text-primary">{card.user.name}</span>
+              </p>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-surface-800 rounded-xl transition-all cursor-pointer flex-shrink-0"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Card Owner Profile Bar */}
-          <div className="flex items-center justify-between p-3 rounded-xl bg-surface-800/60 border border-border/50">
-            <div className="flex items-center gap-3">
-              <img
-                src={card.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
-                alt={card.user?.name || "Member"}
-                className="w-9 h-9 rounded-full border border-primary/30 object-cover"
-              />
-              <div>
-                <p className="text-xs text-text-muted">Suggested by</p>
-                <p className="text-sm font-semibold text-text-primary">
-                  {card.user?.name || "Club Member"}
-                  <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
-                    {card.user?.role || "member"}
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {/* Upvote Button */}
-            <button
-              type="button"
-              onClick={() => onVoteToggle(card.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs transition-all cursor-pointer ${
-                card.has_voted
-                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
-                  : "bg-surface-800 text-text-primary hover:bg-surface-700 border border-border"
-              }`}
-            >
-              <ThumbsUp className={`w-4 h-4 ${card.has_voted ? "fill-surface-950" : ""}`} />
-              <span>{card.has_voted ? "Upvoted" : "Upvote Idea"} ({card.votes_count || 0})</span>
-            </button>
-          </div>
-
-          {/* Description Section */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-text-muted uppercase tracking-wider">
-              Activity Details & Proposal
-            </h3>
-            <div className="p-4 rounded-xl bg-surface-800/40 border border-border/40 text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-              {card.description || "No detailed description provided."}
-            </div>
-          </div>
-
-          {/* Comments Section */}
-          <div className="space-y-4 pt-4 border-t border-border/60">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary" />
-                Discussion & Feedback ({comments.length})
-              </h3>
-            </div>
-
-            {/* Comments List */}
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-              {comments.length === 0 ? (
-                <p className="text-xs text-text-muted italic text-center py-4">
-                  No comments yet. Be the first to give feedback!
-                </p>
-              ) : (
-                comments.map((comment) => {
-                  const canDeleteComment = comment.user_id === currentUserId || isAdmin;
-                  return (
-                    <div
-                      key={comment.id}
-                      className="p-3 rounded-xl bg-surface-800/60 border border-border/40 space-y-1"
-                    >
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={comment.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=comment"}
-                            alt={comment.user?.name || "User"}
-                            className="w-5 h-5 rounded-full border border-border object-cover"
-                          />
-                          <span className="font-semibold text-text-primary">
-                            {comment.user?.name || "Member"}
-                          </span>
-                        </div>
-
-                        {canDeleteComment && (
-                          <button
-                            type="button"
-                            onClick={() => onDeleteComment(comment.id)}
-                            className="text-text-muted hover:text-error transition-colors p-1 cursor-pointer"
-                            title="Delete comment"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-xs text-text-secondary pl-7">
-                        {comment.content}
-                      </p>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Add Comment Input */}
-            <form onSubmit={handleSubmitComment} className="flex gap-2">
-              <input
-                type="text"
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Write a comment or suggestion..."
-                className="flex-1 px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary transition-all"
-              />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {canDeleteCard && (
               <button
-                type="submit"
-                disabled={!newComment.trim() || isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-primary text-surface-950 font-semibold text-xs flex items-center gap-1.5 hover:bg-primary-light disabled:opacity-50 transition-all cursor-pointer"
+                type="button"
+                onClick={() => onDeleteCard(card.id)}
+                className="p-2 rounded-xl text-text-muted hover:text-error hover:bg-error/10 transition-all cursor-pointer"
+                title="Delete Card"
               >
-                <Send className="w-4 h-4" />
-                <span>Send</span>
+                <Trash2 className="w-5 h-5" />
               </button>
-            </form>
+            )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Modal Footer */}
-        {canDeleteCard && (
-          <div className="p-4 border-t border-border bg-surface-950/40 flex justify-between items-center">
-            <button
-              type="button"
-              onClick={() => onDeleteCard(card.id)}
-              className="px-4 py-2 rounded-xl text-xs font-semibold text-error hover:bg-error/10 border border-error/20 transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Suggestion
-            </button>
-          </div>
-        )}
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {modalBody}
+        </div>
       </div>
     </div>
   );
