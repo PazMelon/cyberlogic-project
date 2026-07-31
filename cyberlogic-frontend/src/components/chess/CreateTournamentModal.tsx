@@ -164,8 +164,8 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   };
 
   // Mathematical center coordinate calculation for pixel-perfect line alignment
-  const MATCH_HEIGHT = 110;
-  const GAP_HEIGHT = 26;
+  const MATCH_HEIGHT = 120;
+  const GAP_HEIGHT = 28;
   const UNIT_HEIGHT = MATCH_HEIGHT + GAP_HEIGHT;
 
   const getMatchCenterY = (r: number, m: number): number => {
@@ -680,15 +680,26 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
                             const expectedSlots = Math.max(1, Math.pow(2, Math.max(0, bracketPreviewData.totalRounds - 1 - k)));
                             const isLosersFinal = lr === totalLosersRounds;
                             const hasNextRound = lr < totalLosersRounds;
+                            const isReductionRound = lr % 2 === 1;
+                            const sourceWinnersRound = isReductionRound ? null : (lr / 2) + 1;
+
+                            const getRoundSubtitle = () => {
+                              if (lr === 1) return 'W-R1 losers play each other';
+                              if (isReductionRound) return 'Survivors play each other';
+                              return `L-R${lr - 1} winners vs W-R${sourceWinnersRound} losers`;
+                            };
 
                             return (
                               <div key={`modal-losers-${lr}`} className="w-64 sm:w-72 relative flex flex-col">
                                 <div className="text-center py-1.5 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] font-bold z-10 mb-4">
                                   <span className="text-xs font-extrabold block">
-                                    {isLosersFinal ? '🏆 Losers Final' : `Losers Round ${lr}`}
+                                    {isLosersFinal ? '⚔️ Losers Final' : `Losers Round ${lr}`}
                                   </span>
-                                  <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-semibold">
+                                  <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-semibold block">
                                     {expectedSlots} Match{expectedSlots > 1 ? 'es' : ''}
+                                  </span>
+                                  <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-medium block mt-0.5">
+                                    {getRoundSubtitle()}
                                   </span>
                                 </div>
 

@@ -14,13 +14,21 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
 
   const maxP = Math.max(2, Math.min(32, tournament.max_players || 8));
   const participants = tournament.participants || [];
-  const playerCount = participants.length || maxP;
-  const totalRounds = tournament.total_rounds || Math.max(1, Math.ceil(Math.log2(playerCount)));
+  const actualParticipantCount = participants.length;
+  const isRegistration = tournament.status === 'registration';
+
+  // Auto-size preview based on actual registered players if >= 2, otherwise max_players
+  const effectivePlayerCount = isRegistration
+    ? (actualParticipantCount >= 2 ? actualParticipantCount : maxP)
+    : (actualParticipantCount || maxP);
+
+  const totalRounds = (tournament.status === 'in_progress' || tournament.status === 'completed') && tournament.total_rounds
+    ? tournament.total_rounds
+    : Math.max(1, Math.ceil(Math.log2(effectivePlayerCount)));
+
   const bracketSize = Math.pow(2, totalRounds);
   const numR1Slots = bracketSize / 2;
   const allMatches = tournament.matches || [];
-
-  const isRegistration = tournament.status === 'registration';
   const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers' || m.bracket_type === 'grand_final');
 
   // Dynamically discover winners bracket rounds from actual match data
@@ -45,14 +53,16 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
       .sort((a, b) => Number(a.match_number) - Number(b.match_number));
   }
 
-  // Grand Final match (if exists)
-  const grandFinalMatch = allMatches.find((m) => m.bracket_type === 'grand_final') || null;
+  // Grand Final matches (if exist)
+  const grandFinalMatches = allMatches.filter((m) => m.bracket_type === 'grand_final').sort((a, b) => Number(a.match_number) - Number(b.match_number));
+  const grandFinalMatch1 = grandFinalMatches.find((m) => Number(m.match_number) === 1) || null;
+  const grandFinalMatch2 = grandFinalMatches.find((m) => Number(m.match_number) === 2) || null;
 
   // === BRACKET TREE POSITIONING MATH ===
-  const CARD_HEIGHT = 155;
-  const GAP_HEIGHT = 25;
+  const CARD_HEIGHT = 215;
+  const GAP_HEIGHT = 35;
   const UNIT_HEIGHT = CARD_HEIGHT + GAP_HEIGHT;
-  const totalTreeHeight = Math.max(300, numR1Slots * UNIT_HEIGHT);
+  const totalTreeHeight = Math.max(350, numR1Slots * UNIT_HEIGHT);
 
   const getSlotCenterY = (round: number, slotIdx: number): number => {
     if (round === 1) {
@@ -557,10 +567,10 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                     <div className="relative flex-1">
                       <div
                         style={{ top: `${getSlotCenterY(totalRounds, 0) - CARD_HEIGHT / 2}px` }}
-                        className="absolute w-full z-10"
+                        className="absolute w-full z-10 space-y-4"
                       >
-                        {grandFinalMatch ? (
-                          renderMatchCard(grandFinalMatch, true, grandFinalMatch.round_number, 0)
+                        {grandFinalMatch1 ? (
+                          renderMatchCard(grandFinalMatch1, true, grandFinalMatch1.round_number, 0)
                         ) : (
                           <div className="bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-xl p-4 space-y-3 shadow-xl bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]">
                             <div className="flex items-center justify-between text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
@@ -575,6 +585,16 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                               <span>🛡️ Losers Bracket Champion</span>
                               <span className="text-[10px] font-mono">TBD</span>
                             </div>
+                          </div>
+                        )}
+
+                        {/* 🔥 Grand Final Reset Match #2 (if activated) */}
+                        {grandFinalMatch2 && (
+                          <div className="pt-2 animate-fade-in">
+                            <div className="text-center py-1 px-3 mb-2 rounded-lg bg-red-500/20 border border-red-500/40 text-[10px] font-extrabold text-red-700 dark:text-red-300 font-mono tracking-wider flex items-center justify-center gap-1">
+                              🔥 BRACKET RESET (MATCH #2)
+                            </div>
+                            {renderMatchCard(grandFinalMatch2, true, grandFinalMatch2.round_number, 1)}
                           </div>
                         )}
                       </div>
@@ -624,16 +644,34 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                       const k = Math.floor((roundNum + 1) / 2);
                       const expectedSlots = Math.max(1, Math.pow(2, Math.max(0, totalRounds - 1 - k)));
                       const hasNextRound = roundNum < totalLosersRounds;
+                      const isReductionRound = roundNum % 2 === 1; // Odd = reduction, Even = drop-in
+                      const sourceWinnersRound = isReductionRound ? null : (roundNum / 2) + 1;
+
+                      // Better round title
+                      const getLosersRoundTitle = () => {
+                        if (roundNum === totalLosersRounds) return '⚔️ Losers Final';
+                        if (isReductionRound) return `Losers Round ${roundNum}`;
+                        return `Losers Round ${roundNum}`;
+                      };
+
+                      const getRoundSubtitle = () => {
+                        if (roundNum === 1) return 'W-R1 losers play each other';
+                        if (isReductionRound) return 'Survivors play each other';
+                        return `L-R${roundNum - 1} winners vs W-R${sourceWinnersRound} losers`;
+                      };
 
                       return (
                         <div key={`losers-${roundNum}`} className="w-72 relative flex flex-col">
                           {/* Round Header */}
                           <div className="text-center py-2 px-4 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] shadow-sm z-10 font-bold mb-4">
                             <h3 className="text-xs font-extrabold tracking-wide">
-                              Losers Round {roundNum}
+                              {getLosersRoundTitle()}
                             </h3>
-                            <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
+                            <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold block">
                               {expectedSlots} Match{expectedSlots !== 1 ? 'es' : ''}
+                            </span>
+                            <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-medium block mt-0.5">
+                              {getRoundSubtitle()}
                             </span>
                           </div>
 
@@ -656,15 +694,15 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                                       <div className="flex items-center justify-between text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300">
                                         <span>Match #{sIdx + 1}</span>
                                         <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-cyan-500/10 border border-cyan-500/30">
-                                          LOSERS BRACKET
+                                          {roundNum === 1 ? 'W-R1 LOSERS' : isReductionRound ? 'REDUCTION' : 'DROP-IN'}
                                         </span>
                                       </div>
                                       <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic flex items-center justify-between">
-                                        <span>TBD (Drops from Winners)</span>
+                                        <span>{roundNum === 1 ? 'W-R1 Loser' : isReductionRound ? `L-R${roundNum - 1} Survivor` : `L-R${roundNum - 1} Winner`}</span>
                                         <span className="text-[10px] font-mono">TBD</span>
                                       </div>
                                       <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic flex items-center justify-between">
-                                        <span>TBD (Drops from Winners)</span>
+                                        <span>{roundNum === 1 ? 'W-R1 Loser' : isReductionRound ? `L-R${roundNum - 1} Survivor` : `W-R${sourceWinnersRound} Loser`}</span>
                                         <span className="text-[10px] font-mono">TBD</span>
                                       </div>
                                     </div>

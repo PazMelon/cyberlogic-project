@@ -129,9 +129,9 @@ class ChessTournamentService
     }
 
     /**
-     * Start the tournament & generate ONLY real Round 1 matches.
-     * No BYE entries, no pre-generated future rounds.
-     * Everything is created on-demand as matches complete.
+     * Start the tournament using the Universal Seeded Power-of-Two DAG Tree Engine.
+     * Pre-generates all match nodes for any player count P (e.g. 5, 9, 15, 17, 31).
+     * Auto-assigns BYEs and recursively evaluates DAG node advancements.
      */
     public function startTournament(ChessTournament $tournament, User $user): ChessTournament
     {
@@ -153,60 +153,128 @@ class ChessTournamentService
             throw new \Exception('At least 2 players are required to start a tournament.');
         }
 
-        // Determine bracket structure
+        // Calculate power-of-two bracket size N (4, 8, 16, 32...)
         $totalRounds = (int) max(1, ceil(log($playerCount, 2)));
         $targetBracketSize = (int) pow(2, $totalRounds);
-        $numR1Slots = (int) ($targetBracketSize / 2);
-        $numByes = $targetBracketSize - $playerCount;
-        $numRealMatches = $numR1Slots - $numByes;
 
-        // Randomize seed pairings for tournament
+        // Randomize seed pairings
         $shuffledParticipants = $participants->shuffle();
-        $shuffledUserIds = [];
+        $seededUserIds = [];
         $seedIndex = 1;
 
         foreach ($shuffledParticipants as $p) {
             $p->seed = $seedIndex;
             $p->save();
-            $shuffledUserIds[] = $p->user_id;
+            $seededUserIds[$seedIndex] = $p->user_id;
             $seedIndex++;
         }
 
-        // Create ONLY real Round 1 matches (no BYE entries, no future round placeholders)
-        // First (numRealMatches * 2) players are paired into real matches.
-        // Remaining players are bye-advanced — they have NO R1 match and will
-        // be dynamically paired into Round 2 via checkAndAdvanceRound().
-        $matchNumber = 1;
-        for ($i = 0; $i < $numRealMatches; $i++) {
-            $wId = $shuffledUserIds[$i * 2];
-            $bId = $shuffledUserIds[$i * 2 + 1];
+        // ═══════════════════════════════════════════════════════════
+        // 1. PRE-CREATE ALL DAG MATCH NODES IN DATABASE
+        // ═══════════════════════════════════════════════════════════
 
-            $game = $this->createMatchGame($tournament, $wId, $bId);
-            $match = ChessTournamentMatch::create([
-                'tournament_id' => $tournament->id,
-                'round_number' => 1,
-                'match_number' => $matchNumber++,
-                'bracket_type' => 'winners',
-                'white_user_id' => $wId,
-                'black_user_id' => $bId,
-                'chess_game_id' => $game->id,
-                'status' => 'in_progress',
-            ]);
-
-            $this->notifyMatchPlayers($match, $game);
+        // A) Winners Bracket Matches (Rounds 1..totalRounds)
+        for ($r = 1; $r <= $totalRounds; $r++) {
+            $numMatches = (int) ($targetBracketSize / pow(2, $r));
+            for ($m = 1; $m <= $numMatches; $m++) {
+                ChessTournamentMatch::create([
+                    'tournament_id' => $tournament->id,
+                    'round_number' => $r,
+                    'match_number' => $m,
+                    'bracket_type' => 'winners',
+                    'status' => 'pending',
+                ]);
+            }
         }
-        // Players from index (numRealMatches * 2) onward are bye-advanced.
-        // They are NOT assigned to any R1 match — they'll join R2 dynamically.
+
+        if ($tournament->elimination_mode === 'double') {
+            // B) Losers Bracket Matches (Rounds 1..2*(totalRounds-1))
+            $totalLosersRounds = max(1, 2 * ($totalRounds - 1));
+            for ($lr = 1; $lr <= $totalLosersRounds; $lr++) {
+                $k = (int) floor(($lr + 1) / 2);
+                $numMatches = (int) max(1, $targetBracketSize / pow(2, $k + 1));
+                for ($m = 1; $m <= $numMatches; $m++) {
+                    ChessTournamentMatch::create([
+                        'tournament_id' => $tournament->id,
+                        'round_number' => $lr,
+                        'match_number' => $m,
+                        'bracket_type' => 'losers',
+                        'status' => 'pending',
+                    ]);
+                }
+            }
+
+            // C) Grand Final Match
+            ChessTournamentMatch::create([
+                'tournament_id' => $tournament->id,
+                'round_number' => $totalRounds + 1,
+                'match_number' => 1,
+                'bracket_type' => 'grand_final',
+                'status' => 'pending',
+            ]);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // 2. ASSIGN SEEDED PLAYERS & BYES TO WINNERS ROUND 1
+        // ═══════════════════════════════════════════════════════════
+        $r1MatchCount = (int) ($targetBracketSize / 2);
+        $realMatchesCount = $playerCount - $r1MatchCount;
+        $byesCount = $targetBracketSize - $playerCount;
+
+        // Determine which R1 slots get real matches vs BYE matches
+        $slotTypes = [];
+        $realRem = $realMatchesCount;
+        $byeRem = $byesCount;
+
+        for ($s = 0; $s < $r1MatchCount; $s++) {
+            if ($byeRem > 0 && ($s % 2 === 0 || $realRem === 0)) {
+                $slotTypes[$s] = 'bye';
+                $byeRem--;
+            } else if ($realRem > 0) {
+                $slotTypes[$s] = 'real';
+                $realRem--;
+            } else {
+                $slotTypes[$s] = 'bye';
+                $byeRem--;
+            }
+        }
+
+        $playerIndex = 1;
+        for ($s = 0; $s < $r1MatchCount; $s++) {
+            $mNumber = $s + 1;
+            $r1Match = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                ->where('bracket_type', 'winners')
+                ->where('round_number', 1)
+                ->where('match_number', $mNumber)
+                ->first();
+
+            if (!$r1Match) continue;
+
+            if ($slotTypes[$s] === 'real') {
+                $uA = $seededUserIds[$playerIndex++] ?? null;
+                $uB = $seededUserIds[$playerIndex++] ?? null;
+                $r1Match->white_user_id = $uA;
+                $r1Match->black_user_id = $uB;
+                $r1Match->save();
+            } else {
+                $uA = $seededUserIds[$playerIndex++] ?? null;
+                $r1Match->white_user_id = $uA;
+                $r1Match->black_user_id = null;
+                $r1Match->save();
+            }
+        }
 
         $tournament->status = 'in_progress';
         $tournament->current_round = 1;
         $tournament->total_rounds = $totalRounds;
+        $tournament->max_players = $playerCount;
         $tournament->started_at = Carbon::now();
         $tournament->save();
 
-        // If there are no real R1 matches (all bye — only possible with 1 player, blocked above),
-        // or if all R1 matches are instantly done, advance.
-        $this->checkAndAdvanceRound($tournament);
+        // ═══════════════════════════════════════════════════════════
+        // 3. RUN DAG ENGINE TO AUTO-ADVANCE BYES & START READY MATCHES
+        // ═══════════════════════════════════════════════════════════
+        $this->evaluateDagGraph($tournament);
 
         $tournament->load([
             'creator',
@@ -221,6 +289,438 @@ class ChessTournamentService
         $this->broadcastTournamentEvent($tournament->id, 'tournament_started', ['tournament' => $tournament]);
 
         return $tournament;
+    }
+
+    /**
+     * Handle game completion hook for tournament matches.
+     */
+    public function handleMatchFinished(ChessGame $game): void
+    {
+        $match = ChessTournamentMatch::where('chess_game_id', $game->id)->first();
+        if (!$match) {
+            return;
+        }
+
+        $match->status = 'completed';
+        $match->winner_user_id = $game->winner_id;
+        $match->win_reason = $game->win_reason;
+        $match->save();
+
+        // Determine loser ID
+        $loserId = null;
+        if ($game->winner_id) {
+            $loserId = $game->white_player_id === $game->winner_id ? $game->black_player_id : $game->white_player_id;
+        }
+
+        $tournament = ChessTournament::find($match->tournament_id);
+        if (!$tournament) {
+            return;
+        }
+
+        // Route Winner and Loser down the DAG graph
+        $this->routeWinnerAndLoser($tournament, $match, $game->winner_id, $loserId);
+
+        // Run DAG evaluation engine to start newly ready matches & propagate BYEs
+        $this->evaluateDagGraph($tournament);
+
+        // Always broadcast real-time tournament update
+        $this->broadcastTournamentEvent($tournament->id, 'tournament_updated', ['tournament' => $tournament->fresh()]);
+    }
+
+    /**
+     * Universal DAG Routing Logic:
+     * Directs match winner and loser to their designated next DAG nodes.
+     */
+    protected function routeWinnerAndLoser(ChessTournament $tournament, ChessTournamentMatch $match, ?int $winnerId, ?int $loserId): void
+    {
+        $totalRounds = $tournament->total_rounds;
+        $targetBracketSize = (int) pow(2, $totalRounds);
+        $isDouble = $tournament->elimination_mode === 'double';
+
+        if ($match->bracket_type === 'winners') {
+            $r = $match->round_number;
+            $m = $match->match_number;
+
+            // Route Winner
+            if ($r < $totalRounds) {
+                $nextMatchNum = (int) ceil($m / 2);
+                $isWhite = ($m % 2 === 1);
+                $nextMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                    ->where('bracket_type', 'winners')
+                    ->where('round_number', $r + 1)
+                    ->where('match_number', $nextMatchNum)
+                    ->first();
+
+                if ($nextMatch && $winnerId) {
+                    if ($isWhite) $nextMatch->white_user_id = $winnerId;
+                    else $nextMatch->black_user_id = $winnerId;
+                    $nextMatch->save();
+                }
+            } else if ($r === $totalRounds && $isDouble) {
+                // Winners Final winner -> Grand Final (White slot)
+                $gf = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                    ->where('bracket_type', 'grand_final')
+                    ->first();
+                if ($gf && $winnerId) {
+                    $gf->white_user_id = $winnerId;
+                    $gf->save();
+                }
+            }
+
+            // Route Loser (Double Elimination)
+            if ($isDouble && $loserId) {
+                if ($r === 1) {
+                    // W-R1 loser -> L-R1 match (ceil(m/2), slot white if m odd, black if m even)
+                    $nextLMatchNum = (int) ceil($m / 2);
+                    $isWhite = ($m % 2 === 1);
+                    $lMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'losers')
+                        ->where('round_number', 1)
+                        ->where('match_number', $nextLMatchNum)
+                        ->first();
+                    if ($lMatch) {
+                        if ($isWhite) $lMatch->white_user_id = $loserId;
+                        else $lMatch->black_user_id = $loserId;
+                        $lMatch->save();
+                    }
+                } else {
+                    // W-R(r) loser (r>=2) -> L-R(2*(r-1)) drop-in round, match m, black slot
+                    $targetLRound = 2 * ($r - 1);
+                    $lMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'losers')
+                        ->where('round_number', $targetLRound)
+                        ->where('match_number', $m)
+                        ->first();
+                    if ($lMatch) {
+                        $lMatch->black_user_id = $loserId;
+                        $lMatch->save();
+                    }
+                }
+            } else if (!$isDouble && $loserId) {
+                // Single elimination loser eliminated
+                ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                    ->where('user_id', $loserId)
+                    ->update(['status' => 'eliminated']);
+            }
+        } else if ($match->bracket_type === 'losers') {
+            $lr = $match->round_number;
+            $m = $match->match_number;
+            $totalLosersRounds = max(1, 2 * ($totalRounds - 1));
+
+            // Loser in Losers Bracket is eliminated
+            if ($loserId) {
+                ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                    ->where('user_id', $loserId)
+                    ->update(['status' => 'eliminated']);
+            }
+
+            // Route Winner
+            if ($winnerId) {
+                if ($lr % 2 === 1) {
+                    // Odd reduction round -> Even drop-in round (same match number, white slot)
+                    $nextLMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'losers')
+                        ->where('round_number', $lr + 1)
+                        ->where('match_number', $m)
+                        ->first();
+                    if ($nextLMatch) {
+                        $nextLMatch->white_user_id = $winnerId;
+                        $nextLMatch->save();
+                    }
+                } else {
+                    // Even drop-in round
+                    if ($lr < $totalLosersRounds) {
+                        $nextLMatchNum = (int) ceil($m / 2);
+                        $isWhite = ($m % 2 === 1);
+                        $nextLMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                            ->where('bracket_type', 'losers')
+                            ->where('round_number', $lr + 1)
+                            ->where('match_number', $nextLMatchNum)
+                            ->first();
+                        if ($nextLMatch) {
+                            if ($isWhite) $nextLMatch->white_user_id = $winnerId;
+                            else $nextLMatch->black_user_id = $winnerId;
+                            $nextLMatch->save();
+                        }
+                    } else {
+                        // Losers Final winner -> Grand Final Match #1 (Black slot)
+                        $gf = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                            ->where('bracket_type', 'grand_final')
+                            ->where('match_number', 1)
+                            ->first();
+                        if ($gf) {
+                            $gf->black_user_id = $winnerId;
+                            $gf->save();
+                        }
+                    }
+                }
+            }
+        } else if ($match->bracket_type === 'grand_final') {
+            // Grand Final Match routing:
+            // Match #1: WB Champ (0 losses) vs LB Champ (1 loss)
+            // If WB Champ wins -> Tournament completes!
+            // If LB Champ wins -> BRACKET RESET! Activates Match #2 between both players.
+            if ($match->match_number === 1) {
+                if ($winnerId === $match->white_user_id) {
+                    // WB Champ wins Match 1 -> LB Champ receives 2nd loss (eliminated)
+                    if ($loserId) {
+                        ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                            ->where('user_id', $loserId)
+                            ->update(['status' => 'eliminated']);
+                    }
+                } else if ($winnerId === $match->black_user_id) {
+                    // LB Champ wins Match 1 -> BRACKET RESET REQUIRED!
+                    $gf2 = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'grand_final')
+                        ->where('match_number', 2)
+                        ->first();
+
+                    if (!$gf2) {
+                        ChessTournamentMatch::create([
+                            'tournament_id' => $tournament->id,
+                            'round_number' => $totalRounds + 1,
+                            'match_number' => 2,
+                            'bracket_type' => 'grand_final',
+                            'white_user_id' => $match->white_user_id, // WB Champ
+                            'black_user_id' => $match->black_user_id, // LB Champ
+                            'status' => 'pending',
+                        ]);
+                    }
+                }
+            } else if ($match->match_number === 2) {
+                // Reset Match #2 completed -> Loser eliminated
+                if ($loserId) {
+                    ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                        ->where('user_id', $loserId)
+                        ->update(['status' => 'eliminated']);
+                }
+            }
+        }
+    }
+
+    /**
+     * Universal Recursive DAG Graph Evaluation Engine.
+     * Evaluates all match nodes:
+     * - If 2 players are present and pending -> Starts live game.
+     * - If 1 player is present and missing opponent slot is permanent BYE -> Auto-advances BYE.
+     * - Checks tournament completion.
+     */
+    public function evaluateDagGraph(ChessTournament $tournament): void
+    {
+        $maxPasses = 30; // Safety cap against infinite loops
+
+        for ($pass = 0; $pass < $maxPasses; $pass++) {
+            $hasChanges = false;
+            $allMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)->get();
+
+            foreach ($allMatches as $m) {
+                if ($m->status !== 'pending') {
+                    continue;
+                }
+
+                $wId = $m->white_user_id;
+                $bId = $m->black_user_id;
+
+                if ($wId && $bId) {
+                    // Both players present -> Start live match game!
+                    $game = $this->createMatchGame($tournament, $wId, $bId);
+                    $m->chess_game_id = $game->id;
+                    $m->status = 'in_progress';
+                    $m->save();
+                    $this->notifyMatchPlayers($m, $game);
+                    $hasChanges = true;
+                } else if ($wId || $bId) {
+                    // Only 1 player present. Check if missing slot is a permanent BYE slot.
+                    $presentUser = $wId ?: $bId;
+                    $missingSlot = $wId ? 'black' : 'white';
+
+                    if ($this->isSlotPermanentlyEmpty($tournament, $m, $missingSlot)) {
+                        $m->status = 'bye';
+                        $m->winner_user_id = $presentUser;
+                        $m->win_reason = 'bye';
+                        $m->save();
+
+                        // Route single player to next DAG node
+                        $this->routeWinnerAndLoser($tournament, $m, $presentUser, null);
+                        $hasChanges = true;
+                    }
+                } else {
+                    // 0 players present. Check if both incoming feeder slots are permanently empty.
+                    if ($this->isSlotPermanentlyEmpty($tournament, $m, 'white') && $this->isSlotPermanentlyEmpty($tournament, $m, 'black')) {
+                        $m->status = 'bye';
+                        $m->winner_user_id = null;
+                        $m->win_reason = 'bye';
+                        $m->save();
+                        $hasChanges = true;
+                    }
+                }
+            }
+
+            if (!$hasChanges) {
+                break;
+            }
+        }
+
+        // Check if current round or tournament as a whole has completed
+        $this->checkTournamentCompletion($tournament);
+    }
+
+    /**
+     * Check if a specific slot ('white' or 'black') in a match node will never receive a player (permanent BYE).
+     */
+    protected function isSlotPermanentlyEmpty(ChessTournament $tournament, ChessTournamentMatch $match, string $slot): bool
+    {
+        $r = $match->round_number;
+        $m = $match->match_number;
+        $type = $match->bracket_type;
+
+        if ($type === 'winners') {
+            if ($r === 1) {
+                // R1 slot is empty if no seeded participant was assigned to that slot
+                $uId = ($slot === 'white') ? $match->white_user_id : $match->black_user_id;
+                return ($uId === null);
+            }
+            // R2+: check feeder matches in round (r-1)
+            $feederMatchNum = ($slot === 'white') ? ($m * 2 - 1) : ($m * 2);
+            $feeder = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                ->where('bracket_type', 'winners')
+                ->where('round_number', $r - 1)
+                ->where('match_number', $feederMatchNum)
+                ->first();
+
+            if (!$feeder) return true;
+            return (in_array($feeder->status, ['completed', 'bye']) && !$feeder->winner_user_id);
+        } else if ($type === 'losers') {
+            if ($r === 1) {
+                // L-R1 slot is fed by W-R1 losers
+                $feederMatchNum = ($slot === 'white') ? ($m * 2 - 1) : ($m * 2);
+                $feeder = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                    ->where('bracket_type', 'winners')
+                    ->where('round_number', 1)
+                    ->where('match_number', $feederMatchNum)
+                    ->first();
+
+                if (!$feeder) return true;
+                if ($feeder->status === 'bye') return true; // BYE match in W-R1 produces NO loser
+                if ($feeder->status === 'completed') {
+                    $loser = $feeder->white_user_id === $feeder->winner_user_id ? $feeder->black_user_id : $feeder->white_user_id;
+                    return ($loser === null);
+                }
+                return false;
+            } else if ($r % 2 === 1) {
+                // Odd reduction round (L-R3, L-R5...): fed by L-R(r-1)
+                $feeder = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                    ->where('bracket_type', 'losers')
+                    ->where('round_number', $r - 1)
+                    ->where('match_number', $m)
+                    ->first();
+
+                if (!$feeder) return true;
+                return (in_array($feeder->status, ['completed', 'bye']) && !$feeder->winner_user_id);
+            } else {
+                // Even drop-in round (L-R2, L-R4...):
+                // 'white' slot is fed by L-R(r-1) match m
+                // 'black' slot is fed by W-R(r/2 + 1) match m
+                if ($slot === 'white') {
+                    $feeder = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'losers')
+                        ->where('round_number', $r - 1)
+                        ->where('match_number', $m)
+                        ->first();
+                    if (!$feeder) return true;
+                    return (in_array($feeder->status, ['completed', 'bye']) && !$feeder->winner_user_id);
+                } else {
+                    $targetWRound = (int) ($r / 2) + 1;
+                    $feeder = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'winners')
+                        ->where('round_number', $targetWRound)
+                        ->where('match_number', $m)
+                        ->first();
+                    if (!$feeder) return true;
+                    if ($feeder->status === 'bye') return true;
+                    if ($feeder->status === 'completed') {
+                        $loser = $feeder->white_user_id === $feeder->winner_user_id ? $feeder->black_user_id : $feeder->white_user_id;
+                        return ($loser === null);
+                    }
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Alias for DAG evaluation.
+     */
+    public function checkAndAdvanceRound(ChessTournament $tournament): void
+    {
+        $this->evaluateDagGraph($tournament);
+    }
+
+    /**
+     * Check if the tournament as a whole is completed.
+     */
+    protected function checkTournamentCompletion(ChessTournament $tournament): void
+    {
+        $allMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)->get();
+
+        if ($allMatches->isEmpty()) {
+            return;
+        }
+
+        if ($tournament->elimination_mode === 'double') {
+            $gf1 = $allMatches->where('bracket_type', 'grand_final')->where('match_number', 1)->first();
+
+            if (!$gf1 || !in_array($gf1->status, ['completed', 'bye'])) {
+                return;
+            }
+
+            if ($gf1->winner_user_id === $gf1->white_user_id) {
+                // WB Champ won Match 1 -> Championship decided!
+                $champId = $gf1->white_user_id;
+            } else {
+                // LB Champ won Match 1 -> Check if Reset Match 2 has finished!
+                $gf2 = $allMatches->where('bracket_type', 'grand_final')->where('match_number', 2)->first();
+                if (!$gf2 || !in_array($gf2->status, ['completed', 'bye'])) {
+                    return; // Reset Match #2 still in progress or pending
+                }
+                $champId = $gf2->winner_user_id;
+            }
+        } else {
+            $allDone = $allMatches->where('bracket_type', 'winners')->every(fn($m) => in_array($m->status, ['completed', 'bye']));
+            if (!$allDone) {
+                return;
+            }
+
+            $finalMatch = $allMatches
+                ->where('bracket_type', 'winners')
+                ->whereIn('status', ['completed', 'bye'])
+                ->sortByDesc('round_number')
+                ->first();
+            $champId = $finalMatch ? $finalMatch->winner_user_id : null;
+        }
+
+        if ($tournament->status !== 'completed' && $champId) {
+            $tournament->status = 'completed';
+            $tournament->winner_id = $champId;
+            $tournament->completed_at = Carbon::now();
+            $tournament->save();
+
+            ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                ->where('user_id', $champId)
+                ->update(['status' => 'champion']);
+
+            $stat = $this->chessService->getOrCreatePlayerStat($champId);
+            $stat->chess_reputation_points += 15;
+            $stat->elo_rating += 30;
+            if ($stat->elo_rating > $stat->peak_elo) {
+                $stat->peak_elo = $stat->elo_rating;
+            }
+            $stat->save();
+
+            $this->broadcastTournamentEvent($tournament->id, 'tournament_completed', ['tournament' => $tournament]);
+        }
     }
 
     /**
@@ -284,584 +784,6 @@ class ChessTournamentService
                 }
             }
         }
-    }
-
-    /**
-     * Handle game completion hook for tournament matches.
-     */
-    public function handleMatchFinished(ChessGame $game): void
-    {
-        $match = ChessTournamentMatch::where('chess_game_id', $game->id)->first();
-        if (!$match) {
-            return;
-        }
-
-        $match->status = 'completed';
-        $match->winner_user_id = $game->winner_id;
-        $match->win_reason = $game->win_reason;
-        $match->save();
-
-        // Determine loser ID
-        $loserId = null;
-        if ($game->winner_id) {
-            $loserId = $game->white_player_id === $game->winner_id ? $game->black_player_id : $game->white_player_id;
-        }
-
-        $tournament = ChessTournament::find($match->tournament_id);
-        if (!$tournament) {
-            return;
-        }
-
-        if ($tournament->elimination_mode === 'double') {
-            if ($match->bracket_type === 'winners' && $loserId) {
-                // Player lost in Winners Bracket → drop them into the Losers Bracket queue
-                $this->dropLoserIntoBracket($tournament, $loserId);
-            } else if ($match->bracket_type === 'losers' && $loserId) {
-                // Player lost in Losers Bracket → they are fully eliminated (lost twice)
-                ChessTournamentParticipant::where('tournament_id', $tournament->id)
-                    ->where('user_id', $loserId)
-                    ->update(['status' => 'eliminated']);
-            } else if ($match->bracket_type === 'grand_final' && $loserId) {
-                // Grand Final loser is runner-up
-                ChessTournamentParticipant::where('tournament_id', $tournament->id)
-                    ->where('user_id', $loserId)
-                    ->update(['status' => 'eliminated']);
-            }
-        } else {
-            // Single Elimination: loser is out
-            if ($loserId) {
-                ChessTournamentParticipant::where('tournament_id', $tournament->id)
-                    ->where('user_id', $loserId)
-                    ->update(['status' => 'eliminated']);
-            }
-        }
-
-        $this->checkAndAdvanceRound($tournament);
-    }
-
-    /**
-     * Drop a loser from Winners Bracket into the Losers Bracket.
-     * Creates matches on-demand: pairs losers as they arrive.
-     */
-    protected function dropLoserIntoBracket(ChessTournament $tournament, int $loserId): void
-    {
-        // Find an existing unfilled losers bracket match (has 1 player, waiting for opponent)
-        $unfilledMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'losers')
-            ->where('status', 'pending')
-            ->where(function ($q) {
-                $q->whereNull('white_user_id')
-                  ->orWhereNull('black_user_id');
-            })
-            ->where(function ($q) {
-                // Must have exactly one player slot filled (waiting for pairing)
-                $q->where(function ($q2) {
-                    $q2->whereNotNull('white_user_id')->whereNull('black_user_id');
-                });
-            })
-            ->orderBy('round_number', 'asc')
-            ->orderBy('match_number', 'asc')
-            ->first();
-
-        if ($unfilledMatch) {
-            // Pair the loser as the second player
-            $unfilledMatch->black_user_id = $loserId;
-            $unfilledMatch->save();
-
-            // Both players present → create the game and start it
-            $lGame = $this->createMatchGame($tournament, $unfilledMatch->white_user_id, $unfilledMatch->black_user_id);
-            $unfilledMatch->chess_game_id = $lGame->id;
-            $unfilledMatch->status = 'in_progress';
-            $unfilledMatch->save();
-            $this->notifyMatchPlayers($unfilledMatch, $lGame);
-        } else {
-            // No unfilled match → create a new losers bracket match with this loser waiting
-            $currentMaxRound = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                ->where('bracket_type', 'losers')
-                ->max('round_number') ?? 0;
-
-            // Determine which round to place this new match in
-            // New drop-ins go to the lowest round that still has capacity or the next available round
-            $targetRound = $currentMaxRound > 0 ? $currentMaxRound : 1;
-
-            // Check if there are already completed matches in this round whose winners need advancing
-            // If all existing matches in $targetRound are completed or in_progress, start a new round
-            $existingPending = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                ->where('bracket_type', 'losers')
-                ->where('round_number', $targetRound)
-                ->whereIn('status', ['pending'])
-                ->count();
-
-            if ($existingPending === 0 && $currentMaxRound > 0) {
-                $targetRound = $currentMaxRound + 1;
-            }
-
-            $nextMatchNumber = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                ->where('bracket_type', 'losers')
-                ->where('round_number', $targetRound)
-                ->max('match_number') ?? 0;
-
-            ChessTournamentMatch::create([
-                'tournament_id' => $tournament->id,
-                'round_number' => $targetRound,
-                'match_number' => $nextMatchNumber + 1,
-                'bracket_type' => 'losers',
-                'white_user_id' => $loserId,
-                'black_user_id' => null,
-                'chess_game_id' => null,
-                'status' => 'pending',
-            ]);
-        }
-    }
-
-    /**
-     * Check current round matches and advance to next round if ready.
-     * Winners bracket is FULLY ON-DEMAND: next-round matches are created
-     * dynamically by collecting winners + bye-advanced players.
-     */
-    public function checkAndAdvanceRound(ChessTournament $tournament): void
-    {
-        $currentRound = $tournament->current_round;
-        $hasChanges = false;
-
-        // ═══════════════════════════════════════════════════════════
-        // 1. WINNERS BRACKET ADVANCEMENT (fully on-demand)
-        // ═══════════════════════════════════════════════════════════
-        $winnersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'winners')
-            ->where('round_number', $currentRound)
-            ->orderBy('match_number', 'asc')
-            ->get();
-
-        $winnersDone = $winnersMatches->isNotEmpty() && $winnersMatches->every(function ($m) {
-            return in_array($m->status, ['completed', 'bye']);
-        });
-
-        if ($winnersDone && $winnersMatches->isNotEmpty()) {
-            // Collect current round winners
-            $roundWinners = $winnersMatches->map(fn($m) => $m->winner_user_id)->filter()->values();
-
-            // Collect bye-advanced players (only for Round 1 → Round 2 transition)
-            // These are active participants who are NOT in any winners bracket match.
-            $byeAdvancedIds = collect();
-            if ($currentRound === 1) {
-                $allActiveIds = ChessTournamentParticipant::where('tournament_id', $tournament->id)
-                    ->whereIn('status', ['active', 'champion'])
-                    ->pluck('user_id');
-
-                $inWinnersMatchIds = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                    ->where('bracket_type', 'winners')
-                    ->get()
-                    ->flatMap(fn($m) => [$m->white_user_id, $m->black_user_id])
-                    ->filter()
-                    ->unique();
-
-                $byeAdvancedIds = $allActiveIds->diff($inWinnersMatchIds)->values();
-            }
-
-            // Combine into next round player pool & shuffle for fair pairing
-            $nextRoundPlayers = $roundWinners->merge($byeAdvancedIds)->shuffle()->values();
-
-            // Check if next round already exists (prevent duplicate creation)
-            $nextRound = $currentRound + 1;
-            $existingNextRound = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                ->where('bracket_type', 'winners')
-                ->where('round_number', $nextRound)
-                ->count();
-
-            if ($nextRoundPlayers->count() >= 2 && $existingNextRound === 0) {
-                $matchNumber = 1;
-
-                for ($i = 0; $i < $nextRoundPlayers->count(); $i += 2) {
-                    $w1 = $nextRoundPlayers->get($i);
-                    $w2 = $nextRoundPlayers->get($i + 1) ?? null;
-
-                    if ($w1 && $w2) {
-                        $game = $this->createMatchGame($tournament, $w1, $w2);
-                        $newMatch = ChessTournamentMatch::create([
-                            'tournament_id' => $tournament->id,
-                            'round_number' => $nextRound,
-                            'match_number' => $matchNumber++,
-                            'bracket_type' => 'winners',
-                            'white_user_id' => $w1,
-                            'black_user_id' => $w2,
-                            'chess_game_id' => $game->id,
-                            'status' => 'in_progress',
-                        ]);
-                        $this->notifyMatchPlayers($newMatch, $game);
-                    }
-                    // Bracket math guarantees even counts, so no odd-player handling needed
-                }
-
-                $tournament->current_round = $nextRound;
-                $tournament->save();
-
-                $this->broadcastTournamentEvent($tournament->id, 'tournament_updated', ['tournament' => $tournament->fresh()]);
-                return; // Next round created; don't check losers/grand final in same cycle
-            }
-            // If only 1 player remains → Winners Champion determined.
-            // Fall through to losers bracket / grand final / completion checks.
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 2. LOSERS BRACKET ADVANCEMENT (Double Elimination, independent)
-        // ═══════════════════════════════════════════════════════════
-        if ($tournament->elimination_mode === 'double') {
-            if ($this->advanceLosersRounds($tournament)) {
-                $hasChanges = true;
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 3. GRAND FINAL CHECK (Double Elimination)
-        // ═══════════════════════════════════════════════════════════
-        if ($tournament->elimination_mode === 'double') {
-            if ($this->checkAndCreateGrandFinal($tournament)) {
-                $hasChanges = true;
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        // 4. TOURNAMENT COMPLETION CHECK
-        // ═══════════════════════════════════════════════════════════
-        $this->checkTournamentCompletion($tournament);
-
-        if ($hasChanges) {
-            $this->broadcastTournamentEvent($tournament->id, 'tournament_updated', ['tournament' => $tournament]);
-        }
-    }
-
-    /**
-     * Advance completed Losers Bracket by collecting all unplaced winners
-     * and pairing them into the next round. A winner is "unplaced" if they
-     * don't appear as a player in any subsequent losers bracket round or grand_final.
-     */
-    protected function advanceLosersRounds(ChessTournament $tournament): bool
-    {
-        $hasChanges = false;
-
-        $allLosersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'losers')
-            ->orderBy('round_number', 'asc')
-            ->orderBy('match_number', 'asc')
-            ->get();
-
-        if ($allLosersMatches->isEmpty()) {
-            return false;
-        }
-
-        // Check if any losers match is still in progress
-        $hasInProgress = $allLosersMatches->contains(function ($m) {
-            return $m->status === 'in_progress';
-        });
-
-        if ($hasInProgress) {
-            return false; // Wait until all active losers matches are done
-        }
-
-        // Check if there are any pending unfilled drops (single player waiting for opponent)
-        $pendingDrops = $allLosersMatches->filter(function ($m) {
-            return $m->status === 'pending' && $m->white_user_id && !$m->black_user_id;
-        });
-
-        if ($pendingDrops->isNotEmpty()) {
-            // Check if winners bracket current round is done (no more losers coming from this round)
-            $winnersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                ->where('bracket_type', 'winners')
-                ->where('round_number', $tournament->current_round)
-                ->get();
-
-            $winnersDone = $winnersMatches->isEmpty() || $winnersMatches->every(fn($m) => in_array($m->status, ['completed', 'bye']));
-
-            if ($winnersDone) {
-                // Convert unfilled pending matches to BYE advances
-                foreach ($pendingDrops as $m) {
-                    $m->status = 'bye';
-                    $m->winner_user_id = $m->white_user_id;
-                    $m->win_reason = 'bye';
-                    $m->save();
-                    $hasChanges = true;
-                }
-                // Refresh losers matches list
-                $allLosersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                    ->where('bracket_type', 'losers')
-                    ->orderBy('round_number', 'asc')
-                    ->orderBy('match_number', 'asc')
-                    ->get();
-            } else {
-                return false; // Still waiting for remaining winners matches to finish
-            }
-        }
-
-        // Collect all losers bracket winners
-        $allWinnerIds = $allLosersMatches
-            ->filter(fn($m) => in_array($m->status, ['completed', 'bye']) && $m->winner_user_id)
-            ->pluck('winner_user_id')
-            ->unique()
-            ->values();
-
-        // Collect all player IDs who appear as white or black in a losers match
-        $allPlayerIds = collect();
-        foreach ($allLosersMatches as $m) {
-            if ($m->white_user_id) $allPlayerIds->push($m->white_user_id);
-            if ($m->black_user_id) $allPlayerIds->push($m->black_user_id);
-        }
-
-        // Also check grand_final
-        $grandFinalPlayers = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'grand_final')
-            ->get()
-            ->flatMap(fn($m) => collect([$m->white_user_id, $m->black_user_id]))
-            ->filter();
-
-        // An "unplaced" winner is someone who won a losers match but does NOT appear
-        // as a player in any LATER losers match (i.e., they won but never got paired into next round)
-        $unplacedWinners = collect();
-        foreach ($allWinnerIds as $winnerId) {
-            // Check: does this winner appear as white or black in a LATER round?
-            $isPlacedLater = $allLosersMatches->contains(function ($m) use ($winnerId) {
-                // Find the round where this player won
-                $wonMatch = ChessTournamentMatch::where('tournament_id', $m->tournament_id)
-                    ->where('bracket_type', 'losers')
-                    ->where('winner_user_id', $winnerId)
-                    ->orderBy('round_number', 'desc')
-                    ->first();
-
-                if (!$wonMatch) return false;
-
-                // Is this match in a round AFTER the won match?
-                return $m->round_number > $wonMatch->round_number
-                    && ($m->white_user_id === $winnerId || $m->black_user_id === $winnerId);
-            });
-
-            // Also check if already placed in grand final
-            $isInGrandFinal = $grandFinalPlayers->contains($winnerId);
-
-            if (!$isPlacedLater && !$isInGrandFinal) {
-                $unplacedWinners->push($winnerId);
-            }
-        }
-
-        // If we have 2+ unplaced winners, pair them into the next losers round
-        if ($unplacedWinners->count() >= 2) {
-            $maxRound = $allLosersMatches->max('round_number');
-            $nextRound = $maxRound + 1;
-
-            $matchNumber = 1;
-            for ($i = 0; $i < $unplacedWinners->count(); $i += 2) {
-                $w1 = $unplacedWinners->get($i);
-                $w2 = $unplacedWinners->get($i + 1) ?? null;
-
-                if ($w1 && $w2) {
-                    $game = $this->createMatchGame($tournament, $w1, $w2);
-                    $newMatch = ChessTournamentMatch::create([
-                        'tournament_id' => $tournament->id,
-                        'round_number' => $nextRound,
-                        'match_number' => $matchNumber++,
-                        'bracket_type' => 'losers',
-                        'white_user_id' => $w1,
-                        'black_user_id' => $w2,
-                        'chess_game_id' => $game->id,
-                        'status' => 'in_progress',
-                    ]);
-                    $this->notifyMatchPlayers($newMatch, $game);
-                    $hasChanges = true;
-                } else if ($w1) {
-                    ChessTournamentMatch::create([
-                        'tournament_id' => $tournament->id,
-                        'round_number' => $nextRound,
-                        'match_number' => $matchNumber++,
-                        'bracket_type' => 'losers',
-                        'white_user_id' => $w1,
-                        'black_user_id' => null,
-                        'winner_user_id' => $w1,
-                        'status' => 'bye',
-                        'win_reason' => 'bye',
-                    ]);
-                    $hasChanges = true;
-                }
-            }
-        }
-
-        return $hasChanges;
-    }
-
-    /**
-     * Check if Grand Final should be created (Winners Champion vs Losers Champion).
-     */
-    protected function checkAndCreateGrandFinal(ChessTournament $tournament): bool
-    {
-        // Grand Final already exists?
-        $existingGrandFinal = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'grand_final')
-            ->first();
-
-        if ($existingGrandFinal) {
-            return false; // Already created
-        }
-
-        // Find Winners Bracket Champion (winner of the last winners bracket round)
-        $winnersChampionMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'winners')
-            ->where('round_number', $tournament->total_rounds)
-            ->where('match_number', 1)
-            ->first();
-
-        if (!$winnersChampionMatch || !in_array($winnersChampionMatch->status, ['completed', 'bye'])) {
-            return false; // Winners bracket not finished yet
-        }
-
-        $winnersChampionId = $winnersChampionMatch->winner_user_id;
-        if (!$winnersChampionId) {
-            return false;
-        }
-
-        // Find Losers Bracket Champion (last remaining player in losers bracket)
-        // This is the winner of the highest-numbered losers round that has exactly 1 match
-        $losersChampionId = $this->findLosersChampion($tournament);
-        if (!$losersChampionId) {
-            return false; // Losers bracket not finished yet
-        }
-
-        // Both champions determined → Create Grand Final!
-        $game = $this->createMatchGame($tournament, $winnersChampionId, $losersChampionId);
-
-        $grandFinal = ChessTournamentMatch::create([
-            'tournament_id' => $tournament->id,
-            'round_number' => $tournament->total_rounds + 1,
-            'match_number' => 1,
-            'bracket_type' => 'grand_final',
-            'white_user_id' => $winnersChampionId,
-            'black_user_id' => $losersChampionId,
-            'chess_game_id' => $game->id,
-            'status' => 'in_progress',
-        ]);
-
-        $this->notifyMatchPlayers($grandFinal, $game);
-
-        Log::info("[ChessTournament] Grand Final created for Tournament #{$tournament->id}: Winners Champion (ID:{$winnersChampionId}) vs Losers Champion (ID:{$losersChampionId})");
-        return true;
-    }
-
-    /**
-     * Find the Losers Bracket Champion. Returns user ID or null if not determined yet.
-     */
-    protected function findLosersChampion(ChessTournament $tournament): ?int
-    {
-        $allLosersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'losers')
-            ->get();
-
-        if ($allLosersMatches->isEmpty()) {
-            return null;
-        }
-
-        // Any unfinished losers matches?
-        $hasUnfinished = $allLosersMatches->contains(fn($m) => in_array($m->status, ['pending', 'in_progress']));
-        if ($hasUnfinished) {
-            return null;
-        }
-
-        // Collect all losers bracket winners
-        $allWinnerIds = $allLosersMatches
-            ->filter(fn($m) => in_array($m->status, ['completed', 'bye']) && $m->winner_user_id)
-            ->pluck('winner_user_id')
-            ->unique()
-            ->values();
-
-        // Check grand final participants
-        $grandFinalPlayers = ChessTournamentMatch::where('tournament_id', $tournament->id)
-            ->where('bracket_type', 'grand_final')
-            ->get()
-            ->flatMap(fn($m) => collect([$m->white_user_id, $m->black_user_id]))
-            ->filter();
-
-        // Find "unplaced" winners: won a losers match but NOT in any later losers match or grand final
-        $unplacedWinners = collect();
-        foreach ($allWinnerIds as $winnerId) {
-            $wonMatch = $allLosersMatches
-                ->where('winner_user_id', $winnerId)
-                ->sortByDesc('round_number')
-                ->first();
-
-            if (!$wonMatch) continue;
-
-            $isPlacedLater = $allLosersMatches->contains(fn($m) =>
-                $m->round_number > $wonMatch->round_number
-                && ($m->white_user_id === $winnerId || $m->black_user_id === $winnerId)
-            );
-
-            $isInGrandFinal = $grandFinalPlayers->contains($winnerId);
-
-            if (!$isPlacedLater && !$isInGrandFinal) {
-                $unplacedWinners->push($winnerId);
-            }
-        }
-
-        // Exactly 1 unplaced winner = Losers Champion
-        if ($unplacedWinners->count() === 1) {
-            return $unplacedWinners->first();
-        }
-
-        return null;
-    }
-
-    /**
-     * Check if the tournament is fully completed.
-     */
-    protected function checkTournamentCompletion(ChessTournament $tournament): void
-    {
-        $allMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)->get();
-
-        if ($allMatches->isEmpty()) {
-            return;
-        }
-
-        // For Double Elimination, the Grand Final must exist and be completed
-        if ($tournament->elimination_mode === 'double') {
-            $grandFinal = $allMatches->where('bracket_type', 'grand_final')->first();
-
-            if (!$grandFinal || $grandFinal->status !== 'completed') {
-                return; // Grand Final not done yet
-            }
-
-            $champId = $grandFinal->winner_user_id;
-        } else {
-            // Single Elimination: all matches must be done
-            $allDone = $allMatches->every(fn($m) => in_array($m->status, ['completed', 'bye']));
-            if (!$allDone) {
-                return;
-            }
-
-            // Find the winner dynamically: winner of the highest-round winners bracket match
-            $finalMatch = $allMatches
-                ->where('bracket_type', 'winners')
-                ->whereIn('status', ['completed', 'bye'])
-                ->sortByDesc('round_number')
-                ->first();
-            $champId = $finalMatch ? $finalMatch->winner_user_id : null;
-        }
-
-        $tournament->status = 'completed';
-        $tournament->winner_id = $champId;
-        $tournament->completed_at = Carbon::now();
-        $tournament->save();
-
-        if ($champId) {
-            ChessTournamentParticipant::where('tournament_id', $tournament->id)
-                ->where('user_id', $champId)
-                ->update(['status' => 'champion']);
-
-            $stat = $this->chessService->getOrCreatePlayerStat($champId);
-            $stat->chess_reputation_points += 15;
-            $stat->elo_rating += 30;
-            if ($stat->elo_rating > $stat->peak_elo) {
-                $stat->peak_elo = $stat->elo_rating;
-            }
-            $stat->save();
-        }
-
-        $this->broadcastTournamentEvent($tournament->id, 'tournament_completed', ['tournament' => $tournament]);
     }
 
     /**
