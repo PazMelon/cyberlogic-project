@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   Bell,
   ChevronDown,
@@ -243,6 +243,7 @@ export default function Topbar() {
     subscribe
   } = useWebSocket();
 
+  const navigate = useNavigate();
   const [pendingCount, setPendingCount] = useState(0);
 
   // Fetch initial pending count for mobile sidebar
@@ -410,7 +411,7 @@ export default function Topbar() {
 
   const handleNotificationClick = async (notif: any) => {
     setShowNotifDropdown(false);
-    if (!notif.read_at) {
+    if (!notif.read_at && notif.id) {
       try {
         const res = await fetch(`/api/notifications/${notif.id}/read`, {
           method: 'PUT',
@@ -424,6 +425,14 @@ export default function Topbar() {
       } catch (err) {
         console.error('Failed to mark notification as read:', err);
       }
+    }
+
+    // Direct Navigation for 1v1 Chess match challenges & tournament links
+    const gameCode = notif.data?.game_code || notif.game_code;
+    if (gameCode) {
+      navigate(`/app/chess/${gameCode}`);
+    } else if (notif.link) {
+      navigate(notif.link);
     }
   };
 
@@ -1047,19 +1056,17 @@ export default function Topbar() {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-text-secondary leading-relaxed mt-1 line-clamp-2">{activeToast.body}</p>
-            {activeToast.link && (
-              <Link
-                to={activeToast.link}
-                onClick={() => {
-                  setActiveToast(null);
-                  handleNotificationClick(activeToast);
-                }}
-                className="text-xs font-semibold text-primary hover:underline mt-2 inline-block"
-              >
-                View details
-              </Link>
-            )}
+            <p className="text-xs text-text-secondary leading-relaxed mt-1 line-clamp-2">{activeToast.body || activeToast.message}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveToast(null);
+                handleNotificationClick(activeToast);
+              }}
+              className="text-xs font-bold text-primary hover:underline mt-2 inline-block cursor-pointer"
+            >
+              {(activeToast.data?.game_code || activeToast.game_code) ? '⚔️ Accept & Join Game' : 'View details'}
+            </button>
           </div>
         </div>
       )}

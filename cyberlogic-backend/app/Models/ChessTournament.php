@@ -25,6 +25,7 @@ class ChessTournament extends Model
         'current_round',
         'total_rounds',
         'started_at',
+        'scheduled_at',
         'completed_at',
     ];
 
@@ -35,6 +36,7 @@ class ChessTournament extends Model
         'current_round' => 'integer',
         'total_rounds' => 'integer',
         'started_at' => 'datetime',
+        'scheduled_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 

@@ -12,16 +12,18 @@ import {
   fetchLobbyMessages,
   sendLobbyMessage,
   fetchChessTournaments,
+  fetchChessTournament,
   createChessTournament,
   joinChessTournament,
   leaveChessTournament,
   startChessTournament,
+  deleteChessTournament,
   type ChessGame,
   type ChessPlayerStat,
   type ChessLobbyChatMessage,
   type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2 } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -173,6 +175,36 @@ export default function ChessHub() {
     }
   };
 
+  const handleDeleteTournament = async (tId: number, isLive: boolean) => {
+    const isConfirmed = await showConfirm({
+      title: isLive ? 'Cancel Active Tournament?' : 'Delete Tournament?',
+      message: isLive
+        ? 'Are you sure you want to cancel this active tournament? All ongoing matches will be stopped and deleted.'
+        : 'Are you sure you want to delete this unstarted tournament? This will remove all registrations.',
+      confirmText: isLive ? 'Cancel Tournament' : 'Delete Tournament',
+      type: 'danger',
+    });
+
+    if (isConfirmed) {
+      try {
+        await deleteChessTournament(tId);
+        setTournaments((prev) => prev.filter((t) => t.id !== tId));
+        if (selectedTournament?.id === tId) setSelectedTournament(null);
+        showAlert({
+          title: isLive ? 'Tournament Cancelled' : 'Tournament Deleted',
+          message: 'The tournament has been successfully removed.',
+          type: 'success',
+        });
+      } catch (err: any) {
+        showAlert({
+          title: 'Action Failed',
+          message: err.message || 'Failed to delete tournament.',
+          type: 'error',
+        });
+      }
+    }
+  };
+
   // Load initial lobby messages from 7-day retention DB
   useEffect(() => {
     fetchLobbyMessages()
@@ -250,7 +282,7 @@ export default function ChessHub() {
     }
   };
 
-  // Listen for real-time game room updates
+  // Listen for real-time game room updates & live tournament updates
   useEffect(() => {
     if (latestGameUpdate) {
       setGames((prev) => {
@@ -265,6 +297,26 @@ export default function ChessHub() {
       });
     }
   }, [latestGameUpdate]);
+
+  // Subscribe to live tournament WebSocket events
+  const { subscribe } = useWebSocket();
+  useEffect(() => {
+    const unsub = subscribe('chess_lobby', (_payload: any, event: string) => {
+      if (event === 'chess_tournament_updated' || event === 'tournament_created' || event === 'tournament_completed') {
+        fetchChessTournaments().then((tourneys) => {
+          setTournaments(tourneys);
+          if (selectedTournament) {
+            const currentUpdated = tourneys.find((t) => t.id === selectedTournament.id);
+            if (currentUpdated) {
+              fetchChessTournament(currentUpdated.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
+            }
+          }
+        });
+      }
+    });
+
+    return () => unsub();
+  }, [subscribe, selectedTournament?.id]);
 
   const handleCreateGame = async () => {
     setCreating(true);
@@ -475,15 +527,33 @@ export default function ChessHub() {
                           )}
 
                           {(selectedTournament.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && (
-                            <button
-                              onClick={() => handleStartTournament(selectedTournament.id)}
-                              disabled={(selectedTournament.participants?.length || 0) < 2}
-                              className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
-                            >
-                              <Play className="w-3.5 h-3.5 fill-current" /> Start & Pair Bracket
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleStartTournament(selectedTournament.id)}
+                                disabled={(selectedTournament.participants?.length || 0) < 2}
+                                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" /> Start & Pair Bracket
+                              </button>
+                              <button
+                                onClick={() => handleDeleteTournament(selectedTournament.id, false)}
+                                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer flex items-center gap-1.5"
+                                title="Delete Tournament"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete
+                              </button>
+                            </>
                           )}
                         </>
+                      )}
+
+                      {selectedTournament.status === 'in_progress' && (user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && (
+                        <button
+                          onClick={() => handleDeleteTournament(selectedTournament.id, true)}
+                          className="px-4 py-2 rounded-xl text-xs font-bold bg-red-500/20 border border-red-500/40 text-red-400 hover:bg-red-500/30 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-red-500/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Cancel Live Tournament
+                        </button>
                       )}
                     </div>
                   </div>
@@ -545,9 +615,24 @@ export default function ChessHub() {
                             <span className="text-[10px] text-[var(--cl-text-muted)]">
                               Created by {t.creator?.name || 'Player'}
                             </span>
-                            <span className="text-xs font-bold text-[var(--cl-primary-light)] group-hover:translate-x-1 transition-transform">
-                              View Bracket →
-                            </span>
+                            <div className="flex items-center gap-2">
+                              {(t.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && t.status !== 'completed' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteTournament(t.id, t.status === 'in_progress');
+                                  }}
+                                  className="p-1 rounded text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer"
+                                  title={t.status === 'in_progress' ? 'Cancel Live Tournament' : 'Delete Tournament'}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <span className="text-xs font-bold text-[var(--cl-primary-light)] group-hover:translate-x-1 transition-transform">
+                                View Bracket →
+                              </span>
+                            </div>
                           </div>
                         </div>
                       );

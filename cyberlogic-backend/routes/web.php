@@ -271,6 +271,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/chess/games/{code}/offer-draw', [ChessController::class, 'offerDraw']);
     Route::get('/api/chess/leaderboard', [ChessController::class, 'leaderboard']);
     Route::get('/api/chess/user-stats/{userId?}', [ChessController::class, 'userStats']);
+    Route::get('/api/chess/history', [ChessController::class, 'matchHistory']);
     Route::get('/api/chess/lobby-messages', [ChessController::class, 'lobbyMessages']);
     Route::post('/api/chess/lobby-messages', [ChessController::class, 'postLobbyMessage']);
 
@@ -278,6 +279,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chess/tournaments', [ChessTournamentController::class, 'index']);
     Route::post('/api/chess/tournaments', [ChessTournamentController::class, 'store']);
     Route::get('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'show']);
+    Route::delete('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'destroy']);
     Route::post('/api/chess/tournaments/{id}/join', [ChessTournamentController::class, 'join']);
     Route::post('/api/chess/tournaments/{id}/leave', [ChessTournamentController::class, 'leave']);
     Route::post('/api/chess/tournaments/{id}/start', [ChessTournamentController::class, 'start']);

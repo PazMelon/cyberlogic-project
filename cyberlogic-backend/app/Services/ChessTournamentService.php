@@ -42,6 +42,7 @@ class ChessTournamentService
             'type' => $data['type'] ?? 'ranked',
             'enable_third_place_match' => filter_var($data['enable_third_place_match'] ?? true, FILTER_VALIDATE_BOOLEAN),
             'elimination_mode' => in_array($data['elimination_mode'] ?? 'single', ['single', 'double']) ? $data['elimination_mode'] : 'single',
+            'scheduled_at' => !empty($data['start_time']) ? Carbon::parse($data['start_time']) : null,
             'status' => 'registration',
             'current_round' => 1,
             'total_rounds' => (int) max(1, ceil(log($maxPlayers, 2))),
@@ -53,6 +54,20 @@ class ChessTournamentService
         $tournament->load(['creator', 'winner', 'participants.user', 'matches']);
 
         $this->broadcastTournamentEvent($tournament->id, 'tournament_created', ['tournament' => $tournament]);
+
+        // Notify all registered club members about new tournament
+        try {
+            \App\Services\NotificationService::notifyAllMembers(
+                'chess_tournament',
+                '🏆 New Chess Tournament Open!',
+                "{$creator->name} created '{$tournament->title}'. Register now to compete!",
+                ['tournament_id' => $tournament->id],
+                'Trophy',
+                '/app/chess'
+            );
+        } catch (\Throwable $e) {
+            Log::error("[ChessTournamentService] Failed to send global member notifications: " . $e->getMessage());
+        }
 
         return $tournament;
     }

@@ -313,3 +313,13 @@ export async function startChessTournament(id: number): Promise<ChessTournament>
   return data.tournament;
 }
 
+export async function deleteChessTournament(id: number): Promise<void> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || err.error || 'Failed to delete tournament');
+  }
+}
+

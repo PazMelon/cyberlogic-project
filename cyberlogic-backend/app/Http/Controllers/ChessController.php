@@ -290,4 +290,28 @@ class ChessController extends Controller
             'message' => $message,
         ]);
     }
+
+    /**
+     * Get completed match history for all users or a specific user.
+     */
+    public function matchHistory(Request $request): JsonResponse
+    {
+        $userId = $request->query('user_id');
+
+        $query = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winnerUser', 'tournament'])
+            ->whereIn('status', ['completed', 'resigned', 'timeout', 'draw']);
+
+        if ($userId) {
+            $query->where(function ($q) use ($userId) {
+                $q->where('white_player_id', $userId)
+                  ->orWhere('black_player_id', $userId);
+            });
+        }
+
+        $matches = $query->orderBy('updated_at', 'desc')->limit(50)->get();
+
+        return response()->json([
+            'history' => $matches,
+        ]);
+    }
 }
