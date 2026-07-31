@@ -135,14 +135,16 @@ export default function BoardColumn({
         </div>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onAddSuggestionClick(column.id)}
-            className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
-            title="Add card to column"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          {isAllowedToDrop && (
+            <button
+              type="button"
+              onClick={() => onAddSuggestionClick(column.id)}
+              className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+              title="Add card to column"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          )}
 
           {canManageColumn && (
             <div className="relative">
@@ -195,13 +197,15 @@ export default function BoardColumn({
         {cards.length === 0 ? (
           <div className="h-32 flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-xl p-4 text-center">
             <p className="text-xs text-text-muted">No cards here yet</p>
-            <button
-              type="button"
-              onClick={() => onAddSuggestionClick(column.id)}
-              className="mt-2 text-xs font-semibold text-primary hover:underline cursor-pointer"
-            >
-              + Suggest an Idea
-            </button>
+            {isAllowedToDrop && (
+              <button
+                type="button"
+                onClick={() => onAddSuggestionClick(column.id)}
+                className="mt-2 text-xs font-semibold text-primary hover:underline cursor-pointer"
+              >
+                + Suggest an Idea
+              </button>
+            )}
           </div>
         ) : (
           cards.map((card, idx) => (
@@ -221,16 +225,18 @@ export default function BoardColumn({
       </div>
 
       {/* Quick Add Footer */}
-      <div className="p-2.5 border-t border-border/40 flex-shrink-0">
-        <button
-          type="button"
-          onClick={() => onAddSuggestionClick(column.id)}
-          className="w-full py-2 px-3 rounded-xl border border-dashed border-border/60 hover:border-primary/50 text-xs font-medium text-text-muted hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add suggestion card</span>
-        </button>
-      </div>
+      {isAllowedToDrop && (
+        <div className="p-2.5 border-t border-border/40 flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => onAddSuggestionClick(column.id)}
+            className="w-full py-2 px-3 rounded-xl border border-dashed border-border/60 hover:border-primary/50 text-xs font-medium text-text-muted hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add suggestion card</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

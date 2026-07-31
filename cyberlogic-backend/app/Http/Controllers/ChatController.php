@@ -633,19 +633,30 @@ class ChatController extends Controller
         $isSuperAdmin = $currentUser->isSuperAdmin();
 
         $mapped = $messages->map(function ($msg) use ($isSuperAdmin) {
+            $channel = $msg->channel;
+            $channelType = strtolower($channel->type ?? '');
+            $channelSlug = strtolower($channel->slug ?? '');
+
+            // Privacy Rule: Hide author details for Freedom Wall, Group Chat, or Private Message (DM)
+            $isFreedomWall = ($channelSlug === 'freedom-wall' || $channelType === 'freedom_wall' || $channelType === 'freedom');
+            $isGroupChat = ($channelType === 'group' || $channelType === 'group_chat');
+            $isPrivateMsg = ($channelType === 'dm' || $channelType === 'direct' || $channelType === 'private');
+
+            $anonymizeAuthor = $isFreedomWall || $isGroupChat || $isPrivateMsg;
+            $canSeeAuthor = $isSuperAdmin && !$anonymizeAuthor;
+
             return [
                 'id' => $msg->id,
                 'content' => $msg->content,
                 'flagged_reason' => $msg->flagged_reason ?: 'Potential violation flagged by AI',
                 'moderation_status' => $msg->moderation_status,
-                'channel_name' => $msg->channel ? $msg->channel->name : 'Unknown',
-                'channel_slug' => $msg->channel ? $msg->channel->slug : '',
+                'channel_name' => $channel ? $channel->name : 'Unknown',
+                'channel_slug' => $channel ? $channel->slug : '',
                 'created_at' => $msg->created_at ? $msg->created_at->toIso8601String() : now()->toIso8601String(),
-                // Only disclose author details if user is superadmin
-                'author_name' => $isSuperAdmin ? ($msg->user ? $msg->user->name : 'Anonymous') : 'Anonymous',
-                'author_email' => $isSuperAdmin ? ($msg->user ? $msg->user->email : 'N/A') : 'Hidden',
-                'author_avatar' => $isSuperAdmin ? ($msg->user ? $msg->user->avatar : null) : 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous',
-                'author_role' => $isSuperAdmin ? ($msg->user ? $msg->user->role : 'N/A') : 'Hidden',
+                'author_name' => $canSeeAuthor ? ($msg->user ? $msg->user->name : 'Anonymous') : 'Anonymous',
+                'author_email' => $canSeeAuthor ? ($msg->user ? $msg->user->email : 'N/A') : 'Hidden',
+                'author_avatar' => $canSeeAuthor ? ($msg->user ? $msg->user->avatar : null) : 'https://api.dicebear.com/9.x/avataaars/svg?seed=anonymous',
+                'author_role' => $canSeeAuthor ? ($msg->user ? $msg->user->role : 'N/A') : 'Hidden',
             ];
         });
 

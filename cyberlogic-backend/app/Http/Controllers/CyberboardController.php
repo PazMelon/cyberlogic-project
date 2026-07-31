@@ -232,6 +232,28 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Board has no columns'], 422);
         }
 
+        $targetColumn = CyberboardColumn::where('id', $columnId)->where('board_id', $boardId)->first();
+        if (!$targetColumn) {
+            return response()->json(['message' => 'Selected column does not belong to this board'], 422);
+        }
+
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        $allowedRoles = $targetColumn->allowed_roles;
+        $allowedUsers = $targetColumn->allowed_users;
+        $hasRestriction = (!empty($allowedRoles)) || (!empty($allowedUsers));
+
+        if ($hasRestriction && !$isHost && !$isAdmin) {
+            $roleAllowed = !empty($allowedRoles) && in_array($user->role, $allowedRoles);
+            $userAllowed = !empty($allowedUsers) && in_array($user->id, $allowedUsers);
+
+            if (!$roleAllowed && !$userAllowed) {
+                return response()->json([
+                    'message' => 'You do not have permission to submit cards to this column.'
+                ], 403);
+            }
+        }
+
         $maxPosition = CyberboardCard::where('column_id', $columnId)->max('position') ?? -1;
 
         $card = CyberboardCard::create([

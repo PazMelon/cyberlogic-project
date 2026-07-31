@@ -773,6 +773,10 @@ export default function CyberBoardView() {
           boardId={board.id}
           columns={columns}
           defaultColumnId={targetColumnId}
+          currentUserId={user?.id}
+          userRole={user?.role}
+          boardHostId={board.created_by}
+          isAdmin={isAdmin}
           onClose={() => setShowNewSuggestionModal(false)}
           onSubmit={handleAddSuggestion}
         />

@@ -7,6 +7,10 @@ interface NewSuggestionModalProps {
   boardId: number;
   columns: CyberboardColumn[];
   defaultColumnId?: number;
+  currentUserId?: number;
+  userRole?: string;
+  boardHostId?: number;
+  isAdmin?: boolean;
   onClose: () => void;
   onSubmit: (data: {
     column_id?: number;
@@ -31,14 +35,37 @@ const COLOR_PRESETS = [
 export default function NewSuggestionModal({
   columns,
   defaultColumnId,
+  currentUserId,
+  userRole,
+  boardHostId,
+  isAdmin,
   onClose,
   onSubmit,
 }: NewSuggestionModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [columnId, setColumnId] = useState<number | undefined>(
-    defaultColumnId || columns[0]?.id
-  );
+
+  const isColumnAllowed = (col: CyberboardColumn) => {
+    const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
+    if (isHost || isAdmin) return true;
+    const allowedRoles = col.allowed_roles || [];
+    const allowedUsers = col.allowed_users || [];
+    if (allowedRoles.length === 0 && allowedUsers.length === 0) return true;
+    const roleMatch = allowedRoles.length > 0 && userRole && allowedRoles.includes(userRole);
+    const userMatch = allowedUsers.length > 0 && currentUserId && allowedUsers.includes(currentUserId);
+    return Boolean(roleMatch || userMatch);
+  };
+
+  const allowedColumns = columns.filter(isColumnAllowed);
+
+  const initialColumnId = () => {
+    if (defaultColumnId && allowedColumns.some((col) => col.id === defaultColumnId)) {
+      return defaultColumnId;
+    }
+    return allowedColumns[0]?.id || columns[0]?.id;
+  };
+
+  const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -59,6 +86,14 @@ export default function NewSuggestionModal({
     if (!title.trim()) {
       setError("Title is required.");
       return;
+    }
+
+    if (columnId) {
+      const selectedCol = columns.find((c) => c.id === columnId);
+      if (selectedCol && !isColumnAllowed(selectedCol)) {
+        setError("You do not have permission to submit suggestions to this stage/column.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -101,11 +136,14 @@ export default function NewSuggestionModal({
             onChange={(e) => setColumnId(Number(e.target.value))}
             className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
           >
-            {columns.map((col) => (
-              <option key={col.id} value={col.id}>
-                {col.icon} {col.title}
-              </option>
-            ))}
+            {columns.map((col) => {
+              const allowed = isColumnAllowed(col);
+              return (
+                <option key={col.id} value={col.id} disabled={!allowed}>
+                  {col.icon} {col.title} {!allowed ? " 🔒 (Restricted)" : ""}
+                </option>
+              );
+            })}
           </select>
         </div>
       )}

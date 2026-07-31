@@ -179,11 +179,13 @@ export default function FreedomWallModeration() {
     {
       header: "Author Details",
       accessor: (row: FlaggedMessage) => {
-        if (!isSuperAdmin) {
+        const isAnonymized = row.author_name === "Anonymous" || row.author_email === "Hidden";
+
+        if (!isSuperAdmin || isAnonymized) {
           return (
             <div className="flex items-center gap-2 text-xs text-text-muted italic bg-white/5 px-2.5 py-1 rounded-full border border-border/35 w-fit">
               <User className="w-3.5 h-3.5" />
-              <span>Anonymous (Restricted)</span>
+              <span>Anonymous (Privacy Protected)</span>
             </div>
           );
         }
@@ -275,7 +277,7 @@ export default function FreedomWallModeration() {
             Message Moderation
           </h1>
           <p className="text-sm text-text-muted mt-1">
-            {flaggedMessages.length} flagged messages pending review · {isSuperAdmin ? "Superadmin View (Author Visible)" : "Officer View (Author Hidden)"}
+            {flaggedMessages.length} flagged messages pending review · Privacy Protection Enabled (Freedom Wall / Group Chat / DM authors hidden)
           </p>
         </div>
       </div>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Settings, X, Lock, ShieldCheck, Users, Check, UserPlus } from "lucide-react";
-import type { CyberboardColumn } from "../../utils/api";
+import React, { useState, useEffect, useMemo } from "react";
+import { Settings, X, Lock, ShieldCheck, Users, Check, UserPlus, Search } from "lucide-react";
+import { fetchDirectory, type CyberboardColumn, type DirectoryMember } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 
 interface CollaboratorOption {
@@ -42,6 +42,48 @@ export default function ConfigureColumnModal({
   const [permissionMode, setPermissionMode] = useState<string>(initialPreset());
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>(column.allowed_users || []);
   const [submitting, setSubmitting] = useState(false);
+
+  const [allMembers, setAllMembers] = useState<CollaboratorOption[]>(collaboratorsList);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadMembers = async () => {
+      setIsLoadingMembers(true);
+      try {
+        const directory = await fetchDirectory();
+        if (isMounted && directory && directory.length > 0) {
+          const directoryOptions: CollaboratorOption[] = directory.map((m: DirectoryMember) => ({
+            id: m.id,
+            name: m.name,
+            avatar: m.avatar,
+          }));
+          // Merge with collaboratorsList to avoid missing active users
+          const mergedMap = new Map<number, CollaboratorOption>();
+          directoryOptions.forEach((m) => mergedMap.set(m.id, m));
+          collaboratorsList.forEach((m) => {
+            if (!mergedMap.has(m.id)) mergedMap.set(m.id, m);
+          });
+          setAllMembers(Array.from(mergedMap.values()));
+        }
+      } catch (err) {
+        console.error("Failed to fetch directory members for column configuration:", err);
+      } finally {
+        if (isMounted) setIsLoadingMembers(false);
+      }
+    };
+    loadMembers();
+    return () => {
+      isMounted = false;
+    };
+  }, [collaboratorsList]);
+
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return allMembers;
+    const query = searchQuery.toLowerCase().trim();
+    return allMembers.filter((m) => m.name.toLowerCase().includes(query));
+  }, [allMembers, searchQuery]);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
 
@@ -233,38 +275,65 @@ export default function ConfigureColumnModal({
         {/* Individual Member Selector */}
         {permissionMode === "custom" && (
           <div className="p-3.5 rounded-xl bg-surface-950/60 border border-border/60 space-y-3 animate-in fade-in duration-200">
-            <span className="text-xs font-bold text-text-secondary block">
-              Select Permitted Members:
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-text-secondary block">
+                Select Permitted Members
+              </span>
+              <span className="text-[11px] font-semibold text-primary">
+                {selectedUserIds.length} {selectedUserIds.length === 1 ? "member" : "members"} selected
+              </span>
+            </div>
 
-            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-              {collaboratorsList.map((member) => {
-                const isSelected = selectedUserIds.includes(member.id);
-                return (
-                  <div
-                    key={member.id}
-                    onClick={() => toggleUserSelection(member.id)}
-                    className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
-                      isSelected
-                        ? "bg-primary/15 border-primary/40 text-text-primary font-semibold"
-                        : "bg-surface-800/50 border-border/40 text-text-muted hover:text-text-primary hover:bg-surface-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <img
-                        src={
-                          member.avatar ||
-                          "https://api.dicebear.com/9.x/avataaars/svg?seed=user"
-                        }
-                        alt={member.name}
-                        className="w-5 h-5 rounded-full border border-border object-cover flex-shrink-0"
-                      />
-                      <span className="truncate">{member.name}</span>
+            {/* Member Search Bar */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-text-muted absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search all members by name..."
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-surface-800 border border-border/80 text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+              />
+            </div>
+
+            <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+              {isLoadingMembers && allMembers.length === 0 ? (
+                <div className="py-4 text-center text-xs text-text-muted font-medium">
+                  Loading member directory...
+                </div>
+              ) : filteredMembers.length === 0 ? (
+                <div className="py-4 text-center text-xs text-text-muted font-medium">
+                  No members found matching "{searchQuery}"
+                </div>
+              ) : (
+                filteredMembers.map((member) => {
+                  const isSelected = selectedUserIds.includes(member.id);
+                  return (
+                    <div
+                      key={member.id}
+                      onClick={() => toggleUserSelection(member.id)}
+                      className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-primary/15 border-primary/40 text-text-primary font-semibold"
+                          : "bg-surface-800/50 border-border/40 text-text-muted hover:text-text-primary hover:bg-surface-800"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={
+                            member.avatar ||
+                            "https://api.dicebear.com/9.x/avataaars/svg?seed=user"
+                          }
+                          alt={member.name}
+                          className="w-5 h-5 rounded-full border border-border object-cover flex-shrink-0"
+                        />
+                        <span className="truncate">{member.name}</span>
+                      </div>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
                     </div>
-                    {isSelected && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         )}
