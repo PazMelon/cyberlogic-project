@@ -2931,14 +2931,18 @@ export interface CyberboardColumn {
   cards?: CyberboardCard[];
 }
 
+export type BoardCategory = "system" | "club_related" | "projects_tech" | "events_social" | "others";
+
 export interface CyberboardBoard {
   id: number;
   title: string;
   description?: string | null;
   type?: "activity" | "ideas" | "brainstorming" | "roadmap";
+  category?: BoardCategory;
   cover_color?: string | null;
   created_by: number;
   is_archived: boolean;
+  is_pinned?: boolean;
   created_at: string;
   updated_at: string;
   creator?: CyberboardUserSummary;
@@ -2966,6 +2970,7 @@ export async function createCyberboardBoard(data: {
   title: string;
   description?: string;
   type?: "activity" | "ideas" | "brainstorming" | "roadmap";
+  category?: BoardCategory;
   cover_color?: string;
 }): Promise<CyberboardBoard> {
   const res = await apiRequest("/api/cyberboard", {
@@ -2981,7 +2986,7 @@ export async function createCyberboardBoard(data: {
 
 export async function updateCyberboardBoard(
   id: number,
-  data: { title?: string; description?: string; cover_color?: string; is_archived?: boolean }
+  data: { title?: string; description?: string; cover_color?: string; is_archived?: boolean; is_pinned?: boolean }
 ): Promise<CyberboardBoard> {
   const res = await apiRequest(`/api/cyberboard/${id}`, {
     method: "PUT",
@@ -2989,6 +2994,19 @@ export async function updateCyberboardBoard(
   });
   if (!res.ok) {
     throw new Error("Failed to update board.");
+  }
+  return res.json();
+}
+
+export async function togglePinCyberboardBoard(
+  id: number
+): Promise<{ message: string; is_pinned: boolean; board: CyberboardBoard }> {
+  const res = await apiRequest(`/api/cyberboard/${id}/pin`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to toggle pin status.");
   }
   return res.json();
 }

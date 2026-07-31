@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { X, Kanban, Calendar, Lightbulb, Brain, Rocket } from "lucide-react";
+import { X, Kanban, Calendar, Lightbulb, Brain, Rocket, ShieldAlert, GraduationCap, Code, PartyPopper, Sparkles } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import type { BoardCategory } from "../../utils/api";
 
 export type BoardType = "activity" | "ideas" | "brainstorming" | "roadmap";
 
@@ -9,6 +11,7 @@ interface CreateBoardModalProps {
     title: string;
     description?: string;
     type?: BoardType;
+    category?: BoardCategory;
     cover_color?: string;
   }) => Promise<void>;
 }
@@ -55,6 +58,19 @@ const BOARD_TYPES: {
   },
 ];
 
+const BOARD_CATEGORIES: {
+  id: BoardCategory;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+}[] = [
+  { id: "club_related", label: "🎓 Club Related", icon: GraduationCap },
+  { id: "system", label: "🛡️ System (Admin)", icon: ShieldAlert, adminOnly: true },
+  { id: "projects_tech", label: "💻 Projects & Tech", icon: Code },
+  { id: "events_social", label: "🚀 Events & Socials", icon: PartyPopper },
+  { id: "others", label: "💡 Others", icon: Sparkles },
+];
+
 const COVER_GRADIENTS = [
   { name: "Cyan Cyber", color: "#06b6d4" },
   { name: "Emerald Tech", color: "#10b981" },
@@ -65,9 +81,11 @@ const COVER_GRADIENTS = [
 ];
 
 export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModalProps) {
+  const { isAdmin } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [boardType, setBoardType] = useState<BoardType>("activity");
+  const [category, setCategory] = useState<BoardCategory>("club_related");
   const [coverColor, setCoverColor] = useState("#06b6d4");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +97,11 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
       return;
     }
 
+    if (category === "system" && !isAdmin) {
+      setError("Only admins and superadmins can create System boards.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -87,6 +110,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
         title: title.trim(),
         description: description.trim() || undefined,
         type: boardType,
+        category,
         cover_color: coverColor,
       });
       onClose();
@@ -132,6 +156,43 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
               {error}
             </div>
           )}
+
+          {/* Board Category Selection */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+              Board Category <span className="text-error">*</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {BOARD_CATEGORIES.map((cat) => {
+                const isSelected = category === cat.id;
+                const isDisabled = cat.adminOnly && !isAdmin;
+
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setCategory(cat.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-left flex items-center justify-between ${
+                      isDisabled
+                        ? "opacity-40 bg-surface-950 border-border cursor-not-allowed"
+                        : isSelected
+                        ? "bg-primary/15 text-primary border-primary shadow-sm"
+                        : "bg-surface-800/60 border-border/80 hover:bg-surface-800 text-text-secondary hover:text-text-primary cursor-pointer"
+                    }`}
+                    title={isDisabled ? "System category is restricted to Admins" : undefined}
+                  >
+                    <span className="truncate">{cat.label}</span>
+                    {isDisabled && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-surface-800 text-text-muted border border-border">
+                        Admin
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* Board Type Selection */}
           <div className="space-y-2">

@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowLeft, Radio, Share2, Plus, Users } from "lucide-react";
+import { ArrowLeft, Radio, Share2, Plus, Users, Pin } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
 interface BoardHeaderProps {
@@ -53,8 +53,25 @@ export default function BoardHeader({
     }
   };
 
+  const getCategoryBadge = (category?: string) => {
+    switch (category) {
+      case "system":
+        return { label: "🛡️ System", bg: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+      case "projects_tech":
+        return { label: "💻 Projects & Tech", bg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+      case "events_social":
+        return { label: "🚀 Events & Socials", bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+      case "others":
+        return { label: "💡 Others", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+      case "club_related":
+      default:
+        return { label: "🎓 Club Related", bg: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" };
+    }
+  };
+
   const actionText = getActionLabel(board.type);
   const typeBadge = getBoardTypeBadge(board.type);
+  const catBadge = getCategoryBadge(board.category);
 
   return (
     <div className="bg-surface-900/95 backdrop-blur-md border-b border-border/80 px-3 py-2.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 flex-shrink-0 sticky top-0 z-10 shadow-xs h-14 sm:h-16">
@@ -73,7 +90,18 @@ export default function BoardHeader({
             {board.title}
           </h1>
 
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden sm:inline-block ${typeBadge.bg}`}>
+          {board.is_pinned && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-bold border border-amber-500/20 flex-shrink-0">
+              <Pin className="w-3 h-3 fill-amber-400" />
+              <span className="hidden sm:inline">Pinned</span>
+            </span>
+          )}
+
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden sm:inline-block ${catBadge.bg}`}>
+            {catBadge.label}
+          </span>
+
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden md:inline-block ${typeBadge.bg}`}>
             {typeBadge.label}
           </span>
 

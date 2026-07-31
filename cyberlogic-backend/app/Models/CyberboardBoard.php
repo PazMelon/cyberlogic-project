@@ -16,15 +16,18 @@ class CyberboardBoard extends Model
         'title',
         'description',
         'type',
+        'category',
         'cover_color',
         'created_by',
         'is_archived',
+        'is_pinned',
     ];
 
     protected function casts(): array
     {
         return [
             'is_archived' => 'boolean',
+            'is_pinned' => 'boolean',
         ];
     }
 

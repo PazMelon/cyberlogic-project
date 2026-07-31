@@ -245,6 +245,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/cyberboard/{id}', [CyberboardController::class, 'show']);
     Route::post('/api/cyberboard', [CyberboardController::class, 'storeBoard']);
     Route::put('/api/cyberboard/{id}', [CyberboardController::class, 'updateBoard']);
+    Route::post('/api/cyberboard/{id}/pin', [CyberboardController::class, 'togglePin']);
     Route::delete('/api/cyberboard/{id}', [CyberboardController::class, 'destroyBoard']);
 
     Route::post('/api/cyberboard/{boardId}/cards', [CyberboardController::class, 'storeCard']);

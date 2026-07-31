@@ -40,6 +40,7 @@ class CyberboardController extends Controller
             ->withCount(['cards' => function ($q) {
                 $q->where('is_archived', false);
             }])
+            ->orderBy('is_pinned', 'desc')
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -120,13 +121,22 @@ class CyberboardController extends Controller
             'title' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
             'type' => 'nullable|string|in:activity,ideas,brainstorming,roadmap',
+            'category' => 'nullable|string|in:system,club_related,projects_tech,events_social,others',
             'cover_color' => 'nullable|string|max:30',
         ]);
+
+        $category = $validated['category'] ?? 'club_related';
+        if ($category === 'system' && !$isAdmin) {
+            return response()->json([
+                'message' => 'Only admins and superadmins can create System category boards.',
+            ], 403);
+        }
 
         $board = CyberboardBoard::create([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'type' => $validated['type'] ?? 'activity',
+            'category' => $category,
             'cover_color' => $validated['cover_color'] ?? '#06b6d4',
             'created_by' => $user->id,
             'is_archived' => false,
@@ -164,9 +174,23 @@ class CyberboardController extends Controller
             'title' => 'sometimes|required|string|max:150',
             'description' => 'nullable|string|max:1000',
             'type' => 'nullable|string|in:activity,ideas,brainstorming,roadmap',
+            'category' => 'nullable|string|in:system,club_related,projects_tech,events_social,others',
             'cover_color' => 'nullable|string|max:30',
             'is_archived' => 'nullable|boolean',
+            'is_pinned' => 'nullable|boolean',
         ]);
+
+        if (isset($validated['category']) && $validated['category'] === 'system' && !$isAdmin) {
+            return response()->json([
+                'message' => 'Only admins and superadmins can assign System category to boards.',
+            ], 403);
+        }
+
+        if (isset($validated['is_pinned']) && !$isAdmin) {
+            return response()->json([
+                'message' => 'Only admins and superadmins can pin or unpin boards.',
+            ], 403);
+        }
 
         $board->update($validated);
         $board->load(['creator:id,first_name,middle_name,last_name,avatar_path,role,username']);
@@ -176,6 +200,39 @@ class CyberboardController extends Controller
         ], 'board:updated');
 
         return response()->json($board);
+    }
+
+    /**
+     * POST /api/cyberboard/{id}/pin
+     * Toggle board pin status (Admin only).
+     */
+    public function togglePin(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if (!$isAdmin) {
+            return response()->json(['message' => 'Only admins and superadmins can pin or unpin boards.'], 403);
+        }
+
+        $board = CyberboardBoard::find($id);
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $board->is_pinned = !$board->is_pinned;
+        $board->save();
+        $board->load(['creator:id,first_name,middle_name,last_name,avatar_path,role,username']);
+
+        RealtimeService::broadcast("cyberboard:{$board->id}", [
+            'board' => $board,
+        ], 'board:updated');
+
+        return response()->json([
+            'message' => $board->is_pinned ? 'Board pinned to top.' : 'Board unpinned.',
+            'is_pinned' => $board->is_pinned,
+            'board' => $board,
+        ]);
     }
 
     /**

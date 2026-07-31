@@ -8,11 +8,13 @@ import {
   Trash2,
   Layers,
   Sparkles,
+  Pin,
 } from "lucide-react";
 import {
   fetchCyberboardBoards,
   createCyberboardBoard,
   deleteCyberboardBoard,
+  togglePinCyberboardBoard,
   type CyberboardBoard,
 } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
@@ -41,7 +43,14 @@ export default function CyberBoard() {
 
   const categoriesScrollRef = useDragScroll();
 
-  const categories = ["All", "Active", "Archived"] as const;
+  const categories = [
+    "All",
+    "Club Related",
+    "System",
+    "Projects & Tech",
+    "Events & Socials",
+    "Others",
+  ] as const;
 
   const loadBoards = async () => {
     setLoading(true);
@@ -84,6 +93,7 @@ export default function CyberBoard() {
     title: string;
     description?: string;
     type?: "activity" | "ideas" | "brainstorming" | "roadmap";
+    category?: "system" | "club_related" | "projects_tech" | "events_social" | "others";
     cover_color?: string;
   }) => {
     const newBoard = await createCyberboardBoard(data);
@@ -111,6 +121,22 @@ export default function CyberBoard() {
     });
   };
 
+  const handleTogglePinBoard = async (boardId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await togglePinCyberboardBoard(boardId);
+      setBoards((prev) =>
+        prev
+          .map((b) => (b.id === boardId ? { ...b, is_pinned: res.is_pinned } : b))
+          .sort((a, b) => Number(b.is_pinned || false) - Number(a.is_pinned || false))
+      );
+      showToast(res.message);
+    } catch (err: any) {
+      showToast(err.message || "Failed to toggle pin.");
+    }
+  };
+
   const getBoardTypeBadge = (type?: string) => {
     switch (type) {
       case "ideas":
@@ -125,6 +151,22 @@ export default function CyberBoard() {
     }
   };
 
+  const getCategoryBadge = (category?: string) => {
+    switch (category) {
+      case "system":
+        return { label: "🛡️ System", bg: "bg-rose-500/10 text-rose-400 border-rose-500/20" };
+      case "projects_tech":
+        return { label: "💻 Projects & Tech", bg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+      case "events_social":
+        return { label: "🚀 Events & Socials", bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+      case "others":
+        return { label: "💡 Others", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+      case "club_related":
+      default:
+        return { label: "🎓 Club Related", bg: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" };
+    }
+  };
+
   const filteredBoards = boards.filter((board) => {
     const matchesTab =
       activeTab === "all" || (user && board.created_by === user.id);
@@ -135,8 +177,11 @@ export default function CyberBoard() {
 
     const matchesCategory =
       activeCategory === "All" ||
-      (activeCategory === "Active" && !board.is_archived) ||
-      (activeCategory === "Archived" && board.is_archived);
+      (activeCategory === "System" && board.category === "system") ||
+      (activeCategory === "Club Related" && (board.category === "club_related" || !board.category)) ||
+      (activeCategory === "Projects & Tech" && board.category === "projects_tech") ||
+      (activeCategory === "Events & Socials" && board.category === "events_social") ||
+      (activeCategory === "Others" && board.category === "others");
 
     return matchesTab && matchesSearch && matchesCategory;
   });
@@ -268,7 +313,8 @@ export default function CyberBoard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBoards.map((board) => {
             const canDelete = board.created_by === user?.id || isAdmin;
-            const badge = getBoardTypeBadge(board.type);
+            const typeBadge = getBoardTypeBadge(board.type);
+            const catBadge = getCategoryBadge(board.category);
 
             return (
               <Link
@@ -288,26 +334,53 @@ export default function CyberBoard() {
                       <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary flex-shrink-0">
                         <Kanban className="w-4 h-4" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 space-y-1">
                         <h2 className="text-base font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
                           {board.title}
                         </h2>
-                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border mt-0.5 ${badge.bg}`}>
-                          {badge.label}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1">
+                          {board.is_pinned && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                              <Pin className="w-3 h-3 fill-amber-400" /> Pinned
+                            </span>
+                          )}
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${catBadge.bg}`}>
+                            {catBadge.label}
+                          </span>
+                          <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${typeBadge.bg}`}>
+                            {typeBadge.label}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {canDelete && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteBoard(board.id, e)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-all cursor-pointer flex-shrink-0"
-                        title="Delete Board"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleTogglePinBoard(board.id, e)}
+                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                            board.is_pinned
+                              ? "text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 opacity-100"
+                              : "text-text-muted hover:text-amber-400 hover:bg-amber-500/10 opacity-0 group-hover:opacity-100"
+                          }`}
+                          title={board.is_pinned ? "Unpin Board" : "Pin Board to Top"}
+                        >
+                          <Pin className={`w-4 h-4 ${board.is_pinned ? "fill-amber-400 text-amber-400" : ""}`} />
+                        </button>
+                      )}
+
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteBoard(board.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-all cursor-pointer flex-shrink-0"
+                          title="Delete Board"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-text-muted line-clamp-2 leading-relaxed font-sans">
