@@ -142,7 +142,7 @@ export default function ChessGameRoom() {
 
   // Handle latest game status updates
   useEffect(() => {
-    if (latestGameUpdate) {
+    if (latestGameUpdate && game && latestGameUpdate.id === game.id) {
       setGame(latestGameUpdate);
       if (latestGameUpdate.pgn) {
         try {
@@ -156,7 +156,7 @@ export default function ChessGameRoom() {
         setBoardVersion((v) => v + 1);
       }
     }
-  }, [latestGameUpdate]);
+  }, [latestGameUpdate, game?.id]);
 
   // Live Timer Interval
   useEffect(() => {

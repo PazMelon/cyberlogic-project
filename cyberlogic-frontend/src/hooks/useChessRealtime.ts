@@ -62,7 +62,9 @@ export function useChessRealtime(gameId?: number) {
         });
       } else if (type === 'chess_game_created' || type === 'chess_game_updated') {
         if (payload?.game) {
-          setLatestGameUpdate(payload.game);
+          if (!gameId || payload.game.id === gameId) {
+            setLatestGameUpdate(payload.game);
+          }
         }
       }
     });
@@ -70,7 +72,7 @@ export function useChessRealtime(gameId?: number) {
     return () => {
       unsubscribeLobby();
     };
-  }, [isConnected, subscribe]);
+  }, [isConnected, subscribe, gameId]);
 
   // Subscribe to specific game room channel if gameId is provided
   useEffect(() => {

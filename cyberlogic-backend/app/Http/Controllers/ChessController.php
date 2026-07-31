@@ -210,9 +210,6 @@ class ChessController extends Controller
             return response()->json(['game' => $updatedGame]);
         }
 
-        // Otherwise broadcast draw offer/decline to channel
-        $this->chessService->finishGame($game, null, false, ''); // NOP or helper broadcast
-        
         return response()->json(['message' => 'Draw action sent']);
     }
 
