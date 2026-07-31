@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { useAuth, apiRequest } from './AuthContext';
 import { wsClient } from '../utils/websocket';
 
-interface OnlineUser {
+export interface OnlineUser {
   id: number;
   name: string;
   avatar: string;

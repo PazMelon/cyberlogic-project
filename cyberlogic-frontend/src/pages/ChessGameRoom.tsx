@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Chess, type Square, type Color } from 'chess.js';
 import { useAuth } from '../context/AuthContext';
+import { useWebSocket } from '../context/WebSocketContext';
 import { useChessRealtime } from '../hooks/useChessRealtime';
+import { useDialog } from '../utils/useDialog';
 import {
   fetchChessGame,
   joinChessGame,
@@ -23,7 +25,11 @@ import {
   ArrowLeft,
   Clock,
   Volume2,
+  AlertTriangle,
   Award,
+  Users,
+  Eye,
+  X,
 } from 'lucide-react';
 
 // Unicode chess piece glyphs for high resolution crisp rendering
@@ -46,16 +52,19 @@ export default function ChessGameRoom() {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { onlineUsers } = useWebSocket();
+  const { showAlert, showConfirm } = useDialog();
 
   const [game, setGame] = useState<ChessGame | null>(null);
   const [isPlayer, setIsPlayer] = useState(false);
   const [spectatorBlocked, setSpectatorBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showSpectatorsModal, setShowSpectatorsModal] = useState(false);
 
   // Chess.js instance
   const chessRef = useRef<Chess>(new Chess());
-  const [, setBoardVersion] = useState(0);
+  const [boardVersion, setBoardVersion] = useState(0);
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([]);
 
@@ -63,8 +72,9 @@ export default function ChessGameRoom() {
   const [whiteMs, setWhiteMs] = useState<number>(0);
   const [blackMs, setBlackMs] = useState<number>(0);
 
-  // Chat message input
+  // Chat message input & move log refs
   const [chatInput, setChatInput] = useState('');
+  const moveHistoryRef = useRef<HTMLDivElement>(null);
 
   // Realtime hook
   const {
@@ -86,7 +96,14 @@ export default function ChessGameRoom() {
         setGame(data.game);
         setIsPlayer(data.is_player);
 
-        if (data.game.fen) {
+        if (data.game.pgn) {
+          try {
+            chessRef.current.loadPgn(data.game.pgn);
+          } catch (e) {
+            if (data.game.fen) chessRef.current.load(data.game.fen);
+          }
+          setBoardVersion((v) => v + 1);
+        } else if (data.game.fen) {
           chessRef.current.load(data.game.fen);
           setBoardVersion((v) => v + 1);
         }
@@ -105,14 +122,22 @@ export default function ChessGameRoom() {
 
   // Handle incoming live move broadcast
   useEffect(() => {
-    if (latestMove && latestMove.fen) {
-      chessRef.current.load(latestMove.fen);
+    if (latestMove) {
+      if (latestMove.pgn) {
+        try {
+          chessRef.current.loadPgn(latestMove.pgn);
+        } catch (e) {
+          if (latestMove.fen) chessRef.current.load(latestMove.fen);
+        }
+      } else if (latestMove.fen) {
+        chessRef.current.load(latestMove.fen);
+      }
       setBoardVersion((v) => v + 1);
 
       if (latestMove.white_time_left_ms !== undefined) setWhiteMs(latestMove.white_time_left_ms);
       if (latestMove.black_time_left_ms !== undefined) setBlackMs(latestMove.black_time_left_ms);
 
-      setGame((prev) => (prev ? { ...prev, current_turn: latestMove.current_turn, fen: latestMove.fen } : null));
+      setGame((prev) => (prev ? { ...prev, current_turn: latestMove.current_turn, fen: latestMove.fen, pgn: latestMove.pgn || prev.pgn } : null));
     }
   }, [latestMove]);
 
@@ -120,7 +145,14 @@ export default function ChessGameRoom() {
   useEffect(() => {
     if (latestGameUpdate) {
       setGame(latestGameUpdate);
-      if (latestGameUpdate.fen) {
+      if (latestGameUpdate.pgn) {
+        try {
+          chessRef.current.loadPgn(latestGameUpdate.pgn);
+        } catch (e) {
+          if (latestGameUpdate.fen) chessRef.current.load(latestGameUpdate.fen);
+        }
+        setBoardVersion((v) => v + 1);
+      } else if (latestGameUpdate.fen) {
         chessRef.current.load(latestGameUpdate.fen);
         setBoardVersion((v) => v + 1);
       }
@@ -186,6 +218,46 @@ export default function ChessGameRoom() {
     if (game.black_player_id === user.id && game.white_player_id !== user.id) return 'black';
     return 'white';
   }, [game, user]);
+
+  const inCheck = useMemo(() => {
+    return chessRef.current.inCheck();
+  }, [boardVersion, game?.fen, latestMove]);
+
+  const checkedKingSquare = useMemo(() => {
+    if (!inCheck) return null;
+    const turn = chessRef.current.turn(); // 'w' or 'b'
+    const board = chessRef.current.board();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece && piece.type === 'k' && piece.color === turn) {
+          const file = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][c];
+          const rank = (8 - r).toString();
+          return `${file}${rank}`;
+        }
+      }
+    }
+    return null;
+  }, [inCheck, boardVersion, game?.fen, latestMove]);
+
+  const movePairs = useMemo(() => {
+    const history = chessRef.current.history();
+    const pairs: Array<{ turn: number; white: string; black?: string }> = [];
+    for (let i = 0; i < history.length; i += 2) {
+      pairs.push({
+        turn: Math.floor(i / 2) + 1,
+        white: history[i],
+        black: history[i + 1],
+      });
+    }
+    return pairs;
+  }, [boardVersion, game?.pgn, latestMove]);
+
+  useEffect(() => {
+    if (moveHistoryRef.current) {
+      moveHistoryRef.current.scrollTop = moveHistoryRef.current.scrollHeight;
+    }
+  }, [movePairs]);
 
   // Square Click / Move Handler
   const handleSquareClick = (square: Square) => {
@@ -263,12 +335,24 @@ export default function ChessGameRoom() {
       setGame(updated);
       setIsPlayer(true);
     } catch (err) {
-      alert('Could not join match.');
+      showAlert({
+        title: 'Join Error',
+        message: 'Could not join match room.',
+        type: 'error',
+      });
     }
   };
 
   const handleResign = async () => {
-    if (!game || !window.confirm('Are you sure you want to resign this match?')) return;
+    if (!game) return;
+    const confirmed = await showConfirm({
+      title: 'Resign Match?',
+      message: 'Are you sure you want to resign this match? This will count as a loss.',
+      type: 'danger',
+      confirmText: 'Yes, Resign',
+    });
+    if (!confirmed) return;
+
     try {
       const updated = await resignChessGame(game.game_code);
       setGame(updated);
@@ -378,8 +462,24 @@ export default function ChessGameRoom() {
                   <Clock className="w-3 h-3" /> {game.time_control}m
                 </span>
               )}
+              {inCheck && game.status === 'in_progress' && (
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3 text-rose-400" /> CHECK!
+                </span>
+              )}
+              {game.status === 'completed' && game.win_reason === 'checkmate' && (
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center gap-1">
+                  <Swords className="w-3 h-3 text-amber-400" /> CHECKMATE!
+                </span>
+              )}
             </div>
-            <h1 className="text-lg sm:text-xl font-extrabold text-[var(--cl-text-primary)] mt-1">1v1 Chess Arena</h1>
+            <div className="flex items-center gap-3 mt-1">
+              <h1 className="text-lg sm:text-xl font-extrabold text-[var(--cl-text-primary)]">1v1 Chess Arena</h1>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--cl-surface-950)] text-[var(--cl-primary-light)] border border-[var(--cl-border)] flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                {game.allow_spectators ? 'Spectators Allowed' : 'Private Match'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -488,16 +588,21 @@ export default function ChessGameRoom() {
 
                   const isSelected = selectedSquare === square;
                   const isPossible = possibleMoves.includes(square);
+                  const isCheckedKing = checkedKingSquare === square;
 
                   return (
                     <div
                       key={square}
                       onClick={() => handleSquareClick(square)}
                       className={`relative flex items-center justify-center text-4xl select-none cursor-pointer transition-colors ${
-                        isDark
+                        isCheckedKing
+                          ? 'bg-rose-600/60 ring-4 ring-rose-500 shadow-[inset_0_0_20px_rgba(225,29,72,0.8)] animate-pulse z-20'
+                          : isSelected
+                          ? 'bg-[var(--cl-primary)]/40 ring-2 ring-[var(--cl-primary)] inset-0 z-10'
+                          : isDark
                           ? 'bg-[var(--cl-surface-800)]/80 text-[var(--cl-text-primary)]'
                           : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-primary)]'
-                      } ${isSelected ? 'bg-[var(--cl-primary)]/40 ring-2 ring-[var(--cl-primary)] inset-0 z-10' : ''}`}
+                      }`}
                     >
                       {/* Rank/File Notation labels */}
                       {fIdx === 0 && (
@@ -625,25 +730,142 @@ export default function ChessGameRoom() {
             </div>
           )}
 
-          {/* Move History Log */}
+          {/* Move History Log (Standard Chess Notation Table) */}
           <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl">
             <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider mb-2 flex items-center justify-between">
               <span className="flex items-center gap-2">
                 <Swords className="w-3.5 h-3.5 text-[var(--cl-primary)]" /> Move History Notation
               </span>
+              <span className="text-[10px] text-[var(--cl-text-muted)] font-mono">
+                {chessRef.current.history().length} moves
+              </span>
             </h3>
-            <div className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] rounded-xl p-3 h-28 overflow-y-auto font-mono text-xs text-[var(--cl-text-primary)] custom-scrollbar">
-              {game.pgn ? (
-                <div className="whitespace-pre-wrap leading-relaxed">
-                  {game.pgn
-                    .replace(/\[.*?\]/g, '')
-                    .replace(/\*|1-0|0-1|1\/2-1\/2$/g, '')
-                    .trim()}
-                </div>
+            <div
+              ref={moveHistoryRef}
+              className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] rounded-xl p-3 h-36 overflow-y-auto font-mono text-xs text-[var(--cl-text-primary)] custom-scrollbar"
+            >
+              {movePairs.length === 0 ? (
+                <div className="text-[var(--cl-text-muted)] italic text-center py-8">No moves played yet</div>
               ) : (
-                <div className="text-[var(--cl-text-muted)] italic">No moves played yet</div>
+                <div className="space-y-1">
+                  <div className="grid grid-cols-5 text-[10px] text-[var(--cl-text-muted)] uppercase font-semibold pb-1 border-b border-[var(--cl-border)]/50 px-1">
+                    <span>Turn</span>
+                    <span className="col-span-2">White</span>
+                    <span className="col-span-2">Black</span>
+                  </div>
+                  {movePairs.map((pair) => (
+                    <div key={pair.turn} className="grid grid-cols-5 py-1 px-1 text-xs hover:bg-[var(--cl-surface-900)]/60 rounded transition-all">
+                      <span className="text-[var(--cl-text-muted)] font-bold">{pair.turn}.</span>
+                      <span className="col-span-2 text-[var(--cl-primary-light)] font-bold">{pair.white}</span>
+                      <span className="col-span-2 text-[var(--cl-text-primary)] font-normal">{pair.black || '...'}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
+          </div>
+
+          {/* Match Participants & Spectator Roster */}
+          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl space-y-3">
+            <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-[var(--cl-primary)]" /> Room Roster
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]">
+                {game.allow_spectators ? 'Spectators Enabled' : 'Players Only'}
+              </span>
+            </h3>
+
+            {/* Active Players */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
+                <Swords className="w-3 h-3 text-[var(--cl-primary)]" /> Playing Participants
+              </div>
+              <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-white border border-slate-900 shrink-0" title="White Player" />
+                  <img
+                    src={game.white_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.white_player?.name || 'white')}`}
+                    alt="White Player"
+                    className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
+                  />
+                  <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs">
+                    {game.white_player?.name || 'White Player'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                  White
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-slate-900 border border-white/50 shrink-0" title="Black Player" />
+                  <img
+                    src={game.black_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.black_player?.name || 'black')}`}
+                    alt="Black Player"
+                    className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
+                  />
+                  <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs">
+                    {game.black_player?.name || 'Waiting for opponent...'}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-slate-500/20 px-2 py-0.5 rounded border border-slate-500/30 shrink-0">
+                  Black
+                </span>
+              </div>
+            </div>
+
+            {/* Currently Spectating Section (Single Line Overlapping Avatars + Modal Button) */}
+            {(() => {
+              const activeSpectators = (onlineUsers || []).filter(
+                (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
+              );
+
+              return (
+                <div className="pt-2.5 border-t border-[var(--cl-border)]/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
+                      <Eye className="w-3 h-3 text-emerald-400" /> Spectators
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      {activeSpectators.length} watching
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 bg-[var(--cl-surface-950)]/70 p-2 rounded-xl border border-[var(--cl-border)]/40">
+                    {activeSpectators.length === 0 ? (
+                      <span className="text-xs text-[var(--cl-text-muted)] italic">No active spectators</span>
+                    ) : (
+                      /* Overlapping Avatar Stack (Single Line - No names) */
+                      <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                        {activeSpectators.slice(0, 5).map((spec, i) => (
+                          <img
+                            key={spec.id || i}
+                            src={spec.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(spec.name)}`}
+                            alt={spec.name}
+                            title={spec.name}
+                            className="w-7 h-7 rounded-full object-cover border-2 border-[var(--cl-surface-950)] shadow-md transition-transform hover:scale-115 hover:z-20 cursor-pointer shrink-0"
+                          />
+                        ))}
+                        {activeSpectators.length > 5 && (
+                          <div className="w-7 h-7 rounded-full bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] font-bold text-[10px] flex items-center justify-center border-2 border-[var(--cl-surface-950)] shrink-0">
+                            +{activeSpectators.length - 5}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowSpectatorsModal(true)}
+                      className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+                    >
+                      <Eye className="w-3 h-3" /> View All ({activeSpectators.length})
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* In-Game Message Hub */}
@@ -732,6 +954,72 @@ export default function ChessGameRoom() {
               className="w-full bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer"
             >
               Return to Chess Hub
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Active Spectators List Modal */}
+      {showSpectatorsModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--cl-border)]">
+              <h3 className="text-sm font-bold text-[var(--cl-text-primary)] flex items-center gap-2 font-[family-name:var(--font-heading)]">
+                <Eye className="w-4 h-4 text-emerald-400" /> Active Spectators List
+              </h3>
+              <button
+                onClick={() => setShowSpectatorsModal(false)}
+                className="p-1 rounded-lg text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {(() => {
+              const activeSpectators = (onlineUsers || []).filter(
+                (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
+              );
+
+              return activeSpectators.length === 0 ? (
+                <div className="text-center py-8 text-xs text-[var(--cl-text-muted)] italic">
+                  No active spectators watching this match right now.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+                  {activeSpectators.map((spec) => (
+                    <div
+                      key={spec.id}
+                      className="flex items-center justify-between p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 text-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          src={spec.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(spec.name)}`}
+                          alt={spec.name}
+                          className="w-8 h-8 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="font-bold text-[var(--cl-text-primary)] truncate text-xs">
+                            {spec.name}
+                          </div>
+                          <div className="text-[10px] text-[var(--cl-text-muted)] capitalize truncate">
+                            {spec.role || 'Member'}
+                          </div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                        Spectator
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <button
+              onClick={() => setShowSpectatorsModal(false)}
+              className="w-full bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-[var(--cl-text-primary)] font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer border border-[var(--cl-border)]"
+            >
+              Close
             </button>
           </div>
         </div>

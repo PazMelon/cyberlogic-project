@@ -115,8 +115,8 @@ class ChessService
         }
 
         $game->status = 'in_progress';
-        $game->started_at = now();
-        $game->last_move_at = now();
+        $game->started_at = \Illuminate\Support\Carbon::now();
+        $game->last_move_at = \Illuminate\Support\Carbon::now();
         $game->save();
 
         $game->load(['host', 'whitePlayer', 'blackPlayer']);
@@ -172,7 +172,7 @@ class ChessService
             $game->black_time_left_ms = $blackTimeLeftMs;
         }
 
-        $game->last_move_at = now();
+        $game->last_move_at = \Illuminate\Support\Carbon::now();
         $game->current_turn = $game->current_turn === 'white' ? 'black' : 'white';
 
         if ($gameOverReason || $winnerId || $isDraw) {
@@ -223,7 +223,7 @@ class ChessService
     public function finishGame(ChessGame $game, ?int $winnerId, bool $isDraw, string $winReason): ChessGame
     {
         $game->status = 'completed';
-        $game->ended_at = now();
+        $game->ended_at = \Illuminate\Support\Carbon::now();
         $game->winner_id = $winnerId;
         $game->is_draw = $isDraw;
         $game->win_reason = $winReason;
@@ -282,21 +282,29 @@ class ChessService
             }
         }
 
-        // 2. Game Participation Reputation Points (+3 Winner, +1 Loser, +2 Draw)
+        // 2. Game Participation Reputation Points (+2 Winner, +1 Loser, +1 Draw)
         if ($whiteStat && $blackStat) {
             if ($isDraw) {
-                $whiteStat->chess_reputation_points += 2;
-                $blackStat->chess_reputation_points += 2;
+                $whiteStat->chess_reputation_points += 1;
+                $blackStat->chess_reputation_points += 1;
             } else if ($winnerId === $game->white_player_id) {
-                $whiteStat->chess_reputation_points += 3;
+                $whiteStat->chess_reputation_points += 2;
                 $blackStat->chess_reputation_points += 1;
             } else {
                 $whiteStat->chess_reputation_points += 1;
-                $blackStat->chess_reputation_points += 3;
+                $blackStat->chess_reputation_points += 2;
             }
 
             $whiteStat->save();
             $blackStat->save();
+
+            // Clear user reputation cache so member leaderboard on dashboard reflects chess match points
+            if ($game->white_player_id) {
+                \Illuminate\Support\Facades\Cache::forget("user_reputation_{$game->white_player_id}");
+            }
+            if ($game->black_player_id) {
+                \Illuminate\Support\Facades\Cache::forget("user_reputation_{$game->black_player_id}");
+            }
         }
 
         $game->save();

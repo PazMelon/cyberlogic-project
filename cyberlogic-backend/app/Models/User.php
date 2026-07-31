@@ -189,6 +189,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's chess player stat.
+     */
+    public function chessStat()
+    {
+        return $this->hasOne(ChessPlayerStat::class);
+    }
+
+    /**
      * Calculate reputation score based on starting date.
      */
     public function calculateReputationScore(?\Carbon\Carbon $startDate = null): int
@@ -246,9 +254,15 @@ class User extends Authenticatable
         }
         $resourceApprovalRep = $resQuery->count() * 10;
 
+        $chessRep = 0;
+        $chessStat = $this->chessStat;
+        if ($chessStat) {
+            $chessRep = (int) $chessStat->chess_reputation_points;
+        }
+
         $deletedCommentRepPenalty = (int) ($this->deleted_comments_count * 5);
 
-        return $threadRep + $commentRep + $solutionRep + $resourceRep + $resourceApprovalRep - $deletedCommentRepPenalty;
+        return $threadRep + $commentRep + $solutionRep + $resourceRep + $resourceApprovalRep + $chessRep - $deletedCommentRepPenalty;
     }
 
     /**
