@@ -1,4 +1,4 @@
-import { Globe, Shield, Clock, Check, Link as LinkIcon } from 'lucide-react';
+import { Globe, Shield, Clock, Check, Link as LinkIcon, Trash2 } from 'lucide-react';
 import { type ChessGame } from '../../utils/chessApi';
 
 interface MatchRoomCardProps {
@@ -7,6 +7,7 @@ interface MatchRoomCardProps {
   copiedCode: string | null;
   onCopyInviteLink: (code: string) => void;
   onNavigateGame: (code: string) => void;
+  onDeleteGame?: (code: string) => void;
 }
 
 export function MatchRoomCard({
@@ -15,9 +16,12 @@ export function MatchRoomCard({
   copiedCode,
   onCopyInviteLink,
   onNavigateGame,
+  onDeleteGame,
 }: MatchRoomCardProps) {
   const isFull = game.status === 'in_progress' || (game.white_player_id && game.black_player_id);
   const isMyGame = currentUserId && (game.white_player_id === currentUserId || game.black_player_id === currentUserId || game.host_player_id === currentUserId);
+  const isHost = currentUserId && game.host_player_id === currentUserId;
+  const canDelete = isHost && game.status === 'waiting';
 
   return (
     <div className="bg-[var(--cl-surface-950)]/80 border border-[var(--cl-border)]/60 hover:border-[var(--cl-primary)]/50 rounded-xl p-4 transition-all flex flex-col justify-between">
@@ -77,6 +81,16 @@ export function MatchRoomCard({
         </div>
 
         <div className="flex items-center gap-2">
+          {canDelete && onDeleteGame && (
+            <button
+              onClick={() => onDeleteGame(game.game_code)}
+              title="Delete Unstarted Match Room"
+              className="p-2 text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition-all cursor-pointer border border-rose-500/20"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={() => onCopyInviteLink(game.game_code)}
             title="Copy Invite Link"

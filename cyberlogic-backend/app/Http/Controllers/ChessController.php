@@ -21,9 +21,18 @@ class ChessController extends Controller
 
     /**
      * Get active/waiting games for lobby.
+     * Auto-expires unstarted 'waiting' matches created over 5 minutes ago.
      */
     public function index(): JsonResponse
     {
+        // Auto-cancel waiting rooms older than 5 minutes
+        ChessGame::where('status', 'waiting')
+            ->where('created_at', '<=', \Illuminate\Support\Carbon::now()->subMinutes(5))
+            ->update([
+                'status' => 'aborted',
+                'win_reason' => 'expired_unstarted',
+            ]);
+
         $games = ChessGame::with(['host', 'whitePlayer', 'blackPlayer'])
             ->whereIn('status', ['waiting', 'in_progress'])
             ->orderBy('created_at', 'desc')
@@ -33,6 +42,29 @@ class ChessController extends Controller
         return response()->json([
             'games' => $games,
         ]);
+    }
+
+    /**
+     * Delete/cancel a waiting game room (host maker only).
+     */
+    public function destroy(string $code): JsonResponse
+    {
+        $game = ChessGame::where('game_code', $code)->firstOrFail();
+        $user = Auth::user();
+
+        if ($game->host_player_id !== $user->id) {
+            return response()->json(['error' => 'Only the room creator can delete this match.'], 403);
+        }
+
+        if ($game->status !== 'waiting') {
+            return response()->json(['error' => 'Only unstarted waiting matches can be deleted.'], 400);
+        }
+
+        $game->status = 'aborted';
+        $game->win_reason = 'cancelled_by_host';
+        $game->save();
+
+        return response()->json(['message' => 'Game room deleted successfully.']);
     }
 
     /**

@@ -10,6 +10,7 @@ interface AvailableMatchRoomsCardProps {
   onCopyInviteLink: (code: string) => void;
   onNavigateGame: (code: string) => void;
   onOpenCreateModal: () => void;
+  onDeleteGame?: (code: string) => void;
 }
 
 export function AvailableMatchRoomsCard({
@@ -20,6 +21,7 @@ export function AvailableMatchRoomsCard({
   onCopyInviteLink,
   onNavigateGame,
   onOpenCreateModal,
+  onDeleteGame,
 }: AvailableMatchRoomsCardProps) {
   return (
     <div className="glass border border-[var(--cl-border)] rounded-2xl p-5 sm:p-6 shadow-xl">
@@ -56,6 +58,7 @@ export function AvailableMatchRoomsCard({
               copiedCode={copiedCode}
               onCopyInviteLink={onCopyInviteLink}
               onNavigateGame={onNavigateGame}
+              onDeleteGame={onDeleteGame}
             />
           ))}
         </div>

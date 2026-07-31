@@ -143,6 +143,13 @@ export async function offerChessDraw(code: string, action: 'offer' | 'accept' | 
   return res.json();
 }
 
+export async function deleteChessGame(gameCode: string): Promise<void> {
+  const res = await apiRequest(`/api/chess/games/${gameCode}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete game room');
+}
+
 export async function fetchChessLeaderboard(sort: 'elo' | 'reputation' = 'elo'): Promise<ChessPlayerStat[]> {
   const res = await apiRequest(`/api/chess/leaderboard?sort=${sort}`);
   if (!res.ok) throw new Error('Failed to fetch leaderboard');

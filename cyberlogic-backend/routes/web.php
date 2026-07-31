@@ -263,6 +263,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chess/games', [ChessController::class, 'index']);
     Route::post('/api/chess/games', [ChessController::class, 'store']);
     Route::get('/api/chess/games/{code}', [ChessController::class, 'show']);
+    Route::delete('/api/chess/games/{code}', [ChessController::class, 'destroy']);
     Route::post('/api/chess/games/{code}/join', [ChessController::class, 'join']);
     Route::post('/api/chess/games/{code}/move', [ChessController::class, 'move']);
     Route::post('/api/chess/games/{code}/resign', [ChessController::class, 'resign']);

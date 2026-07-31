@@ -6,6 +6,7 @@ import { useChessRealtime } from '../hooks/useChessRealtime';
 import {
   fetchChessGames,
   createChessGame,
+  deleteChessGame,
   fetchChessLeaderboard,
   fetchUserChessStats,
   fetchLobbyMessages,
@@ -26,7 +27,7 @@ import { MobileCommunityDrawer } from '../components/chess/MobileCommunityDrawer
 
 export default function ChessHub() {
   const { user } = useAuth();
-  const { showAlert } = useDialog();
+  const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate();
   const { onlineUsers } = useWebSocket();
   const { lobbyMessages: wsLobbyMessages, sendLobbyChat, latestGameUpdate } = useChessRealtime();
@@ -235,6 +236,28 @@ export default function ChessHub() {
     setTimeout(() => setCopiedCode(null), 2500);
   };
 
+  const handleDeleteGame = async (gameCode: string) => {
+    const confirmed = await showConfirm({
+      title: 'Cancel Match Room?',
+      message: 'Are you sure you want to delete this open match room?',
+      type: 'warning',
+      confirmText: 'Yes, Delete',
+    });
+    if (!confirmed) return;
+
+    try {
+      await deleteChessGame(gameCode);
+      setGames((prev) => prev.filter((g) => g.game_code !== gameCode));
+    } catch (err) {
+      console.error('[ChessHub] Delete game failed:', err);
+      showAlert({
+        title: 'Error Deleting Room',
+        message: 'Could not delete the match room.',
+        type: 'error',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 text-[var(--cl-text-primary)] font-sans relative">
       {/* Main Grid Layout (2-Column Main + 1-Column Right Sidebar) */}
@@ -282,6 +305,7 @@ export default function ChessHub() {
               onCopyInviteLink={copyInviteLink}
               onNavigateGame={(code) => navigate(`/app/chess/game/${code}`)}
               onOpenCreateModal={() => setShowCreateModal(true)}
+              onDeleteGame={handleDeleteGame}
             />
           ) : (
             <ChessLeaderboardCard
