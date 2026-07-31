@@ -237,6 +237,7 @@ class ChessTournamentService
             'color_preference' => 'white',
         ]);
 
+        $game->tournament_id = $tournament->id;
         $game->black_player_id = $blackId;
         $game->status = 'in_progress';
         $game->started_at = Carbon::now();

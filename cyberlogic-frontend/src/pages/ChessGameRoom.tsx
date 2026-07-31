@@ -226,14 +226,22 @@ export default function ChessGameRoom() {
   const isMyTurn = useMemo(() => {
     if (!game || !user) return false;
     if (game.status !== 'in_progress') return false;
-    if (game.current_turn === 'white' && game.white_player_id === user.id) return true;
-    if (game.current_turn === 'black' && game.black_player_id === user.id) return true;
+    const userId = Number(user.id);
+    const whiteId = game.white_player_id ? Number(game.white_player_id) : null;
+    const blackId = game.black_player_id ? Number(game.black_player_id) : null;
+
+    if (game.current_turn === 'white' && whiteId === userId) return true;
+    if (game.current_turn === 'black' && blackId === userId) return true;
     return false;
   }, [game, user]);
 
   const myColor = useMemo(() => {
     if (!game || !user) return 'white';
-    if (game.black_player_id === user.id && game.white_player_id !== user.id) return 'black';
+    const userId = Number(user.id);
+    const whiteId = game.white_player_id ? Number(game.white_player_id) : null;
+    const blackId = game.black_player_id ? Number(game.black_player_id) : null;
+
+    if (blackId === userId && whiteId !== userId) return 'black';
     return 'white';
   }, [game, user]);
 
