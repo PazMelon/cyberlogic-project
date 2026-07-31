@@ -30,12 +30,17 @@ const navSections = [
   {
     title: "Community",
     items: [
-      { icon: Trophy, label: "Chess Arena", path: "/app/chess" },
       { icon: Kanban, label: "CyberBoard", path: "/app/cyberboard" },
       { icon: MessagesSquare, label: "Forums", path: "/app/forums" },
       { icon: MessageSquare, label: "Chat", path: "/app/chat" },
       { icon: Newspaper, label: "Blog", path: "/app/blogs" },
       { icon: Users, label: "Directory", path: "/app/directory" },
+    ],
+  },
+  {
+    title: "Games",
+    items: [
+      { icon: Trophy, label: "Chess Arena", path: "/app/chess" },
     ],
   },
   {
