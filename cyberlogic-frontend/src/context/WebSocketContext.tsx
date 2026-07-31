@@ -7,7 +7,7 @@ interface OnlineUser {
   name: string;
   avatar: string;
   role: string;
-  status: 'online' | 'away' | 'offline';
+  status: 'online' | 'away' | 'offline' | 'playing';
 }
 
 interface WebSocketContextType {

@@ -20,6 +20,9 @@ class ChannelManager {
     this.RATE_LIMIT_MAX = 15;
     this.RATE_LIMIT_WINDOW_MS = 60 * 1000;
     
+    // Chess Lobby Chat memory history
+    this.lobbyChatHistory = [];
+
     // Initialize presence log bot activity tracker
     this.activityTracker = new ActivityTracker(this);
   }
@@ -264,6 +267,23 @@ class ChannelManager {
           }
         }
 
+        // Spectator authorization check for chess game channels
+        if (channel.startsWith('chess_game_') || channel.startsWith('chess_game:')) {
+          const gameId = channel.replace('chess_game_', '').replace('chess_game:', '');
+          if (gameId && !isNaN(gameId)) {
+            const [rows] = await pool.query('SELECT host_player_id, white_player_id, black_player_id, allow_spectators FROM chess_games WHERE id = ? LIMIT 1', [gameId]);
+            if (rows.length > 0) {
+              const g = rows[0];
+              const isPlayer = user.id === g.host_player_id || user.id === g.white_player_id || user.id === g.black_player_id;
+              if (!g.allow_spectators && !isPlayer) {
+                console.log(`[WS] Chess Game subscription rejected: User ${user.name} not a player in game ${gameId} (spectators disabled)`);
+                this.sendToClient(client, channel, 'subscription_error', { message: 'Spectators are disabled for this game.' });
+                return;
+              }
+            }
+          }
+        }
+
         this.subscribe(client, channel);
         if (channel === 'presence') {
           const presenceList = Array.from(this.onlineUsers.values()).map(p => ({
@@ -272,13 +292,16 @@ class ChannelManager {
           }));
           this.sendToClient(client, 'presence', 'presence', presenceList);
         }
+        if (channel === 'chess_lobby') {
+          this.sendToClient(client, 'chess_lobby', 'chess_lobby_history', this.lobbyChatHistory);
+        }
         // If subscribing to chat, send success ack or do setup
         if (channel.startsWith('chat:')) {
           this.sendToClient(client, channel, 'subscribe_success', { channel });
         }
       } else if (type === 'status_update') {
         const { status } = payload;
-        if (status === 'online' || status === 'away') {
+        if (['online', 'away', 'playing'].includes(status)) {
           const userPresence = this.onlineUsers.get(user.id);
           if (userPresence) {
             userPresence.user.status = status;
@@ -324,6 +347,37 @@ class ChannelManager {
             user_id: user.id,
             user_name: user.name,
             user_avatar: user.avatar,
+          });
+        }
+      } else if (['chess_lobby_chat', 'chess_challenge'].includes(type)) {
+        if (channel === 'chess_lobby') {
+          const chatMsg = {
+            ...payload,
+            sender: {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+            },
+            created_at: new Date().toISOString(),
+          };
+          if (type === 'chess_lobby_chat') {
+            this.lobbyChatHistory.push(chatMsg);
+            if (this.lobbyChatHistory.length > 50) {
+              this.lobbyChatHistory.shift();
+            }
+          }
+          this.broadcast(channel, type, chatMsg);
+        }
+      } else if (['chess_game_chat', 'chess_draw_offer', 'chess_draw_response'].includes(type)) {
+        if (channel.startsWith('chess_game_') || channel.startsWith('chess_game:')) {
+          this.broadcast(channel, type, {
+            ...payload,
+            sender: {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar,
+            },
+            created_at: new Date().toISOString(),
           });
         }
       }

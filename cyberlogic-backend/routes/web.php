@@ -23,6 +23,7 @@ use App\Http\Controllers\ProfileShowcaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CyberboardController;
+use App\Http\Controllers\ChessController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -257,6 +258,19 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/cyberboard/{boardId}/columns', [CyberboardController::class, 'storeColumn']);
     Route::put('/api/cyberboard/columns/{id}', [CyberboardController::class, 'updateColumn']);
     Route::delete('/api/cyberboard/columns/{id}', [CyberboardController::class, 'destroyColumn']);
+
+    // Realtime Chess Game endpoints
+    Route::get('/api/chess/games', [ChessController::class, 'index']);
+    Route::post('/api/chess/games', [ChessController::class, 'store']);
+    Route::get('/api/chess/games/{code}', [ChessController::class, 'show']);
+    Route::post('/api/chess/games/{code}/join', [ChessController::class, 'join']);
+    Route::post('/api/chess/games/{code}/move', [ChessController::class, 'move']);
+    Route::post('/api/chess/games/{code}/resign', [ChessController::class, 'resign']);
+    Route::post('/api/chess/games/{code}/offer-draw', [ChessController::class, 'offerDraw']);
+    Route::get('/api/chess/leaderboard', [ChessController::class, 'leaderboard']);
+    Route::get('/api/chess/user-stats/{userId?}', [ChessController::class, 'userStats']);
+    Route::get('/api/chess/lobby-messages', [ChessController::class, 'lobbyMessages']);
+    Route::post('/api/chess/lobby-messages', [ChessController::class, 'postLobbyMessage']);
 });
 
 Route::get('/storage/{path}', function ($path) {

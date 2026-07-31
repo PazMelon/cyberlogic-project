@@ -111,24 +111,23 @@ class WebSocketClient {
   public subscribe(channel: string, callback: MessageCallback): () => void {
     if (!this.listeners.has(channel)) {
       this.listeners.set(channel, new Set());
-      // Tell server we are subscribing to this channel
-      if (this.isConnected()) {
-        this.send('subscribe', channel, {});
-      }
     }
 
-    this.listeners.get(channel)!.add(callback);
+    const channelCallbacks = this.listeners.get(channel)!;
+    channelCallbacks.add(callback);
+
+    // Tell server we are subscribing to this channel whenever connected
+    if (this.isConnected()) {
+      this.send('subscribe', channel, {});
+    }
 
     // Return unsubscribe function
     return () => {
-      const channelCallbacks = this.listeners.get(channel);
-      if (channelCallbacks) {
-        channelCallbacks.delete(callback);
-        if (channelCallbacks.size === 0) {
-          this.listeners.delete(channel);
-          if (this.isConnected()) {
-            this.send('unsubscribe', channel, {});
-          }
+      channelCallbacks.delete(callback);
+      if (channelCallbacks.size === 0) {
+        this.listeners.delete(channel);
+        if (this.isConnected()) {
+          this.send('unsubscribe', channel, {});
         }
       }
     };

@@ -55,6 +55,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import CyberBoard from "./pages/CyberBoard";
 import CyberBoardView from "./pages/CyberBoardView";
+import ChessHub from "./pages/ChessHub";
+import ChessGameRoom from "./pages/ChessGameRoom";
 import PortalLayout from "./layouts/PortalLayout";
 import AttendancePortal from "./pages/portal/AttendancePortal";
 import { NotFound, Forbidden, ServerError } from "./pages/errors";
@@ -470,6 +472,8 @@ function AppRoutes() {
         <Route path="search" element={<SearchResults />} />
         <Route path="cyberboard" element={<CyberBoard />} />
         <Route path="cyberboard/:boardId" element={<CyberBoardView />} />
+        <Route path="chess" element={<ChessHub />} />
+        <Route path="chess/game/:gameCode" element={<ChessGameRoom />} />
       </Route>
 
       {/* Admin Routes */}
