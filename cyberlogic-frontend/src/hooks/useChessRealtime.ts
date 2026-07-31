@@ -40,6 +40,7 @@ export function useChessRealtime(gameId?: number) {
     offeredBy: number;
     action: 'offer' | 'decline';
   } | null>(null);
+  const [roomUsers, setRoomUsers] = useState<{ id: number; name: string; avatar: string; role?: string }[]>([]);
 
   // Subscribe to chess_lobby channel
   useEffect(() => {
@@ -101,6 +102,10 @@ export function useChessRealtime(gameId?: number) {
         if (payload?.action === 'decline') {
           setDrawOfferState(null);
         }
+      } else if (type === 'chess_room_presence') {
+        if (Array.isArray(payload)) {
+          setRoomUsers(payload);
+        }
       }
     });
 
@@ -131,6 +136,7 @@ export function useChessRealtime(gameId?: number) {
     latestMove,
     gameOverEvent,
     drawOfferState,
+    roomUsers,
     sendLobbyChat,
     sendGameChat,
     sendDrawOffer,

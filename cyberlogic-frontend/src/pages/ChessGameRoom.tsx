@@ -82,6 +82,7 @@ export default function ChessGameRoom() {
     latestGameUpdate,
     latestMove,
     drawOfferState,
+    roomUsers,
     sendGameChat,
     sendDrawOffer,
   } = useChessRealtime(game?.id);
@@ -818,7 +819,7 @@ export default function ChessGameRoom() {
 
             {/* Currently Spectating Section (Single Line Overlapping Avatars + Modal Button) */}
             {(() => {
-              const activeSpectators = (onlineUsers || []).filter(
+              const activeSpectators = (roomUsers || []).filter(
                 (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
               );
 
@@ -976,7 +977,7 @@ export default function ChessGameRoom() {
             </div>
 
             {(() => {
-              const activeSpectators = (onlineUsers || []).filter(
+              const activeSpectators = (roomUsers || []).filter(
                 (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
               );
 

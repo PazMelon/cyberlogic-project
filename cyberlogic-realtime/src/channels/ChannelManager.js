@@ -111,6 +111,9 @@ class ChannelManager {
       this.clientSubscriptions.get(client).delete(channelName);
     }
     console.log(`[WS] Client unsubscribed from channel: ${channelName}`);
+    if (channelName && (channelName.startsWith('chess_game_') || channelName.startsWith('chess_game:'))) {
+      this.broadcastGameRoomPresence(channelName);
+    }
   }
 
   /**
@@ -226,6 +229,30 @@ class ChannelManager {
   }
 
   /**
+   * Broadcast room subscribers/spectators for a chess game channel.
+   */
+  broadcastGameRoomPresence(channelName) {
+    if (!channelName || (!channelName.startsWith('chess_game_') && !channelName.startsWith('chess_game:'))) return;
+    const clients = this.channels.get(channelName);
+    const usersMap = new Map();
+    if (clients) {
+      for (const client of clients) {
+        const user = this.clientUsers.get(client);
+        if (user && !usersMap.has(user.id)) {
+          usersMap.set(user.id, {
+            id: user.id,
+            name: user.name,
+            avatar: user.avatar,
+            role: user.role,
+          });
+        }
+      }
+    }
+    const subscribersList = Array.from(usersMap.values());
+    this.broadcast(channelName, 'chess_room_presence', subscribersList);
+  }
+
+  /**
    * Handle incoming message from client.
    */
   async handleMessage(client, data) {
@@ -294,6 +321,9 @@ class ChannelManager {
         }
         if (channel === 'chess_lobby') {
           this.sendToClient(client, 'chess_lobby', 'chess_lobby_history', this.lobbyChatHistory);
+        }
+        if (channel.startsWith('chess_game_') || channel.startsWith('chess_game:')) {
+          this.broadcastGameRoomPresence(channel);
         }
         // If subscribing to chat, send success ack or do setup
         if (channel.startsWith('chat:')) {
