@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { Chess, type Square, type Color } from 'chess.js';
 import { useAuth } from '../context/AuthContext';
-import { useWebSocket } from '../context/WebSocketContext';
 import { useChessRealtime } from '../hooks/useChessRealtime';
 import { useDialog } from '../utils/useDialog';
 import {
@@ -52,7 +51,6 @@ export default function ChessGameRoom() {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { onlineUsers } = useWebSocket();
   const { showAlert, showConfirm } = useDialog();
 
   const [game, setGame] = useState<ChessGame | null>(null);
