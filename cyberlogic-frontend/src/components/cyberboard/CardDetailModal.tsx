@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
+import MentionTextArea from "../ui/MentionTextArea";
+import MentionText from "./MentionText";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
@@ -85,7 +87,11 @@ export default function CardDetailModal({
           {boardType === "ideas" || boardType === "brainstorming" ? "Description & Concept Details" : "Description & Details"}
         </h4>
         <div className="p-4 rounded-xl bg-surface-800/60 border border-border/50 text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-          {card.description || "No detailed description provided."}
+          {card.description ? (
+            <MentionText content={card.description} />
+          ) : (
+            "No detailed description provided."
+          )}
         </div>
       </div>
 
@@ -141,18 +147,18 @@ export default function CardDetailModal({
         </div>
 
         {/* New Comment Input */}
-        <form onSubmit={handleSubmitComment} className="flex gap-2">
-          <input
-            type="text"
+        <form onSubmit={handleSubmitComment} className="flex gap-2 items-start">
+          <MentionTextArea
             value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Write a comment..."
-            className="flex-1 px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all"
+            onValueChange={setNewComment}
+            rows={2}
+            placeholder="Write a comment... (Use @ to mention @officers or members)"
+            className="flex-1 px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none"
           />
           <button
             type="submit"
             disabled={!newComment.trim() || isSubmitting}
-            className="px-3.5 py-2 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer"
+            className="px-3.5 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer flex-shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Post</span>
@@ -202,9 +208,9 @@ export default function CardDetailModal({
                       </button>
                     )}
                   </div>
-                  <p className="text-xs text-text-secondary leading-relaxed pl-7 whitespace-pre-wrap">
-                    {cm.content}
-                  </p>
+                  <div className="text-xs text-text-secondary leading-relaxed pl-7 whitespace-pre-wrap">
+                    <MentionText content={cm.content} />
+                  </div>
                 </div>
               );
             })

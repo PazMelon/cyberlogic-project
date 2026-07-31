@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Sparkles } from "lucide-react";
 import type { CyberboardColumn } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
+import MentionTextArea from "../ui/MentionTextArea";
 
 interface NewSuggestionModalProps {
   boardId: number;
@@ -221,9 +222,9 @@ export default function NewSuggestionModal({
         <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
           {copy.descLabel}
         </label>
-        <textarea
+        <MentionTextArea
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onValueChange={setDescription}
           rows={3}
           placeholder={copy.descPlaceholder}
           className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all resize-none"

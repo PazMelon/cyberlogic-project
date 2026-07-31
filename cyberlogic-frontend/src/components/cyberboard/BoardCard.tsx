@@ -2,6 +2,8 @@ import React from "react";
 import { ThumbsUp, MessageSquare, Calendar, Trash2 } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 
+import MentionText from "./MentionText";
+
 interface BoardCardProps {
   card: CyberboardCard;
   boardType?: string;
@@ -105,13 +107,13 @@ export default function BoardCard({
 
       {/* Card Title */}
       <h4 className="text-sm font-semibold text-text-primary line-clamp-2 leading-snug group-hover:text-primary transition-colors">
-        {card.title}
+        <MentionText content={card.title} />
       </h4>
 
       {/* Description Snippet (if available) */}
       {card.description && (
         <p className="text-xs text-text-muted line-clamp-2 leading-relaxed font-sans">
-          {card.description}
+          <MentionText content={card.description} />
         </p>
       )}
 

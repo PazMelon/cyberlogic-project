@@ -339,6 +339,20 @@ class CyberboardController extends Controller
             'card' => $cardArr,
         ], 'card:created');
 
+        $fullText = ($card->title ?? '') . ' ' . ($card->description ?? '');
+        if (str_contains($fullText, '@')) {
+            NotificationService::notifyMentions(
+                $fullText,
+                $user,
+                'cyberboard_mention',
+                "Mention in CyberBoard",
+                "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'at-sign',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
         return response()->json($cardArr, 201);
     }
 
@@ -381,6 +395,20 @@ class CyberboardController extends Controller
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card' => $cardArr,
         ], 'card:updated');
+
+        $fullText = ($card->title ?? '') . ' ' . ($card->description ?? '');
+        if (str_contains($fullText, '@')) {
+            NotificationService::notifyMentions(
+                $fullText,
+                $user,
+                'cyberboard_mention',
+                "Mention in CyberBoard",
+                "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'at-sign',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
 
         return response()->json($cardArr);
     }
@@ -619,6 +647,19 @@ class CyberboardController extends Controller
                 "{$user->first_name} commented on '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'message-square',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
+        if (str_contains($validated['content'], '@')) {
+            NotificationService::notifyMentions(
+                $validated['content'],
+                $user,
+                'cyberboard_mention',
+                "Mention in CyberBoard Comment",
+                "{$user->first_name} mentioned you in a comment on '{$card->title}'",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'at-sign',
                 "/app/cyberboard/{$boardId}"
             );
         }
