@@ -147,18 +147,19 @@ export default function CardDetailModal({
         </div>
 
         {/* New Comment Input */}
-        <form onSubmit={handleSubmitComment} className="flex gap-2 items-start">
+        <form onSubmit={handleSubmitComment} className="flex gap-2.5 items-center">
           <MentionTextArea
             value={newComment}
             onValueChange={setNewComment}
-            rows={2}
+            rows={1}
+            containerClassName="flex-1 min-w-0"
             placeholder="Write a comment... (Use @ to mention @officers or members)"
-            className="flex-1 px-3.5 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none min-h-[42px]"
           />
           <button
             type="submit"
             disabled={!newComment.trim() || isSubmitting}
-            className="px-3.5 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1 cursor-pointer flex-shrink-0"
+            className="px-4 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer flex-shrink-0 shadow-sm shadow-primary/20"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Post</span>
@@ -166,9 +167,9 @@ export default function CardDetailModal({
         </form>
 
         {/* Comments List */}
-        <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+        <div className="space-y-3 min-h-[140px] max-h-[380px] overflow-y-auto pr-1">
           {comments.length === 0 ? (
-            <p className="text-xs text-text-muted italic text-center py-4">
+            <p className="text-xs text-text-muted italic text-center py-6">
               No comments yet. Start the conversation!
             </p>
           ) : (
@@ -177,7 +178,7 @@ export default function CardDetailModal({
               return (
                 <div
                   key={cm.id}
-                  className="p-3 rounded-xl bg-surface-800/50 border border-border/40 space-y-1.5 group"
+                  className="p-3.5 rounded-xl bg-surface-800/50 border border-border/40 space-y-1.5 group"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -249,7 +250,7 @@ export default function CardDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-surface-900 border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div
           className="p-5 border-b border-border flex items-center justify-between"

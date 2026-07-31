@@ -110,11 +110,13 @@ interface MentionTextAreaProps
   extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string;
   onValueChange: (val: string) => void;
+  containerClassName?: string;
 }
 
 export default function MentionTextArea({
   value,
   onValueChange,
+  containerClassName = "",
   className = "",
   placeholder = "Type your content... (Use @ to mention individuals or @officers)",
   rows = 3,
@@ -134,6 +136,15 @@ export default function MentionTextArea({
       .then((data) => setUsers(data || []))
       .catch((err) => console.error("Failed to load users for mentions", err));
   }, []);
+
+  // Auto-resize height dynamically for multiline text
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 180);
+      textareaRef.current.style.height = `${newHeight}px`;
+    }
+  }, [value]);
 
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -236,7 +247,7 @@ export default function MentionTextArea({
   };
 
   return (
-    <div className="relative w-full">
+    <div className={`relative flex-1 min-w-0 w-full ${containerClassName}`}>
       <textarea
         ref={textareaRef}
         value={value}
