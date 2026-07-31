@@ -25,6 +25,51 @@ class ChannelManager {
 
     // Initialize presence log bot activity tracker
     this.activityTracker = new ActivityTracker(this);
+
+    // Periodic sweep for 5-minute abandoned chess games (runs every 60s)
+    setInterval(() => this.checkAbandonedChessGames(), 60 * 1000);
+  }
+
+  /**
+   * Periodically check and trigger double abandonment for inactive 5-min in-progress matches.
+   */
+  async checkAbandonedChessGames() {
+    try {
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const [games] = await pool.query(
+        "SELECT id, game_code, white_player_id, black_player_id FROM chess_games WHERE status = 'in_progress' AND (last_move_at <= ? OR (last_move_at IS NULL AND started_at <= ?))",
+        [fiveMinsAgo, fiveMinsAgo]
+      );
+      if (games.length > 0) {
+        for (const g of games) {
+          console.log(`[WS] Auto-abandoning inactive game ID ${g.id} (code: ${g.game_code}) due to 5-minute double abandonment penalty`);
+          // Deduct 5 reputation & 15 ELO in DB for both players
+          await pool.query(
+            "UPDATE chess_player_stats SET chess_reputation_points = GREATEST(0, chess_reputation_points - 5), elo_rating = GREATEST(100, elo_rating - 15) WHERE user_id IN (?, ?)",
+            [g.white_player_id, g.black_player_id]
+          );
+          await pool.query(
+            "UPDATE chess_games SET status = 'aborted', win_reason = 'double_abandonment', winner_id = NULL, is_draw = 0, ended_at = NOW(), white_elo_change = -15, black_elo_change = -15 WHERE id = ?",
+            [g.id]
+          );
+          // Broadcast update to game channel & lobby
+          this.broadcast(`chess_game_${g.id}`, 'chess_game_over', {
+            game_id: g.id,
+            winner_id: null,
+            is_draw: false,
+            win_reason: 'double_abandonment',
+            white_elo_change: -15,
+            black_elo_change: -15,
+          });
+          const [updatedRows] = await pool.query("SELECT * FROM chess_games WHERE id = ? LIMIT 1", [g.id]);
+          if (updatedRows.length > 0) {
+            this.broadcast('chess_lobby', 'chess_game_updated', { game: updatedRows[0] });
+          }
+        }
+      }
+    } catch (err) {
+      console.error('[WS] Error in checkAbandonedChessGames:', err.message);
+    }
   }
 
   /**

@@ -222,6 +222,51 @@ class ChessService
      */
     public function finishGame(ChessGame $game, ?int $winnerId, bool $isDraw, string $winReason): ChessGame
     {
+        if ($winReason === 'double_abandonment' || $winReason === 'abandoned_by_both') {
+            $game->status = 'aborted';
+            $game->ended_at = \Illuminate\Support\Carbon::now();
+            $game->winner_id = null;
+            $game->is_draw = false;
+            $game->win_reason = 'double_abandonment';
+
+            $whiteStat = $game->white_player_id ? $this->getOrCreatePlayerStat($game->white_player_id) : null;
+            $blackStat = $game->black_player_id ? $this->getOrCreatePlayerStat($game->black_player_id) : null;
+
+            if ($whiteStat) {
+                $whiteStat->chess_reputation_points = max(0, $whiteStat->chess_reputation_points - 5);
+                $whiteStat->elo_rating = max(100, $whiteStat->elo_rating - 15);
+                $whiteStat->save();
+                \Illuminate\Support\Facades\Cache::forget("user_reputation_{$game->white_player_id}");
+            }
+            if ($blackStat) {
+                $blackStat->chess_reputation_points = max(0, $blackStat->chess_reputation_points - 5);
+                $blackStat->elo_rating = max(100, $blackStat->elo_rating - 15);
+                $blackStat->save();
+                \Illuminate\Support\Facades\Cache::forget("user_reputation_{$game->black_player_id}");
+            }
+
+            $game->white_elo_change = -15;
+            $game->black_elo_change = -15;
+            $game->save();
+            $game->load(['host', 'whitePlayer', 'blackPlayer', 'winner']);
+
+            // Broadcast game over event
+            $this->broadcastToRealtime("chess_game_{$game->id}", 'chess_game_over', [
+                'game' => $game,
+                'winner_id' => null,
+                'is_draw' => false,
+                'win_reason' => 'double_abandonment',
+                'white_elo_change' => -15,
+                'black_elo_change' => -15,
+            ]);
+
+            $this->broadcastToRealtime('chess_lobby', 'chess_game_updated', [
+                'game' => $game,
+            ]);
+
+            return $game;
+        }
+
         $game->status = 'completed';
         $game->ended_at = \Illuminate\Support\Carbon::now();
         $game->winner_id = $winnerId;
@@ -325,6 +370,27 @@ class ChessService
         ]);
 
         return $game;
+    }
+
+    /**
+     * Auto-expire abandoned in_progress matches older than 5 minutes.
+     */
+    public function cleanAbandonedGames(): void
+    {
+        $cutoff = \Illuminate\Support\Carbon::now()->subMinutes(5);
+
+        $abandonedGames = ChessGame::where('status', 'in_progress')
+            ->where(function ($query) use ($cutoff) {
+                $query->where('last_move_at', '<=', $cutoff)
+                    ->orWhere(function ($q) use ($cutoff) {
+                        $q->whereNull('last_move_at')->where('started_at', '<=', $cutoff);
+                    });
+            })
+            ->get();
+
+        foreach ($abandonedGames as $game) {
+            $this->finishGame($game, null, false, 'double_abandonment');
+        }
     }
 
     /**

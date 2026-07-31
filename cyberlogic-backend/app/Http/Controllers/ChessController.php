@@ -33,6 +33,9 @@ class ChessController extends Controller
                 'win_reason' => 'expired_unstarted',
             ]);
 
+        // Auto-abandon inactive in_progress matches older than 5 minutes (-5 Rep, -15 ELO penalty)
+        $this->chessService->cleanAbandonedGames();
+
         $games = ChessGame::with(['host', 'whitePlayer', 'blackPlayer'])
             ->whereIn('status', ['waiting', 'in_progress'])
             ->orderBy('created_at', 'desc')
