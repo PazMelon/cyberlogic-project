@@ -234,7 +234,7 @@ export default function CardDetailModal({
         isOpen={true}
         onClose={onClose}
         title={card.title}
-        initialSnap="4/5"
+        initialSnap="3/4"
       >
         {modalBody}
       </BottomSheet>
