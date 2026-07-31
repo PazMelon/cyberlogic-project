@@ -6,6 +6,7 @@ import { BottomSheet } from "../ui/BottomSheet";
 interface NewSuggestionModalProps {
   boardId: number;
   columns: CyberboardColumn[];
+  boardType?: string;
   defaultColumnId?: number;
   currentUserId?: number;
   userRole?: string;
@@ -34,6 +35,7 @@ const COLOR_PRESETS = [
 
 export default function NewSuggestionModal({
   columns,
+  boardType = "activity",
   defaultColumnId,
   currentUserId,
   userRole,
@@ -81,6 +83,57 @@ export default function NewSuggestionModal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Board Type labels helper
+  const isDateVisible = boardType === "activity" || boardType === "roadmap";
+
+  const getFormCopy = () => {
+    switch (boardType) {
+      case "ideas":
+        return {
+          modalTitle: "Submit New Idea",
+          subtitle: "Post a new suggestion or feature idea to the board",
+          titleLabel: "Idea Title",
+          titlePlaceholder: "e.g. Add dark mode toggle, Mobile app notifications",
+          descLabel: "Description & Concept Details",
+          descPlaceholder: "Describe your idea, benefits, and implementation thoughts...",
+          submitButton: "Submit Idea",
+        };
+      case "brainstorming":
+        return {
+          modalTitle: "Add Brainstorming Topic",
+          subtitle: "Propose a concept or topic for team discussion",
+          titleLabel: "Topic / Concept Title",
+          titlePlaceholder: "e.g. Gamification in coding workshops, AI Bot integration",
+          descLabel: "Notes & Discussion Points",
+          descPlaceholder: "Outline key questions, concepts, or discussion points...",
+          submitButton: "Add Topic",
+        };
+      case "roadmap":
+        return {
+          modalTitle: "Add Roadmap Milestone",
+          subtitle: "Add a project milestone or feature target",
+          titleLabel: "Milestone / Feature Title",
+          titlePlaceholder: "e.g. v2.0 API Overhaul, Student Portal Beta",
+          descLabel: "Milestone Scope & Deliverables",
+          descPlaceholder: "Detail key deliverables, dependencies, and requirements...",
+          submitButton: "Add Milestone",
+        };
+      case "activity":
+      default:
+        return {
+          modalTitle: "Submit Activity Suggestion",
+          subtitle: "Propose an activity or event for the club schedule",
+          titleLabel: "Activity Title",
+          titlePlaceholder: "e.g. Annual Hackathon 2026, Cybersecurity Workshop",
+          descLabel: "Description & Details",
+          descPlaceholder: "Describe the objective, target audience, format, or preliminary requirements...",
+          submitButton: "Submit Activity",
+        };
+    }
+  };
+
+  const copy = getFormCopy();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -91,7 +144,7 @@ export default function NewSuggestionModal({
     if (columnId) {
       const selectedCol = columns.find((c) => c.id === columnId);
       if (selectedCol && !isColumnAllowed(selectedCol)) {
-        setError("You do not have permission to submit suggestions to this stage/column.");
+        setError("You do not have permission to submit to this stage/column.");
         return;
       }
     }
@@ -104,14 +157,14 @@ export default function NewSuggestionModal({
         column_id: columnId,
         title: title.trim(),
         description: description.trim() || undefined,
-        activity_date: activityDate || undefined,
-        activity_end_date: activityEndDate || undefined,
+        activity_date: isDateVisible ? activityDate || undefined : undefined,
+        activity_end_date: isDateVisible ? activityEndDate || undefined : undefined,
         priority,
         color_tag: colorTag,
       });
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to submit suggestion.");
+      setError(err.message || "Failed to submit card.");
     } finally {
       setIsSubmitting(false);
     }
@@ -148,61 +201,63 @@ export default function NewSuggestionModal({
         </div>
       )}
 
-      {/* Activity Title */}
+      {/* Generalized Title */}
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-          Activity Title <span className="text-error">*</span>
+          {copy.titleLabel} <span className="text-error">*</span>
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g., Annual Hackathon 2026, Cybersecurity Workshop"
+          placeholder={copy.titlePlaceholder}
           required
           className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all"
         />
       </div>
 
-      {/* Description */}
+      {/* Generalized Description */}
       <div className="space-y-1.5">
         <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-          Description & Details
+          {copy.descLabel}
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Describe the objective, target audience, format, or preliminary requirements..."
+          placeholder={copy.descPlaceholder}
           className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all resize-none"
         />
       </div>
 
-      {/* Target Dates Grid */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-            Start Date
-          </label>
-          <input
-            type="date"
-            value={activityDate}
-            onChange={(e) => setActivityDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
-          />
-        </div>
+      {/* Target Dates Grid (Shown ONLY if boardType supports dates) */}
+      {isDateVisible && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+              {boardType === "roadmap" ? "Target Start Date" : "Start Date"}
+            </label>
+            <input
+              type="date"
+              value={activityDate}
+              onChange={(e) => setActivityDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+            />
+          </div>
 
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-            End Date
-          </label>
-          <input
-            type="date"
-            value={activityEndDate}
-            onChange={(e) => setActivityEndDate(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
-          />
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+              {boardType === "roadmap" ? "Target End Date / Deadline" : "End Date"}
+            </label>
+            <input
+              type="date"
+              value={activityEndDate}
+              onChange={(e) => setActivityEndDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Priority & Color Tag */}
       <div className="grid grid-cols-2 gap-3 pt-1">
@@ -257,7 +312,7 @@ export default function NewSuggestionModal({
           className="px-5 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
         >
           <Sparkles className="w-4 h-4" />
-          <span>{isSubmitting ? "Submitting..." : "Submit Suggestion"}</span>
+          <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>
         </button>
       </div>
     </form>
@@ -268,7 +323,7 @@ export default function NewSuggestionModal({
       <BottomSheet
         isOpen={true}
         onClose={onClose}
-        title="Suggest Activity Idea"
+        title={copy.modalTitle}
         initialSnap="3/4"
       >
         {formBody}
@@ -287,10 +342,10 @@ export default function NewSuggestionModal({
             </div>
             <div>
               <h2 className="text-base font-bold text-text-primary">
-                Submit Activity Suggestion
+                {copy.modalTitle}
               </h2>
               <p className="text-xs text-text-muted">
-                Propose an activity or project idea for the club
+                {copy.subtitle}
               </p>
             </div>
           </div>

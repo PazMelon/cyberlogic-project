@@ -25,6 +25,37 @@ export default function BoardHeader({
   onCopyShareLink,
   onSuggestActivityClick,
 }: BoardHeaderProps) {
+  const getActionLabel = (type?: string) => {
+    switch (type) {
+      case "ideas":
+        return { action: "Submit", noun: "Idea" };
+      case "brainstorming":
+        return { action: "Add", noun: "Topic" };
+      case "roadmap":
+        return { action: "Add", noun: "Milestone" };
+      case "activity":
+      default:
+        return { action: "Suggest", noun: "Activity" };
+    }
+  };
+
+  const getBoardTypeBadge = (type?: string) => {
+    switch (type) {
+      case "ideas":
+        return { label: "💡 Idea Box", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+      case "brainstorming":
+        return { label: "🧠 Brainstorming", bg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+      case "roadmap":
+        return { label: "🚀 Roadmap", bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+      case "activity":
+      default:
+        return { label: "📅 Activity Board", bg: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" };
+    }
+  };
+
+  const actionText = getActionLabel(board.type);
+  const typeBadge = getBoardTypeBadge(board.type);
+
   return (
     <div className="bg-surface-900/95 backdrop-blur-md border-b border-border/80 px-3 py-2.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 flex-shrink-0 sticky top-0 z-10 shadow-xs h-14 sm:h-16">
       {/* Title & Metadata (Single Line) */}
@@ -41,6 +72,10 @@ export default function BoardHeader({
           <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs md:max-w-md">
             {board.title}
           </h1>
+
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden sm:inline-block ${typeBadge.bg}`}>
+            {typeBadge.label}
+          </span>
 
           <span className="px-2 py-0.5 rounded-full bg-surface-800 text-text-secondary text-[10px] font-bold border border-border flex-shrink-0 hidden xs:inline-block">
             {totalCardsCount} cards
@@ -90,7 +125,7 @@ export default function BoardHeader({
           className="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all shadow-md shadow-primary/20 flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4 flex-shrink-0" />
-          <span>Suggest <span className="hidden sm:inline">Activity</span></span>
+          <span>{actionText.action} <span className="hidden sm:inline">{actionText.noun}</span></span>
         </button>
       </div>
     </div>

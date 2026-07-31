@@ -119,12 +119,14 @@ class CyberboardController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
+            'type' => 'nullable|string|in:activity,ideas,brainstorming,roadmap',
             'cover_color' => 'nullable|string|max:30',
         ]);
 
         $board = CyberboardBoard::create([
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
+            'type' => $validated['type'] ?? 'activity',
             'cover_color' => $validated['cover_color'] ?? '#06b6d4',
             'created_by' => $user->id,
             'is_archived' => false,
@@ -161,6 +163,7 @@ class CyberboardController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:150',
             'description' => 'nullable|string|max:1000',
+            'type' => 'nullable|string|in:activity,ideas,brainstorming,roadmap',
             'cover_color' => 'nullable|string|max:30',
             'is_archived' => 'nullable|boolean',
         ]);

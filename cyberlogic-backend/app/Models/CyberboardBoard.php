@@ -15,6 +15,7 @@ class CyberboardBoard extends Model
     protected $fillable = [
         'title',
         'description',
+        'type',
         'cover_color',
         'created_by',
         'is_archived',

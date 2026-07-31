@@ -4,6 +4,7 @@ import type { CyberboardCard } from "../../utils/api";
 
 interface BoardCardProps {
   card: CyberboardCard;
+  boardType?: string;
   currentUserId?: number;
   isAdmin?: boolean;
   onCardClick: (card: CyberboardCard) => void;
@@ -15,6 +16,7 @@ interface BoardCardProps {
 
 export default function BoardCard({
   card,
+  boardType = "activity",
   currentUserId,
   isAdmin,
   onCardClick,
@@ -57,6 +59,7 @@ export default function BoardCard({
     }
   };
 
+  const showDateBadge = boardType !== "ideas" && boardType !== "brainstorming";
   const formattedStartDate = formatDate(card.activity_date);
   const formattedEndDate = formatDate(card.activity_end_date);
 
@@ -110,8 +113,8 @@ export default function BoardCard({
         </p>
       )}
 
-      {/* Activity Date Badge */}
-      {formattedStartDate && (
+      {/* Date Badge (Activity / Roadmap only) */}
+      {showDateBadge && formattedStartDate && (
         <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-900/60 text-text-secondary text-[11px] font-medium border border-border/50">
           <Calendar className="w-3 h-3 text-primary" />
           <span>
@@ -124,7 +127,7 @@ export default function BoardCard({
       {/* Footer: Owner info & Upvotes/Comments */}
       <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 text-xs">
         {/* Card Owner */}
-        <div className="flex items-center gap-1.5 min-w-0" title={`Idea by ${card.user?.name || "Member"}`}>
+        <div className="flex items-center gap-1.5 min-w-0" title={`Submitted by ${card.user?.name || "Member"}`}>
           <img
             src={card.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
             alt={card.user?.name || "User"}
@@ -149,7 +152,7 @@ export default function BoardCard({
                 ? "bg-primary/20 text-primary border border-primary/30 shadow-sm"
                 : "bg-surface-900/80 text-text-muted hover:text-text-primary hover:bg-surface-900"
             }`}
-            title={card.has_voted ? "Remove Upvote" : "Upvote Suggestion"}
+            title={card.has_voted ? "Remove Upvote" : "Upvote"}
           >
             <ThumbsUp className={`w-3.5 h-3.5 ${card.has_voted ? "fill-primary text-primary" : ""}`} />
             <span>{card.votes_count || 0}</span>

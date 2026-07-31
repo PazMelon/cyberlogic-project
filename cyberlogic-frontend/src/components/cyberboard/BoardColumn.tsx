@@ -5,6 +5,7 @@ import BoardCard from "./BoardCard";
 
 interface BoardColumnProps {
   column: CyberboardColumn;
+  boardType?: string;
   currentUserId?: number;
   userRole?: string;
   boardHostId?: number;
@@ -23,6 +24,7 @@ interface BoardColumnProps {
 
 export default function BoardColumn({
   column,
+  boardType = "activity",
   currentUserId,
   userRole,
   boardHostId,
@@ -93,6 +95,22 @@ export default function BoardColumn({
   const cards = rawCards.filter(
     (c, index, self) => index === self.findIndex((item) => item.id === c.id)
   );
+
+  const getAddText = () => {
+    switch (boardType) {
+      case "ideas":
+        return { emptyCta: "+ Submit an Idea", buttonText: "Add idea card" };
+      case "brainstorming":
+        return { emptyCta: "+ Add a Topic", buttonText: "Add topic card" };
+      case "roadmap":
+        return { emptyCta: "+ Add Milestone", buttonText: "Add milestone card" };
+      case "activity":
+      default:
+        return { emptyCta: "+ Suggest an Idea", buttonText: "Add card" };
+    }
+  };
+
+  const addText = getAddText();
 
   return (
     <div
@@ -203,7 +221,7 @@ export default function BoardColumn({
                 onClick={() => onAddSuggestionClick(column.id)}
                 className="mt-2 text-xs font-semibold text-primary hover:underline cursor-pointer"
               >
-                + Suggest an Idea
+                {addText.emptyCta}
               </button>
             )}
           </div>
@@ -212,6 +230,7 @@ export default function BoardColumn({
             <BoardCard
               key={card.id ? `card-${card.id}` : `card-idx-${idx}`}
               card={card}
+              boardType={boardType}
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               onCardClick={onCardClick}
@@ -233,7 +252,7 @@ export default function BoardColumn({
             className="w-full py-2 px-3 rounded-xl border border-dashed border-border/60 hover:border-primary/50 text-xs font-medium text-text-muted hover:text-primary hover:bg-primary/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add suggestion card</span>
+            <span>{addText.buttonText}</span>
           </button>
         </div>
       )}

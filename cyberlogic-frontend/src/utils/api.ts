@@ -2935,6 +2935,7 @@ export interface CyberboardBoard {
   id: number;
   title: string;
   description?: string | null;
+  type?: "activity" | "ideas" | "brainstorming" | "roadmap";
   cover_color?: string | null;
   created_by: number;
   is_archived: boolean;
@@ -2964,6 +2965,7 @@ export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard>
 export async function createCyberboardBoard(data: {
   title: string;
   description?: string;
+  type?: "activity" | "ideas" | "brainstorming" | "roadmap";
   cover_color?: string;
 }): Promise<CyberboardBoard> {
   const res = await apiRequest("/api/cyberboard", {

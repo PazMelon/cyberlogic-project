@@ -708,6 +708,7 @@ export default function CyberBoardView() {
             <BoardColumn
               key={column.id}
               column={column}
+              boardType={board.type}
               currentUserId={user?.id}
               userRole={user?.role}
               boardHostId={board.created_by}
@@ -757,6 +758,7 @@ export default function CyberBoardView() {
       {selectedCard && (
         <CardDetailModal
           card={selectedCard}
+          boardType={board.type}
           currentUserId={user?.id}
           isAdmin={isAdmin}
           onClose={() => setSelectedCard(null)}
@@ -772,6 +774,7 @@ export default function CyberBoardView() {
         <NewSuggestionModal
           boardId={board.id}
           columns={columns}
+          boardType={board.type}
           defaultColumnId={targetColumnId}
           currentUserId={user?.id}
           userRole={user?.role}

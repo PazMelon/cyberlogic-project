@@ -83,6 +83,7 @@ export default function CyberBoard() {
   const handleCreateBoard = async (data: {
     title: string;
     description?: string;
+    type?: "activity" | "ideas" | "brainstorming" | "roadmap";
     cover_color?: string;
   }) => {
     const newBoard = await createCyberboardBoard(data);
@@ -110,6 +111,20 @@ export default function CyberBoard() {
     });
   };
 
+  const getBoardTypeBadge = (type?: string) => {
+    switch (type) {
+      case "ideas":
+        return { label: "💡 Idea Box", bg: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+      case "brainstorming":
+        return { label: "🧠 Brainstorming", bg: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
+      case "roadmap":
+        return { label: "🚀 Roadmap", bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+      case "activity":
+      default:
+        return { label: "📅 Activity Board", bg: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" };
+    }
+  };
+
   const filteredBoards = boards.filter((board) => {
     const matchesTab =
       activeTab === "all" || (user && board.created_by === user.id);
@@ -135,7 +150,7 @@ export default function CyberBoard() {
             CyberBoard Feed
           </h1>
           <p className="text-sm mt-1 text-text-muted">
-            Collaborative activity planners and suggestion boards submitted by Cyberlogic members and officers.
+            Collaborative project boards, activity planners, and idea submission spaces for Cyberlogic members.
           </p>
         </div>
 
@@ -144,7 +159,7 @@ export default function CyberBoard() {
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-sm font-semibold hover:shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer flex-shrink-0"
         >
-          <Plus className="w-4 h-4" /> Create Activity Board
+          <Plus className="w-4 h-4" /> Create Board
         </button>
       </div>
 
@@ -182,7 +197,7 @@ export default function CyberBoard() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search activity boards..."
+            placeholder="Search boards..."
             className="w-full pl-10 pr-4 py-2 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary/50 transition-all"
           />
         </div>
@@ -232,12 +247,12 @@ export default function CyberBoard() {
           </div>
           <div className="space-y-1">
             <h3 className="text-base font-bold text-text-primary">
-              No activity boards found
+              No boards found
             </h3>
             <p className="text-xs text-text-muted max-w-sm mx-auto">
               {activeTab === "my"
                 ? "You haven't created any boards yet."
-                : "No matching activity boards found. Try adjusting your search query."}
+                : "No matching boards found. Try adjusting your search query."}
             </p>
           </div>
           <button
@@ -246,13 +261,14 @@ export default function CyberBoard() {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-xs transition-all hover:shadow-lg cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Create Activity Board</span>
+            <span>Create Board</span>
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredBoards.map((board) => {
             const canDelete = board.created_by === user?.id || isAdmin;
+            const badge = getBoardTypeBadge(board.type);
 
             return (
               <Link
@@ -268,13 +284,18 @@ export default function CyberBoard() {
 
                 <div className="space-y-2.5 pt-1">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary flex-shrink-0">
                         <Kanban className="w-4 h-4" />
                       </div>
-                      <h2 className="text-base font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
-                        {board.title}
-                      </h2>
+                      <div className="min-w-0">
+                        <h2 className="text-base font-bold text-text-primary group-hover:text-primary transition-colors line-clamp-1">
+                          {board.title}
+                        </h2>
+                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border mt-0.5 ${badge.bg}`}>
+                          {badge.label}
+                        </span>
+                      </div>
                     </div>
 
                     {canDelete && (
