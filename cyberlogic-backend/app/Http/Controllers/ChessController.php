@@ -191,6 +191,13 @@ class ChessController extends Controller
     {
         $sortBy = $request->input('sort', 'elo'); // 'elo' or 'reputation'
 
+        // Ensure all registered users have a chess player stat entry automatically
+        $existingUserIds = ChessPlayerStat::pluck('user_id')->toArray();
+        $missingUserIds = User::whereNotIn('id', $existingUserIds)->pluck('id');
+        foreach ($missingUserIds as $uId) {
+            ChessPlayerStat::firstOrCreate(['user_id' => $uId]);
+        }
+
         $query = ChessPlayerStat::with(['user:id,first_name,last_name,middle_name,avatar_path,username,role']);
 
         if ($sortBy === 'reputation') {

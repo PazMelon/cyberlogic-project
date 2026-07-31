@@ -267,4 +267,16 @@ class User extends Authenticatable
             ];
         });
     }
+
+    /**
+     * The booted method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user) {
+            \App\Models\ChessPlayerStat::firstOrCreate([
+                'user_id' => $user->id,
+            ]);
+        });
+    }
 }
