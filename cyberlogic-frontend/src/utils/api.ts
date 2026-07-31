@@ -3158,4 +3158,18 @@ export async function deleteCyberboardColumn(id: number): Promise<{ message: str
   return res.json();
 }
 
+export async function reorderCyberboardColumns(
+  boardId: number,
+  order: number[]
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/columns/reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ order }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to reorder columns.");
+  }
+  return res.json();
+}
+
 

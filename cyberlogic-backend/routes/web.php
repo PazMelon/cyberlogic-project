@@ -257,6 +257,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/cyberboard/comments/{id}', [CyberboardController::class, 'destroyComment']);
 
     Route::post('/api/cyberboard/{boardId}/columns', [CyberboardController::class, 'storeColumn']);
+    Route::put('/api/cyberboard/{boardId}/columns/reorder', [CyberboardController::class, 'reorderColumns']);
     Route::put('/api/cyberboard/columns/{id}', [CyberboardController::class, 'updateColumn']);
     Route::delete('/api/cyberboard/columns/{id}', [CyberboardController::class, 'destroyColumn']);
 

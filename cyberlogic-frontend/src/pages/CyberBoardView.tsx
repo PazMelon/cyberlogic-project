@@ -12,6 +12,7 @@ import {
   createCyberboardColumn,
   updateCyberboardColumn,
   deleteCyberboardColumn,
+  reorderCyberboardColumns,
   type CyberboardBoard,
   type CyberboardCard,
   type CyberboardColumn,
@@ -288,6 +289,21 @@ export default function CyberBoardView() {
           }
           return prev;
         });
+      } else if (type === "columns:reordered") {
+        const { order, reordered_by_user_id } = payload;
+        if (reordered_by_user_id !== user?.id && order && Array.isArray(order)) {
+          setBoard((prev) => {
+            if (!prev || !prev.columns) return prev;
+            const colMap = new Map(prev.columns.map((c) => [c.id, c]));
+            const reordered = order
+              .map((id: number, idx: number) => {
+                const c = colMap.get(id);
+                return c ? { ...c, position: idx } : null;
+              })
+              .filter(Boolean) as CyberboardColumn[];
+            return { ...prev, columns: reordered };
+          });
+        }
       } else if (type === "column:created" || type === "column:updated" || type === "column:deleted") {
         loadBoard();
       }
@@ -568,6 +584,47 @@ export default function CyberBoardView() {
     showToast("Column settings updated!", "success");
   };
 
+  const handleColumnDrop = async (
+    draggedColId: number,
+    targetColId: number,
+    positionDirection?: "before" | "after"
+  ) => {
+    if (!board || !board.columns || !numericBoardId) return;
+
+    const isHost = board.created_by === user?.id;
+    const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+    if (!isHost && !isAdmin) {
+      showToast("Only board hosts or admins can reorder columns.", "error");
+      return;
+    }
+
+    const currentCols = [...board.columns];
+    const draggedIdx = currentCols.findIndex((c) => c.id === draggedColId);
+    if (draggedIdx === -1) return;
+
+    const [movedCol] = currentCols.splice(draggedIdx, 1);
+    let targetIdx = currentCols.findIndex((c) => c.id === targetColId);
+    if (targetIdx === -1) return;
+
+    const insertIdx = positionDirection === "after" ? targetIdx + 1 : targetIdx;
+    currentCols.splice(insertIdx, 0, movedCol);
+
+    const reorderedCols = currentCols.map((col, idx) => ({ ...col, position: idx }));
+
+    // Optimistic update
+    setBoard((prev) => (prev ? { ...prev, columns: reorderedCols } : prev));
+
+    try {
+      const orderIds = reorderedCols.map((c) => c.id);
+      await reorderCyberboardColumns(numericBoardId, orderIds);
+    } catch (err: any) {
+      console.error("Failed to reorder columns:", err);
+      showToast(err.message || "Failed to reorder columns.", "error");
+      loadBoard();
+    }
+  };
+
   const handleDeleteColumn = (columnId: number) => {
     setConfirmModal({
       isOpen: true,
@@ -721,6 +778,7 @@ export default function CyberBoardView() {
                 setShowNewSuggestionModal(true);
               }}
               onCardDrop={handleCardDrop}
+              onColumnDrop={handleColumnDrop}
               onDeleteColumn={handleDeleteColumn}
               onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
               onShowToast={(msg) => showToast(msg, "error")}

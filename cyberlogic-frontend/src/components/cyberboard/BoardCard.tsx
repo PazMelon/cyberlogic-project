@@ -36,6 +36,7 @@ export default function BoardCard({
   };
 
   const handleDragStart = (e: React.DragEvent) => {
+    e.stopPropagation();
     e.dataTransfer.setData("text/plain", card.id.toString());
     e.dataTransfer.effectAllowed = "move";
     if (onDragStart) {
@@ -44,6 +45,7 @@ export default function BoardCard({
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
+    e.stopPropagation();
     if (onDragEnd) {
       onDragEnd(e, card);
     }

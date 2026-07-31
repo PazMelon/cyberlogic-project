@@ -660,6 +660,43 @@ class CyberboardController extends Controller
     }
 
     /**
+     * PUT /api/cyberboard/{boardId}/columns/reorder
+     * Reorder board columns.
+     */
+    public function reorderColumns(Request $request, int $boardId): JsonResponse
+    {
+        $user = $request->user();
+        $board = CyberboardBoard::find($boardId);
+
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        if ($board->created_by !== $user->id && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized action'], 403);
+        }
+
+        $validated = $request->validate([
+            'order' => 'required|array',
+            'order.*' => 'integer|exists:cyberboard_columns,id',
+        ]);
+
+        foreach ($validated['order'] as $index => $columnId) {
+            CyberboardColumn::where('id', $columnId)
+                ->where('board_id', $boardId)
+                ->update(['position' => $index]);
+        }
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'order' => $validated['order'],
+            'reordered_by_user_id' => $user->id,
+        ], 'columns:reordered');
+
+        return response()->json(['message' => 'Columns reordered successfully']);
+    }
+
+    /**
      * PUT /api/cyberboard/columns/{id}
      * Update column details.
      */
