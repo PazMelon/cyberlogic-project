@@ -19,20 +19,29 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
   const participants = tournament.participants || [];
 
   const isRegistration = tournament.status === 'registration';
-  const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers');
+  const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers' || m.bracket_type === 'grand_final');
 
   const winnersMatchesByRound: Record<number, ChessTournamentMatch[]> = {};
   const losersMatchesByRound: Record<number, ChessTournamentMatch[]> = {};
 
+  // Winners bracket: only 'winners' bracket_type
   for (let r = 1; r <= totalRounds; r++) {
     winnersMatchesByRound[r] = allMatches
-      .filter((m) => Number(m.round_number) === Number(r) && m.bracket_type !== 'losers')
-      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
-
-    losersMatchesByRound[r] = allMatches
-      .filter((m) => Number(m.round_number) === Number(r) && m.bracket_type === 'losers')
+      .filter((m) => Number(m.round_number) === Number(r) && (m.bracket_type === 'winners' || (!m.bracket_type && m.bracket_type !== 'losers')))
       .sort((a, b) => Number(a.match_number) - Number(b.match_number));
   }
+
+  // Losers bracket: dynamically discover rounds from actual match data
+  const losersMatches = allMatches.filter((m) => m.bracket_type === 'losers');
+  const losersRoundNumbers = [...new Set(losersMatches.map((m) => Number(m.round_number)))].sort((a, b) => a - b);
+  for (const r of losersRoundNumbers) {
+    losersMatchesByRound[r] = losersMatches
+      .filter((m) => Number(m.round_number) === Number(r))
+      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
+  }
+
+  // Grand Final match (if exists)
+  const grandFinalMatch = allMatches.find((m) => m.bracket_type === 'grand_final') || null;
 
   const getRoundTitle = (roundNum: number, total: number, isDouble: boolean) => {
     if (roundNum === total && !isDouble) return '🏆 Championship Final';
@@ -112,6 +121,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
     const isBye = match.status === 'bye';
     const isCompleted = match.status === 'completed';
     const isLosersBracket = match.bracket_type === 'losers';
+    const isGrandFinal = match.bracket_type === 'grand_final';
 
     const whiteWinner = match.winner_user_id && match.winner_user_id === match.white_user_id;
     const blackWinner = match.winner_user_id && match.winner_user_id === match.black_user_id;
@@ -129,7 +139,9 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
       <div
         key={match.id}
         className={`bg-[var(--cl-surface-900)] border rounded-xl p-3.5 shadow-md transition-all relative group text-[var(--cl-text-primary)] ${
-          isLosersBracket
+          isGrandFinal
+            ? 'border-2 border-amber-500/60 ring-2 ring-amber-500/20 bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]'
+            : isLosersBracket
             ? 'border-cyan-500/40 bg-gradient-to-b from-[var(--cl-surface-900)] to-cyan-950/20'
             : isLive
             ? 'border-emerald-500 ring-2 ring-emerald-500/30'
@@ -141,7 +153,11 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
         {/* Match Status Badge */}
         <div className="flex items-center justify-between mb-2 pb-2 border-b border-[var(--cl-border)]/60">
           <span className="text-[10px] font-mono font-extrabold text-[var(--cl-text-primary)] uppercase flex items-center gap-1">
-            {isLosersBracket ? (
+            {isGrandFinal ? (
+              <span className="text-amber-700 dark:text-amber-300 font-bold">
+                🏆 Grand Final
+              </span>
+            ) : isLosersBracket ? (
               <span className="text-cyan-700 dark:text-cyan-300 font-bold">
                 🛡️ Losers M#{match.match_number}
               </span>
@@ -418,30 +434,36 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
               <div className="w-72 relative flex flex-col">
                 <div className="text-center py-2 px-4 rounded-xl bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 font-bold z-10 mb-4">
                   <h3 className="text-xs font-extrabold text-amber-700 dark:text-amber-300 tracking-wide flex items-center justify-center gap-1">
-                    <Crown className="w-3.5 h-3.5 text-amber-500" /> 🏆 Grand Finals
+                    <Crown className="w-3.5 h-3.5 text-amber-500" /> 🏆 Grand Final
                   </h3>
                   <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold">
-                    Ultimate Finale
+                    Winners Champion vs Losers Champion
                   </span>
                 </div>
 
                 <div className="relative flex-1">
                   <div
                     style={{ top: `${getMatchCenterY(totalRounds, 0) - 60}px` }}
-                    className="absolute w-full bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-xl p-4 space-y-3 shadow-xl bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)] z-10"
+                    className="absolute w-full z-10"
                   >
-                    <div className="flex items-center justify-between text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                      <span>ULTIMATE CHAMPIONSHIP</span>
-                      <span className="bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">DOUBLE ELIM</span>
-                    </div>
-                    <div className="p-3 rounded-lg text-xs font-extrabold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 flex items-center justify-between">
-                      <span>👑 Winners Bracket Champion</span>
-                      <span className="text-[10px] font-mono">1st Seed</span>
-                    </div>
-                    <div className="p-3 rounded-lg text-xs font-extrabold bg-cyan-500/20 text-cyan-900 dark:text-cyan-200 border border-cyan-500/40 flex items-center justify-between">
-                      <span>🛡️ Losers Bracket Champion</span>
-                      <span className="text-[10px] font-mono">2nd Seed</span>
-                    </div>
+                    {grandFinalMatch ? (
+                      renderMatchCard(grandFinalMatch, true, grandFinalMatch.round_number, 0)
+                    ) : (
+                      <div className="bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-xl p-4 space-y-3 shadow-xl bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]">
+                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                          <span>ULTIMATE CHAMPIONSHIP</span>
+                          <span className="bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">DOUBLE ELIM</span>
+                        </div>
+                        <div className="p-3 rounded-lg text-xs font-extrabold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 flex items-center justify-between">
+                          <span>👑 Winners Bracket Champion</span>
+                          <span className="text-[10px] font-mono">TBD</span>
+                        </div>
+                        <div className="p-3 rounded-lg text-xs font-extrabold bg-cyan-500/20 text-cyan-900 dark:text-cyan-200 border border-cyan-500/40 flex items-center justify-between">
+                          <span>🛡️ Losers Bracket Champion</span>
+                          <span className="text-[10px] font-mono">TBD</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -463,48 +485,41 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
               </span>
             </div>
 
-            <div className="overflow-x-auto pb-4 custom-scrollbar">
-              <div className="flex gap-10 min-w-max p-3 relative" style={{ height: `${totalTreeHeight + 60}px` }}>
-                {Array.from({ length: totalRounds }, (_, i) => i + 1).map((roundNum) => {
-                  const roundMatches = losersMatchesByRound[roundNum] || [];
-
-                  return (
-                    <div key={`losers-${roundNum}`} className="w-72 relative flex flex-col">
-                      <div className="text-center py-2 px-4 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] shadow-sm z-10 font-bold mb-4">
-                        <h3 className="text-xs font-extrabold tracking-wide">
-                          Losers Round {roundNum}
-                        </h3>
-                        <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
-                          {roundMatches.length || (targetBracketSize / Math.pow(2, roundNum + 1))} Match(es)
-                        </span>
-                      </div>
-
-                      <div className="relative flex-1">
-                        {roundMatches.length > 0 ? (
-                          roundMatches.map((match, mIdx) => {
-                            const centerY = getMatchCenterY(roundNum, mIdx);
-                            return (
-                              <div
-                                key={match.id}
-                                style={{ top: `${centerY - MATCH_HEIGHT / 2}px`, height: `${MATCH_HEIGHT}px` }}
-                                className="absolute w-full z-10"
-                              >
-                                {renderMatchCard(match, false, roundNum, mIdx)}
-                              </div>
-                            );
-                          })
-                        ) : (
-                          <div className="bg-[var(--cl-surface-900)] border border-cyan-500/30 rounded-xl p-4 text-center text-xs text-[var(--cl-text-secondary)] space-y-1 font-medium z-10 mt-4">
-                            <span className="font-bold text-cyan-700 dark:text-cyan-300 block">Losers Bracket Placeholder</span>
-                            <span>Losers from Winners Bracket will drop down into this round</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+            {losersRoundNumbers.length === 0 ? (
+              <div className="bg-[var(--cl-surface-900)] border border-cyan-500/30 rounded-xl p-6 text-center text-xs text-[var(--cl-text-secondary)] space-y-1 font-medium">
+                <span className="font-bold text-cyan-700 dark:text-cyan-300 block">Losers Bracket Not Yet Active</span>
+                <span>Players who lose in the Winners Bracket will drop into the Losers Bracket</span>
               </div>
-            </div>
+            ) : (
+              <div className="overflow-x-auto pb-4 custom-scrollbar">
+                <div className="flex gap-10 min-w-max p-3 relative">
+                  {losersRoundNumbers.map((roundNum) => {
+                    const roundMatches = losersMatchesByRound[roundNum] || [];
+
+                    return (
+                      <div key={`losers-${roundNum}`} className="w-72 relative flex flex-col">
+                        <div className="text-center py-2 px-4 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] shadow-sm z-10 font-bold mb-4">
+                          <h3 className="text-xs font-extrabold tracking-wide">
+                            Losers Round {roundNum}
+                          </h3>
+                          <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
+                            {roundMatches.length} Match{roundMatches.length !== 1 ? 'es' : ''}
+                          </span>
+                        </div>
+
+                        <div className="space-y-4">
+                          {roundMatches.map((match, mIdx) => (
+                            <div key={match.id}>
+                              {renderMatchCard(match, false, roundNum, mIdx)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

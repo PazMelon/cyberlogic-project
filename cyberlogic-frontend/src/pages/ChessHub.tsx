@@ -39,7 +39,7 @@ export default function ChessHub() {
   const { user } = useAuth();
   const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { onlineUsers } = useWebSocket();
   const { lobbyMessages: wsLobbyMessages, sendLobbyChat, latestGameUpdate } = useChessRealtime();
 
@@ -104,6 +104,7 @@ export default function ChessHub() {
     loadData();
   }, [leaderboardSort]);
 
+  // Load state from URL search params on mount
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     const tourneyParam = searchParams.get('tournament');
@@ -112,13 +113,24 @@ export default function ChessHub() {
       setActiveTab('tournaments');
     } else if (tabParam === 'lobby') {
       setActiveTab('lobby');
+    } else if (tabParam === 'leaderboard') {
+      setActiveTab('leaderboard');
     }
 
     if (tourneyParam && !isNaN(Number(tourneyParam))) {
       const tId = Number(tourneyParam);
       fetchChessTournament(tId).then((fullT) => setSelectedTournament(fullT)).catch(console.error);
     }
-  }, [searchParams]);
+  }, []);
+
+  // Synchronize browser URL query params whenever tab or selected tournament changes
+  useEffect(() => {
+    const params: Record<string, string> = { tab: activeTab };
+    if (activeTab === 'tournaments' && selectedTournament?.id) {
+      params.tournament = String(selectedTournament.id);
+    }
+    setSearchParams(params, { replace: true });
+  }, [activeTab, selectedTournament?.id, setSearchParams]);
 
   const handleCreateTournament = async (data: {
     title: string;

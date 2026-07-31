@@ -100,10 +100,14 @@ class ChessTournamentController extends Controller
             'matches.chessGame',
         ])->findOrFail($id);
 
-        if ($tournament->status === 'in_progress' && $tournament->matches->isEmpty() && $tournament->participants->count() >= 2) {
-            /** @var User $user */
-            $user = Auth::user();
-            $tournament = $this->tournamentService->startTournament($tournament, $user ?: $tournament->creator);
+        if ($tournament->status === 'in_progress') {
+            if ($tournament->matches->isEmpty() && $tournament->participants->count() >= 2) {
+                /** @var User $user */
+                $user = Auth::user();
+                $tournament = $this->tournamentService->startTournament($tournament, $user ?: $tournament->creator);
+            } else {
+                $this->tournamentService->checkAndAdvanceRound($tournament);
+            }
         }
 
         // Auto-fix any active 2-player match missing a game record

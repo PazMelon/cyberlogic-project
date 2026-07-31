@@ -37,6 +37,11 @@ class ChessController extends Controller
         $this->chessService->cleanAbandonedGames();
 
         $games = ChessGame::with(['host', 'whitePlayer', 'blackPlayer'])
+            ->whereNotIn('id', function ($query) {
+                $query->select('chess_game_id')
+                    ->from('chess_tournament_matches')
+                    ->whereNotNull('chess_game_id');
+            })
             ->whereIn('status', ['waiting', 'in_progress'])
             ->orderBy('created_at', 'desc')
             ->limit(30)
@@ -99,7 +104,7 @@ class ChessController extends Controller
      */
     public function show(string $code): JsonResponse
     {
-        $game = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winner'])
+        $game = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winner', 'tournamentMatch'])
             ->where('game_code', $code)
             ->firstOrFail();
 

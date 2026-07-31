@@ -209,7 +209,7 @@ export interface ChessTournamentMatch {
   round_number: number;
   match_number: number;
   is_third_place?: boolean;
-  bracket_type?: 'winners' | 'losers';
+  bracket_type?: 'winners' | 'losers' | 'grand_final';
   white_user_id: number | null;
   black_user_id: number | null;
   chess_game_id: number | null;

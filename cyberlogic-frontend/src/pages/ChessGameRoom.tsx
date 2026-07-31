@@ -171,11 +171,11 @@ export default function ChessGameRoom() {
         type: 'warning',
       });
       const timeout = setTimeout(() => {
-        navigate('/app/chess');
+        bootUserBack();
       }, 2500);
       return () => clearTimeout(timeout);
     }
-  }, [game?.status, navigate, showAlert]);
+  }, [game?.status, showAlert]);
 
   // Live Timer Interval
   useEffect(() => {
@@ -470,9 +470,13 @@ export default function ChessGameRoom() {
         <div className="flex items-center gap-3">
           <button
             onClick={bootUserBack}
-            className="p-2.5 bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] rounded-xl text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer"
+            title={(game as any)?.tournament_id || (game as any)?.tournament?.id ? 'Back to Tournament Details' : 'Back to Match Lobby'}
+            className="px-3 py-2 bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] rounded-xl text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer flex items-center gap-2"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-xs font-semibold hidden sm:inline">
+              {(game as any)?.tournament_id || (game as any)?.tournament?.id ? 'Tournament Details' : 'Match Lobby'}
+            </span>
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
@@ -998,9 +1002,12 @@ export default function ChessGameRoom() {
 
             <button
               onClick={bootUserBack}
-              className="w-full bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer"
+              className="w-full bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
             >
-              Return to Chess Hub
+              <Trophy className="w-4 h-4" />
+              {(game as any)?.tournament_id || (game as any)?.tournament?.id
+                ? 'Return to Tournament Details'
+                : 'Return to Match Lobby'}
             </button>
           </div>
         </div>

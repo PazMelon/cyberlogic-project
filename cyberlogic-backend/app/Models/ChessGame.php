@@ -47,6 +47,18 @@ class ChessGame extends Model
         'ended_at' => 'datetime',
     ];
 
+    protected $appends = ['tournament_id'];
+
+    public function tournamentMatch(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ChessTournamentMatch::class, 'chess_game_id');
+    }
+
+    public function getTournamentIdAttribute(): ?int
+    {
+        return $this->tournamentMatch ? $this->tournamentMatch->tournament_id : null;
+    }
+
     public function host(): BelongsTo
     {
         return $this->belongsTo(User::class, 'host_player_id');
