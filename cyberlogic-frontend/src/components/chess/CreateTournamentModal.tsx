@@ -183,16 +183,48 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
     ? getPlayerLabel(bracketPreviewData.totalRounds, 0, winnersFinalWinnerSlot).name
     : '👑 Winners Bracket Champion';
 
-  // Losers Final Winner (for Grand Finals)
-  const losersFinalWinnerSlot = simulatedWinners['L_FINAL'];
-  const losersR1WinnerSlot = simulatedWinners['L_1'];
-  const losersR1WinnerName = losersR1WinnerSlot
-    ? (losersR1WinnerSlot === 1 ? getLoserLabel(1, 0) : getLoserLabel(1, 1))
-    : 'Winner of Losers Round 1';
-  const winnersFinalLoserName = getLoserLabel(bracketPreviewData.totalRounds, 0);
+  // Dynamic Losers Bracket helper
+  const totalLosersRounds = Math.max(1, 2 * (bracketPreviewData.totalRounds - 1));
 
+  const getLosersMatchPlayerLabel = (
+    lr: number,
+    mIdx: number,
+    slot: 1 | 2
+  ): string => {
+    if (lr === 1) {
+      const wMatchIdx = mIdx * 2 + (slot === 1 ? 0 : 1);
+      if (wMatchIdx < bracketPreviewData.numRealMatches) {
+        return `🛡️ ${getLoserLabel(1, wMatchIdx)}`;
+      }
+      return 'BYE (Auto Advance)';
+    }
+
+    if (lr % 2 === 1) {
+      const prevLr = lr - 1;
+      const prevMIdx = mIdx * 2 + (slot === 1 ? 0 : 1);
+      const prevChoice = simulatedWinners[`L_${prevLr}_M_${prevMIdx}`];
+      if (prevChoice) {
+        return getLosersMatchPlayerLabel(prevLr, prevMIdx, prevChoice);
+      }
+      return `Winner of L-R${prevLr} M#${prevMIdx + 1}`;
+    } else {
+      if (slot === 1) {
+        const prevLr = lr - 1;
+        const prevChoice = simulatedWinners[`L_${prevLr}_M_${mIdx}`];
+        if (prevChoice) {
+          return getLosersMatchPlayerLabel(prevLr, mIdx, prevChoice);
+        }
+        return `Winner of L-R${prevLr} M#${mIdx + 1}`;
+      } else {
+        const wRound = Math.floor((lr + 2) / 2);
+        return `🛡️ ${getLoserLabel(wRound, mIdx)}`;
+      }
+    }
+  };
+
+  const losersFinalWinnerSlot = simulatedWinners[`L_${totalLosersRounds}_M_0`];
   const losersChampionName = losersFinalWinnerSlot
-    ? (losersFinalWinnerSlot === 1 ? losersR1WinnerName : winnersFinalLoserName)
+    ? getLosersMatchPlayerLabel(totalLosersRounds, 0, losersFinalWinnerSlot)
     : '🛡️ Losers Bracket Champion';
 
   return (
@@ -611,105 +643,147 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
                 </div>
               </div>
 
-              {/* Double Elimination: Dedicated Losers Bracket Preview */}
+              {/* Double Elimination: Dedicated Dynamic Losers Bracket Preview */}
               {eliminationMode === 'double' && (
                 <div className="mt-4 pt-4 border-t border-cyan-500/40 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Shield className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                       <span className="text-xs font-extrabold text-[var(--cl-text-primary)] uppercase tracking-wider">
-                        🛡️ Losers Bracket (Double Elimination)
+                        🛡️ Losers Bracket Preview ({totalLosersRounds} Rounds)
                       </span>
                     </div>
                     <span className="text-[10px] font-mono font-extrabold text-cyan-700 dark:text-cyan-300 bg-cyan-500/15 px-2.5 py-1 rounded border border-cyan-500/30">
-                      Auto Loser Tagging Active
+                      Auto Loser Drop Simulation
                     </span>
                   </div>
 
                   <div className="overflow-x-auto custom-scrollbar p-1">
-                    <div className="flex gap-8 min-w-max items-stretch pb-1">
-                      {/* Losers Round 1 */}
-                      <div className="w-64 sm:w-72 space-y-2">
-                        <div className="text-center py-1 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] font-extrabold text-xs">
-                          Losers Round 1
-                        </div>
-                        <div className="bg-[var(--cl-surface-900)] border border-cyan-500/40 rounded-xl p-3 space-y-2 shadow-sm">
-                          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300">
-                            <span>Match #L1</span>
-                            <span>DROPPED LOSERS PAIR</span>
-                          </div>
-                          {/* Slot 1: Loser of R1 M1 */}
-                          <div
-                            onClick={() => handleToggleWinner('L_1', 1)}
-                            className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
-                              devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
-                            } ${
-                              simulatedWinners['L_1'] === 1
-                                ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500'
-                                : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
-                            }`}
-                          >
-                            <span className="truncate">🛡️ {getLoserLabel(1, 0)}</span>
-                            {simulatedWinners['L_1'] === 1 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                          </div>
-                          {/* Slot 2: Loser of R1 M2 */}
-                          <div
-                            onClick={() => handleToggleWinner('L_1', 2)}
-                            className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
-                              devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
-                            } ${
-                              simulatedWinners['L_1'] === 2
-                                ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500'
-                                : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
-                            }`}
-                          >
-                            <span className="truncate">🛡️ {getLoserLabel(1, 1)}</span>
-                            {simulatedWinners['L_1'] === 2 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                          </div>
-                        </div>
-                      </div>
+                    {(() => {
+                      const numL1Slots = Math.max(1, Math.pow(2, Math.max(0, bracketPreviewData.totalRounds - 2)));
+                      const losersTreeHeight = Math.max(200, numL1Slots * UNIT_HEIGHT);
 
-                      {/* Losers Finals */}
-                      <div className="w-64 sm:w-72 space-y-2">
-                        <div className="text-center py-1 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] font-extrabold text-xs">
-                          Losers Finals
+                      const getModalLosersSlotCenterY = (lr: number, sIdx: number): number => {
+                        if (lr === 1 || lr === 2) {
+                          return sIdx * UNIT_HEIGHT + MATCH_HEIGHT / 2;
+                        }
+                        if (lr % 2 === 1) {
+                          return (getModalLosersSlotCenterY(lr - 1, sIdx * 2) + getModalLosersSlotCenterY(lr - 1, sIdx * 2 + 1)) / 2;
+                        }
+                        return getModalLosersSlotCenterY(lr - 1, sIdx);
+                      };
+
+                      return (
+                        <div className="flex gap-10 min-w-max pb-2 relative" style={{ height: `${losersTreeHeight + 50}px` }}>
+                          {Array.from({ length: totalLosersRounds }, (_, i) => i + 1).map((lr) => {
+                            const k = Math.floor((lr + 1) / 2);
+                            const expectedSlots = Math.max(1, Math.pow(2, Math.max(0, bracketPreviewData.totalRounds - 1 - k)));
+                            const isLosersFinal = lr === totalLosersRounds;
+                            const hasNextRound = lr < totalLosersRounds;
+
+                            return (
+                              <div key={`modal-losers-${lr}`} className="w-64 sm:w-72 relative flex flex-col">
+                                <div className="text-center py-1.5 px-2 rounded-lg bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] font-bold z-10 mb-4">
+                                  <span className="text-xs font-extrabold block">
+                                    {isLosersFinal ? '🏆 Losers Final' : `Losers Round ${lr}`}
+                                  </span>
+                                  <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-semibold">
+                                    {expectedSlots} Match{expectedSlots > 1 ? 'es' : ''}
+                                  </span>
+                                </div>
+
+                                <div className="relative flex-1">
+                                  {Array.from({ length: expectedSlots }, (_, mIdx) => {
+                                    const matchKey = `L_${lr}_M_${mIdx}`;
+                                    const chosenWinner = simulatedWinners[matchKey];
+                                    const centerY = getModalLosersSlotCenterY(lr, mIdx);
+
+                                    const player1Name = getLosersMatchPlayerLabel(lr, mIdx, 1);
+                                    const player2Name = getLosersMatchPlayerLabel(lr, mIdx, 2);
+
+                                    return (
+                                      <div
+                                        key={mIdx}
+                                        style={{ top: `${centerY - MATCH_HEIGHT / 2}px`, height: `${MATCH_HEIGHT}px` }}
+                                        className="absolute w-full bg-[var(--cl-surface-900)] border border-cyan-500/40 rounded-xl p-3 space-y-2 shadow-sm z-10"
+                                      >
+                                        <div className="flex items-center justify-between text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300">
+                                          <span>Match #{mIdx + 1}</span>
+                                          <span>{isLosersFinal ? 'LOSERS FINALS' : 'LOSERS MATCH'}</span>
+                                        </div>
+
+                                        {/* Slot 1 */}
+                                        <div
+                                          onClick={() => handleToggleWinner(matchKey, 1)}
+                                          className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
+                                            devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
+                                          } ${
+                                            chosenWinner === 1
+                                              ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500 font-extrabold'
+                                              : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
+                                          }`}
+                                        >
+                                          <span className="truncate">{player1Name}</span>
+                                          {chosenWinner === 1 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                                        </div>
+
+                                        {/* Slot 2 */}
+                                        <div
+                                          onClick={() => handleToggleWinner(matchKey, 2)}
+                                          className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
+                                            devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
+                                          } ${
+                                            chosenWinner === 2
+                                              ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500 font-extrabold'
+                                              : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
+                                          }`}
+                                        >
+                                          <span className="truncate">{player2Name}</span>
+                                          {chosenWinner === 2 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* SVG Connector Lines */}
+                                  {hasNextRound && (
+                                    <svg className="absolute -right-10 top-0 w-10 h-full pointer-events-none text-[var(--cl-primary)] overflow-visible z-0">
+                                      {lr % 2 === 1 ? (
+                                        Array.from({ length: expectedSlots }, (_, sIdx) => {
+                                          const y = getModalLosersSlotCenterY(lr, sIdx);
+                                          return (
+                                            <line
+                                              key={`ml-conn-${sIdx}`}
+                                              x1="0" y1={y} x2="40" y2={y}
+                                              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                                            />
+                                          );
+                                        })
+                                      ) : (
+                                        Array.from({ length: Math.floor(expectedSlots / 2) }, (_, pIdx) => {
+                                          const y1 = getModalLosersSlotCenterY(lr, pIdx * 2);
+                                          const y2 = getModalLosersSlotCenterY(lr, pIdx * 2 + 1);
+                                          const yMid = (y1 + y2) / 2;
+
+                                          return (
+                                            <g key={`ml-merge-${pIdx}`}>
+                                              <line x1="0" y1={y1} x2="20" y2={y1} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                              <line x1="0" y1={y2} x2="20" y2={y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                              <line x1="20" y1={y1} x2="20" y2={y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                              <line x1="20" y1={yMid} x2="40" y2={yMid} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                            </g>
+                                          );
+                                        })
+                                      )}
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div className="bg-[var(--cl-surface-900)] border border-cyan-500/40 rounded-xl p-3 space-y-2 shadow-sm">
-                          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300">
-                            <span>Match #L-Final</span>
-                            <span>LOSERS CHAMPIONSHIP</span>
-                          </div>
-                          {/* Slot 1: Winner of Losers R1 */}
-                          <div
-                            onClick={() => handleToggleWinner('L_FINAL', 1)}
-                            className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
-                              devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
-                            } ${
-                              simulatedWinners['L_FINAL'] === 1
-                                ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500'
-                                : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
-                            }`}
-                          >
-                            <span className="truncate">⚔️ {losersR1WinnerName}</span>
-                            {simulatedWinners['L_FINAL'] === 1 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                          </div>
-                          {/* Slot 2: Runner-up of Winners Final */}
-                          <div
-                            onClick={() => handleToggleWinner('L_FINAL', 2)}
-                            className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center justify-between ${
-                              devSandbox ? 'cursor-pointer hover:border-purple-400' : ''
-                            } ${
-                              simulatedWinners['L_FINAL'] === 2
-                                ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-2 border-emerald-500'
-                                : 'bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] border border-[var(--cl-border)]/40'
-                            }`}
-                          >
-                            <span className="truncate">🛡️ {winnersFinalLoserName}</span>
-                            {simulatedWinners['L_FINAL'] === 2 && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

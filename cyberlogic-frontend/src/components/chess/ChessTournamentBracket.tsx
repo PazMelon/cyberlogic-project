@@ -13,21 +13,26 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
   const navigate = useNavigate();
 
   const maxP = Math.max(2, Math.min(32, tournament.max_players || 8));
-  const totalRounds = tournament.total_rounds || Math.max(1, Math.ceil(Math.log2(maxP)));
-  const allMatches = tournament.matches || [];
   const participants = tournament.participants || [];
+  const playerCount = participants.length || maxP;
+  const totalRounds = tournament.total_rounds || Math.max(1, Math.ceil(Math.log2(playerCount)));
+  const bracketSize = Math.pow(2, totalRounds);
+  const numR1Slots = bracketSize / 2;
+  const allMatches = tournament.matches || [];
 
   const isRegistration = tournament.status === 'registration';
   const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers' || m.bracket_type === 'grand_final');
 
   // Dynamically discover winners bracket rounds from actual match data
   const winnersMatches = allMatches.filter((m) => m.bracket_type === 'winners' || !m.bracket_type);
-  const winnersRoundNumbers = [...new Set(winnersMatches.map((m) => Number(m.round_number)))].sort((a, b) => a - b);
   const winnersMatchesByRound: Record<number, ChessTournamentMatch[]> = {};
-  for (const r of winnersRoundNumbers) {
-    winnersMatchesByRound[r] = winnersMatches
-      .filter((m) => Number(m.round_number) === Number(r))
-      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
+  for (const m of winnersMatches) {
+    const r = Number(m.round_number);
+    if (!winnersMatchesByRound[r]) winnersMatchesByRound[r] = [];
+    winnersMatchesByRound[r].push(m);
+  }
+  for (const r of Object.keys(winnersMatchesByRound)) {
+    winnersMatchesByRound[Number(r)].sort((a, b) => Number(a.match_number) - Number(b.match_number));
   }
 
   // Dynamically discover losers bracket rounds from actual match data
@@ -43,11 +48,69 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
   // Grand Final match (if exists)
   const grandFinalMatch = allMatches.find((m) => m.bracket_type === 'grand_final') || null;
 
+  // === BRACKET TREE POSITIONING MATH ===
+  const CARD_HEIGHT = 155;
+  const GAP_HEIGHT = 25;
+  const UNIT_HEIGHT = CARD_HEIGHT + GAP_HEIGHT;
+  const totalTreeHeight = Math.max(300, numR1Slots * UNIT_HEIGHT);
+
+  const getSlotCenterY = (round: number, slotIdx: number): number => {
+    if (round === 1) {
+      return slotIdx * UNIT_HEIGHT + CARD_HEIGHT / 2;
+    }
+    return (getSlotCenterY(round - 1, slotIdx * 2) + getSlotCenterY(round - 1, slotIdx * 2 + 1)) / 2;
+  };
+
+  // === BUILD BRACKET SLOT DATA ===
+  // Identify bye-advanced players (participants NOT in any winners R1 match)
+  const r1MatchPlayerIds = new Set(
+    (winnersMatchesByRound[1] || []).flatMap((m) =>
+      [m.white_user_id, m.black_user_id].filter(Boolean).map(Number)
+    )
+  );
+  const byeAdvancedParticipants = !isRegistration
+    ? participants.filter((p) => !r1MatchPlayerIds.has(Number(p.user_id)))
+    : [];
+
+  type BracketSlot = {
+    match: ChessTournamentMatch | null;
+    type: 'match' | 'bye' | 'tbd';
+    byeParticipant?: any;
+  };
+
+  const buildSlotsForRound = (round: number): BracketSlot[] => {
+    const slotsInRound = bracketSize / Math.pow(2, round);
+    const roundMatches = winnersMatchesByRound[round] || [];
+    const slots: BracketSlot[] = [];
+
+    if (round === 1) {
+      // R1: real matches first, then BYE slots
+      for (const m of roundMatches) {
+        slots.push({ match: m, type: m.status === 'bye' ? 'bye' : 'match' });
+      }
+      for (let i = slots.length; i < slotsInRound; i++) {
+        const byeP = byeAdvancedParticipants[i - roundMatches.length] || null;
+        slots.push({ match: null, type: 'bye', byeParticipant: byeP });
+      }
+    } else {
+      // R2+: fill with match data or TBD placeholders
+      for (let i = 0; i < slotsInRound; i++) {
+        const m = roundMatches[i] || null;
+        if (m) {
+          slots.push({ match: m, type: m.status === 'bye' ? 'bye' : 'match' });
+        } else {
+          slots.push({ match: null, type: 'tbd' });
+        }
+      }
+    }
+    return slots;
+  };
+
   const getRoundTitle = (roundNum: number, total: number, isDouble: boolean) => {
     if (roundNum === total && !isDouble) return '🏆 Championship Final';
     if (roundNum === total && isDouble) return '🔥 Winners Final';
-    if (roundNum === total - 1) return '🔥 Semi-Finals';
-    if (roundNum === total - 2) return '⚔️ Quarter-Finals';
+    if (roundNum === total - 1 && total > 2) return '🔥 Semi-Finals';
+    if (roundNum === total - 2 && total > 3) return '⚔️ Quarter-Finals';
     return `Round ${roundNum}`;
   };
 
@@ -356,15 +419,8 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
           <Crown className="w-4 h-4" /> {isDoubleElimination ? '👑 Winners Bracket' : '🏆 Tournament Bracket'}
         </div>
         <div className="overflow-x-auto pb-4 custom-scrollbar">
-          <div className="flex gap-10 min-w-max p-3 pb-4 relative">
-            {winnersRoundNumbers.length === 0 && !isRegistration ? (
-              <div className="w-72">
-                <div className="bg-[var(--cl-surface-900)] border border-dashed border-[var(--cl-border)] rounded-xl p-6 text-center text-xs text-[var(--cl-text-secondary)] font-medium space-y-1">
-                  <span className="font-bold text-[var(--cl-text-primary)] block">Tournament Starting...</span>
-                  <span>Matches are being generated</span>
-                </div>
-              </div>
-            ) : isRegistration ? (
+          <div className="flex gap-10 min-w-max p-3 pb-4 relative" style={{ height: `${totalTreeHeight + 60}px` }}>
+            {isRegistration ? (
               <div className="w-72">
                 <div className="bg-[var(--cl-surface-900)] border border-dashed border-[var(--cl-border)] rounded-xl p-6 text-center text-xs text-[var(--cl-text-secondary)] font-medium space-y-1">
                   <span className="font-bold text-[var(--cl-text-primary)] block">Bracket Not Generated Yet</span>
@@ -373,57 +429,119 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
               </div>
             ) : (
               <>
-                {winnersRoundNumbers.map((roundNum) => {
-                  const roundMatches = winnersMatchesByRound[roundNum] || [];
+                {Array.from({ length: totalRounds }, (_, i) => i + 1).map((roundNum) => {
+                  const slots = buildSlotsForRound(roundNum);
+                  const slotsInRound = slots.length;
                   const isFinalRound = roundNum === totalRounds;
+                  const hasNextRound = roundNum < totalRounds;
 
                   return (
-                    <div key={`winners-${roundNum}`} className="w-72 relative flex flex-col">
+                    <div key={`wr-${roundNum}`} className="w-72 relative flex flex-col">
                       {/* Round Header */}
                       <div className="text-center py-2 px-4 rounded-xl bg-[var(--cl-surface-900)] border border-[var(--cl-border)] shadow-sm z-10 mb-4">
                         <h3 className="text-xs font-extrabold text-[var(--cl-text-primary)] tracking-wide">
                           {getRoundTitle(roundNum, totalRounds, isDoubleElimination)}
                         </h3>
                         <span className="text-[10px] text-[var(--cl-text-secondary)] font-mono font-bold">
-                          {roundMatches.length} Match{roundMatches.length !== 1 ? 'es' : ''}
+                          {slotsInRound} Match{slotsInRound !== 1 ? 'es' : ''}
                         </span>
                       </div>
 
-                      {/* Matches */}
-                      <div className="space-y-4">
-                        {roundMatches.map((match, mIdx) => (
-                          <div key={match.id}>
-                            {renderMatchCard(match, isFinalRound, roundNum, mIdx)}
-                          </div>
-                        ))}
+                      {/* Slot Cards - Absolutely Positioned for Tree Alignment */}
+                      <div className="relative flex-1">
+                        {slots.map((slot, sIdx) => {
+                          const centerY = getSlotCenterY(roundNum, sIdx);
+
+                          return (
+                            <div
+                              key={`ws-${roundNum}-${sIdx}`}
+                              style={{ top: `${centerY - CARD_HEIGHT / 2}px`, height: `${CARD_HEIGHT}px` }}
+                              className="absolute w-full z-10"
+                            >
+                              {slot.type === 'match' && slot.match ? (
+                                renderMatchCard(slot.match, isFinalRound, roundNum, sIdx)
+                              ) : slot.type === 'bye' ? (
+                                /* BYE ADVANCE Card */
+                                <div className="bg-[var(--cl-surface-900)] border border-amber-500/40 rounded-xl p-3 shadow-sm text-[var(--cl-text-primary)] space-y-1.5 h-full flex flex-col justify-center">
+                                  <div className="flex items-center justify-between text-[10px] font-mono font-bold">
+                                    <span className="text-[var(--cl-text-secondary)]">Slot #{sIdx + 1}</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40">
+                                      BYE ADVANCE
+                                    </span>
+                                  </div>
+                                  {slot.match ? (
+                                    /* BYE match with player data */
+                                    <div className="p-2 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                                      <img
+                                        src={getPlayerAvatar((slot.match as any).white_user || (slot.match as any).whiteUser, `p-${slot.match.white_user_id}`)}
+                                        alt=""
+                                        className="w-5 h-5 rounded-full border border-amber-500/40"
+                                      />
+                                      <span className="truncate">
+                                        {getPlayerName((slot.match as any).white_user || (slot.match as any).whiteUser) || `Player #${slot.match.white_user_id}`}
+                                      </span>
+                                    </div>
+                                  ) : slot.byeParticipant ? (
+                                    /* BYE placeholder with participant data */
+                                    <div className="p-2 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                                      <img
+                                        src={getPlayerAvatar(slot.byeParticipant.user, `p-${slot.byeParticipant.user_id}`)}
+                                        alt=""
+                                        className="w-5 h-5 rounded-full border border-amber-500/40"
+                                      />
+                                      <span className="truncate">
+                                        {getPlayerName(slot.byeParticipant.user) || `Player #${slot.byeParticipant.user_id}`}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="p-2 rounded-lg text-xs font-bold bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 italic">
+                                      Auto-advance (no opponent)
+                                    </div>
+                                  )}
+                                  <div className="p-1.5 rounded-lg text-[10px] bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] border border-[var(--cl-border)]/40 italic text-center">
+                                    Advances to next round
+                                  </div>
+                                </div>
+                              ) : (
+                                /* TBD Placeholder Card */
+                                <div className="bg-[var(--cl-surface-900)] border border-dashed border-[var(--cl-border)]/50 rounded-xl p-3 shadow-sm text-[var(--cl-text-muted)] space-y-1.5 opacity-50 h-full flex flex-col justify-center">
+                                  <div className="flex items-center justify-between text-[10px] font-mono font-bold">
+                                    <span>Match #{sIdx + 1}</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-[var(--cl-surface-950)] border border-[var(--cl-border)]">
+                                      PENDING
+                                    </span>
+                                  </div>
+                                  <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic">TBD</div>
+                                  <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic">TBD</div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {/* SVG Connector Lines to Next Round */}
+                        {hasNextRound && slotsInRound >= 2 && (
+                          <svg className="absolute -right-10 top-0 w-10 h-full pointer-events-none overflow-visible z-0">
+                            {Array.from({ length: Math.floor(slotsInRound / 2) }, (_, pIdx) => {
+                              const y1 = getSlotCenterY(roundNum, pIdx * 2);
+                              const y2 = getSlotCenterY(roundNum, pIdx * 2 + 1);
+                              const yMid = (y1 + y2) / 2;
+
+                              return (
+                                <g key={pIdx}>
+                                  <line x1="0" y1={y1} x2="20" y2={y1} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                  <line x1="0" y1={y2} x2="20" y2={y2} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                  <line x1="20" y1={y1} x2="20" y2={y2} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                  <line x1="20" y1={yMid} x2="40" y2={yMid} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        )}
                       </div>
                     </div>
                   );
                 })}
-
-                {/* Upcoming round placeholders */}
-                {(() => {
-                  const maxExistingRound = winnersRoundNumbers.length > 0 ? winnersRoundNumbers[winnersRoundNumbers.length - 1] : 0;
-                  const pendingRounds: number[] = [];
-                  for (let r = maxExistingRound + 1; r <= totalRounds; r++) {
-                    pendingRounds.push(r);
-                  }
-                  return pendingRounds.map((futureRound) => (
-                    <div key={`future-${futureRound}`} className="w-72 opacity-50">
-                      <div className="text-center py-2 px-4 rounded-xl bg-[var(--cl-surface-900)] border border-dashed border-[var(--cl-border)]/60 shadow-sm z-10 mb-4">
-                        <h3 className="text-xs font-extrabold text-[var(--cl-text-muted)] tracking-wide">
-                          {getRoundTitle(futureRound, totalRounds, isDoubleElimination)}
-                        </h3>
-                        <span className="text-[10px] text-[var(--cl-text-muted)] font-mono font-bold">
-                          Awaiting Results
-                        </span>
-                      </div>
-                      <div className="bg-[var(--cl-surface-900)] border border-dashed border-[var(--cl-border)]/40 rounded-xl p-6 text-center text-[10px] text-[var(--cl-text-muted)] font-medium italic">
-                        Matches created when previous round completes
-                      </div>
-                    </div>
-                  ));
-                })()}
 
                 {/* Grand Final column (Double Elimination) */}
                 {isDoubleElimination && (
@@ -436,25 +554,30 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                         Winners Champion vs Losers Champion
                       </span>
                     </div>
-                    <div>
-                      {grandFinalMatch ? (
-                        renderMatchCard(grandFinalMatch, true, grandFinalMatch.round_number, 0)
-                      ) : (
-                        <div className="bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-xl p-4 space-y-3 shadow-xl bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]">
-                          <div className="flex items-center justify-between text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                            <span>ULTIMATE CHAMPIONSHIP</span>
-                            <span className="bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">DOUBLE ELIM</span>
+                    <div className="relative flex-1">
+                      <div
+                        style={{ top: `${getSlotCenterY(totalRounds, 0) - CARD_HEIGHT / 2}px` }}
+                        className="absolute w-full z-10"
+                      >
+                        {grandFinalMatch ? (
+                          renderMatchCard(grandFinalMatch, true, grandFinalMatch.round_number, 0)
+                        ) : (
+                          <div className="bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-xl p-4 space-y-3 shadow-xl bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]">
+                            <div className="flex items-center justify-between text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                              <span>ULTIMATE CHAMPIONSHIP</span>
+                              <span className="bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">DOUBLE ELIM</span>
+                            </div>
+                            <div className="p-3 rounded-lg text-xs font-extrabold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 flex items-center justify-between">
+                              <span>👑 Winners Bracket Champion</span>
+                              <span className="text-[10px] font-mono">TBD</span>
+                            </div>
+                            <div className="p-3 rounded-lg text-xs font-extrabold bg-cyan-500/20 text-cyan-900 dark:text-cyan-200 border border-cyan-500/40 flex items-center justify-between">
+                              <span>🛡️ Losers Bracket Champion</span>
+                              <span className="text-[10px] font-mono">TBD</span>
+                            </div>
                           </div>
-                          <div className="p-3 rounded-lg text-xs font-extrabold bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 flex items-center justify-between">
-                            <span>👑 Winners Bracket Champion</span>
-                            <span className="text-[10px] font-mono">TBD</span>
-                          </div>
-                          <div className="p-3 rounded-lg text-xs font-extrabold bg-cyan-500/20 text-cyan-900 dark:text-cyan-200 border border-cyan-500/40 flex items-center justify-between">
-                            <span>🛡️ Losers Bracket Champion</span>
-                            <span className="text-[10px] font-mono">TBD</span>
-                          </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -477,41 +600,121 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
               </span>
             </div>
 
-            {losersRoundNumbers.length === 0 ? (
-              <div className="bg-[var(--cl-surface-900)] border border-cyan-500/30 rounded-xl p-6 text-center text-xs text-[var(--cl-text-secondary)] space-y-1 font-medium">
-                <span className="font-bold text-cyan-700 dark:text-cyan-300 block">Losers Bracket Not Yet Active</span>
-                <span>Players who lose in the Winners Bracket will drop into the Losers Bracket</span>
-              </div>
-            ) : (
-              <div className="overflow-x-auto pb-4 custom-scrollbar">
-                <div className="flex gap-10 min-w-max p-3 relative">
-                  {losersRoundNumbers.map((roundNum) => {
-                    const roundMatches = losersMatchesByRound[roundNum] || [];
+            {(() => {
+              const totalLosersRounds = Math.max(1, 2 * (totalRounds - 1));
+              const losersRoundList = Array.from({ length: totalLosersRounds }, (_, i) => i + 1);
+              const numL1Slots = Math.max(1, Math.pow(2, Math.max(0, totalRounds - 2)));
+              const losersTreeHeight = Math.max(250, numL1Slots * UNIT_HEIGHT);
 
-                    return (
-                      <div key={`losers-${roundNum}`} className="w-72 relative flex flex-col">
-                        <div className="text-center py-2 px-4 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] shadow-sm z-10 font-bold mb-4">
-                          <h3 className="text-xs font-extrabold tracking-wide">
-                            Losers Round {roundNum}
-                          </h3>
-                          <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
-                            {roundMatches.length} Match{roundMatches.length !== 1 ? 'es' : ''}
-                          </span>
-                        </div>
+              const getLosersSlotCenterY = (lr: number, sIdx: number): number => {
+                if (lr === 1 || lr === 2) {
+                  return sIdx * UNIT_HEIGHT + CARD_HEIGHT / 2;
+                }
+                if (lr % 2 === 1) {
+                  return (getLosersSlotCenterY(lr - 1, sIdx * 2) + getLosersSlotCenterY(lr - 1, sIdx * 2 + 1)) / 2;
+                }
+                return getLosersSlotCenterY(lr - 1, sIdx);
+              };
 
-                        <div className="space-y-4">
-                          {roundMatches.map((match, mIdx) => (
-                            <div key={match.id}>
-                              {renderMatchCard(match, false, roundNum, mIdx)}
-                            </div>
-                          ))}
+              return (
+                <div className="overflow-x-auto pb-4 custom-scrollbar">
+                  <div className="flex gap-10 min-w-max p-3 relative" style={{ height: `${losersTreeHeight + 60}px` }}>
+                    {losersRoundList.map((roundNum) => {
+                      const existingMatches = losersMatchesByRound[roundNum] || [];
+                      const k = Math.floor((roundNum + 1) / 2);
+                      const expectedSlots = Math.max(1, Math.pow(2, Math.max(0, totalRounds - 1 - k)));
+                      const hasNextRound = roundNum < totalLosersRounds;
+
+                      return (
+                        <div key={`losers-${roundNum}`} className="w-72 relative flex flex-col">
+                          {/* Round Header */}
+                          <div className="text-center py-2 px-4 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-[var(--cl-text-primary)] shadow-sm z-10 font-bold mb-4">
+                            <h3 className="text-xs font-extrabold tracking-wide">
+                              Losers Round {roundNum}
+                            </h3>
+                            <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
+                              {expectedSlots} Match{expectedSlots !== 1 ? 'es' : ''}
+                            </span>
+                          </div>
+
+                          {/* Slot Cards Positioned at Y Coordinates */}
+                          <div className="relative flex-1">
+                            {Array.from({ length: expectedSlots }, (_, sIdx) => {
+                              const match = existingMatches[sIdx] || null;
+                              const centerY = getLosersSlotCenterY(roundNum, sIdx);
+
+                              return (
+                                <div
+                                  key={`losers-slot-${roundNum}-${sIdx}`}
+                                  style={{ top: `${centerY - CARD_HEIGHT / 2}px`, height: `${CARD_HEIGHT}px` }}
+                                  className="absolute w-full z-10"
+                                >
+                                  {match ? (
+                                    renderMatchCard(match, false, roundNum, sIdx)
+                                  ) : (
+                                    <div className="bg-[var(--cl-surface-900)] border border-dashed border-cyan-500/30 rounded-xl p-3 shadow-sm text-[var(--cl-text-muted)] space-y-1.5 opacity-60 flex flex-col justify-center h-full">
+                                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-cyan-700 dark:text-cyan-300">
+                                        <span>Match #{sIdx + 1}</span>
+                                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-cyan-500/10 border border-cyan-500/30">
+                                          LOSERS BRACKET
+                                        </span>
+                                      </div>
+                                      <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic flex items-center justify-between">
+                                        <span>TBD (Drops from Winners)</span>
+                                        <span className="text-[10px] font-mono">TBD</span>
+                                      </div>
+                                      <div className="p-2 rounded-lg text-xs bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/40 italic flex items-center justify-between">
+                                        <span>TBD (Drops from Winners)</span>
+                                        <span className="text-[10px] font-mono">TBD</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+
+                            {/* SVG Connector Lines to Next Losers Round */}
+                            {hasNextRound && (
+                              <svg className="absolute -right-10 top-0 w-10 h-full pointer-events-none overflow-visible z-0">
+                                {roundNum % 2 === 1 ? (
+                                  /* Odd to Even round: 1-to-1 straight horizontal lines */
+                                  Array.from({ length: expectedSlots }, (_, sIdx) => {
+                                    const y = getLosersSlotCenterY(roundNum, sIdx);
+                                    return (
+                                      <line
+                                        key={`l-conn-${sIdx}`}
+                                        x1="0" y1={y} x2="40" y2={y}
+                                        stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5"
+                                      />
+                                    );
+                                  })
+                                ) : (
+                                  /* Even to Odd round: 2-to-1 merger lines */
+                                  Array.from({ length: Math.floor(expectedSlots / 2) }, (_, pIdx) => {
+                                    const y1 = getLosersSlotCenterY(roundNum, pIdx * 2);
+                                    const y2 = getLosersSlotCenterY(roundNum, pIdx * 2 + 1);
+                                    const yMid = (y1 + y2) / 2;
+
+                                    return (
+                                      <g key={`l-merge-${pIdx}`}>
+                                        <line x1="0" y1={y1} x2="20" y2={y1} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                        <line x1="0" y1={y2} x2="20" y2={y2} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                        <line x1="20" y1={y1} x2="20" y2={y2} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                        <line x1="20" y1={yMid} x2="40" y2={yMid} stroke="var(--cl-primary)" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+                                      </g>
+                                    );
+                                  })
+                                )}
+                              </svg>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}

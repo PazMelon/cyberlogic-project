@@ -237,7 +237,6 @@ class ChessTournamentService
             'color_preference' => 'white',
         ]);
 
-        $game->tournament_id = $tournament->id;
         $game->black_player_id = $blackId;
         $game->status = 'in_progress';
         $game->started_at = Carbon::now();
@@ -551,23 +550,47 @@ class ChessTournamentService
             return false;
         }
 
-        // Check if any losers match is still pending or in progress
-        $hasUnfinished = $allLosersMatches->contains(function ($m) {
-            return in_array($m->status, ['pending', 'in_progress']);
+        // Check if any losers match is still in progress
+        $hasInProgress = $allLosersMatches->contains(function ($m) {
+            return $m->status === 'in_progress';
         });
 
-        if ($hasUnfinished) {
-            return false; // Wait until all current losers matches are done
+        if ($hasInProgress) {
+            return false; // Wait until all active losers matches are done
         }
 
-        // Also check if there are any pending unfilled drops from winners bracket
-        // (matches with only 1 player still waiting for an opponent)
-        $hasPendingDrops = $allLosersMatches->contains(function ($m) {
+        // Check if there are any pending unfilled drops (single player waiting for opponent)
+        $pendingDrops = $allLosersMatches->filter(function ($m) {
             return $m->status === 'pending' && $m->white_user_id && !$m->black_user_id;
         });
 
-        if ($hasPendingDrops) {
-            return false; // Still waiting for more losers to drop
+        if ($pendingDrops->isNotEmpty()) {
+            // Check if winners bracket current round is done (no more losers coming from this round)
+            $winnersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                ->where('bracket_type', 'winners')
+                ->where('round_number', $tournament->current_round)
+                ->get();
+
+            $winnersDone = $winnersMatches->isEmpty() || $winnersMatches->every(fn($m) => in_array($m->status, ['completed', 'bye']));
+
+            if ($winnersDone) {
+                // Convert unfilled pending matches to BYE advances
+                foreach ($pendingDrops as $m) {
+                    $m->status = 'bye';
+                    $m->winner_user_id = $m->white_user_id;
+                    $m->win_reason = 'bye';
+                    $m->save();
+                    $hasChanges = true;
+                }
+                // Refresh losers matches list
+                $allLosersMatches = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                    ->where('bracket_type', 'losers')
+                    ->orderBy('round_number', 'asc')
+                    ->orderBy('match_number', 'asc')
+                    ->get();
+            } else {
+                return false; // Still waiting for remaining winners matches to finish
+            }
         }
 
         // Collect all losers bracket winners
