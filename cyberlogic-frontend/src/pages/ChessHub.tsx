@@ -317,22 +317,37 @@ export default function ChessHub() {
     }
   }, [latestGameUpdate]);
 
-  // Subscribe to live tournament WebSocket events (Lobby & Active Tournament channel)
+  // Subscribe to live tournament & match lobby WebSocket events
   const { subscribe } = useWebSocket();
   useEffect(() => {
-    const unsubLobby = subscribe('chess_lobby', (_payload: any, event: string) => {
-      if (
-        event === 'chess_tournament_updated' ||
-        event === 'tournament_created' ||
-        event === 'tournament_completed' ||
-        event === 'tournament_started'
-      ) {
-        fetchChessTournaments().then((tourneys) => {
-          setTournaments(tourneys);
-          if (selectedTournament?.id) {
-            fetchChessTournament(selectedTournament.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
-          }
-        });
+    const unsubLobby = subscribe('chess_lobby', (payload: any, type: string) => {
+      const isTournament =
+        type === 'chess_tournament_updated' ||
+        type === 'tournament_created' ||
+        type === 'tournament_completed' ||
+        type === 'tournament_started' ||
+        payload?.event === 'tournament_started' ||
+        payload?.event === 'tournament_completed' ||
+        payload?.event === 'tournament_updated';
+
+      const isGame =
+        type === 'chess_game_created' ||
+        type === 'chess_game_updated' ||
+        type === 'chess_move' ||
+        type === 'chess_game_over';
+
+      if (isTournament) {
+        fetchChessTournaments().then((tourneys) => setTournaments(tourneys)).catch(console.error);
+        if (selectedTournament?.id) {
+          fetchChessTournament(selectedTournament.id).then((fullT) => setSelectedTournament(fullT)).catch(console.error);
+        }
+      }
+
+      if (isGame) {
+        fetchChessGames().then((gamesList) => setGames(gamesList)).catch(console.error);
+        if (selectedTournament?.id) {
+          fetchChessTournament(selectedTournament.id).then((fullT) => setSelectedTournament(fullT)).catch(console.error);
+        }
       }
     });
 
@@ -342,8 +357,8 @@ export default function ChessHub() {
   useEffect(() => {
     if (!selectedTournament?.id) return;
     const channelName = `chess_tournament_${selectedTournament.id}`;
-    const unsubTourney = subscribe(channelName, (_payload: any) => {
-      fetchChessTournament(selectedTournament.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
+    const unsubTourney = subscribe(channelName, () => {
+      fetchChessTournament(selectedTournament.id).then((fullT: ChessTournament) => setSelectedTournament(fullT)).catch(console.error);
     });
 
     return () => unsubTourney();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChessGame;
 use App\Models\ChessTournament;
 use App\Models\User;
 use App\Services\AuditLogger;

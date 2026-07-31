@@ -6,6 +6,7 @@ use App\Models\ChessGame;
 use App\Models\ChessTournament;
 use App\Models\ChessTournamentMatch;
 use App\Models\ChessTournamentParticipant;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
