@@ -77,11 +77,13 @@ export default function ChessGameRoom() {
   // Realtime hook
   const {
     gameMessages,
+    spectatorMessages,
     latestGameUpdate,
     latestMove,
     drawOfferState,
     roomUsers,
     sendGameChat,
+    sendSpectatorChat,
     sendDrawOffer,
   } = useChessRealtime(game?.id);
 
@@ -375,7 +377,11 @@ export default function ChessGameRoom() {
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    sendGameChat(chatInput);
+    if (isPlayer) {
+      sendGameChat(chatInput);
+    } else {
+      sendSpectatorChat(chatInput);
+    }
     setChatInput('');
   };
 
@@ -869,20 +875,36 @@ export default function ChessGameRoom() {
 
           {/* In-Game Message Hub */}
           <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl flex-1 flex flex-col min-h-[300px]">
-            <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider mb-3 flex items-center gap-2">
-              <Volume2 className="w-3.5 h-3.5 text-[var(--cl-primary)]" /> In-Game Chat
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-2">
+                <Volume2 className="w-3.5 h-3.5 text-[var(--cl-primary)]" />
+                {isPlayer ? 'Player Match Chat' : '👁️ Spectator Chat'}
+              </h3>
+              {!isPlayer && (
+                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  Spectators Only
+                </span>
+              )}
+            </div>
+
+            {/* Spectator notice for players */}
+            {isPlayer && (
+              <div className="mb-2 text-[10px] text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Spectator chat is isolated from players during gameplay.</span>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1 text-xs custom-scrollbar">
-              {gameMessages.length === 0 ? (
-                <div className="text-[var(--cl-text-muted)] text-center py-10 text-xs">
-                  No match chat messages yet.
+              {(isPlayer ? gameMessages : spectatorMessages).length === 0 ? (
+                <div className="text-[var(--cl-text-muted)] text-center py-10 text-xs italic">
+                  {isPlayer ? 'No match player messages yet.' : 'No spectator chat messages yet.'}
                 </div>
               ) : (
-                gameMessages.map((msg, i) => (
+                (isPlayer ? gameMessages : spectatorMessages).map((msg, i) => (
                   <div key={i} className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] p-2 rounded-lg">
                     <div className="flex items-center justify-between text-[10px] text-[var(--cl-text-muted)] mb-1">
-                      <span className="font-bold text-[var(--cl-primary)]">{msg.sender?.name || 'Player'}</span>
+                      <span className="font-bold text-[var(--cl-primary)]">{msg.sender?.name || 'User'}</span>
                       <span>
                         {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
@@ -898,7 +920,7 @@ export default function ChessGameRoom() {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Chat in match..."
+                placeholder={isPlayer ? 'Chat with opponent...' : 'Chat with other spectators...'}
                 className="flex-1 bg-[var(--cl-surface-950)] border border-[var(--cl-border)] text-xs text-[var(--cl-text-primary)] rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--cl-primary)]"
               />
               <button

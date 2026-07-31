@@ -24,6 +24,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CyberboardController;
 use App\Http\Controllers\ChessController;
+use App\Http\Controllers\ChessTournamentController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -272,6 +273,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chess/user-stats/{userId?}', [ChessController::class, 'userStats']);
     Route::get('/api/chess/lobby-messages', [ChessController::class, 'lobbyMessages']);
     Route::post('/api/chess/lobby-messages', [ChessController::class, 'postLobbyMessage']);
+
+    // Chess Tournament endpoints
+    Route::get('/api/chess/tournaments', [ChessTournamentController::class, 'index']);
+    Route::post('/api/chess/tournaments', [ChessTournamentController::class, 'store']);
+    Route::get('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'show']);
+    Route::post('/api/chess/tournaments/{id}/join', [ChessTournamentController::class, 'join']);
+    Route::post('/api/chess/tournaments/{id}/leave', [ChessTournamentController::class, 'leave']);
+    Route::post('/api/chess/tournaments/{id}/start', [ChessTournamentController::class, 'start']);
 });
 
 Route::get('/storage/{path}', function ($path) {

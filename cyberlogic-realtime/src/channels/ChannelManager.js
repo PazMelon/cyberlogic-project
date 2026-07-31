@@ -175,6 +175,14 @@ class ChannelManager {
         const clientUser = this.clientUsers.get(client);
         let finalPayload = payload;
 
+        // Spectator Chat Isolation: active players cannot see spectator chat
+        if (type === 'chess_spectator_chat') {
+          const isPlayer = clientUser && (Number(clientUser.id) === Number(payload.white_player_id) || Number(clientUser.id) === Number(payload.black_player_id));
+          if (isPlayer) {
+            continue;
+          }
+        }
+
         if (isFreedomWall) {
           if (type === 'reaction_update') {
             finalPayload = { ...payload };
@@ -443,10 +451,24 @@ class ChannelManager {
           }
           this.broadcast(channel, type, chatMsg);
         }
-      } else if (['chess_game_chat', 'chess_draw_offer', 'chess_draw_response'].includes(type)) {
+      } else if (['chess_game_chat', 'chess_spectator_chat', 'chess_draw_offer', 'chess_draw_response'].includes(type)) {
         if (channel.startsWith('chess_game_') || channel.startsWith('chess_game:')) {
+          const gameId = channel.replace('chess_game_', '').replace('chess_game:', '');
+          let whiteId = payload.white_player_id;
+          let blackId = payload.black_player_id;
+
+          if ((!whiteId || !blackId) && gameId && !isNaN(gameId)) {
+            const [rows] = await pool.query('SELECT white_player_id, black_player_id FROM chess_games WHERE id = ? LIMIT 1', [gameId]);
+            if (rows.length > 0) {
+              whiteId = rows[0].white_player_id;
+              blackId = rows[0].black_player_id;
+            }
+          }
+
           this.broadcast(channel, type, {
             ...payload,
+            white_player_id: whiteId,
+            black_player_id: blackId,
             sender: {
               id: user.id,
               name: user.name,

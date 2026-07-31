@@ -18,6 +18,7 @@ export function useChessRealtime(gameId?: number) {
 
   const [lobbyMessages, setLobbyMessages] = useState<ChessChatMessage[]>([]);
   const [gameMessages, setGameMessages] = useState<ChessChatMessage[]>([]);
+  const [spectatorMessages, setSpectatorMessages] = useState<ChessChatMessage[]>([]);
   const [latestGameUpdate, setLatestGameUpdate] = useState<ChessGame | null>(null);
   const [latestMove, setLatestMove] = useState<{
     fen: string;
@@ -85,6 +86,8 @@ export function useChessRealtime(gameId?: number) {
     const unsubscribeGame = subscribe(channelName, (payload: any, type: string) => {
       if (type === 'chess_game_chat') {
         setGameMessages((prev) => [...prev.slice(-100), payload]);
+      } else if (type === 'chess_spectator_chat') {
+        setSpectatorMessages((prev) => [...prev.slice(-100), payload]);
       } else if (type === 'chess_move') {
         setLatestMove(payload);
       } else if (type === 'chess_game_started') {
@@ -126,6 +129,11 @@ export function useChessRealtime(gameId?: number) {
     sendMessage('chess_game_chat', `chess_game_${gameId}`, { text: text.trim() });
   }, [gameId, sendMessage]);
 
+  const sendSpectatorChat = useCallback((text: string) => {
+    if (!gameId || !text.trim()) return;
+    sendMessage('chess_spectator_chat', `chess_game_${gameId}`, { text: text.trim() });
+  }, [gameId, sendMessage]);
+
   const sendDrawOffer = useCallback((action: 'offer' | 'accept' | 'decline') => {
     if (!gameId) return;
     sendMessage(action === 'offer' ? 'chess_draw_offer' : 'chess_draw_response', `chess_game_${gameId}`, { action });
@@ -134,6 +142,7 @@ export function useChessRealtime(gameId?: number) {
   return {
     lobbyMessages,
     gameMessages,
+    spectatorMessages,
     latestGameUpdate,
     latestMove,
     gameOverEvent,
@@ -141,6 +150,7 @@ export function useChessRealtime(gameId?: number) {
     roomUsers,
     sendLobbyChat,
     sendGameChat,
+    sendSpectatorChat,
     sendDrawOffer,
   };
 }

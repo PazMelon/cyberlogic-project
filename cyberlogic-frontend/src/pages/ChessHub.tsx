@@ -11,11 +11,17 @@ import {
   fetchUserChessStats,
   fetchLobbyMessages,
   sendLobbyMessage,
+  fetchChessTournaments,
+  createChessTournament,
+  joinChessTournament,
+  leaveChessTournament,
+  startChessTournament,
   type ChessGame,
   type ChessPlayerStat,
   type ChessLobbyChatMessage,
+  type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -24,6 +30,8 @@ import { OnlinePlayersCard } from '../components/chess/OnlinePlayersCard';
 import { LobbyMessageHubCard } from '../components/chess/LobbyMessageHubCard';
 import { CreateMatchModal } from '../components/chess/CreateMatchModal';
 import { MobileCommunityDrawer } from '../components/chess/MobileCommunityDrawer';
+import { ChessTournamentBracket } from '../components/chess/ChessTournamentBracket';
+import { CreateTournamentModal } from '../components/chess/CreateTournamentModal';
 
 export default function ChessHub() {
   const { user } = useAuth();
@@ -36,8 +44,13 @@ export default function ChessHub() {
   const [leaderboard, setLeaderboard] = useState<ChessPlayerStat[]>([]);
   const [userStat, setUserStat] = useState<ChessPlayerStat | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'lobby' | 'leaderboard'>('lobby');
+  const [activeTab, setActiveTab] = useState<'lobby' | 'tournaments' | 'leaderboard'>('lobby');
   const [leaderboardSort, setLeaderboardSort] = useState<'elo' | 'reputation'>('elo');
+
+  // Tournaments State
+  const [tournaments, setTournaments] = useState<ChessTournament[]>([]);
+  const [selectedTournament, setSelectedTournament] = useState<ChessTournament | null>(null);
+  const [showCreateTournamentModal, setShowCreateTournamentModal] = useState(false);
 
   // Create Game Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -67,14 +80,16 @@ export default function ChessHub() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [gamesList, lbData, myStats] = await Promise.all([
+      const [gamesList, lbData, myStats, tourneys] = await Promise.all([
         fetchChessGames(),
         fetchChessLeaderboard(leaderboardSort),
         fetchUserChessStats(),
+        fetchChessTournaments(),
       ]);
       setGames(gamesList);
       setLeaderboard(lbData);
       setUserStat(myStats);
+      setTournaments(tourneys);
     } catch (err) {
       console.error('[ChessHub] Failed to load data:', err);
     } finally {
@@ -85,6 +100,78 @@ export default function ChessHub() {
   useEffect(() => {
     loadData();
   }, [leaderboardSort]);
+
+  const handleCreateTournament = async (data: {
+    title: string;
+    description?: string;
+    max_players: number;
+    time_control: number;
+    type: 'ranked' | 'casual';
+  }) => {
+    const created = await createChessTournament(data);
+    setTournaments((prev) => [created, ...prev]);
+    setSelectedTournament(created);
+    showAlert({
+      title: 'Tournament Created!',
+      message: `${created.title} is now open for player registration!`,
+      type: 'success',
+    });
+  };
+
+  const handleJoinTournament = async (tId: number) => {
+    try {
+      const updated = await joinChessTournament(tId);
+      setTournaments((prev) => prev.map((t) => (t.id === tId ? updated : t)));
+      if (selectedTournament?.id === tId) setSelectedTournament(updated);
+    } catch (err: any) {
+      showAlert({
+        title: 'Join Error',
+        message: err.message || 'Could not join tournament',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleLeaveTournament = async (tId: number) => {
+    try {
+      const updated = await leaveChessTournament(tId);
+      setTournaments((prev) => prev.map((t) => (t.id === tId ? updated : t)));
+      if (selectedTournament?.id === tId) setSelectedTournament(updated);
+    } catch (err: any) {
+      showAlert({
+        title: 'Leave Error',
+        message: err.message || 'Could not leave tournament',
+        type: 'error',
+      });
+    }
+  };
+
+  const handleStartTournament = async (tId: number) => {
+    const confirm = await showConfirm({
+      title: 'Start Championship Bracket?',
+      message: 'Randomly pair registered players and generate the tournament bracket now?',
+      type: 'warning',
+      confirmText: 'Start Tournament',
+    });
+    if (!confirm) return;
+
+    try {
+      const updated = await startChessTournament(tId);
+      setTournaments((prev) => prev.map((t) => (t.id === tId ? updated : t)));
+      setSelectedTournament(updated);
+      showAlert({
+        title: 'Tournament Started!',
+        message: 'Matches have been generated! Players can now enter their round games.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      showAlert({
+        title: 'Start Error',
+        message: err.message || 'Could not start tournament',
+        type: 'error',
+      });
+    }
+  };
 
   // Load initial lobby messages from 7-day retention DB
   useEffect(() => {
@@ -274,7 +361,10 @@ export default function ChessHub() {
           {/* Main Navigation Tabs - Fixed Sticky Header constrained to main column */}
           <div className="sticky top-0 z-20 bg-[var(--cl-surface-950)]/95 backdrop-blur-md py-2.5 px-1 border-b border-[var(--cl-border)] flex items-center gap-2 overflow-x-auto no-scrollbar rounded-xl">
             <button
-              onClick={() => setActiveTab('lobby')}
+              onClick={() => {
+                setActiveTab('lobby');
+                setSelectedTournament(null);
+              }}
               className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'lobby'
                   ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
@@ -284,6 +374,16 @@ export default function ChessHub() {
               <Swords className="w-4 h-4" /> Match Lobby & Chat
             </button>
             <button
+              onClick={() => setActiveTab('tournaments')}
+              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'tournaments'
+                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+              }`}
+            >
+              <Trophy className="w-4 h-4" /> Tournaments & Brackets
+            </button>
+            <button
               onClick={() => setActiveTab('leaderboard')}
               className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 activeTab === 'leaderboard'
@@ -291,12 +391,12 @@ export default function ChessHub() {
                   : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
               }`}
             >
-              <Trophy className="w-4 h-4" /> Global Leaderboards
+              <Award className="w-4 h-4" /> Global Leaderboards
             </button>
           </div>
 
           {/* Active Tab Content */}
-          {activeTab === 'lobby' ? (
+          {activeTab === 'lobby' && (
             <AvailableMatchRoomsCard
               games={games}
               loading={loading}
@@ -307,7 +407,158 @@ export default function ChessHub() {
               onOpenCreateModal={() => setShowCreateModal(true)}
               onDeleteGame={handleDeleteGame}
             />
-          ) : (
+          )}
+
+          {activeTab === 'tournaments' && (
+            <div className="space-y-6">
+              {/* Header & Create Tournament Trigger */}
+              <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-5 shadow-xl flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-extrabold text-[var(--cl-text-primary)] flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-amber-400" /> Championship Arena
+                  </h2>
+                  <p className="text-xs text-[var(--cl-text-muted)] mt-0.5">
+                    Single-elimination random seed tournament brackets leading to championship!
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateTournamentModal(true)}
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/20 active:scale-95 shrink-0"
+                >
+                  <Plus className="w-4 h-4" /> Create Tournament
+                </button>
+              </div>
+
+              {/* Selected Tournament Bracket View */}
+              {selectedTournament ? (
+                <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-6 shadow-xl space-y-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--cl-border)]/60">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedTournament(null)}
+                          className="text-xs font-bold text-[var(--cl-primary-light)] hover:underline"
+                        >
+                          ← Back to All Tournaments
+                        </button>
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          {selectedTournament.status}
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-extrabold text-[var(--cl-text-primary)] mt-1">
+                        {selectedTournament.title}
+                      </h2>
+                      <p className="text-xs text-[var(--cl-text-muted)]">
+                        Time Control: {selectedTournament.time_control} mins | Max Players: {selectedTournament.max_players} | Type: {selectedTournament.type}
+                      </p>
+                    </div>
+
+                    {/* Action Controls based on Tournament Status */}
+                    <div className="flex items-center gap-2">
+                      {selectedTournament.status === 'registration' && (
+                        <>
+                          {selectedTournament.participants?.some((p) => p.user_id === user?.id) ? (
+                            <button
+                              onClick={() => handleLeaveTournament(selectedTournament.id)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                              <LogOut className="w-3.5 h-3.5" /> Leave Registration
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleJoinTournament(selectedTournament.id)}
+                              disabled={(selectedTournament.participants?.length || 0) >= selectedTournament.max_players}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-[var(--cl-primary)] text-slate-950 hover:brightness-110 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-[var(--cl-primary)]/20 disabled:opacity-50"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" /> Join Tournament ({selectedTournament.participants?.length || 0}/{selectedTournament.max_players})
+                            </button>
+                          )}
+
+                          {(selectedTournament.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && (
+                            <button
+                              onClick={() => handleStartTournament(selectedTournament.id)}
+                              disabled={(selectedTournament.participants?.length || 0) < 2}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" /> Start & Pair Bracket
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bracket Component */}
+                  <ChessTournamentBracket tournament={selectedTournament} />
+                </div>
+              ) : (
+                /* Tournaments Grid List */
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {tournaments.length === 0 ? (
+                    <div className="col-span-2 bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-10 text-center text-xs text-[var(--cl-text-muted)]">
+                      No active tournaments right now. Click "Create Tournament" to launch one!
+                    </div>
+                  ) : (
+                    tournaments.map((t) => {
+                      return (
+                        <div
+                          key={t.id}
+                          onClick={() => setSelectedTournament(t)}
+                          className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] hover:border-[var(--cl-primary)]/50 rounded-2xl p-5 shadow-xl transition-all cursor-pointer group hover:scale-[1.01] space-y-4"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className={`inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border mb-1.5 ${
+                                t.status === 'registration'
+                                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                  : t.status === 'in_progress'
+                                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                                  : 'bg-slate-500/10 border-slate-500/30 text-slate-400'
+                              }`}>
+                                {t.status === 'registration' ? 'Open for Joining' : t.status === 'in_progress' ? 'Matches In Progress' : 'Completed'}
+                              </span>
+                              <h3 className="text-base font-extrabold text-[var(--cl-text-primary)] group-hover:text-[var(--cl-primary-light)] transition-colors">
+                                {t.title}
+                              </h3>
+                            </div>
+                            <Trophy className="w-6 h-6 text-amber-400 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-[var(--cl-surface-950)] rounded-xl border border-[var(--cl-border)]/50 text-[11px]">
+                            <div>
+                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Players</span>
+                              <span className="font-bold text-[var(--cl-text-primary)]">
+                                {t.participants?.length || 0} / {t.max_players}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Time</span>
+                              <span className="font-bold text-[var(--cl-text-primary)]">{t.time_control} mins</span>
+                            </div>
+                            <div>
+                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Type</span>
+                              <span className="font-bold text-[var(--cl-text-primary)] capitalize">{t.type}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[10px] text-[var(--cl-text-muted)]">
+                              Created by {t.creator?.name || 'Player'}
+                            </span>
+                            <span className="text-xs font-bold text-[var(--cl-primary-light)] group-hover:translate-x-1 transition-transform">
+                              View Bracket →
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'leaderboard' && (
             <ChessLeaderboardCard
               leaderboard={leaderboard}
               leaderboardSort={leaderboardSort}
@@ -383,6 +634,13 @@ export default function ChessHub() {
         onSetAllowSpectators={setAllowSpectators}
         onSetColorPref={setColorPref}
         onCreateGame={handleCreateGame}
+      />
+
+      {/* Create Tournament Modal */}
+      <CreateTournamentModal
+        isOpen={showCreateTournamentModal}
+        onClose={() => setShowCreateTournamentModal(false)}
+        onCreate={handleCreateTournament}
       />
     </div>
   );

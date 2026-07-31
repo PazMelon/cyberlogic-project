@@ -191,3 +191,125 @@ export async function sendLobbyMessage(text: string): Promise<ChessLobbyChatMess
   const data = await res.json();
   return data.message;
 }
+
+// Tournament API Client & Interfaces
+export interface ChessTournamentParticipant {
+  id: number;
+  tournament_id: number;
+  user_id: number;
+  seed: number | null;
+  status: 'active' | 'eliminated' | 'champion';
+  joined_at: string;
+  user?: ChessUserSummary;
+}
+
+export interface ChessTournamentMatch {
+  id: number;
+  tournament_id: number;
+  round_number: number;
+  match_number: number;
+  is_third_place?: boolean;
+  bracket_type?: 'winners' | 'losers';
+  white_user_id: number | null;
+  black_user_id: number | null;
+  chess_game_id: number | null;
+  winner_user_id: number | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'bye';
+  win_reason: string | null;
+  whiteUser?: ChessUserSummary;
+  blackUser?: ChessUserSummary;
+  winnerUser?: ChessUserSummary;
+  chessGame?: ChessGame;
+}
+
+export interface ChessTournament {
+  id: number;
+  title: string;
+  description: string | null;
+  creator_id: number;
+  max_players: number;
+  time_control: number;
+  type: 'ranked' | 'casual';
+  enable_third_place_match?: boolean;
+  elimination_mode?: 'single' | 'double';
+  status: 'registration' | 'in_progress' | 'completed' | 'cancelled';
+  winner_id: number | null;
+  current_round: number;
+  total_rounds: number;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  creator?: ChessUserSummary;
+  winner?: ChessUserSummary;
+  participants?: ChessTournamentParticipant[];
+  matches?: ChessTournamentMatch[];
+}
+
+export async function fetchChessTournaments(): Promise<ChessTournament[]> {
+  const res = await apiRequest('/api/chess/tournaments');
+  if (!res.ok) throw new Error('Failed to fetch tournaments');
+  const data = await res.json();
+  return data.tournaments;
+}
+
+export async function createChessTournament(data: {
+  title: string;
+  description?: string;
+  max_players: number;
+  time_control: number;
+  type?: 'ranked' | 'casual';
+  enable_third_place_match?: boolean;
+  elimination_mode?: 'single' | 'double';
+}): Promise<ChessTournament> {
+  const res = await apiRequest('/api/chess/tournaments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create tournament');
+  const result = await res.json();
+  return result.tournament;
+}
+
+export async function fetchChessTournament(id: number): Promise<ChessTournament> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}`);
+  if (!res.ok) throw new Error('Failed to fetch tournament details');
+  const data = await res.json();
+  return data.tournament;
+}
+
+export async function joinChessTournament(id: number): Promise<ChessTournament> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}/join`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to join tournament');
+  }
+  const data = await res.json();
+  return data.tournament;
+}
+
+export async function leaveChessTournament(id: number): Promise<ChessTournament> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}/leave`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to leave tournament');
+  }
+  const data = await res.json();
+  return data.tournament;
+}
+
+export async function startChessTournament(id: number): Promise<ChessTournament> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}/start`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to start tournament');
+  }
+  const data = await res.json();
+  return data.tournament;
+}
+
