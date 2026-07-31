@@ -136,9 +136,12 @@ class ChessTournamentService
             throw new \Exception('Only the tournament creator or an admin can start this tournament.');
         }
 
-        if ($tournament->status !== 'registration') {
+        if ($tournament->status !== 'registration' && !($tournament->status === 'in_progress' && $tournament->matches()->count() === 0)) {
             throw new \Exception('Tournament has already started or completed.');
         }
+
+        // Clean up any stale matches
+        $tournament->matches()->delete();
 
         $participants = $tournament->participants()->with('user')->get();
         $playerCount = $participants->count();
@@ -202,6 +205,7 @@ class ChessTournamentService
                             'tournament_id' => $tournament->id,
                             'round_number' => 1,
                             'match_number' => $m,
+                            'bracket_type' => 'winners',
                             'white_user_id' => $whiteId,
                             'black_user_id' => null,
                             'winner_user_id' => $whiteId,
@@ -212,15 +216,18 @@ class ChessTournamentService
                         // Real match between 2 players
                         $game = $this->createMatchGame($tournament, $whiteId, $blackId);
 
-                        ChessTournamentMatch::create([
+                        $match = ChessTournamentMatch::create([
                             'tournament_id' => $tournament->id,
                             'round_number' => 1,
                             'match_number' => $m,
+                            'bracket_type' => 'winners',
                             'white_user_id' => $whiteId,
                             'black_user_id' => $blackId,
                             'chess_game_id' => $game->id,
                             'status' => 'in_progress',
                         ]);
+
+                        $this->notifyMatchPlayers($match, $game);
                     }
                 } else {
                     // Future round matches (placeholder slots)
@@ -228,26 +235,32 @@ class ChessTournamentService
                         'tournament_id' => $tournament->id,
                         'round_number' => $r,
                         'match_number' => $m,
+                        'bracket_type' => 'winners',
                         'is_third_place' => false,
                         'white_user_id' => null,
                         'black_user_id' => null,
                         'chess_game_id' => null,
                         'status' => 'pending',
                     ]);
+                }
+            }
+        }
 
-                    // If this is the Final Round and enable_third_place_match is enabled, create 3rd place match placeholder
-                    if ($r === $totalRounds && $tournament->enable_third_place_match && $totalRounds >= 2 && $m === 1) {
-                        ChessTournamentMatch::create([
-                            'tournament_id' => $tournament->id,
-                            'round_number' => $r,
-                            'match_number' => 2,
-                            'is_third_place' => true,
-                            'white_user_id' => null,
-                            'black_user_id' => null,
-                            'chess_game_id' => null,
-                            'status' => 'pending',
-                        ]);
-                    }
+        // Generate Losers Bracket matches if Double Elimination mode
+        if ($tournament->elimination_mode === 'double') {
+            for ($r = 1; $r <= $totalRounds; $r++) {
+                $losersCount = max(1, (int) ($numMatchesRound1 / pow(2, $r)));
+                for ($m = 1; $m <= $losersCount; $m++) {
+                    ChessTournamentMatch::create([
+                        'tournament_id' => $tournament->id,
+                        'round_number' => $r,
+                        'match_number' => $m,
+                        'bracket_type' => 'losers',
+                        'white_user_id' => null,
+                        'black_user_id' => null,
+                        'chess_game_id' => null,
+                        'status' => 'pending',
+                    ]);
                 }
             }
         }
@@ -299,6 +312,47 @@ class ChessTournamentService
     }
 
     /**
+     * Notify paired players that their match is ready to play.
+     */
+    protected function notifyMatchPlayers(ChessTournamentMatch $match, ChessGame $game): void
+    {
+        $tournament = $match->tournament;
+        $title = "⚔️ Tournament Match Ready!";
+        $body = "Match #{$match->match_number} in {$tournament->title} is now live! Click to enter.";
+        $link = "/app/chess/game/{$game->game_code}";
+
+        foreach ([$match->white_user_id, $match->black_user_id] as $userId) {
+            if ($userId) {
+                try {
+                    Notification::create([
+                        'user_id' => $userId,
+                        'type' => 'chess_match_ready',
+                        'title' => $title,
+                        'body' => $body,
+                        'icon' => 'swords',
+                        'link' => $link,
+                    ]);
+
+                    $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
+                    $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+
+                    Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                        'channel' => "user_{$userId}",
+                        'type' => 'notification',
+                        'payload' => [
+                            'title' => $title,
+                            'body' => $body,
+                            'link' => $link,
+                        ],
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("[ChessTournamentService] Match notification error: " . $e->getMessage());
+                }
+            }
+        }
+    }
+
+    /**
      * Handle game completion hook for tournament matches.
      */
     public function handleMatchFinished(ChessGame $game): void
@@ -313,21 +367,49 @@ class ChessTournamentService
         $match->win_reason = $game->win_reason;
         $match->save();
 
-        // Eliminate loser
+        // Determine loser ID
         $loserId = null;
         if ($game->winner_id) {
             $loserId = $game->white_player_id === $game->winner_id ? $game->black_player_id : $game->white_player_id;
-            if ($loserId) {
-                ChessTournamentParticipant::where('tournament_id', $match->tournament_id)
-                    ->where('user_id', $loserId)
-                    ->update(['status' => 'eliminated']);
-            }
         }
 
         $tournament = ChessTournament::find($match->tournament_id);
-        if ($tournament) {
-            $this->checkAndAdvanceRound($tournament);
+        if (!$tournament) {
+            return;
         }
+
+        // If Double Elimination and match was in Winners Bracket: drop loser down to Losers Bracket match!
+        if ($tournament->elimination_mode === 'double' && $match->bracket_type !== 'losers' && $loserId) {
+            $losersMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                ->where('bracket_type', 'losers')
+                ->where('round_number', $match->round_number)
+                ->where('status', 'pending')
+                ->first();
+
+            if ($losersMatch) {
+                if (!$losersMatch->white_user_id) {
+                    $losersMatch->white_user_id = $loserId;
+                } else if (!$losersMatch->black_user_id) {
+                    $losersMatch->black_user_id = $loserId;
+                }
+                $losersMatch->save();
+
+                if ($losersMatch->white_user_id && $losersMatch->black_user_id) {
+                    $lGame = $this->createMatchGame($tournament, $losersMatch->white_user_id, $losersMatch->black_user_id);
+                    $losersMatch->chess_game_id = $lGame->id;
+                    $losersMatch->status = 'in_progress';
+                    $losersMatch->save();
+                    $this->notifyMatchPlayers($losersMatch, $lGame);
+                }
+            }
+        } else if ($loserId) {
+            // Eliminated if lost in Losers Bracket or Single Elimination
+            ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                ->where('user_id', $loserId)
+                ->update(['status' => 'eliminated']);
+        }
+
+        $this->checkAndAdvanceRound($tournament);
     }
 
     /**
@@ -465,6 +547,26 @@ class ChessTournamentService
     }
 
     /**
+     * Cancel tournament and clean up live games.
+     */
+    public function cancelTournament(ChessTournament $tournament): void
+    {
+        $matchGameIds = $tournament->matches()->whereNotNull('chess_game_id')->pluck('chess_game_id');
+        if ($matchGameIds->isNotEmpty()) {
+            ChessGame::whereIn('id', $matchGameIds)->where('status', 'in_progress')->update(['status' => 'cancelled']);
+        }
+
+        $this->broadcastTournamentEvent($tournament->id, 'tournament_cancelled', [
+            'tournament_id' => $tournament->id,
+            'message' => 'Tournament was cancelled by the host.',
+        ]);
+
+        $tournament->matches()->delete();
+        $tournament->participants()->delete();
+        $tournament->delete();
+    }
+
+    /**
      * Broadcast WebSocket events for tournament updates.
      */
     protected function broadcastTournamentEvent(int $tournamentId, string $event, array $data): void
@@ -473,19 +575,27 @@ class ChessTournamentService
             $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
             $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
 
-            Http::timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
-                'secret' => $secret,
-                'channel' => "chess_tournament_{$tournamentId}",
+            $payload = array_merge([
                 'event' => $event,
-                'data' => $data,
+                'tournament_id' => $tournamentId,
+            ], $data);
+
+            // Broadcast to chess_tournament_{id} channel
+            Http::withHeaders([
+                'X-Realtime-Secret' => $secret,
+            ])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                'channel' => "chess_tournament_{$tournamentId}",
+                'type' => 'chess_tournament_updated',
+                'payload' => $payload,
             ]);
 
-            // Also notify lobby about tournament activity
-            Http::timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
-                'secret' => $secret,
+            // Broadcast to chess_lobby channel
+            Http::withHeaders([
+                'X-Realtime-Secret' => $secret,
+            ])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
                 'channel' => 'chess_lobby',
-                'event' => 'chess_tournament_updated',
-                'data' => $data,
+                'type' => 'chess_tournament_updated',
+                'payload' => $payload,
             ]);
         } catch (\Exception $e) {
             Log::error("[ChessTournamentService] Realtime broadcast error: " . $e->getMessage());

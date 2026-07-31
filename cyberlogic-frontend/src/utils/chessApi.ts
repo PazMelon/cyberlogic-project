@@ -36,7 +36,7 @@ export interface ChessGame {
   white_time_left_ms: number | null;
   black_time_left_ms: number | null;
   allow_spectators: boolean;
-  status: 'waiting' | 'in_progress' | 'completed' | 'aborted' | 'draw_offered';
+  status: 'waiting' | 'in_progress' | 'completed' | 'aborted' | 'draw_offered' | 'cancelled';
   fen: string;
   pgn: string | null;
   current_turn: 'white' | 'black';

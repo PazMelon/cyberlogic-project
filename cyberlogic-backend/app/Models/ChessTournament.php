@@ -57,6 +57,6 @@ class ChessTournament extends Model
 
     public function matches(): HasMany
     {
-        return $this->hasMany(ChessTournamentMatch::class, 'tournament_id');
+        return $this->hasMany(ChessTournamentMatch::class, 'tournament_id')->orderBy('round_number')->orderBy('match_number');
     }
 }

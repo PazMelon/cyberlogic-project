@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useChessRealtime } from '../hooks/useChessRealtime';
@@ -39,6 +39,7 @@ export default function ChessHub() {
   const { user } = useAuth();
   const { showAlert, showConfirm } = useDialog();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { onlineUsers } = useWebSocket();
   const { lobbyMessages: wsLobbyMessages, sendLobbyChat, latestGameUpdate } = useChessRealtime();
 
@@ -103,6 +104,22 @@ export default function ChessHub() {
     loadData();
   }, [leaderboardSort]);
 
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    const tourneyParam = searchParams.get('tournament');
+
+    if (tabParam === 'tournaments') {
+      setActiveTab('tournaments');
+    } else if (tabParam === 'lobby') {
+      setActiveTab('lobby');
+    }
+
+    if (tourneyParam && !isNaN(Number(tourneyParam))) {
+      const tId = Number(tourneyParam);
+      fetchChessTournament(tId).then((fullT) => setSelectedTournament(fullT)).catch(console.error);
+    }
+  }, [searchParams]);
+
   const handleCreateTournament = async (data: {
     title: string;
     description?: string;
@@ -158,9 +175,11 @@ export default function ChessHub() {
     if (!confirm) return;
 
     try {
-      const updated = await startChessTournament(tId);
-      setTournaments((prev) => prev.map((t) => (t.id === tId ? updated : t)));
-      setSelectedTournament(updated);
+      await startChessTournament(tId);
+      const fullT = await fetchChessTournament(tId);
+      const allTourneys = await fetchChessTournaments();
+      setTournaments(allTourneys);
+      setSelectedTournament(fullT);
       showAlert({
         title: 'Tournament Started!',
         message: 'Matches have been generated! Players can now enter their round games.',
@@ -298,24 +317,36 @@ export default function ChessHub() {
     }
   }, [latestGameUpdate]);
 
-  // Subscribe to live tournament WebSocket events
+  // Subscribe to live tournament WebSocket events (Lobby & Active Tournament channel)
   const { subscribe } = useWebSocket();
   useEffect(() => {
-    const unsub = subscribe('chess_lobby', (_payload: any, event: string) => {
-      if (event === 'chess_tournament_updated' || event === 'tournament_created' || event === 'tournament_completed') {
+    const unsubLobby = subscribe('chess_lobby', (_payload: any, event: string) => {
+      if (
+        event === 'chess_tournament_updated' ||
+        event === 'tournament_created' ||
+        event === 'tournament_completed' ||
+        event === 'tournament_started'
+      ) {
         fetchChessTournaments().then((tourneys) => {
           setTournaments(tourneys);
-          if (selectedTournament) {
-            const currentUpdated = tourneys.find((t) => t.id === selectedTournament.id);
-            if (currentUpdated) {
-              fetchChessTournament(currentUpdated.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
-            }
+          if (selectedTournament?.id) {
+            fetchChessTournament(selectedTournament.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
           }
         });
       }
     });
 
-    return () => unsub();
+    return () => unsubLobby();
+  }, [subscribe, selectedTournament?.id]);
+
+  useEffect(() => {
+    if (!selectedTournament?.id) return;
+    const channelName = `chess_tournament_${selectedTournament.id}`;
+    const unsubTourney = subscribe(channelName, (_payload: any) => {
+      fetchChessTournament(selectedTournament.id).then((fullT: ChessTournament) => setSelectedTournament(fullT));
+    });
+
+    return () => unsubTourney();
   }, [subscribe, selectedTournament?.id]);
 
   const handleCreateGame = async () => {
@@ -500,8 +531,13 @@ export default function ChessHub() {
                       <h2 className="text-xl font-extrabold text-[var(--cl-text-primary)] mt-1">
                         {selectedTournament.title}
                       </h2>
-                      <p className="text-xs text-[var(--cl-text-muted)]">
-                        Time Control: {selectedTournament.time_control} mins | Max Players: {selectedTournament.max_players} | Type: {selectedTournament.type}
+                      {selectedTournament.description && (
+                        <p className="text-xs text-[var(--cl-text-secondary)] mt-1.5 leading-relaxed bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/50 rounded-xl p-2.5 max-w-2xl italic font-medium">
+                          "{selectedTournament.description}"
+                        </p>
+                      )}
+                      <p className="text-xs text-[var(--cl-text-muted)] mt-1.5 font-medium">
+                        Time Control: {selectedTournament.time_control} mins | Max Players: {selectedTournament.max_players} | Mode: {selectedTournament.elimination_mode === 'double' ? '🛡️ Double Knockout' : '⚡ Single Knockout'}
                       </p>
                     </div>
 
@@ -559,7 +595,7 @@ export default function ChessHub() {
                   </div>
 
                   {/* Bracket Component */}
-                  <ChessTournamentBracket tournament={selectedTournament} />
+                  <ChessTournamentBracket tournament={selectedTournament} currentUserId={user?.id} />
                 </div>
               ) : (
                 /* Tournaments Grid List */
@@ -590,6 +626,11 @@ export default function ChessHub() {
                               <h3 className="text-base font-extrabold text-[var(--cl-text-primary)] group-hover:text-[var(--cl-primary-light)] transition-colors">
                                 {t.title}
                               </h3>
+                              {t.description && (
+                                <p className="text-xs text-[var(--cl-text-secondary)] mt-1 line-clamp-2 italic font-medium">
+                                  "{t.description}"
+                                </p>
+                              )}
                             </div>
                             <Trophy className="w-6 h-6 text-amber-400 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
                           </div>

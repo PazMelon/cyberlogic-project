@@ -1,33 +1,38 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
-import { Trophy, Swords, Crown, Play, CheckCircle2, Shield } from 'lucide-react';
+import { Trophy, Swords, Crown, Play, CheckCircle2, Shield, Users, UserCheck, Clock, Eye } from 'lucide-react';
 import { type ChessTournament, type ChessTournamentMatch } from '../../utils/chessApi';
 
 interface ChessTournamentBracketProps {
   tournament: ChessTournament;
+  currentUserId?: number;
   onRefresh?: () => void;
 }
 
-export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ tournament }) => {
+export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ tournament, currentUserId }) => {
   const navigate = useNavigate();
 
-  const totalRounds = tournament.total_rounds || 1;
+  const maxP = Math.max(2, Math.min(32, tournament.max_players || 8));
+  const targetBracketSize = Math.pow(2, Math.max(1, Math.ceil(Math.log2(maxP))));
+  const totalRounds = tournament.total_rounds || Math.log2(targetBracketSize);
   const allMatches = tournament.matches || [];
+  const participants = tournament.participants || [];
+
+  const isRegistration = tournament.status === 'registration';
+  const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers');
 
   const winnersMatchesByRound: Record<number, ChessTournamentMatch[]> = {};
   const losersMatchesByRound: Record<number, ChessTournamentMatch[]> = {};
 
   for (let r = 1; r <= totalRounds; r++) {
     winnersMatchesByRound[r] = allMatches
-      .filter((m) => m.round_number === r && m.bracket_type !== 'losers')
-      .sort((a, b) => a.match_number - b.match_number);
+      .filter((m) => Number(m.round_number) === Number(r) && m.bracket_type !== 'losers')
+      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
 
     losersMatchesByRound[r] = allMatches
-      .filter((m) => m.round_number === r && m.bracket_type === 'losers')
-      .sort((a, b) => a.match_number - b.match_number);
+      .filter((m) => Number(m.round_number) === Number(r) && m.bracket_type === 'losers')
+      .sort((a, b) => Number(a.match_number) - Number(b.match_number));
   }
-
-  const isDoubleElimination = tournament.elimination_mode === 'double' || allMatches.some((m) => m.bracket_type === 'losers');
 
   const getRoundTitle = (roundNum: number, total: number, isDouble: boolean) => {
     if (roundNum === total && !isDouble) return '🏆 Championship Final';
@@ -37,9 +42,29 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
     return `Round ${roundNum}`;
   };
 
+  const getPlayerName = (u: any) => {
+    if (!u) return null;
+    if (u.username) return u.username;
+    if (u.name) return u.name;
+    const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+    return fullName.length > 0 ? fullName : 'Player';
+  };
+
+  const getPlayerAvatar = (u: any, fallbackSeed: string) => {
+    if (!u) return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(fallbackSeed)}`;
+    const rawAvatar = u.avatar || u.avatar_path;
+    if (rawAvatar && typeof rawAvatar === 'string' && rawAvatar.trim().length > 0) {
+      const clean = rawAvatar.trim();
+      if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+      return clean.startsWith('/') ? clean : `/${clean}`;
+    }
+    const name = getPlayerName(u) || fallbackSeed;
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+  };
+
   // Exact mathematical coordinate calculation for 100% pixel-perfect bracket lines
-  const MATCH_HEIGHT = 115;
-  const GAP_HEIGHT = 25;
+  const MATCH_HEIGHT = 195;
+  const GAP_HEIGHT = 35;
   const UNIT_HEIGHT = MATCH_HEIGHT + GAP_HEIGHT;
 
   const getMatchCenterY = (r: number, m: number): number => {
@@ -49,17 +74,56 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
     return (getMatchCenterY(r - 1, m * 2) + getMatchCenterY(r - 1, m * 2 + 1)) / 2;
   };
 
-  const numRound1Matches = winnersMatchesByRound[1]?.length || Math.pow(2, totalRounds - 1);
+  const numRound1Matches = targetBracketSize / 2;
   const totalTreeHeight = Math.max(300, numRound1Matches * UNIT_HEIGHT);
 
-  const renderMatchCard = (match: ChessTournamentMatch, isFinalRound: boolean) => {
-    const isLive = match.status === 'in_progress' && match.chessGame;
+  const renderMatchCard = (match: ChessTournamentMatch | null, isFinalRound: boolean, roundNum: number, mIdx: number) => {
+    if (!match || isRegistration) {
+      // Unstarted / Registration Placeholder Match Card
+      return (
+        <div
+          key={`placeholder-${roundNum}-${mIdx}`}
+          className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)]/60 rounded-xl p-3.5 shadow-sm relative text-[var(--cl-text-primary)] space-y-2 opacity-80 hover:opacity-100 transition-opacity"
+        >
+          <div className="flex items-center justify-between text-[10px] font-mono mb-1 font-bold">
+            <span className="text-[var(--cl-text-secondary)]">Match #{mIdx + 1}</span>
+            <span className="text-amber-600 dark:text-amber-400 font-extrabold flex items-center gap-1">
+              <Clock className="w-3 h-3" /> AWAITING SEEDING
+            </span>
+          </div>
+
+          <div className="p-2 rounded-lg text-xs font-bold bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] border border-[var(--cl-border)]/40 flex items-center justify-between">
+            <span className="truncate italic">Player TBD</span>
+            <span className="text-[10px] font-mono font-normal">Seed #?</span>
+          </div>
+          <div className="p-2 rounded-lg text-xs font-bold bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] border border-[var(--cl-border)]/40 flex items-center justify-between">
+            <span className="truncate italic">Player TBD</span>
+            <span className="text-[10px] font-mono font-normal">Seed #?</span>
+          </div>
+        </div>
+      );
+    }
+
+    const whiteUserObj = (match as any).white_user || match.whiteUser;
+    const blackUserObj = (match as any).black_user || match.blackUser;
+    const chessGameObj = (match as any).chess_game || match.chessGame;
+
+    const isLive = match.status === 'in_progress' && chessGameObj;
     const isBye = match.status === 'bye';
     const isCompleted = match.status === 'completed';
     const isLosersBracket = match.bracket_type === 'losers';
 
     const whiteWinner = match.winner_user_id && match.winner_user_id === match.white_user_id;
     const blackWinner = match.winner_user_id && match.winner_user_id === match.black_user_id;
+
+    const isParticipant = currentUserId && (
+      Number(currentUserId) === Number(match.white_user_id) ||
+      Number(currentUserId) === Number(match.black_user_id)
+    );
+
+    const whiteName = getPlayerName(whiteUserObj);
+    const blackName = getPlayerName(blackUserObj);
+    const gameCode = chessGameObj?.game_code;
 
     return (
       <div
@@ -68,7 +132,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
           isLosersBracket
             ? 'border-cyan-500/40 bg-gradient-to-b from-[var(--cl-surface-900)] to-cyan-950/20'
             : isLive
-            ? 'border-[var(--cl-primary)] ring-2 ring-[var(--cl-primary)]/30'
+            ? 'border-emerald-500 ring-2 ring-emerald-500/30'
             : isFinalRound
             ? 'border-amber-500/50 bg-gradient-to-b from-[var(--cl-surface-900)] to-amber-500/10'
             : 'border-[var(--cl-border)] hover:border-[var(--cl-primary)]/40'
@@ -116,15 +180,22 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shrink-0" title="White Piece" />
-            {match.whiteUser ? (
+            {whiteUserObj || whiteName ? (
               <>
                 <img
-                  src={match.whiteUser.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(match.whiteUser.name || 'W')}`}
+                  src={getPlayerAvatar(whiteUserObj, whiteName || 'W')}
                   alt="White Player"
                   className="w-5 h-5 rounded-full object-cover shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(whiteName || 'W')}`;
+                  }}
                 />
-                <span className="text-xs truncate font-bold">{match.whiteUser.name || match.whiteUser.first_name}</span>
+                <span className="text-xs truncate font-bold">{whiteName || 'White Player'}</span>
               </>
+            ) : match.white_user_id ? (
+              <span className="text-xs font-bold text-[var(--cl-text-primary)] truncate">
+                Player #{match.white_user_id}
+              </span>
             ) : (
               <span className="text-xs italic text-[var(--cl-text-secondary)] font-mono font-semibold">
                 {isLosersBracket ? 'Losers Bracket Player' : 'Winner TBD'}
@@ -144,15 +215,22 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
         >
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-2.5 h-2.5 rounded-full bg-slate-950 border border-slate-600 shrink-0" title="Black Piece" />
-            {match.blackUser ? (
+            {blackUserObj || blackName ? (
               <>
                 <img
-                  src={match.blackUser.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(match.blackUser.name || 'B')}`}
+                  src={getPlayerAvatar(blackUserObj, blackName || 'B')}
                   alt="Black Player"
                   className="w-5 h-5 rounded-full object-cover shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(blackName || 'B')}`;
+                  }}
                 />
-                <span className="text-xs truncate font-bold">{match.blackUser.name || match.blackUser.first_name}</span>
+                <span className="text-xs truncate font-bold">{blackName || 'Black Player'}</span>
               </>
+            ) : match.black_user_id ? (
+              <span className="text-xs font-bold text-[var(--cl-text-primary)] truncate">
+                Player #{match.black_user_id}
+              </span>
             ) : (
               <span className="text-xs italic text-[var(--cl-text-secondary)] font-mono font-semibold">
                 {isLosersBracket ? 'Losers Bracket Player' : 'Winner TBD'}
@@ -162,14 +240,35 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
           {blackWinner && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
         </div>
 
-        {/* Watch / Action Button */}
-        {isLive && match.chessGame && (
-          <button
-            onClick={() => navigate(`/app/chess/${match.chessGame?.game_code}`)}
-            className="w-full mt-3 bg-[var(--cl-primary)] hover:brightness-110 border border-[var(--cl-primary)] text-slate-950 font-extrabold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-98"
-          >
-            <Swords className="w-3.5 h-3.5" /> Watch Match Live
-          </button>
+        {/* Player Join or Spectator Action Button */}
+        {match.white_user_id && match.black_user_id && match.status !== 'completed' && match.status !== 'bye' && (
+          <div className="mt-3">
+            {isParticipant ? (
+              <button
+                onClick={() => {
+                  if (gameCode) {
+                    navigate(`/app/chess/game/${gameCode}`);
+                  }
+                }}
+                disabled={!gameCode}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-extrabold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-98 animate-bounce"
+              >
+                <Swords className="w-3.5 h-3.5" /> {gameCode ? '⚔️ ENTER & PLAY MATCH' : '⏳ MATCH INITIALIZING...'}
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (gameCode) {
+                    navigate(`/app/chess/game/${gameCode}`);
+                  }
+                }}
+                disabled={!gameCode}
+                className="w-full bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-extrabold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md active:scale-98"
+              >
+                <Eye className="w-3.5 h-3.5" /> {gameCode ? '👁️ SPECTATE MATCH LIVE' : '⏳ MATCH INITIALIZING...'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     );
@@ -177,6 +276,56 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
 
   return (
     <div className="space-y-8 animate-fade-in text-[var(--cl-text-primary)]">
+      {/* 👥 Registered Players Roster Panel (When in Registration Mode) */}
+      <div className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] rounded-2xl p-5 space-y-3.5 shadow-lg">
+        <div className="flex items-center justify-between border-b border-[var(--cl-border)]/50 pb-2.5">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-[var(--cl-text-primary)] uppercase tracking-wider">
+            <Users className="w-4 h-4 text-[var(--cl-primary)]" />
+            <span>Registered Players ({participants.length} / {maxP})</span>
+          </div>
+          <span className="text-[10px] font-mono font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded border border-emerald-500/30 flex items-center gap-1">
+            <UserCheck className="w-3 h-3" />
+            {isRegistration ? 'OPEN REGISTRATION' : 'REGISTERED ROSTER'}
+          </span>
+        </div>
+
+        {participants.length === 0 ? (
+          <p className="text-xs text-[var(--cl-text-muted)] italic py-2 text-center">
+            No registered players yet. Be the first to join!
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+            {participants.map((p, pIdx) => {
+              const u = p.user;
+              const name = getPlayerName(u) || `Player #${pIdx + 1}`;
+              const avatar = getPlayerAvatar(u, name);
+
+              return (
+                <div
+                  key={p.id || pIdx}
+                  className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm hover:border-[var(--cl-primary)]/40 transition-colors"
+                >
+                  <img
+                    src={avatar}
+                    alt={name}
+                    className="w-7 h-7 rounded-full object-cover shrink-0 border border-[var(--cl-primary)]/30"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+                    }}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-[var(--cl-text-primary)] truncate block">{name}</span>
+                    <span className="text-[9px] text-[var(--cl-text-secondary)] font-mono font-semibold block">
+                      Seed #{p.seed || pIdx + 1}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Winner Header Banner if Completed */}
       {tournament.status === 'completed' && tournament.winner && (
         <div className="bg-gradient-to-r from-amber-500/20 via-yellow-500/10 to-amber-500/20 border border-amber-500/30 rounded-2xl p-6 text-center shadow-xl space-y-3 relative overflow-hidden">
@@ -190,7 +339,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
             </span>
             <h2 className="text-2xl font-extrabold text-[var(--cl-text-primary)] mt-2 flex items-center justify-center gap-2">
               <Crown className="w-6 h-6 text-amber-500 dark:text-amber-400" />
-              {tournament.winner.name || `${tournament.winner.first_name} ${tournament.winner.last_name}`}
+              {getPlayerName(tournament.winner)}
             </h2>
             <p className="text-xs text-[var(--cl-text-secondary)] font-medium mt-1">
               Awarded +15 Reputation Points & +30 ELO Bonus
@@ -208,6 +357,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
           <div className="flex gap-10 min-w-max p-3 pb-4 relative" style={{ height: `${totalTreeHeight + 60}px` }}>
             {Array.from({ length: totalRounds }, (_, i) => i + 1).map((roundNum) => {
               const roundMatches = winnersMatchesByRound[roundNum] || [];
+              const matchesCount = targetBracketSize / Math.pow(2, roundNum);
               const isFinalRound = roundNum === totalRounds;
               const hasNextRound = roundNum < totalRounds;
 
@@ -219,29 +369,30 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                       {getRoundTitle(roundNum, totalRounds, isDoubleElimination)}
                     </h3>
                     <span className="text-[10px] text-[var(--cl-text-secondary)] font-mono font-bold">
-                      {roundMatches.length} Match{roundMatches.length > 1 ? 'es' : ''}
+                      {matchesCount} Match{matchesCount > 1 ? 'es' : ''}
                     </span>
                   </div>
 
                   {/* Matches List Positioned by Mathematical Y Center */}
                   <div className="relative flex-1">
-                    {roundMatches.map((match, mIdx) => {
+                    {Array.from({ length: matchesCount }, (_, mIdx) => {
+                      const match = roundMatches[mIdx] || null;
                       const centerY = getMatchCenterY(roundNum, mIdx);
                       return (
                         <div
-                          key={match.id}
+                          key={`w-${roundNum}-${mIdx}`}
                           style={{ top: `${centerY - MATCH_HEIGHT / 2}px`, height: `${MATCH_HEIGHT}px` }}
                           className="absolute w-full z-10"
                         >
-                          {renderMatchCard(match, isFinalRound)}
+                          {renderMatchCard(match, isFinalRound, roundNum, mIdx)}
                         </div>
                       );
                     })}
 
                     {/* 100% Mathematically Exact SVG Connectors for Pairs */}
-                    {hasNextRound && roundMatches.length >= 2 && (
+                    {hasNextRound && matchesCount >= 2 && (
                       <svg className="absolute -right-10 top-0 w-10 h-full pointer-events-none text-[var(--cl-primary)] overflow-visible z-0">
-                        {Array.from({ length: Math.floor(roundMatches.length / 2) }, (_, pIdx) => {
+                        {Array.from({ length: Math.floor(matchesCount / 2) }, (_, pIdx) => {
                           const y1 = getMatchCenterY(roundNum, pIdx * 2);
                           const y2 = getMatchCenterY(roundNum, pIdx * 2 + 1);
                           const yMid = (y1 + y2) / 2;
@@ -324,7 +475,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                           Losers Round {roundNum}
                         </h3>
                         <span className="text-[10px] text-cyan-700 dark:text-cyan-300 font-mono font-bold">
-                          {roundMatches.length} Match{roundMatches.length !== 1 ? 'es' : ''}
+                          {roundMatches.length || (targetBracketSize / Math.pow(2, roundNum + 1))} Match(es)
                         </span>
                       </div>
 
@@ -338,7 +489,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                                 style={{ top: `${centerY - MATCH_HEIGHT / 2}px`, height: `${MATCH_HEIGHT}px` }}
                                 className="absolute w-full z-10"
                               >
-                                {renderMatchCard(match, false)}
+                                {renderMatchCard(match, false, roundNum, mIdx)}
                               </div>
                             );
                           })

@@ -142,7 +142,7 @@ export default function ChessGameRoom() {
     }
   }, [latestMove]);
 
-  // Handle latest game status updates
+  // Handle latest game status updates & auto-boot on cancellation
   useEffect(() => {
     if (latestGameUpdate && game && latestGameUpdate.id === game.id) {
       setGame(latestGameUpdate);
@@ -159,6 +159,23 @@ export default function ChessGameRoom() {
       }
     }
   }, [latestGameUpdate, game?.id]);
+
+  // Auto boot/redirect players & spectators when game is cancelled
+  useEffect(() => {
+    if (!game) return;
+
+    if (game.status === 'cancelled') {
+      showAlert({
+        title: 'Match / Tournament Cancelled',
+        message: 'This match or tournament was cancelled by the host. Returning to Chess Arena...',
+        type: 'warning',
+      });
+      const timeout = setTimeout(() => {
+        navigate('/app/chess');
+      }, 2500);
+      return () => clearTimeout(timeout);
+    }
+  }, [game?.status, navigate, showAlert]);
 
   // Live Timer Interval
   useEffect(() => {
@@ -437,13 +454,22 @@ export default function ChessGameRoom() {
 
   const boardArray = chessRef.current.board();
 
+  const bootUserBack = () => {
+    const tournamentId = (game as any)?.tournament_id || (game as any)?.tournament?.id;
+    if (tournamentId) {
+      navigate(`/app/chess?tab=tournaments&tournament=${tournamentId}`);
+    } else {
+      navigate('/app/chess?tab=lobby');
+    }
+  };
+
   return (
     <div className="space-y-6 text-[var(--cl-text-primary)] font-sans">
       {/* Top Header Card */}
       <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/app/chess')}
+            onClick={bootUserBack}
             className="p-2.5 bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] rounded-xl text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -971,7 +997,7 @@ export default function ChessGameRoom() {
             </div>
 
             <button
-              onClick={() => navigate('/app/chess')}
+              onClick={bootUserBack}
               className="w-full bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer"
             >
               Return to Chess Hub

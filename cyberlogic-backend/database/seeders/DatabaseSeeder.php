@@ -74,6 +74,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call(ForumSeeder::class);
         $this->call(ChatChannelSeeder::class);
+        $this->call(DummyMembersSeeder::class);
 
         // Seed site settings defaults
         SiteSetting::updateOrCreate(

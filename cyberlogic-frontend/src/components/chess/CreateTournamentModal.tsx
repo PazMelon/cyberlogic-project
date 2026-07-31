@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { X, Trophy, Clock, Users, Shield, Sparkles, CheckCircle2, Crown, Calendar, Wrench, RefreshCw, UserCheck } from 'lucide-react';
+import { X, Trophy, Clock, Users, Shield, Sparkles, CheckCircle2, Crown, Calendar, Wrench, RefreshCw, UserCheck, Lock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface CreateTournamentModalProps {
   isOpen: boolean;
@@ -20,11 +21,14 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
   onClose,
   onCreate,
 }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [maxPlayers, setMaxPlayers] = useState<number>(8);
   const [timeControl, setTimeControl] = useState<number>(5);
-  const [type, setType] = useState<'ranked' | 'casual'>('ranked');
+  const [type, setType] = useState<'ranked' | 'casual'>(isAdmin ? 'ranked' : 'casual');
   const [eliminationMode, setEliminationMode] = useState<'single' | 'double'>('single');
   const [startTime, setStartTime] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
@@ -319,20 +323,30 @@ export const CreateTournamentModal: React.FC<CreateTournamentModalProps> = ({
 
               {/* Tournament Type */}
               <div>
-                <label className="block text-xs font-bold text-[var(--cl-text-primary)] mb-1 uppercase tracking-wider flex items-center gap-1">
-                  <Shield className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" /> Match Mode
+                <label className="block text-xs font-bold text-[var(--cl-text-primary)] mb-1 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Shield className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" /> Match Mode
+                  </span>
+                  {!isAdmin && (
+                    <span className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Casual Only (Members)
+                    </span>
+                  )}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setType('ranked')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                      type === 'ranked'
-                        ? 'bg-[var(--cl-primary)]/15 border-[var(--cl-primary)] text-[var(--cl-text-primary)] shadow-sm'
-                        : 'bg-[var(--cl-surface-950)] border-[var(--cl-border)]/60 text-[var(--cl-text-secondary)] hover:bg-white/5'
+                    disabled={!isAdmin}
+                    onClick={() => isAdmin && setType('ranked')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
+                      !isAdmin
+                        ? 'opacity-40 cursor-not-allowed bg-[var(--cl-surface-950)] border-[var(--cl-border)]/40 text-[var(--cl-text-muted)]'
+                        : type === 'ranked'
+                        ? 'bg-[var(--cl-primary)]/15 border-[var(--cl-primary)] text-[var(--cl-text-primary)] shadow-sm cursor-pointer'
+                        : 'bg-[var(--cl-surface-950)] border-[var(--cl-border)]/60 text-[var(--cl-text-secondary)] hover:bg-white/5 cursor-pointer'
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" /> Ranked (ELO & Rep)
+                    {!isAdmin ? <Lock className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />} Ranked (ELO & Rep)
                   </button>
                   <button
                     type="button"

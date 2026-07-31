@@ -25,9 +25,13 @@ class ChessTournamentController extends Controller
     public function index(): JsonResponse
     {
         $tournaments = ChessTournament::with([
-            'creator:id,first_name,last_name,avatar_path',
-            'winner:id,first_name,last_name,avatar_path',
-            'participants.user:id,first_name,last_name,avatar_path',
+            'creator',
+            'winner',
+            'participants.user',
+            'matches.whiteUser',
+            'matches.blackUser',
+            'matches.winnerUser',
+            'matches.chessGame',
         ])
             ->orderBy('created_at', 'desc')
             ->limit(20)
@@ -39,15 +43,13 @@ class ChessTournamentController extends Controller
     }
 
     /**
-     * Create a new tournament (Admin only + Audit Log).
+     * Create a new tournament.
+     * Admins can create Ranked tournaments; members can create Casual tournaments.
      */
     public function store(Request $request): JsonResponse
     {
         /** @var User $user */
         $user = Auth::user();
-        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'Unauthorized. Only administrators can create tournaments.'], 403);
-        }
 
         $validated = $request->validate([
             'title' => 'required|string|max:100',
@@ -60,11 +62,20 @@ class ChessTournamentController extends Controller
             'start_time' => 'nullable|date',
         ]);
 
+        // Enforce Ranked mode restriction: Admins only can create Ranked tournaments
+        $requestedType = $validated['type'] ?? 'casual';
+        if ($requestedType === 'ranked' && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can create Ranked tournaments. Members can create Casual tournaments.'], 403);
+        }
+
+        $validated['type'] = ($user->isAdmin() || $user->isSuperAdmin()) ? $requestedType : 'casual';
+
         $tournament = $this->tournamentService->createTournament($user, $validated);
 
         AuditLogger::log('created', 'ChessTournament', $tournament->id, $tournament->title, [
             'max_players' => $tournament->max_players,
             'elimination_mode' => $tournament->elimination_mode,
+            'type' => $tournament->type,
         ], $request);
 
         return response()->json([
@@ -79,14 +90,45 @@ class ChessTournamentController extends Controller
     public function show(int $id): JsonResponse
     {
         $tournament = ChessTournament::with([
-            'creator:id,first_name,last_name,avatar_path',
-            'winner:id,first_name,last_name,avatar_path',
-            'participants.user:id,first_name,last_name,avatar_path',
-            'matches.whiteUser:id,first_name,last_name,avatar_path',
-            'matches.blackUser:id,first_name,last_name,avatar_path',
-            'matches.winnerUser:id,first_name,last_name,avatar_path',
-            'matches.chessGame:id,game_code,status,fen',
+            'creator',
+            'winner',
+            'participants.user',
+            'matches.whiteUser',
+            'matches.blackUser',
+            'matches.winnerUser',
+            'matches.chessGame',
         ])->findOrFail($id);
+
+        if ($tournament->status === 'in_progress' && $tournament->matches->isEmpty() && $tournament->participants->count() >= 2) {
+            /** @var User $user */
+            $user = Auth::user();
+            $tournament = $this->tournamentService->startTournament($tournament, $user ?: $tournament->creator);
+        }
+
+        // Auto-fix any active 2-player match missing a game record
+        foreach ($tournament->matches as $match) {
+            if ($match->status === 'in_progress' && $match->white_user_id && $match->black_user_id && (!$match->chess_game_id || !$match->chessGame)) {
+                $whiteUser = User::find($match->white_user_id);
+                if ($whiteUser) {
+                    $game = ChessGame::create([
+                        'game_code' => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(8)),
+                        'host_player_id' => $whiteUser->id,
+                        'white_player_id' => $match->white_user_id,
+                        'black_player_id' => $match->black_user_id,
+                        'type' => $tournament->type,
+                        'time_control' => $tournament->time_control,
+                        'allow_spectators' => true,
+                        'status' => 'in_progress',
+                        'started_at' => now(),
+                    ]);
+                    $match->chess_game_id = $game->id;
+                    $match->save();
+                }
+            }
+        }
+
+        // Reload fresh matches
+        $tournament->load(['matches.whiteUser', 'matches.blackUser', 'matches.winnerUser', 'matches.chessGame']);
 
         return response()->json([
             'tournament' => $tournament,
@@ -94,23 +136,20 @@ class ChessTournamentController extends Controller
     }
 
     /**
-     * Delete/Cancel a tournament (Admin only + Audit Log).
+     * Delete/Cancel a tournament (Tournament Creator or Admin + Audit Log).
      */
     public function destroy(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
         $user = Auth::user();
-        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'Unauthorized. Only administrators can delete tournaments.'], 403);
+        $tournament = ChessTournament::findOrFail($id);
+
+        if ($tournament->creator_id !== $user->id && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Only the tournament creator or administrators can delete this tournament.'], 403);
         }
 
-        $tournament = ChessTournament::findOrFail($id);
         $title = $tournament->title;
-
-        // Delete associated matches & participants
-        $tournament->matches()->delete();
-        $tournament->participants()->delete();
-        $tournament->delete();
+        $this->tournamentService->cancelTournament($tournament);
 
         AuditLogger::log('deleted', 'ChessTournament', $id, $title, null, $request);
 
@@ -157,16 +196,17 @@ class ChessTournamentController extends Controller
 
     /**
      * Start tournament & generate bracket tree.
+     * The tournament creator or any Admin can override and start the tournament.
      */
     public function start(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
         $user = Auth::user();
-        if (!$user->isAdmin() && !$user->isSuperAdmin()) {
-            return response()->json(['message' => 'Unauthorized. Only administrators can start tournaments.'], 403);
-        }
-
         $tournament = ChessTournament::findOrFail($id);
+
+        if ($tournament->creator_id !== $user->id && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Only the tournament creator or administrators can start this tournament.'], 403);
+        }
 
         try {
             $updated = $this->tournamentService->startTournament($tournament, $user);
