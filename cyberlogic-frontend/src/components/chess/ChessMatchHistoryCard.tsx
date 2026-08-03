@@ -150,7 +150,7 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
       header: 'Action',
       accessor: (row) => (
         <button
-          onClick={() => navigate(`/app/chess/game/${row.game_code}`)}
+          onClick={() => navigate(`/app/chess/game/${row.game_code}?mode=replay`)}
           className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
         >
           <Eye className="w-3.5 h-3.5" /> View Match

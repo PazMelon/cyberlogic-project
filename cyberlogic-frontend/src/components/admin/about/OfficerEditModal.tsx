@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, UserCheck, Shield } from "lucide-react";
-import { fetchUsers, uploadOfficerAvatar } from "../../../utils/api";
-import type { DbUser, Officer } from "../../../utils/api";
+import { fetchMentionSuggestions, uploadOfficerAvatar } from "../../../utils/api";
+import type { Officer } from "../../../utils/api";
 import ImageUploadZone from "../../ui/cms/ImageUploadZone";
 
 interface OfficerEditModalProps {
@@ -17,7 +17,7 @@ export default function OfficerEditModal({
   onSave,
   officer,
 }: OfficerEditModalProps) {
-  const [users, setUsers] = useState<DbUser[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [useProfileInfo, setUseProfileInfo] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -36,8 +36,8 @@ export default function OfficerEditModal({
       const loadUsers = async () => {
         try {
           setIsLoadingUsers(true);
-          const data = await fetchUsers();
-          setUsers(data.filter((u) => u.status === "approved"));
+          const data = await fetchMentionSuggestions();
+          setUsers(data || []);
         } catch (err) {
           console.error("Failed to load users for officer linking", err);
         } finally {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send } from "lucide-react";
 import { Button } from "../ui";
-import { fetchUsers, type DbUser } from "../../utils/api";
+import { fetchMentionSuggestions } from "../../utils/api";
 
 function getCaretCoordinates(textarea: HTMLTextAreaElement, position: number) {
   const div = document.createElement("div");
@@ -56,7 +56,7 @@ export function CommentForm({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Mentions autocomplete states
-  const [users, setUsers] = useState<DbUser[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
@@ -64,7 +64,7 @@ export function CommentForm({
   const [mentionCoords, setMentionCoords] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    fetchUsers()
+    fetchMentionSuggestions()
       .then((data) => setUsers(data || []))
       .catch((err) => console.error("Failed to load users for mentions", err));
   }, []);

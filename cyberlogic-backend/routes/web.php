@@ -91,6 +91,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/search', [SearchController::class, 'search']);
 
     // User Management actions (Admin/Super Admin only)
+    Route::get('/api/admin/pending-members-count', [AuthController::class, 'pendingCount']);
+    Route::get('/api/users/mention-suggestions', [AuthController::class, 'mentionSuggestions']);
     Route::get('/api/users', [AuthController::class, 'index']);
     Route::put('/api/users/{id}/role', [AuthController::class, 'updateRole']);
     Route::put('/api/users/{id}/approve', [AuthController::class, 'approve']);

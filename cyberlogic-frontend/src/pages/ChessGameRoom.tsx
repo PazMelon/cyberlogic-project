@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { Chess, type Square, type Color } from 'chess.js';
 import { useAuth } from '../context/AuthContext';
 import { useChessRealtime } from '../hooks/useChessRealtime';
@@ -29,6 +29,13 @@ import {
   Users,
   Eye,
   X,
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  ChevronLeft,
+  ChevronRight,
+  History,
 } from 'lucide-react';
 
 // Unicode chess piece glyphs for high resolution crisp rendering
@@ -50,6 +57,8 @@ const PIECE_UNICODE: Record<string, string> = {
 export default function ChessGameRoom() {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isReplayMode = searchParams.get('mode') === 'replay';
   const { user } = useAuth();
   const { showAlert, showConfirm } = useDialog();
 
@@ -59,6 +68,11 @@ export default function ChessGameRoom() {
   const [loading, setLoading] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showSpectatorsModal, setShowSpectatorsModal] = useState(false);
+  const [showGameOverModal, setShowGameOverModal] = useState(!isReplayMode);
+
+  // Replay mode state
+  const [replayStep, setReplayStep] = useState<number | null>(null);
+  const [isPlayingReplay, setIsPlayingReplay] = useState(false);
 
   // Chess.js instance
   const chessRef = useRef<Chess>(new Chess());
@@ -111,6 +125,11 @@ export default function ChessGameRoom() {
 
         if (data.game.white_time_left_ms) setWhiteMs(data.game.white_time_left_ms);
         if (data.game.black_time_left_ms) setBlackMs(data.game.black_time_left_ms);
+
+        if (isReplayMode) {
+          setReplayStep(0);
+          setShowGameOverModal(false);
+        }
       })
       .catch((err) => {
         console.error('[ChessGameRoom] Fetch error:', err);
@@ -259,23 +278,6 @@ export default function ChessGameRoom() {
     return chessRef.current.inCheck();
   }, [boardVersion, game?.fen, latestMove]);
 
-  const checkedKingSquare = useMemo(() => {
-    if (!inCheck) return null;
-    const turn = chessRef.current.turn(); // 'w' or 'b'
-    const board = chessRef.current.board();
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const piece = board[r][c];
-        if (piece && piece.type === 'k' && piece.color === turn) {
-          const file = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][c];
-          const rank = (8 - r).toString();
-          return `${file}${rank}`;
-        }
-      }
-    }
-    return null;
-  }, [inCheck, boardVersion, game?.fen, latestMove]);
-
   const movePairs = useMemo(() => {
     const history = chessRef.current.history();
     const pairs: Array<{ turn: number; white: string; black?: string }> = [];
@@ -289,6 +291,70 @@ export default function ChessGameRoom() {
     return pairs;
   }, [boardVersion, game?.pgn, latestMove]);
 
+  // Extract list of all move SAN strings for replay
+  const replayHistory = useMemo(() => {
+    return chessRef.current.history();
+  }, [boardVersion, game?.pgn, latestMove]);
+
+  // Compute active chess instance for display (live or replay step position)
+  const displayedChess = useMemo(() => {
+    if (replayStep === null || replayStep < 0) {
+      return chessRef.current;
+    }
+    const stepChess = new Chess();
+    const historySAN = chessRef.current.history();
+    const maxStep = Math.min(replayStep, historySAN.length);
+    for (let i = 0; i < maxStep; i++) {
+      try {
+        stepChess.move(historySAN[i]);
+      } catch (e) {
+        console.error('[ChessReplay] Step move error:', historySAN[i], e);
+      }
+    }
+    return stepChess;
+  }, [replayStep, game?.pgn, boardVersion, latestMove]);
+
+  // Compute active board grid from displayedChess
+  const displayedBoard = useMemo(() => {
+    return displayedChess.board();
+  }, [displayedChess]);
+
+  // Compute king check highlight for active displayed board position
+  const checkedKingSquare = useMemo(() => {
+    if (!displayedChess.inCheck()) return null;
+    const turn = displayedChess.turn();
+    const board = displayedChess.board();
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const piece = board[r][c];
+        if (piece && piece.type === 'k' && piece.color === turn) {
+          const file = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'][c];
+          const rank = (8 - r).toString();
+          return `${file}${rank}`;
+        }
+      }
+    }
+    return null;
+  }, [displayedChess]);
+
+  // Auto-play replay timer
+  useEffect(() => {
+    if (!isPlayingReplay) return;
+
+    const interval = setInterval(() => {
+      setReplayStep((prev) => {
+        const current = prev === null ? replayHistory.length : prev;
+        if (current >= replayHistory.length) {
+          setIsPlayingReplay(false);
+          return replayHistory.length;
+        }
+        return current + 1;
+      });
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [isPlayingReplay, replayHistory.length]);
+
   useEffect(() => {
     if (moveHistoryRef.current) {
       moveHistoryRef.current.scrollTop = moveHistoryRef.current.scrollHeight;
@@ -297,6 +363,10 @@ export default function ChessGameRoom() {
 
   // Square Click / Move Handler
   const handleSquareClick = (square: Square) => {
+    if (replayStep !== null) {
+      setReplayStep(null);
+      setIsPlayingReplay(false);
+    }
     if (!isMyTurn || !game || game.status !== 'in_progress') return;
 
     const chess = chessRef.current;
@@ -480,8 +550,6 @@ export default function ChessGameRoom() {
   const displayRanks = myColor === 'black' ? [...ranks].reverse() : ranks;
   const displayFiles = myColor === 'black' ? [...files].reverse() : files;
 
-  const boardArray = chessRef.current.board();
-
   const bootUserBack = () => {
     const tournamentId = (game as any)?.tournament_id || (game as any)?.tournament?.id;
     if (tournamentId) {
@@ -490,6 +558,8 @@ export default function ChessGameRoom() {
       navigate('/app/chess?tab=lobby');
     }
   };
+
+  const isReplay = isReplayMode || replayStep !== null || (game?.status === 'completed' && !showGameOverModal);
 
   return (
     <div className="space-y-6 text-[var(--cl-text-primary)] font-sans">
@@ -533,6 +603,11 @@ export default function ChessGameRoom() {
               {game.status === 'completed' && game.win_reason === 'checkmate' && (
                 <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 flex items-center gap-1">
                   <Swords className="w-3 h-3 text-amber-400" /> CHECKMATE!
+                </span>
+              )}
+              {isReplay && (
+                <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                  <History className="w-3.5 h-3.5 text-amber-400" /> REPLAY MODE
                 </span>
               )}
             </div>
@@ -654,10 +729,10 @@ export default function ChessGameRoom() {
                   const square = `${f}${r}` as Square;
                   const isDark = (files.indexOf(f) + ranks.indexOf(r)) % 2 === 1;
 
-                  // Find piece on this square
+                  // Find piece on this square (from displayedBoard)
                   const rankNum = 8 - parseInt(r, 10);
                   const fileNum = files.indexOf(f);
-                  const pieceObj = boardArray[rankNum]?.[fileNum];
+                  const pieceObj = displayedBoard[rankNum]?.[fileNum];
 
                   const pieceKey = pieceObj ? `${pieceObj.color}${pieceObj.type.toUpperCase()}` : null;
                   const pieceSymbol = pieceKey ? PIECE_UNICODE[pieceKey] : null;
@@ -788,9 +863,80 @@ export default function ChessGameRoom() {
               </div>
             );
           })()}
+
+          {/* Interactive Replay Controller Toolbar */}
+          {(isReplay || replayHistory.length > 0) && (
+            <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl space-y-3">
+              <div className="flex items-center justify-between text-xs text-[var(--cl-text-muted)] font-mono">
+                <span className="font-bold flex items-center gap-1.5 text-[var(--cl-text-primary)] text-xs">
+                  <History className="w-4 h-4 text-amber-400" />
+                  {replayStep === null || replayStep === replayHistory.length
+                    ? `Live / Final Position (${replayHistory.length} moves)`
+                    : `Replay Step ${replayStep} / ${replayHistory.length}`}
+                </span>
+                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-wider">
+                  Interactive Replay
+                </span>
+              </div>
+
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => { setReplayStep(0); setIsPlayingReplay(false); }}
+                  title="First Move (Start)"
+                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setReplayStep((prev) => Math.max(0, (prev === null ? replayHistory.length : prev) - 1));
+                    setIsPlayingReplay(false);
+                  }}
+                  title="Previous Move"
+                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (replayStep === null || replayStep >= replayHistory.length) {
+                      setReplayStep(0);
+                    }
+                    setIsPlayingReplay((prev) => !prev);
+                  }}
+                  title={isPlayingReplay ? 'Pause Auto-Play' : 'Auto-Play Replay'}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-amber-500/20 active:scale-95"
+                >
+                  {isPlayingReplay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                  {isPlayingReplay ? 'Pause' : 'Play Replay'}
+                </button>
+
+                <button
+                  onClick={() => {
+                    setReplayStep((prev) => Math.min(replayHistory.length, (prev === null ? 0 : prev) + 1));
+                    setIsPlayingReplay(false);
+                  }}
+                  title="Next Move"
+                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={() => { setReplayStep(replayHistory.length); setIsPlayingReplay(false); }}
+                  title="Final Position"
+                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column: Move History & Match Chat */}
+        {/* Right Column: Move History Notation */}
         <div className="space-y-4 flex flex-col h-full">
           {/* Incoming Draw Request Banner */}
           {drawOfferState && drawOfferState.offeredBy !== user?.id && (
@@ -813,7 +959,7 @@ export default function ChessGameRoom() {
             </div>
           )}
 
-          {/* Move History Log (Standard Chess Notation Table) */}
+          {/* Move History Log (Expanded when in replay mode) */}
           <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl">
             <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider mb-2 flex items-center justify-between">
               <span className="flex items-center gap-2">
@@ -825,7 +971,9 @@ export default function ChessGameRoom() {
             </h3>
             <div
               ref={moveHistoryRef}
-              className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] rounded-xl p-3 h-36 overflow-y-auto font-mono text-xs text-[var(--cl-text-primary)] custom-scrollbar"
+              className={`bg-[var(--cl-surface-950)] border border-[var(--cl-border)] rounded-xl p-3 overflow-y-auto font-mono text-xs text-[var(--cl-text-primary)] custom-scrollbar transition-all ${
+                isReplay ? 'h-[440px]' : 'h-36'
+              }`}
             >
               {movePairs.length === 0 ? (
                 <div className="text-[var(--cl-text-muted)] italic text-center py-8">No moves played yet</div>
@@ -836,200 +984,242 @@ export default function ChessGameRoom() {
                     <span className="col-span-2">White</span>
                     <span className="col-span-2">Black</span>
                   </div>
-                  {movePairs.map((pair) => (
-                    <div key={pair.turn} className="grid grid-cols-5 py-1 px-1 text-xs hover:bg-[var(--cl-surface-900)]/60 rounded transition-all">
-                      <span className="text-[var(--cl-text-muted)] font-bold">{pair.turn}.</span>
-                      <span className="col-span-2 text-[var(--cl-primary-light)] font-bold">{pair.white}</span>
-                      <span className="col-span-2 text-[var(--cl-text-primary)] font-normal">{pair.black || '...'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+                  {movePairs.map((pair) => {
+                    const whiteStep = pair.turn * 2 - 1;
+                    const blackStep = pair.turn * 2;
+                    const isWhiteActive = replayStep === whiteStep;
+                    const isBlackActive = replayStep === blackStep;
 
-          {/* Match Participants & Spectator Roster */}
-          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl space-y-3">
-            <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-[var(--cl-primary)]" /> Room Roster
-              </span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]">
-                {game.allow_spectators ? 'Spectators Enabled' : 'Players Only'}
-              </span>
-            </h3>
-
-            {/* Active Players */}
-            <div className="space-y-1.5">
-              <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
-                <Swords className="w-3 h-3 text-[var(--cl-primary)]" /> Playing Participants
-              </div>
-              <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-white border border-slate-900 shrink-0" title="White Player" />
-                  <img
-                    src={game.white_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.white_player?.name || 'white')}`}
-                    alt="White Player"
-                    className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
-                      {game.white_player?.name || 'White Player'}
-                    </span>
-                    {game.white_player?.username && (
-                      <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
-                        @{game.white_player.username}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
-                  White
-                </span>
-              </div>
-
-              <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-2 h-2 rounded-full bg-slate-900 border border-white/50 shrink-0" title="Black Player" />
-                  <img
-                    src={game.black_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.black_player?.name || 'black')}`}
-                    alt="Black Player"
-                    className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
-                      {game.black_player?.name || 'Waiting for opponent...'}
-                    </span>
-                    {game.black_player?.username && (
-                      <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
-                        @{game.black_player.username}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-slate-500/20 px-2 py-0.5 rounded border border-slate-500/30 shrink-0">
-                  Black
-                </span>
-              </div>
-            </div>
-
-            {/* Currently Spectating Section (Single Line Overlapping Avatars + Modal Button) */}
-            {(() => {
-              const activeSpectators = (roomUsers || []).filter(
-                (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
-              );
-
-              return (
-                <div className="pt-2.5 border-t border-[var(--cl-border)]/50 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
-                      <Eye className="w-3 h-3 text-emerald-400" /> Spectators
-                    </div>
-                    <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                      {activeSpectators.length} watching
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 bg-[var(--cl-surface-950)]/70 p-2 rounded-xl border border-[var(--cl-border)]/40">
-                    {activeSpectators.length === 0 ? (
-                      <span className="text-xs text-[var(--cl-text-muted)] italic">No active spectators</span>
-                    ) : (
-                      /* Overlapping Avatar Stack (Single Line - No names) */
-                      <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
-                        {activeSpectators.slice(0, 5).map((spec, i) => (
-                          <img
-                            key={spec.id || i}
-                            src={spec.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(spec.name)}`}
-                            alt={spec.name}
-                            title={spec.name}
-                            className="w-7 h-7 rounded-full object-cover border-2 border-[var(--cl-surface-950)] shadow-md transition-transform hover:scale-115 hover:z-20 cursor-pointer shrink-0"
-                          />
-                        ))}
-                        {activeSpectators.length > 5 && (
-                          <div className="w-7 h-7 rounded-full bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] font-bold text-[10px] flex items-center justify-center border-2 border-[var(--cl-surface-950)] shrink-0">
-                            +{activeSpectators.length - 5}
-                          </div>
+                    return (
+                      <div key={pair.turn} className="grid grid-cols-5 py-1 px-1 text-xs hover:bg-[var(--cl-surface-900)]/60 rounded transition-all">
+                        <span className="text-[var(--cl-text-muted)] font-bold">{pair.turn}.</span>
+                        <span
+                          onClick={() => { setReplayStep(whiteStep); setIsPlayingReplay(false); }}
+                          className={`col-span-2 font-bold cursor-pointer px-1 py-0.5 rounded transition-all ${
+                            isWhiteActive
+                              ? 'bg-[var(--cl-primary)] text-slate-950 font-extrabold'
+                              : 'text-[var(--cl-primary-light)] hover:bg-[var(--cl-surface-800)]'
+                          }`}
+                        >
+                          {pair.white}
+                        </span>
+                        {pair.black ? (
+                          <span
+                            onClick={() => { setReplayStep(blackStep); setIsPlayingReplay(false); }}
+                            className={`col-span-2 cursor-pointer px-1 py-0.5 rounded transition-all ${
+                              isBlackActive
+                                ? 'bg-[var(--cl-primary)] text-slate-950 font-extrabold'
+                                : 'text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)]'
+                            }`}
+                          >
+                            {pair.black}
+                          </span>
+                        ) : (
+                          <span className="col-span-2 text-[var(--cl-text-muted)]">...</span>
                         )}
                       </div>
-                    )}
-
-                    <button
-                      onClick={() => setShowSpectatorsModal(true)}
-                      className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
-                    >
-                      <Eye className="w-3 h-3" /> View All ({activeSpectators.length})
-                    </button>
-                  </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
-          </div>
-
-          {/* In-Game Message Hub */}
-          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl flex-1 flex flex-col min-h-[300px]">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-2">
-                <Volume2 className="w-3.5 h-3.5 text-[var(--cl-primary)]" />
-                {isPlayer ? 'Player Match Chat' : '👁️ Spectator Chat'}
-              </h3>
-              {!isPlayer && (
-                <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                  Spectators Only
-                </span>
               )}
             </div>
+          </div>
 
-            {/* Spectator notice for players */}
-            {isPlayer && (
-              <div className="mb-2 text-[10px] text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Spectator chat is isolated from players during gameplay.</span>
-              </div>
-            )}
+          {/* Only render Room Roster & In-Game Chat when NOT in Replay Mode */}
+          {!isReplay && (
+            <>
+              {/* Match Participants & Spectator Roster */}
+              <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl space-y-3">
+                <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-[var(--cl-primary)]" /> Room Roster
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]">
+                    {game.allow_spectators ? 'Spectators Enabled' : 'Players Only'}
+                  </span>
+                </h3>
 
-            <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1 text-xs custom-scrollbar">
-              {(isPlayer ? gameMessages : spectatorMessages).length === 0 ? (
-                <div className="text-[var(--cl-text-muted)] text-center py-10 text-xs italic">
-                  {isPlayer ? 'No match player messages yet.' : 'No spectator chat messages yet.'}
-                </div>
-              ) : (
-                (isPlayer ? gameMessages : spectatorMessages).map((msg, i) => (
-                  <div key={i} className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] p-2 rounded-lg">
-                    <div className="flex items-center justify-between text-[10px] text-[var(--cl-text-muted)] mb-1">
-                      <span className="font-bold text-[var(--cl-primary)]">{msg.sender?.name || 'User'}</span>
-                      <span>
-                        {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                      </span>
+                {/* Active Players */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
+                    <Swords className="w-3 h-3 text-[var(--cl-primary)]" /> Playing Participants
+                  </div>
+                  <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-white border border-slate-900 shrink-0" title="White Player" />
+                      <img
+                        src={game.white_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.white_player?.name || 'white')}`}
+                        alt="White Player"
+                        className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
+                          {game.white_player?.name || 'White Player'}
+                        </span>
+                        {game.white_player?.username && (
+                          <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                            @{game.white_player.username}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="text-[var(--cl-text-primary)] break-words">{msg.text}</p>
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
+                      White
+                    </span>
                   </div>
-                ))
-              )}
-            </div>
 
-            <form onSubmit={handleSendChat} className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder={isPlayer ? 'Chat with opponent...' : 'Chat with other spectators...'}
-                className="flex-1 bg-[var(--cl-surface-950)] border border-[var(--cl-border)] text-xs text-[var(--cl-text-primary)] rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--cl-primary)]"
-              />
-              <button
-                type="submit"
-                className="bg-[var(--cl-primary)] text-slate-950 font-bold p-2 rounded-lg transition-all hover:brightness-110 cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-              </button>
-            </form>
-          </div>
+                  <div className="p-2 rounded-xl bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-slate-900 border border-white/50 shrink-0" title="Black Player" />
+                      <img
+                        src={game.black_player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(game.black_player?.name || 'black')}`}
+                        alt="Black Player"
+                        className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
+                          {game.black_player?.name || 'Waiting for opponent...'}
+                        </span>
+                        {game.black_player?.username && (
+                          <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                            @{game.black_player.username}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-slate-500/20 px-2 py-0.5 rounded border border-slate-500/30 shrink-0">
+                      Black
+                    </span>
+                  </div>
+                </div>
+
+                {/* Currently Spectating Section (Single Line Overlapping Avatars + Modal Button) */}
+                {(() => {
+                  const activeSpectators = (roomUsers || []).filter(
+                    (u) => u.id !== game.white_player_id && u.id !== game.black_player_id && u.id !== game.host_player_id
+                  );
+
+                  return (
+                    <div className="pt-2.5 border-t border-[var(--cl-border)]/50 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-emerald-400" /> Spectators
+                        </div>
+                        <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          {activeSpectators.length} watching
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 bg-[var(--cl-surface-950)]/70 p-2 rounded-xl border border-[var(--cl-border)]/40">
+                        {activeSpectators.length === 0 ? (
+                          <span className="text-xs text-[var(--cl-text-muted)] italic">No active spectators</span>
+                        ) : (
+                          /* Overlapping Avatar Stack (Single Line - No names) */
+                          <div className="flex items-center -space-x-2 overflow-hidden py-0.5">
+                            {activeSpectators.slice(0, 5).map((spec, i) => (
+                              <img
+                                key={spec.id || i}
+                                src={spec.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(spec.name)}`}
+                                alt={spec.name}
+                                title={spec.name}
+                                className="w-7 h-7 rounded-full object-cover border-2 border-[var(--cl-surface-950)] shadow-md transition-transform hover:scale-115 hover:z-20 cursor-pointer shrink-0"
+                              />
+                            ))}
+                            {activeSpectators.length > 5 && (
+                              <div className="w-7 h-7 rounded-full bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] font-bold text-[10px] flex items-center justify-center border-2 border-[var(--cl-surface-950)] shrink-0">
+                                +{activeSpectators.length - 5}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => setShowSpectatorsModal(true)}
+                          className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1 active:scale-95"
+                        >
+                          <Eye className="w-3 h-3" /> View All ({activeSpectators.length})
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* In-Game Message Hub */}
+              <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-4 shadow-xl flex-1 flex flex-col min-h-[300px]">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-bold text-[var(--cl-text-muted)] uppercase tracking-wider flex items-center gap-2">
+                    <Volume2 className="w-3.5 h-3.5 text-[var(--cl-primary)]" />
+                    {isPlayer ? 'Player Match Chat' : '👁️ Spectator Chat'}
+                  </h3>
+                  {!isPlayer && (
+                    <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      Spectators Only
+                    </span>
+                  )}
+                </div>
+
+                {/* Spectator notice for players */}
+                {isPlayer && (
+                  <div className="mb-2 text-[10px] text-[var(--cl-text-muted)] bg-[var(--cl-surface-950)] border border-[var(--cl-border)]/60 px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>Spectator chat is isolated from players during gameplay.</span>
+                  </div>
+                )}
+
+                <div className="flex-1 overflow-y-auto space-y-2 mb-3 pr-1 text-xs custom-scrollbar">
+                  {(isPlayer ? gameMessages : spectatorMessages).length === 0 ? (
+                    <div className="text-[var(--cl-text-muted)] text-center py-10 text-xs italic">
+                      {isPlayer ? 'No match player messages yet.' : 'No spectator chat messages yet.'}
+                    </div>
+                  ) : (
+                    (isPlayer ? gameMessages : spectatorMessages).map((msg, i) => (
+                      <div key={i} className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] p-2 rounded-lg">
+                        <div className="flex items-center justify-between text-[10px] text-[var(--cl-text-muted)] mb-1">
+                          <span className="font-bold text-[var(--cl-primary)]">{msg.sender?.name || 'User'}</span>
+                          <span>
+                            {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
+                        <p className="text-[var(--cl-text-primary)] break-words">{msg.text}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleSendChat} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder={isPlayer ? 'Chat with opponent...' : 'Chat with other spectators...'}
+                    className="flex-1 bg-[var(--cl-surface-950)] border border-[var(--cl-border)] text-xs text-[var(--cl-text-primary)] rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--cl-primary)]"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-[var(--cl-primary)] text-slate-950 font-bold p-2 rounded-lg transition-all hover:brightness-110 cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Game Over Modal / Result Overlay */}
-      {game.status === 'completed' && (
+      {game.status === 'completed' && showGameOverModal && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl max-w-md w-full p-6 text-center shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl max-w-md w-full p-6 text-center shadow-2xl space-y-4 animate-in zoom-in-95 duration-200 relative">
+            <button
+              onClick={() => setShowGameOverModal(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-lg text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] transition-colors cursor-pointer"
+              title="Close Result Screen"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             <div className="w-16 h-16 rounded-full bg-[var(--cl-primary-glow)] border border-[var(--cl-primary)]/40 flex items-center justify-center mx-auto text-amber-400">
               <Trophy className="w-8 h-8" />
             </div>
@@ -1062,15 +1252,28 @@ export default function ChessGameRoom() {
               )}
             </div>
 
-            <button
-              onClick={bootUserBack}
-              className="w-full bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
-            >
-              <Trophy className="w-4 h-4" />
-              {(game as any)?.tournament_id || (game as any)?.tournament?.id
-                ? 'Return to Tournament Details'
-                : 'Return to Match Lobby'}
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                onClick={() => {
+                  setShowGameOverModal(false);
+                  setReplayStep(0);
+                  setIsPlayingReplay(false);
+                }}
+                className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold text-sm py-3 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-95"
+              >
+                <History className="w-4 h-4" /> Start Interactive Match Replay
+              </button>
+
+              <button
+                onClick={bootUserBack}
+                className="w-full bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-[var(--cl-text-primary)] font-bold text-sm py-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 border border-[var(--cl-border)]"
+              >
+                <Trophy className="w-4 h-4 text-amber-400" />
+                {(game as any)?.tournament_id || (game as any)?.tournament?.id
+                  ? 'Return to Tournament Details'
+                  : 'Return to Match Lobby'}
+              </button>
+            </div>
           </div>
         </div>
       )}

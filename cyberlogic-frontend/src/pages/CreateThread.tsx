@@ -10,7 +10,7 @@ import {
   Info,
   BarChart2
 } from "lucide-react";
-import { fetchForumCategories, createForumThread, fetchUsers, type ForumCategoryMapped, type DbUser } from "../utils/api";
+import { fetchForumCategories, createForumThread, fetchMentionSuggestions, type ForumCategoryMapped } from "../utils/api";
 import { Button } from "../components/ui";
 import { useDialog } from "../utils/useDialog";
 
@@ -69,7 +69,7 @@ export default function CreateThread() {
   const isRedacted = false;
 
   // Mentions autocomplete states
-  const [users, setUsers] = useState<DbUser[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
@@ -77,7 +77,7 @@ export default function CreateThread() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    fetchUsers()
+    fetchMentionSuggestions()
       .then((data) => setUsers(data || []))
       .catch((err) => console.error("Failed to load users for mentions", err));
   }, []);

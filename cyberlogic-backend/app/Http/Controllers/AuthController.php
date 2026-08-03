@@ -179,6 +179,43 @@ class AuthController extends Controller
     }
 
     /**
+     * GET /api/admin/pending-members-count
+     * Lightweight count of pending user registrations for topbar & badge indicators.
+     */
+    public function pendingCount(Request $request)
+    {
+        $currentUser = $request->user();
+        if (!$currentUser || !$currentUser->hasPermission('manage_users')) {
+            return response()->json(['count' => 0]);
+        }
+
+        $count = User::where('status', 'pending')->count();
+        return response()->json(['count' => $count]);
+    }
+
+    /**
+     * GET /api/users/mention-suggestions
+     * Public lightweight user list for @mention autocompletes, returning only non-sensitive public attributes.
+     */
+    public function mentionSuggestions(Request $request)
+    {
+        $users = User::where('status', 'approved')
+            ->select(['id', 'first_name', 'last_name', 'middle_name', 'username', 'avatar_path', 'role'])
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'username' => $user->username,
+                    'avatar' => $user->avatar,
+                    'role' => $user->role,
+                ];
+            });
+
+        return response()->json($users);
+    }
+
+    /**
      * GET /api/users
      * List all registered members (Admin/Super Admin only).
      */

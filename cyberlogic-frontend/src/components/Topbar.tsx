@@ -44,7 +44,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
 import GlobalSearch from "./search/GlobalSearch";
-import { fetchUsers } from "../utils/api";
+import { fetchPendingMembersCount } from "../utils/api";
 
 const memberNavSections = [
   {
@@ -251,9 +251,8 @@ export default function Topbar() {
     if (!isAdmin) return;
     async function loadPendingCount() {
       try {
-        const users = await fetchUsers();
-        const pendingUsers = users.filter((u) => u.status === "pending");
-        setPendingCount(pendingUsers.length);
+        const count = await fetchPendingMembersCount();
+        setPendingCount(count);
       } catch (err) {
         console.error("Failed to load initial pending count in Topbar:", err);
       }

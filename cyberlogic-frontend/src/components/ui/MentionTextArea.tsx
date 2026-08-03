@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { fetchUsers, type DbUser } from "../../utils/api";
+import { fetchMentionSuggestions } from "../../utils/api";
 import { Shield, Users, GraduationCap, User as UserIcon } from "lucide-react";
 
 function getCaretCoordinates(element: HTMLTextAreaElement, position: number) {
@@ -124,7 +124,7 @@ export default function MentionTextArea({
 }: MentionTextAreaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const [users, setUsers] = useState<DbUser[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [showMentions, setShowMentions] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
@@ -132,7 +132,7 @@ export default function MentionTextArea({
   const [mentionCoords, setMentionCoords] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    fetchUsers()
+    fetchMentionSuggestions()
       .then((data) => setUsers(data || []))
       .catch((err) => console.error("Failed to load users for mentions", err));
   }, []);

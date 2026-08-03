@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
-import { fetchUsers } from "../utils/api";
+import { fetchPendingMembersCount } from "../utils/api";
 import { useWebSocket } from "../context/WebSocketContext";
 
 interface SidebarNavItem {
@@ -87,9 +87,8 @@ export default function AdminSidebar() {
   useEffect(() => {
     async function loadPendingCount() {
       try {
-        const users = await fetchUsers();
-        const pendingUsers = users.filter((u) => u.status === "pending");
-        setPendingCount(pendingUsers.length);
+        const count = await fetchPendingMembersCount();
+        setPendingCount(count);
       } catch (err) {
         console.error("Failed to load initial pending count in AdminSidebar:", err);
       }

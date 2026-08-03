@@ -521,8 +521,40 @@ export interface DbUser {
 }
 
 /**
+ * GET /api/admin/pending-members-count
+ * Retrieve lightweight integer count of pending registrations without downloading all user profiles.
+ */
+export async function fetchPendingMembersCount(): Promise<number> {
+  const res = await apiRequest("/api/admin/pending-members-count");
+  if (!res.ok) {
+    return 0;
+  }
+  const data = await res.json();
+  return data.count || 0;
+}
+
+let mentionSuggestionsCache: any[] | null = null;
+
+/**
+ * GET /api/users/mention-suggestions
+ * Retrieve lightweight public user list (id, name, username, avatar) for @mention autocompletes.
+ * Uses in-memory session caching to eliminate redundant backend queries.
+ */
+export async function fetchMentionSuggestions(forceRefresh = false): Promise<any[]> {
+  if (!forceRefresh && mentionSuggestionsCache) {
+    return mentionSuggestionsCache;
+  }
+  const res = await apiRequest("/api/users/mention-suggestions");
+  if (!res.ok) {
+    return [];
+  }
+  mentionSuggestionsCache = await res.json();
+  return mentionSuggestionsCache || [];
+}
+
+/**
  * GET /api/users
- * Retrieve all registered users.
+ * Retrieve all registered users (Admin Member Management only).
  */
 export async function fetchUsers(): Promise<DbUser[]> {
   const res = await apiRequest("/api/users");
