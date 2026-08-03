@@ -1,7 +1,8 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { type ChessGame } from '../../utils/chessApi';
 import { DataTable, type ColumnDef, type FilterGroup } from '../ui/DataTable';
-import { History, Swords, Clock, Eye, RotateCw, Trophy } from 'lucide-react';
+import { History, Swords, Clock, Eye, RotateCw, Trophy, Info, X } from 'lucide-react';
 
 interface ChessMatchHistoryCardProps {
   history: ChessGame[];
@@ -11,6 +12,7 @@ interface ChessMatchHistoryCardProps {
 
 export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatchHistoryCardProps) {
   const navigate = useNavigate();
+  const [selectedLegacyGame, setSelectedLegacyGame] = useState<ChessGame | null>(null);
 
   const columns: ColumnDef<ChessGame>[] = [
     {
@@ -150,7 +152,13 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
       header: 'Action',
       accessor: (row) => (
         <button
-          onClick={() => navigate(`/app/chess/game/${row.game_code}?mode=replay`)}
+          onClick={() => {
+            if (!row.pgn || row.pgn.trim() === '' || row.pgn.startsWith('rnbqkbnr')) {
+              setSelectedLegacyGame(row);
+            } else {
+              navigate(`/app/chess/game/${row.game_code}?mode=replay`);
+            }
+          }}
           className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
         >
           <Eye className="w-3.5 h-3.5" /> View Match
@@ -193,52 +201,99 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
   };
 
   return (
-    <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-5 shadow-xl space-y-4">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--cl-border)]/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--cl-primary)]/15 border border-[var(--cl-primary)]/30 flex items-center justify-center text-[var(--cl-primary)]">
-            <History className="w-5 h-5" />
+    <>
+      <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-5 shadow-xl space-y-4">
+        {/* Header Banner */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--cl-border)]/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--cl-primary)]/15 border border-[var(--cl-primary)]/30 flex items-center justify-center text-[var(--cl-primary)]">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-[var(--cl-text-primary)] flex items-center gap-2">
+                Global Chess Match History
+              </h2>
+              <p className="text-xs text-[var(--cl-text-muted)] mt-0.5">
+                Archive of all completed, resigned, and drawn 1v1 chess matches across the platform.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-extrabold text-[var(--cl-text-primary)] flex items-center gap-2">
-              Global Chess Match History
-            </h2>
-            <p className="text-xs text-[var(--cl-text-muted)] mt-0.5">
-              Archive of all completed, resigned, and drawn 1v1 chess matches across the platform.
-            </p>
-          </div>
+
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={loading}
+              className="self-start sm:self-auto bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] border border-[var(--cl-border)] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh History
+            </button>
+          )}
         </div>
 
-        {onRefresh && (
-          <button
-            onClick={onRefresh}
-            disabled={loading}
-            className="self-start sm:self-auto bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] border border-[var(--cl-border)] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
-          >
-            <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh History
-          </button>
+        {/* Main DataTable Component */}
+        {loading ? (
+          <div className="py-16 text-center text-xs text-[var(--cl-text-muted)] flex items-center justify-center gap-2">
+            <Swords className="w-5 h-5 text-[var(--cl-primary)] animate-spin" /> Loading match history records...
+          </div>
+        ) : (
+          <DataTable<ChessGame>
+            data={history}
+            columns={columns}
+            filterGroups={filterGroups}
+            searchPlaceholder="Search player name, username, match code..."
+            searchField={searchField}
+            emptyStateText="No recorded chess match history found."
+            enablePagination={true}
+            defaultItemsPerPage={10}
+            itemsPerPageOptions={[5, 10, 20, 50]}
+          />
         )}
       </div>
 
-      {/* Main DataTable Component */}
-      {loading ? (
-        <div className="py-16 text-center text-xs text-[var(--cl-text-muted)] flex items-center justify-center gap-2">
-          <Swords className="w-5 h-5 text-[var(--cl-primary)] animate-spin" /> Loading match history records...
+      {/* Legacy Game Replay Not Available Modal */}
+      {selectedLegacyGame && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 text-center relative overflow-hidden">
+            <button
+              onClick={() => setSelectedLegacyGame(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] hover:bg-white/5 transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto shadow-inner">
+              <History className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-[var(--cl-text-primary)]">
+                Replay Unavailable
+              </h3>
+              <p className="text-xs text-[var(--cl-text-muted)] leading-relaxed">
+                Match <span className="font-mono text-amber-400 font-bold">#{selectedLegacyGame.game_code}</span> was played prior to the interactive move recording feature release and does not have saved PGN move notation data.
+              </p>
+            </div>
+
+            <div className="bg-[var(--cl-surface-950)] border border-[var(--cl-border)] p-3 rounded-xl text-[11px] text-[var(--cl-text-secondary)] text-left space-y-1">
+              <div className="font-bold text-[var(--cl-text-primary)] flex items-center gap-1">
+                <Info className="w-3.5 h-3.5 text-blue-400" /> Note for Players:
+              </div>
+              <p className="text-[var(--cl-text-muted)]">
+                Interactive step-by-step move replay is supported for all new matches played after this update!
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSelectedLegacyGame(null)}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold text-xs transition-all cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
-      ) : (
-        <DataTable<ChessGame>
-          data={history}
-          columns={columns}
-          filterGroups={filterGroups}
-          searchPlaceholder="Search player name, username, match code..."
-          searchField={searchField}
-          emptyStateText="No recorded chess match history found."
-          enablePagination={true}
-          defaultItemsPerPage={10}
-          itemsPerPageOptions={[5, 10, 20, 50]}
-        />
       )}
-    </div>
+    </>
   );
 }

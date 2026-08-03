@@ -314,10 +314,10 @@ export default function ChessGameRoom() {
     return stepChess;
   }, [replayStep, game?.pgn, boardVersion, latestMove]);
 
-  // Compute active board grid from displayedChess
+  // Compute active board grid from displayedChess (must depend on boardVersion for live move updates!)
   const displayedBoard = useMemo(() => {
     return displayedChess.board();
-  }, [displayedChess]);
+  }, [displayedChess, boardVersion]);
 
   // Compute king check highlight for active displayed board position
   const checkedKingSquare = useMemo(() => {
@@ -335,7 +335,7 @@ export default function ChessGameRoom() {
       }
     }
     return null;
-  }, [displayedChess]);
+  }, [displayedChess, boardVersion]);
 
   // Auto-play replay timer
   useEffect(() => {
@@ -879,59 +879,77 @@ export default function ChessGameRoom() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-center gap-2">
-                <button
-                  onClick={() => { setReplayStep(0); setIsPlayingReplay(false); }}
-                  title="First Move (Start)"
-                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
-                >
-                  <SkipBack className="w-4 h-4" />
-                </button>
+              {replayHistory.length === 0 ? (
+                <div className="text-[var(--cl-text-muted)] italic text-xs text-center py-3 flex flex-col items-center justify-center gap-2 bg-[var(--cl-surface-950)] p-4 rounded-xl border border-[var(--cl-border)]">
+                  <div className="flex items-center gap-2 font-bold text-[var(--cl-text-primary)] text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Replay Unavailable for Legacy Match</span>
+                  </div>
+                  <p className="text-[11px] text-[var(--cl-text-muted)] max-w-sm not-italic">
+                    This match was played prior to move history recording support. Interactive replay is available for all new matches played after this update!
+                  </p>
+                  <button
+                    onClick={() => navigate('/app/chess')}
+                    className="mt-1 px-4 py-1.5 rounded-lg bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-xs text-[var(--cl-text-primary)] font-bold border border-[var(--cl-border)] transition-all cursor-pointer not-italic"
+                  >
+                    Return to Chess Hub
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => { setReplayStep(0); setIsPlayingReplay(false); }}
+                    title="First Move (Start)"
+                    className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    <SkipBack className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setReplayStep((prev) => Math.max(0, (prev === null ? replayHistory.length : prev) - 1));
-                    setIsPlayingReplay(false);
-                  }}
-                  title="Previous Move"
-                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
+                  <button
+                    onClick={() => {
+                      setReplayStep((prev) => Math.max(0, (prev === null ? replayHistory.length : prev) - 1));
+                      setIsPlayingReplay(false);
+                    }}
+                    title="Previous Move"
+                    className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={() => {
-                    if (replayStep === null || replayStep >= replayHistory.length) {
-                      setReplayStep(0);
-                    }
-                    setIsPlayingReplay((prev) => !prev);
-                  }}
-                  title={isPlayingReplay ? 'Pause Auto-Play' : 'Auto-Play Replay'}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-amber-500/20 active:scale-95"
-                >
-                  {isPlayingReplay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
-                  {isPlayingReplay ? 'Pause' : 'Play Replay'}
-                </button>
+                  <button
+                    onClick={() => {
+                      if (replayStep === null || replayStep >= replayHistory.length) {
+                        setReplayStep(0);
+                      }
+                      setIsPlayingReplay((prev) => !prev);
+                    }}
+                    title={isPlayingReplay ? 'Pause Auto-Play' : 'Auto-Play Replay'}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:brightness-110 text-slate-950 font-bold text-xs transition-all cursor-pointer flex items-center gap-2 shadow-md shadow-amber-500/20 active:scale-95"
+                  >
+                    {isPlayingReplay ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                    {isPlayingReplay ? 'Pause' : 'Play Replay'}
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setReplayStep((prev) => Math.min(replayHistory.length, (prev === null ? 0 : prev) + 1));
-                    setIsPlayingReplay(false);
-                  }}
-                  title="Next Move"
-                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                  <button
+                    onClick={() => {
+                      setReplayStep((prev) => Math.min(replayHistory.length, (prev === null ? 0 : prev) + 1));
+                      setIsPlayingReplay(false);
+                    }}
+                    title="Next Move"
+                    className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
 
-                <button
-                  onClick={() => { setReplayStep(replayHistory.length); setIsPlayingReplay(false); }}
-                  title="Final Position"
-                  className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
-                >
-                  <SkipForward className="w-4 h-4" />
-                </button>
-              </div>
+                  <button
+                    onClick={() => { setReplayStep(replayHistory.length); setIsPlayingReplay(false); }}
+                    title="Final Position"
+                    className="p-2.5 rounded-xl bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-primary)] transition-all cursor-pointer active:scale-95 shadow-sm"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
