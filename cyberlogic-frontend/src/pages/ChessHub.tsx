@@ -24,7 +24,7 @@ import {
   type ChessLobbyChatMessage,
   type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -82,6 +82,32 @@ export default function ChessHub() {
 
   const desktopChatRef = useRef<HTMLDivElement>(null);
   const mobileChatRef = useRef<HTMLDivElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -200 : 200;
+      tabsContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  const handleTabsWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (tabsContainerRef.current && e.deltaY) {
+      tabsContainerRef.current.scrollLeft += e.deltaY;
+    }
+  };
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('chess_sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('chess_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   // Challenge player target
   const [challengingUserId, setChallengingUserId] = useState<number | null>(null);
@@ -479,10 +505,10 @@ export default function ChessHub() {
 
   return (
     <div className="space-y-6 text-[var(--cl-text-primary)] font-sans relative">
-      {/* Main Grid Layout (2-Column Main + 1-Column Right Sidebar) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left/Main Content Column (2 Columns Wide) */}
-        <div className="lg:col-span-2 space-y-6 min-w-0">
+      {/* Main Grid Layout (Responsive: 1-Column on mobile/tablet/laptop, 3-Column on xl displays) */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
+        {/* Left/Main Content Column (2 Columns Wide on XL, 3 Columns Wide when Sidebar Collapsed) */}
+        <div className={`space-y-6 min-w-0 ${isSidebarCollapsed ? 'xl:col-span-3' : 'xl:col-span-2'}`}>
           {/* Welcome Header Banner (Constrained to Left Main Column) */}
           <ChessWelcomeBanner
             userName={user?.first_name || user?.name}
@@ -490,50 +516,90 @@ export default function ChessHub() {
             onOpenCreateModal={() => setShowCreateModal(true)}
           />
 
-          {/* Main Navigation Tabs - Fixed Sticky Header constrained to main column */}
-          <div className="sticky top-0 z-20 bg-[var(--cl-surface-950)]/95 backdrop-blur-md py-2.5 px-1 border-b border-[var(--cl-border)] flex items-center gap-2 overflow-x-auto no-scrollbar rounded-xl">
+          {/* Main Navigation Tabs - Responsive Docked Sticky Header with Scroll & Minimize Sideways Controls */}
+          <div className="sticky -top-4 sm:-top-6 lg:-top-8 z-20 bg-[var(--cl-surface-950)]/95 backdrop-blur-md py-2 sm:py-2.5 px-2 border-b border-[var(--cl-border)] rounded-2xl shadow-xl transition-all flex items-center gap-1.5 min-w-0">
             <button
-              onClick={() => {
-                setActiveTab('lobby');
-                setSelectedTournament(null);
-              }}
-              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'lobby'
-                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
-                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
-              }`}
+              onClick={() => scrollTabs('left')}
+              className="p-2 rounded-xl bg-[var(--cl-surface-900)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer shrink-0 shadow-sm"
+              title="Scroll Left"
             >
-              <Swords className="w-4 h-4" /> Match Lobby & Chat
+              <ChevronLeft className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => setActiveTab('tournaments')}
-              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'tournaments'
-                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
-                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
-              }`}
+
+            <div
+              ref={tabsContainerRef}
+              onWheel={handleTabsWheel}
+              className="flex items-center gap-2 overflow-x-auto flex-nowrap w-full no-scrollbar touch-pan-x scroll-smooth py-1 px-1"
             >
-              <Trophy className="w-4 h-4" /> Tournaments & Brackets
+              <button
+                onClick={() => {
+                  setActiveTab('lobby');
+                  setSelectedTournament(null);
+                }}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === 'lobby'
+                    ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                    : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+                }`}
+              >
+                <Swords className="w-4 h-4 shrink-0" /> Match Lobby & Chat
+              </button>
+              <button
+                onClick={() => setActiveTab('tournaments')}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === 'tournaments'
+                    ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                    : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+                }`}
+              >
+                <Trophy className="w-4 h-4 shrink-0" /> Tournaments & Brackets
+              </button>
+              <button
+                onClick={() => setActiveTab('leaderboard')}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === 'leaderboard'
+                    ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                    : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+                }`}
+              >
+                <Award className="w-4 h-4 shrink-0" /> Global Leaderboards
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  activeTab === 'history'
+                    ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                    : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+                }`}
+              >
+                <History className="w-4 h-4 shrink-0" /> Match History
+              </button>
+            </div>
+
+            <button
+              onClick={() => scrollTabs('right')}
+              className="p-2 rounded-xl bg-[var(--cl-surface-900)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer shrink-0 shadow-sm"
+              title="Scroll Right"
+            >
+              <ChevronRight className="w-4 h-4" />
             </button>
+
             <button
-              onClick={() => setActiveTab('leaderboard')}
-              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'leaderboard'
-                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
-                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
-              }`}
+              onClick={toggleSidebarCollapse}
+              className="hidden lg:flex p-2 rounded-xl bg-[var(--cl-surface-900)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer shrink-0 text-xs font-bold items-center gap-1.5 shadow-sm active:scale-95 ml-1 border-l border-[var(--cl-border)]/60"
+              title={isSidebarCollapsed ? 'Expand Right Sidebar' : 'Minimize Sideways'}
             >
-              <Award className="w-4 h-4" /> Global Leaderboards
-            </button>
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'history'
-                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
-                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
-              }`}
-            >
-              <History className="w-4 h-4" /> Match History
+              {isSidebarCollapsed ? (
+                <>
+                  <PanelRightOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="whitespace-nowrap">Show Sidebar</span>
+                </>
+              ) : (
+                <>
+                  <PanelRightClose className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="whitespace-nowrap">Minimize Sideways</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -742,27 +808,29 @@ export default function ChessHub() {
           )}
         </div>
 
-        {/* Right 1-Column Persistent Sidebar */}
-        <div className="hidden lg:flex flex-col space-y-4 sticky top-0 self-start h-[calc(100vh-6.5rem)] max-h-[calc(100vh-6.5rem)] overflow-hidden pt-0.5 pb-4">
-          <OnlinePlayersCard
-            onlineUsers={onlineUsers}
-            currentUserId={user?.id}
-            onChallengeUser={(targetId) => {
-              setChallengingUserId(targetId);
-              setShowCreateModal(true);
-            }}
-          />
+        {/* Right 1-Column Persistent Sidebar (Collapsible Sideways) */}
+        {!isSidebarCollapsed && (
+          <div className="hidden lg:flex flex-col space-y-4 sticky top-0 self-start h-[calc(100vh-6.5rem)] max-h-[calc(100vh-6.5rem)] overflow-hidden pt-0.5 pb-4 transition-all duration-300">
+            <OnlinePlayersCard
+              onlineUsers={onlineUsers}
+              currentUserId={user?.id}
+              onChallengeUser={(targetId) => {
+                setChallengingUserId(targetId);
+                setShowCreateModal(true);
+              }}
+            />
 
-          <LobbyMessageHubCard
-            messages={messages}
-            chatInput={chatInput}
-            loadingMoreMessages={loadingMoreMessages}
-            desktopChatRef={desktopChatRef}
-            onScrollBackread={handleScrollBackread}
-            onSendChat={handleSendChat}
-            onChatInputChange={setChatInput}
-          />
-        </div>
+            <LobbyMessageHubCard
+              messages={messages}
+              chatInput={chatInput}
+              loadingMoreMessages={loadingMoreMessages}
+              desktopChatRef={desktopChatRef}
+              onScrollBackread={handleScrollBackread}
+              onSendChat={handleSendChat}
+              onChatInputChange={setChatInput}
+            />
+          </div>
+        )}
       </div>
 
       {/* Floating Mobile Trigger Button */}

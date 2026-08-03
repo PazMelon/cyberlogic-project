@@ -1,4 +1,5 @@
-import { Users, Zap, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Users, Zap, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { type OnlineUser } from '../../context/WebSocketContext';
 
 interface OnlinePlayersCardProps {
@@ -12,10 +13,24 @@ export function OnlinePlayersCard({
   currentUserId,
   onChallengeUser,
 }: OnlinePlayersCardProps) {
+  const [isMinimized, setIsMinimized] = useState(() => {
+    return localStorage.getItem('chess_online_players_minimized') === 'true';
+  });
+
+  const toggleMinimize = () => {
+    setIsMinimized((prev) => {
+      const next = !prev;
+      localStorage.setItem('chess_online_players_minimized', String(next));
+      return next;
+    });
+  };
+
   return (
-    <div className="bg-[var(--cl-surface-900)]/90 backdrop-blur-md border border-[var(--cl-border)] rounded-2xl p-4 flex flex-col shrink-0 max-h-[268px] overflow-hidden transition-all">
+    <div className={`bg-[var(--cl-surface-900)]/90 backdrop-blur-md border border-[var(--cl-border)] rounded-2xl p-4 flex flex-col shrink-0 overflow-hidden transition-all duration-300 ${
+      isMinimized ? 'max-h-[58px]' : 'max-h-[268px]'
+    }`}>
       {/* Panel Header */}
-      <div className="flex items-center justify-between gap-2 mb-3 shrink-0 pb-2.5 border-b border-[var(--cl-border)]/60">
+      <div className="flex items-center justify-between gap-2 shrink-0 pb-2.5 border-b border-[var(--cl-border)]/60">
         <div className="flex items-center gap-2 truncate">
           <div className="p-1.5 rounded-lg bg-[var(--cl-primary-glow)] text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/20 shrink-0">
             <Users className="w-4 h-4" />
@@ -24,14 +39,25 @@ export function OnlinePlayersCard({
             Online Players
           </h2>
         </div>
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
-          {onlineUsers.length} active
-        </span>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            {onlineUsers.length} active
+          </span>
+          <button
+            onClick={toggleMinimize}
+            className="p-1 rounded-lg hover:bg-[var(--cl-surface-800)] text-[var(--cl-text-muted)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer border border-transparent hover:border-[var(--cl-border)]"
+            title={isMinimized ? 'Expand Online Players' : 'Minimize Panel'}
+          >
+            {isMinimized ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
       {/* Online Players List */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+      {!isMinimized && (
+        <div className="flex-1 overflow-y-auto space-y-2 pt-3 pr-1 custom-scrollbar">
         {onlineUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <ShieldCheck className="w-8 h-8 text-[var(--cl-text-muted)] opacity-40 mb-1" />
@@ -81,6 +107,7 @@ export function OnlinePlayersCard({
           ))
         )}
       </div>
+      )}
     </div>
   );
 }

@@ -46,8 +46,8 @@ export function ChessLeaderboardCard({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm text-[var(--cl-text-primary)]">
+      <div className="overflow-x-auto no-scrollbar -mx-2 px-2">
+        <table className="w-full min-w-[580px] text-left text-sm text-[var(--cl-text-primary)]">
           <thead className="bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] uppercase text-[11px] tracking-wider font-semibold border-b border-[var(--cl-border)]">
             <tr>
               <th className="px-3.5 py-3">Rank</th>
