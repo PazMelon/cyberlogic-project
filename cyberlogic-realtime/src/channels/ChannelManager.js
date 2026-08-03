@@ -139,12 +139,22 @@ class ChannelManager {
     this.channels.get(channelName).add(client);
     this.clientSubscriptions.get(client).add(channelName);
     console.log(`[WS] Client subscribed to channel: ${channelName}`);
+
+    // Tournament reconnect detection: notify if player was disconnected
+    if (channelName && (channelName.startsWith('chess_game_') || channelName.startsWith('chess_game:'))) {
+      const user = this.clientUsers.get(client);
+      if (user) {
+        this.handleTournamentPlayerReconnect(channelName, user);
+      }
+    }
   }
 
   /**
    * Unsubscribe client from a channel.
    */
   unsubscribe(client, channelName) {
+    const disconnectedUser = this.clientUsers.get(client);
+
     if (this.channels.has(channelName)) {
       const clients = this.channels.get(channelName);
       clients.delete(client);
@@ -158,6 +168,11 @@ class ChannelManager {
     console.log(`[WS] Client unsubscribed from channel: ${channelName}`);
     if (channelName && (channelName.startsWith('chess_game_') || channelName.startsWith('chess_game:'))) {
       this.broadcastGameRoomPresence(channelName);
+
+      // Tournament disconnect detection: notify remaining players
+      if (disconnectedUser) {
+        this.handleTournamentPlayerDisconnect(channelName, disconnectedUser);
+      }
     }
   }
 
@@ -303,6 +318,133 @@ class ChannelManager {
     }
     const subscribersList = Array.from(usersMap.values());
     this.broadcast(channelName, 'chess_room_presence', subscribersList);
+  }
+
+  /**
+   * Detect if a disconnecting user was a tournament match player
+   * and notify remaining players with a disconnect event.
+   */
+  async handleTournamentPlayerDisconnect(channelName, disconnectedUser) {
+    try {
+      // Extract game ID from channel name (chess_game_123 -> 123)
+      const gameIdMatch = channelName.match(/chess_game[_:](\d+)/);
+      if (!gameIdMatch) return;
+      const gameId = parseInt(gameIdMatch[1]);
+
+      // Check if this game belongs to a tournament match
+      const [matches] = await pool.query(
+        `SELECT ctm.id, ctm.tournament_id, ctm.white_user_id, ctm.black_user_id, 
+                ctm.pause_count_white, ctm.pause_count_black, ctm.status, ctm.paused_at,
+                ctm.white_checked_in, ctm.black_checked_in
+         FROM chess_tournament_matches ctm
+         WHERE ctm.chess_game_id = ? AND ctm.status = 'in_progress'
+         LIMIT 1`,
+        [gameId]
+      );
+
+      if (matches.length === 0) return;
+      const match = matches[0];
+
+      const userId = Number(disconnectedUser.id);
+      const isWhite = Number(match.white_user_id) === userId;
+      const isBlack = Number(match.black_user_id) === userId;
+
+      if (!isWhite && !isBlack) return; // Not a match participant (spectator)
+
+      // Don't trigger if match is already paused or not fully checked in
+      if (match.paused_at || !(match.white_checked_in && match.black_checked_in)) return;
+
+      // Check if user still has another connection to this channel (multi-tab)
+      const channelClients = this.channels.get(channelName);
+      if (channelClients) {
+        for (const client of channelClients) {
+          const clientUser = this.clientUsers.get(client);
+          if (clientUser && Number(clientUser.id) === userId) {
+            return; // User still connected via another tab
+          }
+        }
+      }
+
+      const disconnectedColor = isWhite ? 'white' : 'black';
+      const pauseCount = isWhite ? match.pause_count_white : match.pause_count_black;
+      const canPause = pauseCount < 3;
+
+      console.log(`[WS] Tournament player disconnected: User #${userId} (${disconnectedColor}) from Match #${match.id}`);
+
+      // Broadcast disconnect to the game channel
+      this.broadcast(channelName, 'tournament_player_disconnected', {
+        disconnected_user_id: userId,
+        disconnected_color: disconnectedColor,
+        can_pause: canPause,
+        pauses_remaining: 3 - pauseCount,
+        match_id: match.id,
+        tournament_id: match.tournament_id,
+      });
+    } catch (err) {
+      console.error('[WS] Tournament disconnect detection error:', err.message);
+    }
+  }
+
+  /**
+   * Detect if a reconnecting user was a disconnected tournament match player
+   * and notify the channel + auto-resume if paused.
+   */
+  async handleTournamentPlayerReconnect(channelName, reconnectedUser) {
+    try {
+      const gameIdMatch = channelName.match(/chess_game[_:](\d+)/);
+      if (!gameIdMatch) return;
+      const gameId = parseInt(gameIdMatch[1]);
+
+      const [matches] = await pool.query(
+        `SELECT ctm.id, ctm.tournament_id, ctm.white_user_id, ctm.black_user_id,
+                ctm.paused_at, ctm.paused_by_color, ctm.status
+         FROM chess_tournament_matches ctm
+         WHERE ctm.chess_game_id = ? AND ctm.status = 'in_progress'
+         LIMIT 1`,
+        [gameId]
+      );
+
+      if (matches.length === 0) return;
+      const match = matches[0];
+
+      const userId = Number(reconnectedUser.id);
+      const isWhite = Number(match.white_user_id) === userId;
+      const isBlack = Number(match.black_user_id) === userId;
+
+      if (!isWhite && !isBlack) return;
+
+      const reconnectedColor = isWhite ? 'white' : 'black';
+
+      console.log(`[WS] Tournament player reconnected: User #${userId} (${reconnectedColor}) to Match #${match.id}`);
+
+      // Broadcast reconnect to the game channel
+      this.broadcast(channelName, 'tournament_player_reconnected', {
+        reconnected_user_id: userId,
+        reconnected_color: reconnectedColor,
+        match_id: match.id,
+        tournament_id: match.tournament_id,
+      });
+
+      // If match was paused for this player, auto-resume via Laravel API
+      if (match.paused_at && match.paused_by_color === reconnectedColor) {
+        try {
+          const response = await fetch(`${LARAVEL_URL}/api/chess/tournaments/${match.tournament_id}/matches/${match.id}/resume`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Realtime-Secret': REALTIME_WS_SECRET,
+            },
+          });
+          if (response.ok) {
+            console.log(`[WS] Auto-resumed Match #${match.id} after player reconnect`);
+          }
+        } catch (resumeErr) {
+          console.error('[WS] Auto-resume API call failed:', resumeErr.message);
+        }
+      }
+    } catch (err) {
+      console.error('[WS] Tournament reconnect detection error:', err.message);
+    }
   }
 
   /**

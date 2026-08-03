@@ -287,6 +287,11 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/chess/tournaments/{id}/join', [ChessTournamentController::class, 'join']);
     Route::post('/api/chess/tournaments/{id}/leave', [ChessTournamentController::class, 'leave']);
     Route::post('/api/chess/tournaments/{id}/start', [ChessTournamentController::class, 'start']);
+
+    // Tournament fail-safe endpoints
+    Route::post('/api/chess/tournaments/{id}/matches/{matchId}/checkin', [ChessTournamentController::class, 'checkin']);
+    Route::post('/api/chess/tournaments/{id}/matches/{matchId}/pause', [ChessTournamentController::class, 'pause']);
+    Route::post('/api/chess/tournaments/{id}/matches/{matchId}/resume', [ChessTournamentController::class, 'resume']);
 });
 
 Route::get('/storage/{path}', function ($path) {

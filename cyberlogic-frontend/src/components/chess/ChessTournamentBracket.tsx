@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { Trophy, Swords, Crown, Play, CheckCircle2, Shield, Users, UserCheck, Clock, Eye } from 'lucide-react';
 import { type ChessTournament, type ChessTournamentMatch } from '../../utils/chessApi';
@@ -8,6 +8,61 @@ interface ChessTournamentBracketProps {
   currentUserId?: number;
   onRefresh?: () => void;
 }
+
+/**
+ * Live countdown timer for match check-in window.
+ * Shows "JOIN IN: MM:SS" with urgency-based colors.
+ */
+const MatchCheckinCountdown: React.FC<{
+  matchReadyAt: string;
+  firstCheckinAt?: string | null;
+  checkinMinutes: number;
+}> = ({ matchReadyAt, firstCheckinAt, checkinMinutes }) => {
+  const [remainingMs, setRemainingMs] = useState(0);
+
+  useEffect(() => {
+    const calculateRemaining = () => {
+      const referenceTime = firstCheckinAt ? new Date(firstCheckinAt) : new Date(matchReadyAt);
+      const deadlineMultiplier = firstCheckinAt ? 1 : 2; // 10 min from first checkin, 20 min from match ready
+      const deadline = new Date(referenceTime.getTime() + checkinMinutes * deadlineMultiplier * 60 * 1000);
+      return Math.max(0, deadline.getTime() - Date.now());
+    };
+
+    setRemainingMs(calculateRemaining());
+    const interval = setInterval(() => {
+      const remaining = calculateRemaining();
+      setRemainingMs(remaining);
+      if (remaining <= 0) clearInterval(interval);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [matchReadyAt, firstCheckinAt, checkinMinutes]);
+
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+  const colorClass = totalSeconds > 300
+    ? 'text-emerald-700 dark:text-emerald-300'
+    : totalSeconds > 120
+    ? 'text-amber-700 dark:text-amber-300'
+    : 'text-red-700 dark:text-red-300';
+
+  if (remainingMs <= 0) {
+    return (
+      <div className="text-[10px] font-mono font-extrabold text-red-600 dark:text-red-400 mt-0.5">
+        ⏰ CHECK-IN EXPIRED
+      </div>
+    );
+  }
+
+  return (
+    <div className={`text-[10px] font-mono font-extrabold mt-0.5 ${colorClass}`}>
+      {firstCheckinAt ? `⏱️ JOIN IN: ${timeStr}` : `⏱️ CHECK-IN WINDOW: ${timeStr}`}
+    </div>
+  );
+};
 
 export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ tournament, currentUserId }) => {
   const navigate = useNavigate();
@@ -194,6 +249,11 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
     const blackName = getPlayerName(blackUserObj);
     const gameCode = chessGameObj?.game_code;
 
+    // Fail-safe indicators
+    const isAwaitingCheckin = isLive && match.match_ready_at && !(match.white_checked_in && match.black_checked_in);
+    const isPaused = !!match.paused_at;
+    const isForfeit = isCompleted && (match.win_reason === 'forfeit_no_show' || match.win_reason === 'forfeit_disconnect' || match.win_reason === 'double_forfeit');
+
     return (
       <div
         key={match.id}
@@ -202,6 +262,10 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
             ? 'border-2 border-amber-500/60 ring-2 ring-amber-500/20 bg-gradient-to-b from-[var(--cl-surface-900)] via-amber-500/10 to-[var(--cl-surface-900)]'
             : isLosersBracket
             ? 'border-cyan-500/40 bg-gradient-to-b from-[var(--cl-surface-900)] to-cyan-950/20'
+            : isAwaitingCheckin && isParticipant
+            ? 'border-2 border-amber-500 ring-2 ring-amber-500/40 animate-pulse-slow bg-gradient-to-b from-amber-500/10 to-[var(--cl-surface-900)]'
+            : isPaused
+            ? 'border-2 border-orange-500/60 ring-2 ring-orange-500/20'
             : isLive
             ? 'border-emerald-500 ring-2 ring-emerald-500/30'
             : isFinalRound
@@ -225,9 +289,19 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
             )}
           </span>
 
-          {isLive && (
+          {isLive && !isAwaitingCheckin && !isPaused && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/40 animate-pulse">
               <Play className="w-2.5 h-2.5 fill-current" /> LIVE MATCH
+            </span>
+          )}
+          {isAwaitingCheckin && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 animate-pulse">
+              <Clock className="w-2.5 h-2.5" /> CHECK-IN
+            </span>
+          )}
+          {isPaused && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-orange-500/20 text-orange-700 dark:text-orange-300 border border-orange-500/40">
+              ⏸️ PAUSED
             </span>
           )}
           {isBye && (
@@ -235,9 +309,14 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
               BYE ADVANCE
             </span>
           )}
-          {isCompleted && (
+          {isCompleted && !isForfeit && (
             <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-500/20 text-[var(--cl-text-primary)] border border-slate-500/40">
               FINISHED
+            </span>
+          )}
+          {isForfeit && (
+            <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/40">
+              {match.win_reason === 'double_forfeit' ? '⛔ DBL FORFEIT' : '🚫 FORFEIT'}
             </span>
           )}
           {match.status === 'pending' && (
@@ -246,6 +325,39 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
             </span>
           )}
         </div>
+
+        {/* YOUR MATCH IS READY Banner */}
+        {isAwaitingCheckin && isParticipant && (
+          <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-amber-500/30 to-amber-500/20 border border-amber-500/40 text-center">
+            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 uppercase tracking-wider animate-pulse">
+              ⚔️ YOUR MATCH IS READY!
+            </span>
+            {match.match_ready_at && (
+              <MatchCheckinCountdown matchReadyAt={match.match_ready_at} firstCheckinAt={match.first_checkin_at} checkinMinutes={10} />
+            )}
+          </div>
+        )}
+
+        {/* Check-in Status Dots */}
+        {isAwaitingCheckin && (
+          <div className="flex items-center justify-center gap-3 mb-2 text-[9px] font-bold">
+            <span className={`flex items-center gap-1 ${match.white_checked_in ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${match.white_checked_in ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              {whiteName || 'White'}: {match.white_checked_in ? '✅' : '⏳'}
+            </span>
+            <span className={`flex items-center gap-1 ${match.black_checked_in ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              <span className={`w-2 h-2 rounded-full ${match.black_checked_in ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              {blackName || 'Black'}: {match.black_checked_in ? '✅' : '⏳'}
+            </span>
+          </div>
+        )}
+
+        {/* Pause Info */}
+        {isPaused && (
+          <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/30 text-center text-[9px] font-bold text-orange-700 dark:text-orange-300">
+            ⏸️ Paused — Waiting for {match.paused_by_color === 'white' ? (whiteName || 'White') : (blackName || 'Black')} to reconnect
+          </div>
+        )}
 
         {/* Player 1 (White) */}
         <div

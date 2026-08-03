@@ -17,3 +17,5 @@ Schedule::call(function () {
 })->daily()->name('auto-complete-events');
 
 Schedule::command('chat:moderate-batch')->hourly()->name('batch-chat-moderation');
+
+Schedule::command('chess:tournament-watchdog')->everyMinute()->name('tournament-failsafe-watchdog');

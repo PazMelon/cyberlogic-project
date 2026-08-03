@@ -226,4 +226,85 @@ class ChessTournamentController extends Controller
             return response()->json(['error' => $e->getMessage()], 400);
         }
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // FAIL-SAFE ENDPOINTS: Check-In, Pause, Resume
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Check in to a tournament match.
+     * POST /api/chess/tournaments/{id}/matches/{matchId}/checkin
+     */
+    public function checkin(int $id, int $matchId): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $tournament = ChessTournament::findOrFail($id);
+        $match = $tournament->matches()->findOrFail($matchId);
+
+        try {
+            $updated = $this->tournamentService->checkinPlayer($match, $user->id);
+            return response()->json([
+                'message' => 'Check-in successful',
+                'match' => $updated->load(['whiteUser', 'blackUser', 'chessGame']),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Approve a disconnect pause for a tournament match.
+     * POST /api/chess/tournaments/{id}/matches/{matchId}/pause
+     */
+    public function pause(int $id, int $matchId, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $tournament = ChessTournament::findOrFail($id);
+        $match = $tournament->matches()->findOrFail($matchId);
+
+        $disconnectedColor = $request->input('disconnected_color');
+        if (!in_array($disconnectedColor, ['white', 'black'])) {
+            return response()->json(['error' => 'Invalid disconnected color.'], 400);
+        }
+
+        try {
+            $updated = $this->tournamentService->pauseMatch($match, $disconnectedColor, $user->id);
+            return response()->json([
+                'message' => 'Match paused successfully',
+                'match' => $updated,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
+
+    /**
+     * Resume a paused tournament match.
+     * POST /api/chess/tournaments/{id}/matches/{matchId}/resume
+     */
+    public function resume(int $id, int $matchId): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $tournament = ChessTournament::findOrFail($id);
+        $match = $tournament->matches()->findOrFail($matchId);
+
+        // Only match participants or admins can resume
+        $isParticipant = ($match->white_user_id === $user->id || $match->black_user_id === $user->id);
+        if (!$isParticipant && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        try {
+            $updated = $this->tournamentService->resumeMatch($match);
+            return response()->json([
+                'message' => 'Match resumed',
+                'match' => $updated,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+    }
 }

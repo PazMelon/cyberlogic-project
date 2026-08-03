@@ -49,6 +49,8 @@ export interface ChessGame {
   started_at: string | null;
   ended_at: string | null;
   created_at: string;
+  tournament_match_id?: number | null;
+  chess_tournament_match?: any;
   host?: ChessUserSummary;
   white_player?: ChessUserSummary;
   black_player?: ChessUserSummary;
@@ -216,6 +218,18 @@ export interface ChessTournamentMatch {
   winner_user_id: number | null;
   status: 'pending' | 'in_progress' | 'completed' | 'bye';
   win_reason: string | null;
+  // Fail-safe: check-in timer
+  match_ready_at?: string | null;
+  first_checkin_at?: string | null;
+  white_checked_in?: boolean;
+  black_checked_in?: boolean;
+  // Fail-safe: disconnect pause
+  pause_count_white?: number;
+  pause_count_black?: number;
+  paused_at?: string | null;
+  pause_remaining_ms?: number;
+  paused_by_color?: 'white' | 'black' | null;
+  // Relations
   whiteUser?: ChessUserSummary;
   blackUser?: ChessUserSummary;
   winnerUser?: ChessUserSummary;
@@ -229,6 +243,7 @@ export interface ChessTournament {
   creator_id: number;
   max_players: number;
   time_control: number;
+  match_checkin_minutes?: number;
   type: 'ranked' | 'casual';
   enable_third_place_match?: boolean;
   elimination_mode?: 'single' | 'double';
@@ -331,3 +346,41 @@ export async function fetchChessMatchHistory(userId?: number): Promise<ChessGame
   return data.history;
 }
 
+// ─── Tournament Fail-Safe API ────────────────────────────────
+
+export async function checkinTournamentMatch(tournamentId: number, matchId: number): Promise<ChessTournamentMatch> {
+  const res = await apiRequest(`/api/chess/tournaments/${tournamentId}/matches/${matchId}/checkin`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to check in');
+  }
+  const data = await res.json();
+  return data.match;
+}
+
+export async function pauseTournamentMatch(tournamentId: number, matchId: number, disconnectedColor: 'white' | 'black'): Promise<ChessTournamentMatch> {
+  const res = await apiRequest(`/api/chess/tournaments/${tournamentId}/matches/${matchId}/pause`, {
+    method: 'POST',
+    body: JSON.stringify({ disconnected_color: disconnectedColor }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to pause match');
+  }
+  const data = await res.json();
+  return data.match;
+}
+
+export async function resumeTournamentMatch(tournamentId: number, matchId: number): Promise<ChessTournamentMatch> {
+  const res = await apiRequest(`/api/chess/tournaments/${tournamentId}/matches/${matchId}/resume`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to resume match');
+  }
+  const data = await res.json();
+  return data.match;
+}

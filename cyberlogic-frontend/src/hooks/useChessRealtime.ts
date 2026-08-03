@@ -43,6 +43,37 @@ export function useChessRealtime(gameId?: number) {
   } | null>(null);
   const [roomUsers, setRoomUsers] = useState<{ id: number; name: string; avatar: string; role?: string }[]>([]);
 
+  // Tournament fail-safe state
+  const [tournamentMatchState, setTournamentMatchState] = useState<{
+    checkin?: {
+      match_id: number;
+      status: 'waiting_for_opponent' | 'both_checked_in';
+      white_checked_in?: boolean;
+      black_checked_in?: boolean;
+      checkin_deadline_ms?: number;
+      game_code?: string;
+    };
+    pause?: {
+      match_id: number;
+      paused_by_color: 'white' | 'black';
+      pause_remaining_ms: number;
+      pause_count_white: number;
+      pause_count_black: number;
+    };
+    disconnect?: {
+      disconnected_user_id: number;
+      disconnected_color: 'white' | 'black';
+      can_pause: boolean;
+    };
+    forfeit?: {
+      match_id: number;
+      forfeited_user_id: number | null;
+      winner_user_id: number | null;
+      reason: string;
+    };
+    resumed?: boolean;
+  } | null>(null);
+
   // Subscribe to chess_lobby channel
   useEffect(() => {
     if (!isConnected) return;
@@ -111,6 +142,41 @@ export function useChessRealtime(gameId?: number) {
         if (Array.isArray(payload)) {
           setRoomUsers(payload);
         }
+      } else if (type === 'tournament_match_checkin') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          checkin: payload,
+          resumed: undefined,
+        }));
+      } else if (type === 'tournament_match_paused') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          pause: payload,
+          disconnect: undefined,
+          resumed: false,
+        }));
+      } else if (type === 'tournament_match_resumed') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          pause: undefined,
+          disconnect: undefined,
+          resumed: true,
+        }));
+      } else if (type === 'tournament_player_disconnected') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          disconnect: payload,
+        }));
+      } else if (type === 'tournament_player_reconnected') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          disconnect: undefined,
+        }));
+      } else if (type === 'tournament_match_forfeited') {
+        setTournamentMatchState((prev) => ({
+          ...prev,
+          forfeit: payload,
+        }));
       }
     });
 
@@ -148,6 +214,7 @@ export function useChessRealtime(gameId?: number) {
     gameOverEvent,
     drawOfferState,
     roomUsers,
+    tournamentMatchState,
     sendLobbyChat,
     sendGameChat,
     sendSpectatorChat,

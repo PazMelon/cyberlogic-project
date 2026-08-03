@@ -522,9 +522,10 @@ class ChessTournamentService
                 $bId = $m->black_user_id;
 
                 if ($wId && $bId) {
-                    // Both players present -> Start live match game!
+                    // Both players present -> Create match game (waiting for check-in)
                     $game = $this->createMatchGame($tournament, $wId, $bId);
                     $m->chess_game_id = $game->id;
+                    $m->match_ready_at = Carbon::now();
                     $m->status = 'in_progress';
                     $m->save();
                     $this->notifyMatchPlayers($m, $game);
@@ -603,6 +604,10 @@ class ChessTournamentService
                 if (!$feeder) return true;
                 if ($feeder->status === 'bye') return true; // BYE match in W-R1 produces NO loser
                 if ($feeder->status === 'completed') {
+                    // Double forfeit fix: no winner means no loser was produced either
+                    if (!$feeder->winner_user_id) {
+                        return true;
+                    }
                     $loser = $feeder->white_user_id === $feeder->winner_user_id ? $feeder->black_user_id : $feeder->white_user_id;
                     return ($loser === null);
                 }
@@ -639,6 +644,10 @@ class ChessTournamentService
                     if (!$feeder) return true;
                     if ($feeder->status === 'bye') return true;
                     if ($feeder->status === 'completed') {
+                        // Double forfeit fix: no winner means no loser was produced either
+                        if (!$feeder->winner_user_id) {
+                            return true;
+                        }
                         $loser = $feeder->white_user_id === $feeder->winner_user_id ? $feeder->black_user_id : $feeder->white_user_id;
                         return ($loser === null);
                     }
@@ -738,8 +747,7 @@ class ChessTournamentService
         ]);
 
         $game->black_player_id = $blackId;
-        $game->status = 'in_progress';
-        $game->started_at = Carbon::now();
+        $game->status = 'waiting'; // Waiting for both players to check in
         $game->save();
 
         return $game;
@@ -804,6 +812,394 @@ class ChessTournamentService
         $tournament->matches()->delete();
         $tournament->participants()->delete();
         $tournament->delete();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FAIL-SAFE METHODS: Check-In, Forfeit, Pause, Resume, Watchdog
+    // ═══════════════════════════════════════════════════════════
+
+    /**
+     * Check in a player to their tournament match.
+     * The 10-minute countdown starts when the first player checks in.
+     * Game transitions to active play only when both players check in.
+     */
+    public function checkinPlayer(ChessTournamentMatch $match, int $userId): ChessTournamentMatch
+    {
+        if ($match->status !== 'in_progress') {
+            throw new \Exception('Match is not ready for check-in.');
+        }
+
+        if ($match->isFullyCheckedIn()) {
+            return $match;
+        }
+
+        $isWhite = $match->white_user_id === $userId;
+        $isBlack = $match->black_user_id === $userId;
+
+        if (!$isWhite && !$isBlack) {
+            throw new \Exception('You are not a participant in this match.');
+        }
+
+        if ($isWhite) {
+            $match->white_checked_in = true;
+        } else {
+            $match->black_checked_in = true;
+        }
+
+        // Start check-in timer when first player checks in
+        if (!$match->first_checkin_at) {
+            $match->first_checkin_at = Carbon::now();
+        }
+
+        $match->save();
+
+        $tournament = ChessTournament::find($match->tournament_id);
+
+        // If both players are now checked in, start the game
+        if ($match->isFullyCheckedIn()) {
+            $game = $match->chessGame;
+            if ($game && $game->status === 'waiting') {
+                $game->status = 'in_progress';
+                $game->started_at = Carbon::now();
+                $game->last_move_at = Carbon::now();
+                $game->save();
+            }
+
+            $this->broadcastTournamentEvent($match->tournament_id, 'tournament_match_checkin', [
+                'match_id' => $match->id,
+                'status' => 'both_checked_in',
+                'game_code' => $game ? $game->game_code : null,
+            ]);
+        } else {
+            $checkinMinutes = $tournament ? $tournament->match_checkin_minutes : 10;
+            $deadlineMs = $match->first_checkin_at->addMinutes($checkinMinutes)->diffInMilliseconds(Carbon::now(), false) * -1;
+
+            $this->broadcastTournamentEvent($match->tournament_id, 'tournament_match_checkin', [
+                'match_id' => $match->id,
+                'status' => 'waiting_for_opponent',
+                'white_checked_in' => $match->white_checked_in,
+                'black_checked_in' => $match->black_checked_in,
+                'checkin_deadline_ms' => max(0, $deadlineMs),
+            ]);
+        }
+
+        // Also broadcast to the game channel so the game room UI updates
+        if ($match->chessGame) {
+            try {
+                $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
+                $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+                Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                    'channel' => "chess_game_{$match->chessGame->id}",
+                    'type' => 'tournament_match_checkin',
+                    'payload' => [
+                        'match_id' => $match->id,
+                        'white_checked_in' => $match->white_checked_in,
+                        'black_checked_in' => $match->black_checked_in,
+                        'fully_checked_in' => $match->isFullyCheckedIn(),
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::error('[ChessTournamentService] Checkin broadcast error: ' . $e->getMessage());
+            }
+        }
+
+        return $match;
+    }
+
+    /**
+     * Forfeit a player from a tournament match.
+     * Supports both single forfeit (one player absent) and double forfeit (both absent).
+     */
+    public function forfeitMatch(ChessTournamentMatch $match, ?int $forfeitedUserId, string $reason = 'forfeit_no_show'): void
+    {
+        $tournament = ChessTournament::find($match->tournament_id);
+        if (!$tournament) return;
+
+        if ($forfeitedUserId === null) {
+            // Double forfeit: both players eliminated, no winner
+            $match->status = 'completed';
+            $match->winner_user_id = null;
+            $match->win_reason = 'double_forfeit';
+            $match->save();
+
+            // Eliminate both participants
+            if ($match->white_user_id) {
+                ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                    ->where('user_id', $match->white_user_id)
+                    ->update(['status' => 'eliminated']);
+            }
+            if ($match->black_user_id) {
+                ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                    ->where('user_id', $match->black_user_id)
+                    ->update(['status' => 'eliminated']);
+            }
+
+            // Cancel the associated game if it exists
+            if ($match->chess_game_id) {
+                $game = ChessGame::find($match->chess_game_id);
+                if ($game && in_array($game->status, ['waiting', 'in_progress'])) {
+                    $game->status = 'aborted';
+                    $game->ended_at = Carbon::now();
+                    $game->win_reason = 'double_forfeit';
+                    $game->save();
+                }
+            }
+
+            // Route with null winner/loser — DAG engine handles the propagation
+            $this->routeWinnerAndLoser($tournament, $match, null, null);
+
+            Log::info("[TournamentFailsafe] Double forfeit: Match #{$match->id} in tournament #{$tournament->id}");
+        } else {
+            // Single forfeit: the other player wins
+            $winnerId = ($match->white_user_id === $forfeitedUserId)
+                ? $match->black_user_id
+                : $match->white_user_id;
+
+            $match->status = 'completed';
+            $match->winner_user_id = $winnerId;
+            $match->win_reason = $reason;
+            $match->save();
+
+            // Eliminate the forfeited player
+            ChessTournamentParticipant::where('tournament_id', $tournament->id)
+                ->where('user_id', $forfeitedUserId)
+                ->update(['status' => 'eliminated']);
+
+            // Cancel the associated game if it exists
+            if ($match->chess_game_id) {
+                $game = ChessGame::find($match->chess_game_id);
+                if ($game && in_array($game->status, ['waiting', 'in_progress'])) {
+                    $game->status = 'completed';
+                    $game->ended_at = Carbon::now();
+                    $game->winner_id = $winnerId;
+                    $game->win_reason = $reason;
+                    $game->save();
+                }
+            }
+
+            // Route winner through DAG
+            $this->routeWinnerAndLoser($tournament, $match, $winnerId, $forfeitedUserId);
+
+            Log::info("[TournamentFailsafe] Forfeit: Player #{$forfeitedUserId} forfeited match #{$match->id}. Winner: #{$winnerId}");
+        }
+
+        // Run DAG to auto-advance any newly ready matches
+        $this->evaluateDagGraph($tournament);
+
+        // Broadcast forfeit event
+        $this->broadcastTournamentEvent($tournament->id, 'tournament_match_forfeited', [
+            'match_id' => $match->id,
+            'forfeited_user_id' => $forfeitedUserId,
+            'winner_user_id' => $match->winner_user_id,
+            'reason' => $match->win_reason,
+            'tournament' => $tournament->fresh(),
+        ]);
+
+        // Also broadcast game over if there's a game channel
+        if ($match->chess_game_id) {
+            try {
+                $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
+                $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+                Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                    'channel' => "chess_game_{$match->chess_game_id}",
+                    'type' => 'chess_game_over',
+                    'payload' => [
+                        'game' => ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winner'])->find($match->chess_game_id),
+                        'winner_id' => $match->winner_user_id,
+                        'is_draw' => false,
+                        'win_reason' => $match->win_reason,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::error('[ChessTournamentService] Forfeit game broadcast error: ' . $e->getMessage());
+            }
+        }
+    }
+
+    /**
+     * Pause a tournament match (opponent approves the pause).
+     * Freezes chess clock for up to 3 minutes.
+     */
+    public function pauseMatch(ChessTournamentMatch $match, string $disconnectedColor, int $approverUserId): ChessTournamentMatch
+    {
+        if ($match->status !== 'in_progress') {
+            throw new \Exception('Match is not in progress.');
+        }
+
+        if ($match->isPaused()) {
+            throw new \Exception('Match is already paused.');
+        }
+
+        // Validate the approver is the OPPONENT (not the disconnected player)
+        $approverIsWhite = $match->white_user_id === $approverUserId;
+        $approverIsBlack = $match->black_user_id === $approverUserId;
+        if (!$approverIsWhite && !$approverIsBlack) {
+            throw new \Exception('Only match participants can approve a pause.');
+        }
+
+        // Validate the disconnected player has pauses remaining
+        if (!$match->canPause($disconnectedColor)) {
+            throw new \Exception('No pauses remaining for the disconnected player.');
+        }
+
+        // Apply pause
+        $match->paused_at = Carbon::now();
+        $match->pause_remaining_ms = 180000; // 3 minutes
+        $match->paused_by_color = $disconnectedColor;
+
+        if ($disconnectedColor === 'white') {
+            $match->pause_count_white++;
+        } else {
+            $match->pause_count_black++;
+        }
+
+        $match->save();
+
+        // Broadcast pause event to tournament and game channels
+        $this->broadcastTournamentEvent($match->tournament_id, 'tournament_match_paused', [
+            'match_id' => $match->id,
+            'paused_by_color' => $disconnectedColor,
+            'pause_remaining_ms' => $match->pause_remaining_ms,
+            'pause_count_white' => $match->pause_count_white,
+            'pause_count_black' => $match->pause_count_black,
+        ]);
+
+        if ($match->chess_game_id) {
+            try {
+                $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
+                $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+                Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                    'channel' => "chess_game_{$match->chess_game_id}",
+                    'type' => 'tournament_match_paused',
+                    'payload' => [
+                        'match_id' => $match->id,
+                        'paused_by_color' => $disconnectedColor,
+                        'pause_remaining_ms' => $match->pause_remaining_ms,
+                        'pause_count_white' => $match->pause_count_white,
+                        'pause_count_black' => $match->pause_count_black,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::error('[ChessTournamentService] Pause broadcast error: ' . $e->getMessage());
+            }
+        }
+
+        Log::info("[TournamentFailsafe] Match #{$match->id} paused. Disconnected: {$disconnectedColor}");
+
+        return $match;
+    }
+
+    /**
+     * Resume a paused tournament match.
+     * Called when the disconnected player reconnects or pause timer expires.
+     */
+    public function resumeMatch(ChessTournamentMatch $match): ChessTournamentMatch
+    {
+        if (!$match->isPaused()) {
+            return $match;
+        }
+
+        $match->paused_at = null;
+        $match->pause_remaining_ms = 180000;
+        $match->paused_by_color = null;
+        $match->save();
+
+        // Broadcast resume event
+        $this->broadcastTournamentEvent($match->tournament_id, 'tournament_match_resumed', [
+            'match_id' => $match->id,
+        ]);
+
+        if ($match->chess_game_id) {
+            try {
+                $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
+                $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+                Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                    'channel' => "chess_game_{$match->chess_game_id}",
+                    'type' => 'tournament_match_resumed',
+                    'payload' => [
+                        'match_id' => $match->id,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::error('[ChessTournamentService] Resume broadcast error: ' . $e->getMessage());
+            }
+        }
+
+        Log::info("[TournamentFailsafe] Match #{$match->id} resumed.");
+
+        return $match;
+    }
+
+    /**
+     * Watchdog: Check and enforce all expired timers across active tournaments.
+     * Called every minute by the scheduled chess:tournament-watchdog command.
+     */
+    public function checkExpiredTimers(): int
+    {
+        $actionsCount = 0;
+
+        $activeTournaments = ChessTournament::where('status', 'in_progress')->get();
+
+        foreach ($activeTournaments as $tournament) {
+            $checkinMinutes = $tournament->match_checkin_minutes ?: 10;
+            $hardDeadlineMinutes = $checkinMinutes * 2; // 20 min default
+
+            $matches = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                ->where('status', 'in_progress')
+                ->get();
+
+            foreach ($matches as $match) {
+                // ─── Check-In Timer Enforcement ─────────────────
+
+                if (!$match->isFullyCheckedIn() && $match->match_ready_at) {
+                    $now = Carbon::now();
+
+                    // Case 1: First player checked in but second hasn't within the time limit
+                    if ($match->first_checkin_at) {
+                        $deadline = $match->first_checkin_at->copy()->addMinutes($checkinMinutes);
+                        if ($now->greaterThanOrEqualTo($deadline)) {
+                            // Forfeit the player who hasn't checked in
+                            $absentUserId = null;
+                            if (!$match->white_checked_in && $match->white_user_id) {
+                                $absentUserId = $match->white_user_id;
+                            } elseif (!$match->black_checked_in && $match->black_user_id) {
+                                $absentUserId = $match->black_user_id;
+                            }
+
+                            if ($absentUserId) {
+                                $this->forfeitMatch($match, $absentUserId, 'forfeit_no_show');
+                                $actionsCount++;
+                                Log::info("[TournamentWatchdog] Check-in forfeit: Player #{$absentUserId} in Match #{$match->id}");
+                            }
+                            continue;
+                        }
+                    }
+
+                    // Case 2: Hard deadline — neither player checked in
+                    $hardDeadline = $match->match_ready_at->copy()->addMinutes($hardDeadlineMinutes);
+                    if ($now->greaterThanOrEqualTo($hardDeadline) && !$match->first_checkin_at) {
+                        $this->forfeitMatch($match, null, 'double_forfeit');
+                        $actionsCount++;
+                        Log::info("[TournamentWatchdog] Double forfeit (no check-in): Match #{$match->id}");
+                        continue;
+                    }
+                }
+
+                // ─── Pause Timer Enforcement ────────────────────
+
+                if ($match->isPaused() && $match->paused_at) {
+                    $pauseElapsedMs = Carbon::now()->diffInMilliseconds($match->paused_at);
+                    if ($pauseElapsedMs >= $match->pause_remaining_ms) {
+                        // Pause expired — auto-resume
+                        $this->resumeMatch($match);
+                        $actionsCount++;
+                        Log::info("[TournamentWatchdog] Pause expired, auto-resumed: Match #{$match->id}");
+                    }
+                }
+            }
+        }
+
+        return $actionsCount;
     }
 
     /**

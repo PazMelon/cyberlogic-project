@@ -10,6 +10,9 @@ import {
   makeChessMove,
   resignChessGame,
   offerChessDraw,
+  checkinTournamentMatch,
+  pauseTournamentMatch,
+  resumeTournamentMatch,
   type ChessGame,
 } from '../utils/chessApi';
 import {
@@ -96,10 +99,96 @@ export default function ChessGameRoom() {
     latestMove,
     drawOfferState,
     roomUsers,
+    tournamentMatchState,
     sendGameChat,
     sendSpectatorChat,
     sendDrawOffer,
   } = useChessRealtime(game?.id);
+
+  // Tournament fail-safe state
+  const [tournamentCheckedIn, setTournamentCheckedIn] = useState(false);
+  const [tournamentWaitingForOpponent, setTournamentWaitingForOpponent] = useState(false);
+  const [showPauseOverlay, setShowPauseOverlay] = useState(false);
+  const [showDisconnectPrompt, setShowDisconnectPrompt] = useState(false);
+  const [disconnectPromptColor, setDisconnectPromptColor] = useState<'white' | 'black' | null>(null);
+  const [pauseCountdownMs, setPauseCountdownMs] = useState(180000);
+
+  // Auto check-in for tournament matches
+  useEffect(() => {
+    if (!game || !user || !isPlayer || tournamentCheckedIn) return;
+    if (!game.tournament_match_id && !game.chess_tournament_match) return;
+
+    const tournamentMatch = (game as any).chess_tournament_match;
+    if (!tournamentMatch) return;
+
+    const matchId = tournamentMatch.id;
+    const tournamentId = tournamentMatch.tournament_id;
+
+    checkinTournamentMatch(tournamentId, matchId)
+      .then((updatedMatch) => {
+        setTournamentCheckedIn(true);
+        if (updatedMatch.white_checked_in && updatedMatch.black_checked_in) {
+          setTournamentWaitingForOpponent(false);
+        } else {
+          setTournamentWaitingForOpponent(true);
+        }
+      })
+      .catch((err) => {
+        console.error('[ChessGameRoom] Tournament check-in error:', err);
+        setTournamentCheckedIn(true); // Don't retry continuously
+      });
+  }, [game?.id, user?.id, isPlayer, tournamentCheckedIn]);
+
+  // Handle tournament check-in state from WebSocket
+  useEffect(() => {
+    if (!tournamentMatchState?.checkin) return;
+    const { status, white_checked_in, black_checked_in } = tournamentMatchState.checkin;
+    if (status === 'both_checked_in') {
+      setTournamentWaitingForOpponent(false);
+    } else if (status === 'waiting_for_opponent') {
+      setTournamentWaitingForOpponent(!white_checked_in || !black_checked_in);
+    }
+  }, [tournamentMatchState?.checkin]);
+
+  // Handle disconnect prompt from WebSocket
+  useEffect(() => {
+    if (!tournamentMatchState?.disconnect) {
+      setShowDisconnectPrompt(false);
+      return;
+    }
+    const { disconnected_color, can_pause } = tournamentMatchState.disconnect;
+    if (can_pause && isPlayer) {
+      setDisconnectPromptColor(disconnected_color);
+      setShowDisconnectPrompt(true);
+    }
+  }, [tournamentMatchState?.disconnect, isPlayer]);
+
+  // Handle pause overlay from WebSocket
+  useEffect(() => {
+    if (tournamentMatchState?.pause) {
+      setShowPauseOverlay(true);
+      setPauseCountdownMs(tournamentMatchState.pause.pause_remaining_ms);
+      setShowDisconnectPrompt(false);
+    } else if (tournamentMatchState?.resumed) {
+      setShowPauseOverlay(false);
+    }
+  }, [tournamentMatchState?.pause, tournamentMatchState?.resumed]);
+
+  // Pause countdown timer
+  useEffect(() => {
+    if (!showPauseOverlay) return;
+    const interval = setInterval(() => {
+      setPauseCountdownMs((prev) => {
+        if (prev <= 1000) {
+          clearInterval(interval);
+          setShowPauseOverlay(false);
+          return 0;
+        }
+        return prev - 1000;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showPauseOverlay]);
 
   // Load initial game state
   useEffect(() => {
@@ -206,9 +295,10 @@ export default function ChessGameRoom() {
     }
   }, [game?.status, showAlert]);
 
-  // Live Timer Interval
+  // Live Timer Interval — freezes during tournament pause
   useEffect(() => {
     if (!game || game.status !== 'in_progress' || !game.time_control) return;
+    if (showPauseOverlay || tournamentWaitingForOpponent) return; // Freeze during pause/waiting
 
     const timer = setInterval(() => {
       if (game.current_turn === 'white') {
@@ -1351,13 +1441,124 @@ export default function ChessGameRoom() {
                 </div>
               );
             })()}
+          </div>
+        </div>
+      )}
 
-            <button
-              onClick={() => setShowSpectatorsModal(false)}
-              className="w-full bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-[var(--cl-text-primary)] font-bold text-xs py-2.5 rounded-xl transition-all cursor-pointer border border-[var(--cl-border)]"
-            >
-              Close
-            </button>
+      {/* Tournament: Waiting for Opponent Check-In Overlay */}
+      {tournamentWaitingForOpponent && isPlayer && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-[var(--cl-surface-900)] border-2 border-amber-500/60 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center space-y-4 animate-fade-in">
+            <div className="text-4xl animate-bounce">⏳</div>
+            <h2 className="text-lg font-extrabold text-amber-700 dark:text-amber-300">
+              Waiting for Opponent
+            </h2>
+            <p className="text-sm text-[var(--cl-text-secondary)]">
+              You've checked in! Waiting for your opponent to enter the match room.
+              The match will begin automatically when both players are present.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-xs font-mono font-bold text-[var(--cl-text-muted)]">
+              <Clock className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '3s' }} />
+              Your opponent has 10 minutes to join or they will be forfeited.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tournament: Disconnect Pause Prompt Modal */}
+      {showDisconnectPrompt && isPlayer && disconnectPromptColor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[var(--cl-surface-900)] border-2 border-orange-500/60 rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4 space-y-4">
+            <div className="text-center">
+              <div className="text-3xl mb-2">📡</div>
+              <h3 className="text-base font-extrabold text-orange-700 dark:text-orange-300">
+                Opponent Disconnected
+              </h3>
+              <p className="text-xs text-[var(--cl-text-secondary)] mt-1">
+                Your opponent has disconnected. Would you like to grant them a pause to reconnect?
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  const tournamentMatch = (game as any)?.chess_tournament_match;
+                  if (tournamentMatch) {
+                    pauseTournamentMatch(tournamentMatch.tournament_id, tournamentMatch.id, disconnectPromptColor)
+                      .then(() => setShowDisconnectPrompt(false))
+                      .catch((err) => console.error('Pause error:', err));
+                  }
+                }}
+                className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-extrabold text-xs py-2.5 rounded-xl transition-all cursor-pointer shadow-lg"
+              >
+                ⏸️ Grant Pause (3 min)
+              </button>
+              <button
+                onClick={() => setShowDisconnectPrompt(false)}
+                className="flex-1 bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-[var(--cl-text-primary)] font-extrabold text-xs py-2.5 rounded-xl transition-all cursor-pointer border border-[var(--cl-border)]"
+              >
+                ❌ Decline
+              </button>
+            </div>
+
+            <p className="text-[9px] text-center text-[var(--cl-text-muted)]">
+              If you decline, the chess clock will continue running as normal.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tournament: Game Paused Overlay */}
+      {showPauseOverlay && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-md">
+          <div className="bg-[var(--cl-surface-900)] border-2 border-orange-500/50 rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 text-center space-y-5 animate-fade-in">
+            <div className="text-5xl">⏸️</div>
+            <h2 className="text-xl font-extrabold text-orange-700 dark:text-orange-300">
+              GAME PAUSED
+            </h2>
+            <p className="text-sm text-[var(--cl-text-secondary)]">
+              Waiting for the disconnected player to reconnect...
+            </p>
+
+            {/* Circular countdown */}
+            <div className="flex items-center justify-center">
+              <div className="relative w-24 h-24">
+                <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="var(--cl-border)" strokeWidth="6" opacity="0.3" />
+                  <circle
+                    cx="50" cy="50" r="42"
+                    fill="none"
+                    stroke={pauseCountdownMs > 60000 ? '#f59e0b' : '#ef4444'}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={`${2 * Math.PI * 42}`}
+                    strokeDashoffset={`${2 * Math.PI * 42 * (1 - pauseCountdownMs / 180000)}`}
+                    className="transition-all duration-1000"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className={`text-lg font-mono font-extrabold ${pauseCountdownMs > 60000 ? 'text-amber-500' : 'text-red-500'}`}>
+                    {Math.floor(pauseCountdownMs / 60000)}:{String(Math.floor((pauseCountdownMs % 60000) / 1000)).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {isPlayer && (
+              <button
+                onClick={() => {
+                  const tournamentMatch = (game as any)?.chess_tournament_match;
+                  if (tournamentMatch) {
+                    resumeTournamentMatch(tournamentMatch.tournament_id, tournamentMatch.id)
+                      .then(() => setShowPauseOverlay(false))
+                      .catch((err) => console.error('Resume error:', err));
+                  }
+                }}
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs py-2.5 px-6 rounded-xl transition-all cursor-pointer shadow-lg"
+              >
+                ▶️ Resume Game Early
+              </button>
+            )}
           </div>
         </div>
       )}
