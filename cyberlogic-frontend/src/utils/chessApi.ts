@@ -252,6 +252,7 @@ export interface ChessTournament {
   current_round: number;
   total_rounds: number;
   started_at: string | null;
+  scheduled_at?: string | null;
   completed_at: string | null;
   created_at: string;
   creator?: ChessUserSummary;
@@ -275,6 +276,7 @@ export async function createChessTournament(data: {
   type?: 'ranked' | 'casual';
   enable_third_place_match?: boolean;
   elimination_mode?: 'single' | 'double';
+  start_time?: string;
 }): Promise<ChessTournament> {
   const res = await apiRequest('/api/chess/tournaments', {
     method: 'POST',

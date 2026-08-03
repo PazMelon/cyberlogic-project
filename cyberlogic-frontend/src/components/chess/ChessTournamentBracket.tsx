@@ -114,8 +114,8 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
   const grandFinalMatch2 = grandFinalMatches.find((m) => Number(m.match_number) === 2) || null;
 
   // === BRACKET TREE POSITIONING MATH ===
-  const CARD_HEIGHT = 215;
-  const GAP_HEIGHT = 35;
+  const CARD_HEIGHT = 315;
+  const GAP_HEIGHT = 45;
   const UNIT_HEIGHT = CARD_HEIGHT + GAP_HEIGHT;
   const totalTreeHeight = Math.max(350, numR1Slots * UNIT_HEIGHT);
 
@@ -578,7 +578,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                             <div
                               key={`ws-${roundNum}-${sIdx}`}
                               style={{ top: `${centerY - CARD_HEIGHT / 2}px`, height: `${CARD_HEIGHT}px` }}
-                              className="absolute w-full z-10"
+                              className="absolute w-full z-10 flex flex-col justify-center"
                             >
                               {slot.type === 'match' && slot.match ? (
                                 renderMatchCard(slot.match, isFinalRound, roundNum, sIdx)
@@ -797,7 +797,7 @@ export const ChessTournamentBracket: React.FC<ChessTournamentBracketProps> = ({ 
                                 <div
                                   key={`losers-slot-${roundNum}-${sIdx}`}
                                   style={{ top: `${centerY - CARD_HEIGHT / 2}px`, height: `${CARD_HEIGHT}px` }}
-                                  className="absolute w-full z-10"
+                                  className="absolute w-full z-10 flex flex-col justify-center"
                                 >
                                   {match ? (
                                     renderMatchCard(match, false, roundNum, sIdx)

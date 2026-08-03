@@ -116,19 +116,24 @@ export default function ChessGameRoom() {
   // Auto check-in for tournament matches
   useEffect(() => {
     if (!game || !user || !isPlayer || tournamentCheckedIn) return;
-    if (!game.tournament_match_id && !game.chess_tournament_match) return;
+    const tournamentMatch =
+      (game as any).tournament_match ||
+      (game as any).tournamentMatch ||
+      (game as any).chess_tournament_match;
 
-    const tournamentMatch = (game as any).chess_tournament_match;
     if (!tournamentMatch) return;
 
     const matchId = tournamentMatch.id;
     const tournamentId = tournamentMatch.tournament_id;
+
+    if (!matchId || !tournamentId) return;
 
     checkinTournamentMatch(tournamentId, matchId)
       .then((updatedMatch) => {
         setTournamentCheckedIn(true);
         if (updatedMatch.white_checked_in && updatedMatch.black_checked_in) {
           setTournamentWaitingForOpponent(false);
+          setGame((prev) => (prev ? { ...prev, status: 'in_progress' } : prev));
         } else {
           setTournamentWaitingForOpponent(true);
         }
@@ -137,14 +142,15 @@ export default function ChessGameRoom() {
         console.error('[ChessGameRoom] Tournament check-in error:', err);
         setTournamentCheckedIn(true); // Don't retry continuously
       });
-  }, [game?.id, user?.id, isPlayer, tournamentCheckedIn]);
+  }, [game, user?.id, isPlayer, tournamentCheckedIn]);
 
   // Handle tournament check-in state from WebSocket
   useEffect(() => {
     if (!tournamentMatchState?.checkin) return;
     const { status, white_checked_in, black_checked_in } = tournamentMatchState.checkin;
-    if (status === 'both_checked_in') {
+    if (status === 'both_checked_in' || (white_checked_in && black_checked_in)) {
       setTournamentWaitingForOpponent(false);
+      setGame((prev) => (prev ? { ...prev, status: 'in_progress' } : prev));
     } else if (status === 'waiting_for_opponent') {
       setTournamentWaitingForOpponent(!white_checked_in || !black_checked_in);
     }
@@ -214,6 +220,15 @@ export default function ChessGameRoom() {
 
         if (data.game.white_time_left_ms) setWhiteMs(data.game.white_time_left_ms);
         if (data.game.black_time_left_ms) setBlackMs(data.game.black_time_left_ms);
+
+        const tm = (data.game as any).tournament_match || (data.game as any).tournamentMatch;
+        if (tm) {
+          if (tm.white_checked_in && tm.black_checked_in) {
+            setTournamentWaitingForOpponent(false);
+          } else {
+            setTournamentWaitingForOpponent(true);
+          }
+        }
 
         if (isReplayMode) {
           setReplayStep(0);

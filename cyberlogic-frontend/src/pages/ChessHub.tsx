@@ -24,7 +24,7 @@ import {
   type ChessLobbyChatMessage,
   type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Calendar, Clock } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -186,6 +186,8 @@ export default function ChessHub() {
     max_players: number;
     time_control: number;
     type: 'ranked' | 'casual';
+    elimination_mode?: 'single' | 'double';
+    start_time?: string;
   }) => {
     const created = await createChessTournament(data);
     setTournaments((prev) => [created, ...prev]);
@@ -661,8 +663,19 @@ export default function ChessHub() {
                           "{selectedTournament.description}"
                         </p>
                       )}
-                      <p className="text-xs text-[var(--cl-text-muted)] mt-1.5 font-medium">
-                        Time Control: {selectedTournament.time_control} mins | Max Players: {selectedTournament.max_players} | Mode: {selectedTournament.elimination_mode === 'double' ? '🛡️ Double Knockout' : '⚡ Single Knockout'}
+                      <p className="text-xs text-[var(--cl-text-muted)] mt-1.5 font-medium flex items-center gap-3 flex-wrap">
+                        <span>Time Control: {selectedTournament.time_control} mins</span>
+                        <span>• Max Players: {selectedTournament.max_players}</span>
+                        <span>• Mode: {selectedTournament.elimination_mode === 'double' ? '🛡️ Double Knockout' : '⚡ Single Knockout'}</span>
+                        {selectedTournament.scheduled_at ? (
+                          <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                            <Calendar className="w-3.5 h-3.5" /> Scheduled: {new Date(selectedTournament.scheduled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                          </span>
+                        ) : selectedTournament.created_at ? (
+                          <span className="text-[var(--cl-text-muted)] flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> Created: {new Date(selectedTournament.created_at).toLocaleDateString([], { dateStyle: 'medium' })}
+                          </span>
+                        ) : null}
                       </p>
                     </div>
 
@@ -734,7 +747,7 @@ export default function ChessHub() {
                         <div
                           key={t.id}
                           onClick={() => setSelectedTournament(t)}
-                          className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] hover:border-[var(--cl-primary)]/50 rounded-2xl p-5 shadow-xl transition-all cursor-pointer group hover:scale-[1.01] space-y-4"
+                          className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] hover:border-[var(--cl-primary)]/50 rounded-2xl p-5 shadow-xl transition-all cursor-pointer group hover:scale-[1.01] space-y-3"
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div>
@@ -759,11 +772,20 @@ export default function ChessHub() {
                             </span>
                           </div>
 
-                          <div className="flex items-center justify-between pt-1">
-                            <span className="text-[10px] text-[var(--cl-text-muted)]">
-                              Created by {t.creator?.name || 'Player'}
+                          <div className="flex items-center justify-between pt-2 border-t border-[var(--cl-border)]/40 text-[10px] text-[var(--cl-text-muted)]">
+                            <span className="flex items-center gap-1 font-medium">
+                              {t.scheduled_at ? (
+                                <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                  <Calendar className="w-3 h-3" /> {new Date(t.scheduled_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              ) : t.created_at ? (
+                                <span className="flex items-center gap-1 text-[var(--cl-text-muted)]">
+                                  <Clock className="w-3 h-3" /> Created: {new Date(t.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              ) : null}
+                              <span className="ml-1">• Created by {t.creator?.name || 'Player'}</span>
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               {(t.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && t.status !== 'completed' && (
                                 <button
                                   type="button"

@@ -416,7 +416,17 @@ class ChessTournamentService
 
             // Route Winner
             if ($winnerId) {
-                if ($lr % 2 === 1) {
+                if ($lr === $totalLosersRounds) {
+                    // Losers Final winner -> Grand Final Match #1 (Black slot)
+                    $gf = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'grand_final')
+                        ->where('match_number', 1)
+                        ->first();
+                    if ($gf) {
+                        $gf->black_user_id = $winnerId;
+                        $gf->save();
+                    }
+                } else if ($lr % 2 === 1) {
                     // Odd reduction round -> Even drop-in round (same match number, white slot)
                     $nextLMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
                         ->where('bracket_type', 'losers')
@@ -428,30 +438,18 @@ class ChessTournamentService
                         $nextLMatch->save();
                     }
                 } else {
-                    // Even drop-in round
-                    if ($lr < $totalLosersRounds) {
-                        $nextLMatchNum = (int) ceil($m / 2);
-                        $isWhite = ($m % 2 === 1);
-                        $nextLMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                            ->where('bracket_type', 'losers')
-                            ->where('round_number', $lr + 1)
-                            ->where('match_number', $nextLMatchNum)
-                            ->first();
-                        if ($nextLMatch) {
-                            if ($isWhite) $nextLMatch->white_user_id = $winnerId;
-                            else $nextLMatch->black_user_id = $winnerId;
-                            $nextLMatch->save();
-                        }
-                    } else {
-                        // Losers Final winner -> Grand Final Match #1 (Black slot)
-                        $gf = ChessTournamentMatch::where('tournament_id', $tournament->id)
-                            ->where('bracket_type', 'grand_final')
-                            ->where('match_number', 1)
-                            ->first();
-                        if ($gf) {
-                            $gf->black_user_id = $winnerId;
-                            $gf->save();
-                        }
+                    // Even drop-in round -> Next odd reduction round
+                    $nextLMatchNum = (int) ceil($m / 2);
+                    $isWhite = ($m % 2 === 1);
+                    $nextLMatch = ChessTournamentMatch::where('tournament_id', $tournament->id)
+                        ->where('bracket_type', 'losers')
+                        ->where('round_number', $lr + 1)
+                        ->where('match_number', $nextLMatchNum)
+                        ->first();
+                    if ($nextLMatch) {
+                        if ($isWhite) $nextLMatch->white_user_id = $winnerId;
+                        else $nextLMatch->black_user_id = $winnerId;
+                        $nextLMatch->save();
                     }
                 }
             }
@@ -888,6 +886,8 @@ class ChessTournamentService
             try {
                 $realtimeUrl = env('REALTIME_WS_URL', 'http://127.0.0.1:3001');
                 $secret = env('REALTIME_WS_SECRET', 'cyberlogic_secret_token_123');
+                $isBoth = $match->isFullyCheckedIn();
+
                 Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
                     'channel' => "chess_game_{$match->chessGame->id}",
                     'type' => 'tournament_match_checkin',
@@ -895,9 +895,21 @@ class ChessTournamentService
                         'match_id' => $match->id,
                         'white_checked_in' => $match->white_checked_in,
                         'black_checked_in' => $match->black_checked_in,
-                        'fully_checked_in' => $match->isFullyCheckedIn(),
+                        'fully_checked_in' => $isBoth,
+                        'status' => $isBoth ? 'both_checked_in' : 'waiting_for_opponent',
                     ],
                 ]);
+
+                if ($isBoth) {
+                    $freshGame = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winner', 'tournamentMatch'])->find($match->chessGame->id);
+                    Http::withHeaders(['X-Realtime-Secret' => $secret])->timeout(3)->post("{$realtimeUrl}/internal/broadcast", [
+                        'channel' => "chess_game_{$match->chessGame->id}",
+                        'type' => 'chess_game_started',
+                        'payload' => [
+                            'game' => $freshGame,
+                        ],
+                    ]);
+                }
             } catch (\Exception $e) {
                 Log::error('[ChessTournamentService] Checkin broadcast error: ' . $e->getMessage());
             }
