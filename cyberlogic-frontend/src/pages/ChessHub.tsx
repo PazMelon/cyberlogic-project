@@ -18,12 +18,13 @@ import {
   leaveChessTournament,
   startChessTournament,
   deleteChessTournament,
+  fetchChessMatchHistory,
   type ChessGame,
   type ChessPlayerStat,
   type ChessLobbyChatMessage,
   type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2 } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -34,6 +35,7 @@ import { CreateMatchModal } from '../components/chess/CreateMatchModal';
 import { MobileCommunityDrawer } from '../components/chess/MobileCommunityDrawer';
 import { ChessTournamentBracket } from '../components/chess/ChessTournamentBracket';
 import { CreateTournamentModal } from '../components/chess/CreateTournamentModal';
+import { ChessMatchHistoryCard } from '../components/chess/ChessMatchHistoryCard';
 
 export default function ChessHub() {
   const { user } = useAuth();
@@ -47,8 +49,12 @@ export default function ChessHub() {
   const [leaderboard, setLeaderboard] = useState<ChessPlayerStat[]>([]);
   const [userStat, setUserStat] = useState<ChessPlayerStat | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'lobby' | 'tournaments' | 'leaderboard'>('lobby');
+  const [activeTab, setActiveTab] = useState<'lobby' | 'tournaments' | 'leaderboard' | 'history'>('lobby');
   const [leaderboardSort, setLeaderboardSort] = useState<'elo' | 'reputation'>('elo');
+
+  // Match History State
+  const [history, setHistory] = useState<ChessGame[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Tournaments State
   const [tournaments, setTournaments] = useState<ChessTournament[]>([]);
@@ -80,19 +86,33 @@ export default function ChessHub() {
   // Challenge player target
   const [challengingUserId, setChallengingUserId] = useState<number | null>(null);
 
+  const loadHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const historyList = await fetchChessMatchHistory();
+      setHistory(historyList);
+    } catch (err) {
+      console.error('[ChessHub] Failed to fetch match history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [gamesList, lbData, myStats, tourneys] = await Promise.all([
+      const [gamesList, lbData, myStats, tourneys, historyList] = await Promise.all([
         fetchChessGames(),
         fetchChessLeaderboard(leaderboardSort),
         fetchUserChessStats(),
         fetchChessTournaments(),
+        fetchChessMatchHistory().catch(() => []),
       ]);
       setGames(gamesList);
       setLeaderboard(lbData);
       setUserStat(myStats);
       setTournaments(tourneys);
+      setHistory(historyList);
     } catch (err) {
       console.error('[ChessHub] Failed to load data:', err);
     } finally {
@@ -115,6 +135,8 @@ export default function ChessHub() {
       setActiveTab('lobby');
     } else if (tabParam === 'leaderboard') {
       setActiveTab('leaderboard');
+    } else if (tabParam === 'history') {
+      setActiveTab('history');
     }
 
     if (tourneyParam && !isNaN(Number(tourneyParam))) {
@@ -503,6 +525,16 @@ export default function ChessHub() {
             >
               <Award className="w-4 h-4" /> Global Leaderboards
             </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`px-4 sm:px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
+                activeTab === 'history'
+                  ? 'bg-[var(--cl-primary)] text-slate-950 scale-[1.02]'
+                  : 'bg-[var(--cl-surface-900)] text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)]'
+              }`}
+            >
+              <History className="w-4 h-4" /> Match History
+            </button>
           </div>
 
           {/* Active Tab Content */}
@@ -582,32 +614,31 @@ export default function ChessHub() {
                           ) : (
                             <button
                               onClick={() => handleJoinTournament(selectedTournament.id)}
-                              disabled={(selectedTournament.participants?.length || 0) >= selectedTournament.max_players}
-                              className="px-4 py-2 rounded-xl text-xs font-bold bg-[var(--cl-primary)] text-slate-950 hover:brightness-110 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-[var(--cl-primary)]/20 disabled:opacity-50"
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
                             >
-                              <UserPlus className="w-3.5 h-3.5" /> Join Tournament ({selectedTournament.participants?.length || 0}/{selectedTournament.max_players})
+                              <UserPlus className="w-3.5 h-3.5" /> Register for Tournament
                             </button>
                           )}
 
-                          {(selectedTournament.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && (
-                            <>
-                              <button
-                                onClick={() => handleStartTournament(selectedTournament.id)}
-                                disabled={(selectedTournament.participants?.length || 0) < 2}
-                                className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-amber-500/20 disabled:opacity-50"
-                              >
-                                <Play className="w-3.5 h-3.5 fill-current" /> Start & Pair Bracket
-                              </button>
-                              <button
-                                onClick={() => handleDeleteTournament(selectedTournament.id, false)}
-                                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all cursor-pointer flex items-center gap-1.5"
-                                title="Delete Tournament"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" /> Delete
-                              </button>
-                            </>
+                          {(user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && (
+                            <button
+                              onClick={() => handleStartTournament(selectedTournament.id)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-[var(--cl-primary)] hover:brightness-110 text-slate-950 shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" /> Start Championship
+                            </button>
                           )}
                         </>
+                      )}
+
+                      {(user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && selectedTournament.status === 'registration' && (
+                        <button
+                          onClick={() => handleDeleteTournament(selectedTournament.id, false)}
+                          className="p-2 rounded-xl text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all cursor-pointer"
+                          title="Delete Unstarted Tournament"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       )}
 
                       {selectedTournament.status === 'in_progress' && (user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && (
@@ -648,35 +679,18 @@ export default function ChessHub() {
                                   ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                                   : 'bg-slate-500/10 border-slate-500/30 text-slate-400'
                               }`}>
-                                {t.status === 'registration' ? 'Open for Joining' : t.status === 'in_progress' ? 'Matches In Progress' : 'Completed'}
+                                {t.status}
                               </span>
-                              <h3 className="text-base font-extrabold text-[var(--cl-text-primary)] group-hover:text-[var(--cl-primary-light)] transition-colors">
+                              <h3 className="font-extrabold text-base text-[var(--cl-text-primary)] group-hover:text-[var(--cl-primary-light)] transition-colors">
                                 {t.title}
                               </h3>
-                              {t.description && (
-                                <p className="text-xs text-[var(--cl-text-secondary)] mt-1 line-clamp-2 italic font-medium">
-                                  "{t.description}"
-                                </p>
-                              )}
+                              <p className="text-xs text-[var(--cl-text-muted)] mt-1 font-medium">
+                                Mode: {t.elimination_mode === 'double' ? 'Double Knockout' : 'Single Knockout'} • {t.time_control} min matches
+                              </p>
                             </div>
-                            <Trophy className="w-6 h-6 text-amber-400 shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 py-2 px-3 bg-[var(--cl-surface-950)] rounded-xl border border-[var(--cl-border)]/50 text-[11px]">
-                            <div>
-                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Players</span>
-                              <span className="font-bold text-[var(--cl-text-primary)]">
-                                {t.participants?.length || 0} / {t.max_players}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Time</span>
-                              <span className="font-bold text-[var(--cl-text-primary)]">{t.time_control} mins</span>
-                            </div>
-                            <div>
-                              <span className="text-[var(--cl-text-muted)] block text-[9px]">Type</span>
-                              <span className="font-bold text-[var(--cl-text-primary)] capitalize">{t.type}</span>
-                            </div>
+                            <span className="text-xs font-mono text-[var(--cl-primary-light)] font-bold bg-[var(--cl-surface-950)] px-2.5 py-1 rounded-lg border border-[var(--cl-border)] shrink-0">
+                              {t.participants?.length || 0}/{t.max_players} Players
+                            </span>
                           </div>
 
                           <div className="flex items-center justify-between pt-1">
@@ -716,6 +730,14 @@ export default function ChessHub() {
               leaderboard={leaderboard}
               leaderboardSort={leaderboardSort}
               onSetLeaderboardSort={setLeaderboardSort}
+            />
+          )}
+
+          {activeTab === 'history' && (
+            <ChessMatchHistoryCard
+              history={history}
+              loading={loadingHistory}
+              onRefresh={loadHistory}
             />
           )}
         </div>

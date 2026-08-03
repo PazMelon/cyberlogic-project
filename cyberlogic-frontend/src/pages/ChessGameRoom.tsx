@@ -145,7 +145,17 @@ export default function ChessGameRoom() {
   // Handle latest game status updates & auto-boot on cancellation
   useEffect(() => {
     if (latestGameUpdate && game && latestGameUpdate.id === game.id) {
-      setGame(latestGameUpdate);
+      setGame((prev) =>
+        prev
+          ? {
+              ...prev,
+              ...latestGameUpdate,
+              white_player: latestGameUpdate.white_player || prev.white_player,
+              black_player: latestGameUpdate.black_player || prev.black_player,
+              host: latestGameUpdate.host || prev.host,
+            }
+          : latestGameUpdate
+      );
       if (latestGameUpdate.pgn) {
         try {
           chessRef.current.loadPgn(latestGameUpdate.pgn);
@@ -330,7 +340,17 @@ export default function ChessGameRoom() {
             winner_id: winnerId,
             is_draw: isDraw,
           }).then((updated) => {
-            setGame(updated);
+            setGame((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ...updated,
+                    white_player: updated.white_player || prev.white_player,
+                    black_player: updated.black_player || prev.black_player,
+                    host: updated.host || prev.host,
+                  }
+                : updated
+            );
           });
 
           return;
@@ -595,8 +615,15 @@ export default function ChessGameRoom() {
                     ></div>
                   </div>
                   <div>
-                    <div className="font-bold text-sm text-[var(--cl-text-primary)]">{topPlayer?.name || (topPlayer ? `User #${topPlayer.id}` : 'Waiting for Player...')}</div>
-                    <div className="text-xs text-[var(--cl-text-muted)] uppercase font-mono">{topColor}</div>
+                    <div className="font-bold text-sm text-[var(--cl-text-primary)]">
+                      {topPlayer?.name || (topPlayer ? `User #${topPlayer.id}` : 'Waiting for Player...')}
+                    </div>
+                    <div className="text-xs text-[var(--cl-text-muted)] flex items-center gap-1.5 font-mono">
+                      <span>{topPlayer?.username ? `@${topPlayer.username}` : topPlayer ? `@user_${topPlayer.id}` : 'Unassigned'}</span>
+                      <span className="text-[10px] uppercase px-1.5 py-0.2 rounded bg-[var(--cl-surface-950)] border border-[var(--cl-border)] font-bold text-[var(--cl-text-secondary)]">
+                        {topColor}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -614,7 +641,13 @@ export default function ChessGameRoom() {
           })()}
 
           {/* Interactive Chess Board */}
-          <div className="relative aspect-square max-w-[540px] mx-auto bg-[var(--cl-surface-900)] border-4 border-[var(--cl-border)] rounded-2xl shadow-2xl overflow-hidden">
+          <div
+            className={`relative aspect-square max-w-[540px] mx-auto bg-[var(--cl-surface-900)] border-4 rounded-2xl shadow-2xl overflow-hidden transition-all duration-300 ${
+              isMyTurn
+                ? 'border-[var(--cl-primary)] ring-4 ring-[var(--cl-primary)]/25 shadow-[0_0_30px_rgba(245,158,11,0.25)]'
+                : 'border-[var(--cl-border)]'
+            }`}
+          >
             <div className="grid grid-cols-8 grid-rows-8 w-full h-full">
               {displayRanks.map((r, rIdx) =>
                 displayFiles.map((f, fIdx) => {
@@ -731,8 +764,15 @@ export default function ChessGameRoom() {
                     ></div>
                   </div>
                   <div>
-                    <div className="font-bold text-sm text-[var(--cl-text-primary)]">{bottomPlayer?.name || (bottomPlayer ? `User #${bottomPlayer.id}` : 'Waiting...')}</div>
-                    <div className="text-xs text-[var(--cl-text-muted)] uppercase font-mono">{bottomColor}</div>
+                    <div className="font-bold text-sm text-[var(--cl-text-primary)]">
+                      {bottomPlayer?.name || (bottomPlayer ? `User #${bottomPlayer.id}` : 'Waiting...')}
+                    </div>
+                    <div className="text-xs text-[var(--cl-text-muted)] flex items-center gap-1.5 font-mono">
+                      <span>{bottomPlayer?.username ? `@${bottomPlayer.username}` : bottomPlayer ? `@user_${bottomPlayer.id}` : 'Unassigned'}</span>
+                      <span className="text-[10px] uppercase px-1.5 py-0.2 rounded bg-[var(--cl-surface-950)] border border-[var(--cl-border)] font-bold text-[var(--cl-text-secondary)]">
+                        {bottomColor}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -832,9 +872,16 @@ export default function ChessGameRoom() {
                     alt="White Player"
                     className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
                   />
-                  <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs">
-                    {game.white_player?.name || 'White Player'}
-                  </span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
+                      {game.white_player?.name || 'White Player'}
+                    </span>
+                    {game.white_player?.username && (
+                      <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                        @{game.white_player.username}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 shrink-0">
                   White
@@ -849,9 +896,16 @@ export default function ChessGameRoom() {
                     alt="Black Player"
                     className="w-6 h-6 rounded-full object-cover border border-[var(--cl-border)] shrink-0"
                   />
-                  <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs">
-                    {game.black_player?.name || 'Waiting for opponent...'}
-                  </span>
+                  <div className="min-w-0">
+                    <span className="font-bold text-[var(--cl-text-primary)] truncate text-xs block">
+                      {game.black_player?.name || 'Waiting for opponent...'}
+                    </span>
+                    {game.black_player?.username && (
+                      <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                        @{game.black_player.username}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-slate-500/20 px-2 py-0.5 rounded border border-slate-500/30 shrink-0">
                   Black

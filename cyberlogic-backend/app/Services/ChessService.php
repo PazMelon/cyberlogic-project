@@ -180,6 +180,7 @@ class ChessService
         }
 
         $game->save();
+        $game->load(['host', 'whitePlayer', 'blackPlayer', 'winner']);
 
         // Broadcast move update
         $this->broadcastToRealtime("chess_game_{$game->id}", 'chess_move', [

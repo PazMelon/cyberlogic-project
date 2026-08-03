@@ -323,3 +323,11 @@ export async function deleteChessTournament(id: number): Promise<void> {
   }
 }
 
+export async function fetchChessMatchHistory(userId?: number): Promise<ChessGame[]> {
+  const url = userId ? `/api/chess/history?user_id=${userId}` : '/api/chess/history';
+  const res = await apiRequest(url);
+  if (!res.ok) throw new Error('Failed to fetch match history');
+  const data = await res.json();
+  return data.history;
+}
+

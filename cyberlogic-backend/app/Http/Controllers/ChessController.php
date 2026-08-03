@@ -303,8 +303,8 @@ class ChessController extends Controller
     {
         $userId = $request->query('user_id');
 
-        $query = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winnerUser', 'tournament'])
-            ->whereIn('status', ['completed', 'resigned', 'timeout', 'draw']);
+        $query = ChessGame::with(['host', 'whitePlayer', 'blackPlayer', 'winner'])
+            ->whereIn('status', ['completed', 'aborted', 'cancelled']);
 
         if ($userId) {
             $query->where(function ($q) use ($userId) {
@@ -313,7 +313,7 @@ class ChessController extends Controller
             });
         }
 
-        $matches = $query->orderBy('updated_at', 'desc')->limit(50)->get();
+        $matches = $query->orderBy('updated_at', 'desc')->limit(100)->get();
 
         return response()->json([
             'history' => $matches,

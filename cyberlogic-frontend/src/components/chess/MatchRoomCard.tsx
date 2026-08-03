@@ -53,23 +53,37 @@ export function MatchRoomCard({
         {/* Players summary */}
         <div className="space-y-2 mb-4">
           <div className="flex items-center justify-between text-xs bg-[var(--cl-surface-900)] px-3 py-1.5 rounded-lg border border-[var(--cl-border)]">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400"></div>
-              <span className="font-semibold text-[var(--cl-text-primary)]">
-                {game.white_player?.name || game.white_player?.username || (game.white_player_id ? `User #${game.white_player_id}` : 'Waiting...')}
-              </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-400 shrink-0"></div>
+              <div className="min-w-0">
+                <span className="font-semibold text-[var(--cl-text-primary)] truncate block">
+                  {game.white_player?.name || (game.white_player_id ? `User #${game.white_player_id}` : 'Waiting...')}
+                </span>
+                {game.white_player?.username && (
+                  <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                    @{game.white_player.username}
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="text-[var(--cl-text-muted)] font-mono text-[10px]">WHITE</span>
+            <span className="text-[var(--cl-text-muted)] font-mono text-[10px] shrink-0">WHITE</span>
           </div>
 
           <div className="flex items-center justify-between text-xs bg-[var(--cl-surface-900)] px-3 py-1.5 rounded-lg border border-[var(--cl-border)]">
-            <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-600"></div>
-              <span className="font-semibold text-[var(--cl-text-primary)]">
-                {game.black_player?.name || game.black_player?.username || (game.black_player_id ? `User #${game.black_player_id}` : 'Waiting...')}
-              </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-600 shrink-0"></div>
+              <div className="min-w-0">
+                <span className="font-semibold text-[var(--cl-text-primary)] truncate block">
+                  {game.black_player?.name || (game.black_player_id ? `User #${game.black_player_id}` : 'Waiting...')}
+                </span>
+                {game.black_player?.username && (
+                  <span className="text-[10px] text-[var(--cl-text-muted)] font-mono block">
+                    @{game.black_player.username}
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="text-[var(--cl-text-muted)] font-mono text-[10px]">BLACK</span>
+            <span className="text-[var(--cl-text-muted)] font-mono text-[10px] shrink-0">BLACK</span>
           </div>
         </div>
       </div>
