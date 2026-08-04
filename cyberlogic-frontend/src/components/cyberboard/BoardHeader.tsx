@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowLeft, Radio, Share2, Plus, Users, Pin, Lock, Settings, History } from "lucide-react";
+import { ArrowLeft, Radio, Share2, Plus, Users, Pin, Lock, Settings, History, LayoutGrid, GanttChart } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
 interface BoardHeaderProps {
@@ -10,6 +10,8 @@ interface BoardHeaderProps {
   showCollaborators: boolean;
   copiedLink: boolean;
   canManageBoard?: boolean;
+  viewMode?: "board" | "gantt";
+  onViewModeChange?: (mode: "board" | "gantt") => void;
   onToggleCollaborators: () => void;
   onCopyShareLink: () => void;
   onSuggestActivityClick: () => void;
@@ -25,6 +27,8 @@ export default function BoardHeader({
   showCollaborators,
   copiedLink,
   canManageBoard,
+  viewMode = "board",
+  onViewModeChange,
   onToggleCollaborators,
   onCopyShareLink,
   onSuggestActivityClick,
@@ -133,6 +137,37 @@ export default function BoardHeader({
 
       {/* Action CTAs Toolbar (Single Line, Right-Aligned) */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        {/* View Switcher: Board vs Gantt Roadmap */}
+        {onViewModeChange && (
+          <div className="flex items-center p-1 rounded-xl bg-surface-800 border border-border">
+            <button
+              type="button"
+              onClick={() => onViewModeChange("board")}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === "board"
+                  ? "bg-primary text-surface-950 shadow-xs font-bold"
+                  : "text-text-muted hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+              title="Kanban Board View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Board</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange("gantt")}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === "gantt"
+                  ? "bg-primary text-surface-950 shadow-xs font-bold"
+                  : "text-text-muted hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+              title="Gantt Roadmap View"
+            >
+              <GanttChart className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">Roadmap</span>
+            </button>
+          </div>
+        )}
         {/* Activity Audit Log Button */}
         <button
           type="button"

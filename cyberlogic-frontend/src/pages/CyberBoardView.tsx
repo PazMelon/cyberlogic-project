@@ -24,6 +24,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCyberboardRealtime } from "../hooks/useCyberboardRealtime";
 import BoardHeader from "../components/cyberboard/BoardHeader";
 import BoardColumn from "../components/cyberboard/BoardColumn";
+import GanttRoadmapView from "../components/cyberboard/GanttRoadmapView";
 import CollaboratorsSidebar from "../components/cyberboard/CollaboratorsSidebar";
 import LiveCursorsOverlay from "../components/cyberboard/LiveCursorsOverlay";
 import MobileNoticeBanner from "../components/cyberboard/MobileNoticeBanner";
@@ -77,6 +78,7 @@ export default function CyberBoardView() {
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
+  const [viewMode, setViewMode] = useState<"board" | "gantt">("board");
 
   // Load board data
   const loadBoard = useCallback(async () => {
@@ -86,6 +88,9 @@ export default function CyberBoardView() {
     try {
       const data = await fetchCyberboardBoard(numericBoardId);
       setBoard(data);
+      if (data?.type === "roadmap") {
+        setViewMode("gantt");
+      }
     } catch (err: any) {
       console.error("Failed to load board details:", err);
       setError(err.message || "Failed to load board details.");
@@ -865,6 +870,8 @@ export default function CyberBoardView() {
         showCollaborators={showCollaborators}
         copiedLink={copiedLink}
         canManageBoard={canManageBoard}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         onToggleCollaborators={() => setShowCollaborators((prev) => !prev)}
         onCopyShareLink={handleCopyShareLink}
         onSuggestActivityClick={() => {
@@ -875,53 +882,75 @@ export default function CyberBoardView() {
         onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
       />
 
-      {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar) */}
+      {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar OR Gantt Roadmap View) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* Main Kanban Columns Workspace (Horizontal Scroll) */}
-        <div
-          onDragOver={handleBoardDragOver}
-          className="flex-1 overflow-x-auto p-4 sm:p-6 flex items-start gap-4 h-full"
-        >
-          {columns.map((column) => (
-            <BoardColumn
-              key={column.id}
-              column={column}
-              boardType={board.type}
-              currentUserId={user?.id}
-              userRole={user?.role}
-              boardHostId={board.created_by}
-              isAdmin={isAdmin}
-              onCardClick={(card) => setSelectedCard(card)}
-              onVoteToggle={(cardId) => handleVoteToggle(cardId)}
-              onDeleteCard={(cardId) => handleDeleteCard(cardId)}
-              onAddSuggestionClick={(colId) => {
-                setTargetColumnId(colId);
+        {viewMode === "gantt" ? (
+          <div className="flex-1 p-3 sm:p-5 h-full overflow-hidden">
+            <GanttRoadmapView
+              board={board}
+              columns={columns}
+              cards={columns.flatMap((col) => col.cards || [])}
+              canManageBoard={canManageBoard}
+              onSelectCard={(card) => setSelectedCard(card)}
+              onUpdateCardDate={async (cardId, activityDate, activityEndDate) => {
+                await handleUpdateCard(cardId, {
+                  activity_date: activityDate,
+                  activity_end_date: activityEndDate,
+                });
+              }}
+              onAddNewCard={(colId) => {
+                setTargetColumnId(colId || columns[0]?.id);
                 setShowNewSuggestionModal(true);
               }}
-              onCardDrop={handleCardDrop}
-              onColumnDrop={handleColumnDrop}
-              onDeleteColumn={handleDeleteColumn}
-              onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
-              onShowToast={(msg) => showToast(msg, "error")}
-              onCardDragStart={handleCardDragStart}
-              onCardDragEnd={handleCardDragEnd}
             />
-          ))}
+          </div>
+        ) : (
+          /* Main Kanban Columns Workspace (Horizontal Scroll) */
+          <div
+            onDragOver={handleBoardDragOver}
+            className="flex-1 overflow-x-auto p-4 sm:p-6 flex items-start gap-4 h-full"
+          >
+            {columns.map((column) => (
+              <BoardColumn
+                key={column.id}
+                column={column}
+                boardType={board.type}
+                currentUserId={user?.id}
+                userRole={user?.role}
+                boardHostId={board.created_by}
+                isAdmin={isAdmin}
+                onCardClick={(card) => setSelectedCard(card)}
+                onVoteToggle={(cardId) => handleVoteToggle(cardId)}
+                onDeleteCard={(cardId) => handleDeleteCard(cardId)}
+                onAddSuggestionClick={(colId) => {
+                  setTargetColumnId(colId);
+                  setShowNewSuggestionModal(true);
+                }}
+                onCardDrop={handleCardDrop}
+                onColumnDrop={handleColumnDrop}
+                onDeleteColumn={handleDeleteColumn}
+                onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
+                onShowToast={(msg) => showToast(msg, "error")}
+                onCardDragStart={handleCardDragStart}
+                onCardDragEnd={handleCardDragEnd}
+              />
+            ))}
 
-          {/* Add Column Button */}
-          {canCreateColumn && (
-            <div className="w-72 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowAddColumnModal(true)}
-                className="w-full py-4 rounded-2xl border-2 border-dashed border-border/60 hover:border-primary/60 text-text-muted hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Column</span>
-              </button>
-            </div>
-          )}
-        </div>
+            {/* Add Column Button */}
+            {canCreateColumn && (
+              <div className="w-72 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAddColumnModal(true)}
+                  className="w-full py-4 rounded-2xl border-2 border-dashed border-border/60 hover:border-primary/60 text-text-muted hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Column</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Active Collaborators Right Sidebar */}
         {showCollaborators && (
