@@ -240,7 +240,7 @@ export function ProfileCard({
                 <p className="font-semibold text-text-primary uppercase text-[9px] tracking-wide">Expertises & Fields</p>
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {expertise.split(",").map((exp) => exp.trim()).filter(Boolean).map((exp) => (
-                    <span key={exp} className="px-2.5 py-1 rounded-lg bg-surface-900/40 border border-border text-[10px] text-text-primary font-medium">
+                    <span key={exp} className="px-2.5 py-1 rounded-lg bg-accent/10 border border-accent/30 text-[10px] text-accent font-medium">
                       {exp}
                     </span>
                   ))}
@@ -249,6 +249,39 @@ export function ProfileCard({
                   )}
                 </div>
               </div>
+
+              {/* Digital Presence Connections */}
+              {((activeUser as any).facebook || (activeUser as any).instagram || (activeUser as any).wechat || (activeUser as any).tiktok || (activeUser as any).twitter || (activeUser as any).reddit || (activeUser as any).github || (activeUser as any).linkedin) && (
+                <div className="space-y-1.5 pt-2.5 text-xs text-text-secondary">
+                  <p className="font-semibold text-text-primary uppercase text-[9px] tracking-wide">Digital Presence</p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {(activeUser as any).facebook && (
+                      <a href={(activeUser as any).facebook.startsWith("http") ? (activeUser as any).facebook : `https://${(activeUser as any).facebook}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-blue-400 font-bold hover:border-blue-500/40 transition-all">FB</a>
+                    )}
+                    {(activeUser as any).instagram && (
+                      <a href={(activeUser as any).instagram.startsWith("http") ? (activeUser as any).instagram : `https://${(activeUser as any).instagram}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-pink-400 font-bold hover:border-pink-500/40 transition-all">IG</a>
+                    )}
+                    {(activeUser as any).wechat && (
+                      <a href={(activeUser as any).wechat.startsWith("http") ? (activeUser as any).wechat : `weixin://dl/chat?${(activeUser as any).wechat}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-emerald-400 font-bold hover:border-emerald-500/40 transition-all">WeChat</a>
+                    )}
+                    {(activeUser as any).tiktok && (
+                      <a href={(activeUser as any).tiktok.startsWith("http") ? (activeUser as any).tiktok : `https://${(activeUser as any).tiktok}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-cyan-400 font-bold hover:border-cyan-500/40 transition-all">TikTok</a>
+                    )}
+                    {(activeUser as any).twitter && (
+                      <a href={(activeUser as any).twitter.startsWith("http") ? (activeUser as any).twitter : `https://${(activeUser as any).twitter}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-sky-400 font-bold hover:border-sky-500/40 transition-all">X</a>
+                    )}
+                    {(activeUser as any).reddit && (
+                      <a href={(activeUser as any).reddit.startsWith("http") ? (activeUser as any).reddit : `https://${(activeUser as any).reddit}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-orange-400 font-bold hover:border-orange-500/40 transition-all">Reddit</a>
+                    )}
+                    {(activeUser as any).github && (
+                      <a href={(activeUser as any).github.startsWith("http") ? (activeUser as any).github : `https://${(activeUser as any).github}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-purple-400 font-bold hover:border-purple-500/40 transition-all">GitHub</a>
+                    )}
+                    {(activeUser as any).linkedin && (
+                      <a href={(activeUser as any).linkedin.startsWith("http") ? (activeUser as any).linkedin : `https://${(activeUser as any).linkedin}`} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 rounded-md bg-surface-900 border border-border/80 text-[10px] text-blue-500 font-bold hover:border-blue-500/40 transition-all">LinkedIn</a>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Edit shortcut */}
               {isOwnProfile && (

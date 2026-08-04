@@ -39,11 +39,20 @@ class OfficerController extends Controller
                 'id' => $officer->id,
                 'name' => $officer->name,
                 'role' => $officer->role,
+                'department' => $officer->department,
+                'year_level' => $officer->year_level,
                 'bio' => $officer->bio,
+                'expertise' => $officer->expertise,
                 'avatar' => $officer->avatar,
                 'email' => $officer->email,
                 'github' => $officer->github,
                 'linkedin' => $officer->linkedin,
+                'facebook' => $officer->facebook,
+                'instagram' => $officer->instagram,
+                'wechat' => $officer->wechat,
+                'tiktok' => $officer->tiktok,
+                'twitter' => $officer->twitter,
+                'reddit' => $officer->reddit,
                 'sort_order' => $officer->sort_order,
                 'user_id' => $officer->user_id,
                 'username' => $officer->username,
@@ -65,11 +74,20 @@ class OfficerController extends Controller
             'id' => $officer->id,
             'name' => $officer->name,
             'role' => $officer->role,
+            'department' => $officer->department,
+            'year_level' => $officer->year_level,
             'bio' => $officer->bio,
+            'expertise' => $officer->expertise,
             'avatar' => $officer->avatar,
             'email' => $officer->email,
             'github' => $officer->github,
             'linkedin' => $officer->linkedin,
+            'facebook' => $officer->facebook,
+            'instagram' => $officer->instagram,
+            'wechat' => $officer->wechat,
+            'tiktok' => $officer->tiktok,
+            'twitter' => $officer->twitter,
+            'reddit' => $officer->reddit,
             'sort_order' => $officer->sort_order,
             'user_id' => $officer->user_id,
             'username' => $officer->username,
@@ -104,11 +122,19 @@ class OfficerController extends Controller
             'use_profile_info' => 'required|boolean',
             'display_name' => 'nullable|string|max:255',
             'display_role' => 'nullable|string|max:255',
+            'display_department' => 'nullable|string|max:255',
+            'display_year_level' => 'nullable|string|max:255',
             'display_bio' => 'nullable|string',
             'display_avatar' => 'nullable|string|max:2048',
             'display_email' => 'nullable|email|max:255',
             'display_github' => 'nullable|string|max:255',
             'display_linkedin' => 'nullable|string|max:255',
+            'display_facebook' => 'nullable|string|max:255',
+            'display_instagram' => 'nullable|string|max:255',
+            'display_wechat' => 'nullable|string|max:255',
+            'display_tiktok' => 'nullable|string|max:255',
+            'display_twitter' => 'nullable|string|max:255',
+            'display_reddit' => 'nullable|string|max:255',
             'sort_order' => 'nullable|integer',
         ]);
 
@@ -120,7 +146,7 @@ class OfficerController extends Controller
 
         AuditLogger::log('created', 'Officer', $officer->id, $officer->name, null, $request);
 
-        return response()->json($officer);
+        return response()->json($this->formatOfficerResponse($officer));
     }
 
     /**
@@ -137,11 +163,19 @@ class OfficerController extends Controller
             'use_profile_info' => 'required|boolean',
             'display_name' => 'nullable|string|max:255',
             'display_role' => 'nullable|string|max:255',
+            'display_department' => 'nullable|string|max:255',
+            'display_year_level' => 'nullable|string|max:255',
             'display_bio' => 'nullable|string',
             'display_avatar' => 'nullable|string|max:2048',
             'display_email' => 'nullable|email|max:255',
             'display_github' => 'nullable|string|max:255',
             'display_linkedin' => 'nullable|string|max:255',
+            'display_facebook' => 'nullable|string|max:255',
+            'display_instagram' => 'nullable|string|max:255',
+            'display_wechat' => 'nullable|string|max:255',
+            'display_tiktok' => 'nullable|string|max:255',
+            'display_twitter' => 'nullable|string|max:255',
+            'display_reddit' => 'nullable|string|max:255',
             'sort_order' => 'nullable|integer',
         ]);
 
@@ -149,7 +183,53 @@ class OfficerController extends Controller
 
         AuditLogger::log('updated', 'Officer', $officer->id, $officer->name, null, $request);
 
-        return response()->json($officer);
+        return response()->json($this->formatOfficerResponse($officer));
+    }
+
+    /**
+     * Helper to format officer model array for clean JSON responses without serialization traps.
+     */
+    private function formatOfficerResponse(Officer $officer): array
+    {
+        $officer->fresh()->load('user');
+        return [
+            'id' => $officer->id,
+            'user_id' => $officer->user_id,
+            'use_profile_info' => (bool)$officer->use_profile_info,
+            'display_name' => $officer->display_name,
+            'display_role' => $officer->display_role,
+            'display_department' => $officer->display_department,
+            'display_year_level' => $officer->display_year_level,
+            'display_bio' => $officer->display_bio,
+            'display_avatar' => $officer->display_avatar,
+            'display_email' => $officer->display_email,
+            'display_github' => $officer->display_github,
+            'display_linkedin' => $officer->display_linkedin,
+            'display_facebook' => $officer->display_facebook,
+            'display_instagram' => $officer->display_instagram,
+            'display_wechat' => $officer->display_wechat,
+            'display_tiktok' => $officer->display_tiktok,
+            'display_twitter' => $officer->display_twitter,
+            'display_reddit' => $officer->display_reddit,
+            'sort_order' => (int)$officer->sort_order,
+            'name' => (string)($officer->name ?? ''),
+            'role' => (string)($officer->role ?? ''),
+            'department' => $officer->department,
+            'year_level' => $officer->year_level,
+            'bio' => $officer->bio,
+            'expertise' => is_array($officer->expertise) ? array_values($officer->expertise) : [],
+            'avatar' => (string)($officer->avatar ?? ''),
+            'email' => $officer->email,
+            'github' => $officer->github,
+            'linkedin' => $officer->linkedin,
+            'facebook' => $officer->facebook,
+            'instagram' => $officer->instagram,
+            'wechat' => $officer->wechat,
+            'tiktok' => $officer->tiktok,
+            'twitter' => $officer->twitter,
+            'reddit' => $officer->reddit,
+            'username' => $officer->username,
+        ];
     }
 
     /**
@@ -162,11 +242,36 @@ class OfficerController extends Controller
         $officer = Officer::findOrFail($id);
         $offId = $officer->id;
         $offName = $officer->name;
+        $oldAvatar = $officer->display_avatar;
+
         $officer->delete();
+
+        if ($oldAvatar) {
+            $this->deleteOldAvatarStorageFile($oldAvatar);
+        }
 
         AuditLogger::log('deleted', 'Officer', $offId, $offName, null, $request);
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * Clean up unused officer avatar files from storage disk.
+     */
+    private function deleteOldAvatarStorageFile(?string $path): void
+    {
+        if (empty($path)) return;
+
+        // Clean path of domain and storage/ prefixes
+        $cleanPath = preg_replace('#^https?://[^/]+/#', '', $path);
+        $cleanPath = ltrim($cleanPath, '/');
+        if (str_starts_with($cleanPath, 'storage/')) {
+            $cleanPath = substr($cleanPath, 8);
+        }
+
+        if (!empty($cleanPath) && \Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($cleanPath);
+        }
     }
 
     /**

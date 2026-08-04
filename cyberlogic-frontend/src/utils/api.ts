@@ -1829,20 +1829,37 @@ export interface Officer {
   use_profile_info: boolean;
   display_name: string | null;
   display_role: string | null;
+  display_department?: string | null;
+  display_year_level?: string | null;
   display_bio: string | null;
   display_avatar: string | null;
   display_email: string | null;
   display_github: string | null;
   display_linkedin: string | null;
+  display_facebook?: string | null;
+  display_instagram?: string | null;
+  display_wechat?: string | null;
+  display_tiktok?: string | null;
+  display_twitter?: string | null; // X
+  display_reddit?: string | null;
   sort_order: number;
   // Resolved attributes
   name: string;
   role: string;
+  department?: string | null;
+  year_level?: string | null;
   bio: string;
+  expertise?: string[];
   avatar: string;
   email: string;
-  github: string;
-  linkedin: string;
+  github?: string | null;
+  linkedin?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  wechat?: string | null;
+  tiktok?: string | null;
+  twitter?: string | null;
+  reddit?: string | null;
   username?: string;
   user?: DbUser;
 }
@@ -2930,14 +2947,19 @@ export interface CyberboardComment {
 
 export interface CyberboardCardActivity {
   id: number;
-  card_id: number;
+  card_id?: number | null;
   user_id: number;
-  action: "created" | "updated" | "moved" | "voted" | "unvoted";
+  action: "created" | "updated" | "moved" | "voted" | "unvoted" | "deleted";
   description: string;
   changes?: Record<string, any> | null;
   created_at: string;
   updated_at?: string;
   user?: CyberboardUserSummary;
+  card?: {
+    id: number;
+    title: string;
+    column_id: number;
+  };
 }
 
 export interface CyberboardCard {
@@ -3013,6 +3035,15 @@ export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard>
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to fetch board details.");
+  }
+  return res.json();
+}
+
+export async function fetchCyberboardBoardActivities(boardId: number): Promise<CyberboardCardActivity[]> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/activities`);
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch board activity logs.");
   }
   return res.json();
 }

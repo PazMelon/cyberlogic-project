@@ -200,15 +200,22 @@ class AuthController extends Controller
     public function mentionSuggestions(Request $request)
     {
         $users = User::where('status', 'approved')
-            ->select(['id', 'first_name', 'last_name', 'middle_name', 'username', 'avatar_path', 'role'])
             ->get()
             ->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
+                    'first_name' => $user->first_name,
+                    'last_name' => $user->last_name,
                     'username' => $user->username,
+                    'email' => $user->email,
                     'avatar' => $user->avatar,
                     'role' => $user->role,
+                    'admin_position' => $user->admin_position,
+                    'department' => $user->department,
+                    'year_level' => $user->year_level,
+                    'bio' => $user->bio,
+                    'expertise' => $user->expertise,
                 ];
             });
 
@@ -306,6 +313,14 @@ class AuthController extends Controller
             'birthday' => ['nullable', 'date'],
             'bio' => ['nullable', 'string', 'max:2000'],
             'expertise' => ['nullable', 'string', 'max:1000'],
+            'github' => ['nullable', 'string', 'max:255'],
+            'linkedin' => ['nullable', 'string', 'max:255'],
+            'facebook' => ['nullable', 'string', 'max:255'],
+            'instagram' => ['nullable', 'string', 'max:255'],
+            'wechat' => ['nullable', 'string', 'max:255'],
+            'tiktok' => ['nullable', 'string', 'max:255'],
+            'twitter' => ['nullable', 'string', 'max:255'],
+            'reddit' => ['nullable', 'string', 'max:255'],
         ]);
 
         $user->update($validated);

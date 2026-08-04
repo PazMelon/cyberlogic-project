@@ -184,6 +184,42 @@ class CyberboardController extends Controller
     }
 
     /**
+     * GET /api/cyberboard/{id}/activities
+     * Get all card activity logs for a given board.
+     */
+    public function getBoardActivities(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        $board = CyberboardBoard::find($id);
+
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized action'], 403);
+        }
+
+        $activities = CyberboardCardActivity::where(function ($q) use ($id) {
+            $q->where('board_id', $id)
+              ->orWhereHas('card', function ($cq) use ($id) {
+                  $cq->whereHas('column', function ($ccq) use ($id) {
+                      $ccq->where('board_id', $id);
+                  });
+              });
+        })
+        ->with([
+            'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'card:id,title,column_id',
+        ])
+        ->orderBy('created_at', 'desc')
+        ->limit(150)
+        ->get();
+
+        return response()->json($activities);
+    }
+
+    /**
      * POST /api/cyberboard
      * Create a new board.
      * Non-admins are limited to 1 active (ongoing) board at a time.
@@ -441,6 +477,7 @@ class CyberboardController extends Controller
 
         // Log card creation activity
         CyberboardCardActivity::create([
+            'board_id' => $boardId,
             'card_id' => $card->id,
             'user_id' => $user->id,
             'action' => 'created',
@@ -452,6 +489,7 @@ class CyberboardController extends Controller
             'votes',
             'comments',
             'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'activities.card:id,title,column_id',
         ]);
         $cardArr = $card->toArray();
         $cardArr['votes_count'] = 0;
@@ -530,6 +568,7 @@ class CyberboardController extends Controller
 
         if (!empty($changeDescItems)) {
             CyberboardCardActivity::create([
+                'board_id' => $card->column->board_id,
                 'card_id' => $card->id,
                 'user_id' => $user->id,
                 'action' => 'updated',
@@ -542,6 +581,7 @@ class CyberboardController extends Controller
             'votes',
             'comments',
             'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'activities.card:id,title,column_id',
         ]);
 
         $cardArr = $card->toArray();
@@ -594,6 +634,22 @@ class CyberboardController extends Controller
         $cardId = $card->id;
         $cardTitle = $card->title;
         $cardOwnerId = $card->user_id;
+        $columnTitle = $card->column ? $card->column->title : 'Column';
+
+        // Detach existing card activity records so they persist in board audit logs for transparency
+        CyberboardCardActivity::where('card_id', $cardId)->update([
+            'board_id' => $boardId,
+            'card_id' => null,
+        ]);
+
+        // Record card deletion activity log
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'deleted',
+            'description' => "Deleted card '{$cardTitle}' from '{$columnTitle}'",
+        ]);
 
         $card->delete();
 
@@ -684,13 +740,17 @@ class CyberboardController extends Controller
             : "Reordered position in '{$toColumnTitle}'";
 
         CyberboardCardActivity::create([
+            'board_id' => $boardId,
             'card_id' => $card->id,
             'user_id' => $user->id,
             'action' => 'moved',
             'description' => $activityDesc,
         ]);
 
-        $activities = CyberboardCardActivity::with('user:id,first_name,middle_name,last_name,avatar_path,role,username')
+        $activities = CyberboardCardActivity::with([
+            'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'card:id,title,column_id',
+        ])
             ->where('card_id', $card->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -763,13 +823,17 @@ class CyberboardController extends Controller
 
         $activityDesc = $hasVoted ? "Upvoted card" : "Removed upvote";
         CyberboardCardActivity::create([
+            'board_id' => $boardId,
             'card_id' => $id,
             'user_id' => $user->id,
             'action' => $hasVoted ? 'voted' : 'unvoted',
             'description' => $activityDesc,
         ]);
 
-        $activities = CyberboardCardActivity::with('user:id,first_name,middle_name,last_name,avatar_path,role,username')
+        $activities = CyberboardCardActivity::with([
+            'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'card:id,title,column_id',
+        ])
             ->where('card_id', $id)
             ->orderBy('created_at', 'desc')
             ->get();

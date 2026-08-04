@@ -245,6 +245,7 @@ Route::middleware('auth')->group(function () {
     // CyberBoard Activity Planner endpoints
     Route::get('/api/cyberboard', [CyberboardController::class, 'index']);
     Route::get('/api/cyberboard/{id}', [CyberboardController::class, 'show']);
+    Route::get('/api/cyberboard/{id}/activities', [CyberboardController::class, 'getBoardActivities']);
     Route::post('/api/cyberboard', [CyberboardController::class, 'storeBoard']);
     Route::put('/api/cyberboard/{id}', [CyberboardController::class, 'updateBoard']);
     Route::post('/api/cyberboard/{id}/pin', [CyberboardController::class, 'togglePin']);

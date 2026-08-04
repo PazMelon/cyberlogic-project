@@ -216,9 +216,49 @@ export default function AboutOfficerSettings() {
                       <span className="text-xs text-accent font-semibold tracking-wider uppercase block">
                         {officer.role}
                       </span>
+                      {(officer.department || officer.year_level) && (
+                        <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-text-muted font-medium pt-0.5">
+                          {officer.department && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-800 border border-border/60 text-text-secondary">
+                              🏢 {officer.department}
+                            </span>
+                          )}
+                          {officer.year_level && (
+                            <span className="px-2 py-0.5 rounded-md bg-surface-800 border border-border/60 text-text-secondary">
+                              🎓 {officer.year_level}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className="text-[11px] text-text-muted line-clamp-2 leading-relaxed font-sans pt-1">
                         {officer.bio || "No biography provided."}
                       </p>
+
+                      {/* Technical Skills */}
+                      {Array.isArray(officer.expertise) && officer.expertise.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap pt-1">
+                          {officer.expertise.map((skill, sIdx) => (
+                            <span
+                              key={sIdx}
+                              className="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-accent/10 border border-accent/30 text-accent"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Digital Presence Links */}
+                      <div className="flex items-center gap-2 flex-wrap pt-1 text-[10px] text-text-muted">
+                        {officer.facebook && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-blue-400 border border-border/40 font-medium">FB</span>}
+                        {officer.instagram && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-pink-400 border border-border/40 font-medium">IG</span>}
+                        {officer.wechat && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-emerald-400 border border-border/40 font-medium">WeChat</span>}
+                        {officer.tiktok && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-cyan-400 border border-border/40 font-medium">TikTok</span>}
+                        {officer.twitter && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-sky-400 border border-border/40 font-medium">X</span>}
+                        {officer.reddit && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-orange-400 border border-border/40 font-medium">Reddit</span>}
+                        {officer.github && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-purple-400 border border-border/40 font-medium">GitHub</span>}
+                        {officer.linkedin && <span className="px-1.5 py-0.5 rounded bg-surface-800 text-blue-500 border border-border/40 font-medium">LinkedIn</span>}
+                      </div>
                     </div>
                   </div>
 

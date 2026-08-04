@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowLeft, Radio, Share2, Plus, Users, Pin, Lock, Settings } from "lucide-react";
+import { ArrowLeft, Radio, Share2, Plus, Users, Pin, Lock, Settings, History } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
 interface BoardHeaderProps {
@@ -14,6 +14,7 @@ interface BoardHeaderProps {
   onCopyShareLink: () => void;
   onSuggestActivityClick: () => void;
   onOpenSettings?: () => void;
+  onOpenBoardAuditLog: () => void;
 }
 
 export default function BoardHeader({
@@ -28,6 +29,7 @@ export default function BoardHeader({
   onCopyShareLink,
   onSuggestActivityClick,
   onOpenSettings,
+  onOpenBoardAuditLog,
 }: BoardHeaderProps) {
   const getActionLabel = (type?: string) => {
     switch (type) {
@@ -90,7 +92,7 @@ export default function BoardHeader({
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
-          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[110px] xs:max-w-[160px] sm:max-w-xs md:max-w-md">
+          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[100px] xs:max-w-[150px] sm:max-w-xs md:max-w-md">
             {board.title}
           </h1>
 
@@ -131,6 +133,18 @@ export default function BoardHeader({
 
       {/* Action CTAs Toolbar (Single Line, Right-Aligned) */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        {/* Activity Audit Log Button */}
+        <button
+          type="button"
+          onClick={onOpenBoardAuditLog}
+          className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+          title="Board Activity Audit Logs"
+        >
+          <History className="w-4 h-4 flex-shrink-0 text-primary" />
+          <span className="hidden xl:inline">Activity Logs</span>
+        </button>
+
+        {/* Collaborators Button */}
         <button
           type="button"
           onClick={onToggleCollaborators}
@@ -148,6 +162,7 @@ export default function BoardHeader({
           </span>
         </button>
 
+        {/* Share Link Button */}
         <button
           type="button"
           onClick={onCopyShareLink}
@@ -158,6 +173,7 @@ export default function BoardHeader({
           <span className="hidden lg:inline">{copiedLink ? "Copied!" : "Share"}</span>
         </button>
 
+        {/* Settings Button */}
         {canManageBoard && onOpenSettings && (
           <button
             type="button"
@@ -170,6 +186,7 @@ export default function BoardHeader({
           </button>
         )}
 
+        {/* Primary CTA (+ Suggest Activity / Milestone) */}
         <button
           type="button"
           onClick={onSuggestActivityClick}

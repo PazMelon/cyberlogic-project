@@ -223,7 +223,25 @@ export default function CardDetailModal({
                   <span className="text-[9px] text-text-muted whitespace-nowrap">{formatDateTime(act.created_at)}</span>
                 </div>
 
-                <p className="text-xs text-text-secondary leading-snug pl-5.5 font-medium">{act.description}</p>
+                {(() => {
+                  const moveMatch = act.description.match(/Moved card from ['"](.+?)['"] to ['"](.+?)['"]/i);
+                  if (moveMatch) {
+                    const [, fromCol, toCol] = moveMatch;
+                    return (
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-primary pl-5.5 py-0.5">
+                        <span className="text-text-muted">Moved from</span>
+                        <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 font-bold border border-purple-500/30 text-[11px]">
+                          {fromCol}
+                        </span>
+                        <span className="text-purple-400 font-bold text-xs">➔</span>
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 text-[11px]">
+                          {toCol}
+                        </span>
+                      </div>
+                    );
+                  }
+                  return <p className="text-xs text-text-secondary leading-snug pl-5.5 font-medium">{act.description}</p>;
+                })()}
               </div>
             );
           })

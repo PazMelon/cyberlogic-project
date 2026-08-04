@@ -33,6 +33,7 @@ import NewSuggestionModal from "../components/cyberboard/NewSuggestionModal";
 import AddColumnModal from "../components/cyberboard/AddColumnModal";
 import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal";
 import BoardSettingsModal from "../components/cyberboard/BoardSettingsModal";
+import BoardAuditLogDrawer from "../components/cyberboard/BoardAuditLogDrawer";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
 
 export default function CyberBoardView() {
@@ -72,6 +73,7 @@ export default function CyberBoardView() {
   const [targetColumnId, setTargetColumnId] = useState<number | undefined>(undefined);
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
   const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
+  const [showBoardAuditLog, setShowBoardAuditLog] = useState(false);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
@@ -148,7 +150,7 @@ export default function CyberBoardView() {
         });
         setSelectedCard((prev) => (prev?.id === cardId ? null : prev));
       } else if (type === "card:moved") {
-        const { card_id, to_column_id, position, moved_by_user_id } = payload;
+        const { card_id, to_column_id, position, moved_by_user_id, activities } = payload;
 
         // Show toast notification if another collaborator moved a card
         if (moved_by_user_id && moved_by_user_id !== user?.id) {
@@ -178,7 +180,12 @@ export default function CyberBoardView() {
           for (const col of prev.columns) {
             const found = (col.cards || []).find((c) => c.id === card_id);
             if (found) {
-              targetCard = { ...found, column_id: to_column_id, position };
+              targetCard = {
+                ...found,
+                column_id: to_column_id,
+                position,
+                ...(activities ? { activities } : {}),
+              };
               break;
             }
           }
@@ -195,8 +202,20 @@ export default function CyberBoardView() {
 
           return { ...prev, columns: updatedColumns };
         });
+
+        setSelectedCard((prev) => {
+          if (prev && prev.id === card_id) {
+            return {
+              ...prev,
+              column_id: to_column_id,
+              position,
+              ...(activities ? { activities } : {}),
+            };
+          }
+          return prev;
+        });
       } else if (type === "card:voted") {
-        const { card_id, votes_count, voted_by_user_id, has_voted } = payload;
+        const { card_id, votes_count, voted_by_user_id, has_voted, activities } = payload;
         const isMe = user?.id === voted_by_user_id;
 
         setBoard((prev) => {
@@ -208,6 +227,7 @@ export default function CyberBoardView() {
                   ...c,
                   votes_count,
                   has_voted: isMe ? has_voted : c.has_voted,
+                  ...(activities ? { activities } : {}),
                 };
               }
               return c;
@@ -223,6 +243,7 @@ export default function CyberBoardView() {
               ...prev,
               votes_count,
               has_voted: isMe ? has_voted : prev.has_voted,
+              ...(activities ? { activities } : {}),
             };
           }
           return prev;
@@ -851,6 +872,7 @@ export default function CyberBoardView() {
           setShowNewSuggestionModal(true);
         }}
         onOpenSettings={() => setShowBoardSettingsModal(true)}
+        onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
       />
 
       {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar) */}
@@ -962,6 +984,23 @@ export default function CyberBoardView() {
           onClose={() => setShowBoardSettingsModal(false)}
           onSave={handleSaveBoardSettings}
           onDeleteBoard={isHost || isAdmin ? handleDeleteBoard : undefined}
+        />
+      )}
+
+      {/* Board-Level Audit Log Sidepanel Drawer */}
+      {showBoardAuditLog && board && (
+        <BoardAuditLogDrawer
+          boardId={board.id}
+          boardTitle={board.title}
+          onClose={() => setShowBoardAuditLog(false)}
+          onSelectCard={(cardId) => {
+            const foundCard = (board.columns || [])
+              .flatMap((col) => col.cards || [])
+              .find((c) => c.id === cardId);
+            if (foundCard) {
+              setSelectedCard(foundCard);
+            }
+          }}
         />
       )}
 

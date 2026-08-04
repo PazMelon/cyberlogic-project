@@ -21,6 +21,14 @@ export interface User {
   birthday: string;
   bio?: string | null;
   expertise?: string | null;
+  github?: string | null;
+  linkedin?: string | null;
+  facebook?: string | null;
+  instagram?: string | null;
+  wechat?: string | null;
+  tiktok?: string | null;
+  twitter?: string | null; // X
+  reddit?: string | null;
   reputation?: {
     week: number;
     month: number;
@@ -50,6 +58,14 @@ interface AuthContextType {
     birthday?: string | null;
     bio?: string | null;
     expertise?: string | null;
+    github?: string | null;
+    linkedin?: string | null;
+    facebook?: string | null;
+    instagram?: string | null;
+    wechat?: string | null;
+    tiktok?: string | null;
+    twitter?: string | null;
+    reddit?: string | null;
   }) => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   updateUser: (updatedUser: User) => void;

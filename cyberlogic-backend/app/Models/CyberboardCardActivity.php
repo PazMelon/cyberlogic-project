@@ -11,6 +11,7 @@ class CyberboardCardActivity extends Model
     use HasFactory;
 
     protected $fillable = [
+        'board_id',
         'card_id',
         'user_id',
         'action',
@@ -23,6 +24,11 @@ class CyberboardCardActivity extends Model
         return [
             'changes' => 'array',
         ];
+    }
+
+    public function board(): BelongsTo
+    {
+        return $this->belongsTo(CyberboardBoard::class, 'board_id');
     }
 
     public function card(): BelongsTo

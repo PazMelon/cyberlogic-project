@@ -67,33 +67,36 @@ export default function OfficerDetail() {
     );
   }
 
-  // Resolve skills from linked user expertise
-  const getSkills = () => {
-    if (officer.user?.expertise) {
-      return officer.user.expertise.split(",").map((s: string) => s.trim()).filter(Boolean);
+  // Resolve skills from officer or linked user expertise
+  const getSkills = (): string[] => {
+    const raw = officer.expertise || officer.user?.expertise;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.filter(Boolean);
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean);
+      } catch {}
+      return raw.split(",").map((s) => s.trim()).filter(Boolean);
     }
     return [];
   };
 
-  const extraDetails = {
-    email: officer.email,
-    joinedDate: officer.user?.joinedDate ? `Active since ${officer.user.joinedDate.substring(0, 4)}` : "Active member",
-    skills: getSkills(),
-    github: officer.github,
-    linkedin: officer.linkedin,
+  const skills = getSkills();
+
+  const getUrl = (val?: string | null) => {
+    if (!val) return null;
+    return val.startsWith("http") ? val : `https://${val}`;
   };
 
-  const githubUrl = officer.github
-    ? officer.github.startsWith("http")
-      ? officer.github
-      : `https://${officer.github}`
-    : null;
-
-  const linkedinUrl = officer.linkedin
-    ? officer.linkedin.startsWith("http")
-      ? officer.linkedin
-      : `https://${officer.linkedin}`
-    : null;
+  const facebookUrl = getUrl(officer.facebook);
+  const instagramUrl = getUrl(officer.instagram);
+  const wechatUrl = officer.wechat ? (officer.wechat.startsWith("http") ? officer.wechat : `weixin://dl/chat?${officer.wechat}`) : null;
+  const tiktokUrl = getUrl(officer.tiktok);
+  const twitterUrl = getUrl(officer.twitter);
+  const redditUrl = getUrl(officer.reddit);
+  const githubUrl = getUrl(officer.github);
+  const linkedinUrl = getUrl(officer.linkedin);
 
   return (
     <div className="pt-28 pb-20 relative overflow-hidden min-h-screen">
@@ -111,7 +114,7 @@ export default function OfficerDetail() {
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to About Directory
         </Link>
 
-        {/* Master Showcase Layout - Reversed Order to match mockup */}
+        {/* Master Showcase Layout */}
         <div className="flex flex-col-reverse lg:flex-row gap-12 items-center lg:items-start">
           
           {/* LEFT PANEL: Text Content & Sections (lg:w-[55%]) */}
@@ -142,45 +145,75 @@ export default function OfficerDetail() {
                 </div>
                 <div className="flex-1 text-sm text-text-secondary leading-tight border-l-2 border-border/50 pl-4 py-1">
                   <span className="block font-bold text-text-primary mb-0.5">Department & Level</span>
-                  {officer.user?.department ? (
-                    `${officer.user.department}${officer.user.year_level ? ` - ${officer.user.year_level}` : ""}`
+                  {(officer.department || officer.year_level) ? (
+                    `${officer.department || ""}${officer.department && officer.year_level ? " • " : ""}${officer.year_level || ""}`
                   ) : (
                     <span className="text-text-muted italic">No education details configured.</span>
                   )}
                 </div>
               </div>
 
-              {/* "Experience" / Digital Connections row */}
+              {/* "Connections" / Digital Presence row */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 group">
                 <div className="w-40 flex-shrink-0 bg-primary/20 text-primary border border-primary/30 rounded-full py-3 px-6 text-center font-bold text-sm shadow-[0_0_15px_rgba(var(--color-primary),0.15)] group-hover:bg-primary/30 group-hover:scale-105 transition-all cursor-default">
                   Connections
                 </div>
                 <div className="flex-1 border-l-2 border-border/50 pl-4 py-1 flex flex-col gap-1.5">
                   <span className="block font-bold text-text-primary text-sm">Digital Presence</span>
-                  {(extraDetails.email || githubUrl || linkedinUrl) ? (
-                    <div className="flex items-center gap-3">
-                      {extraDetails.email && (
-                        <a href={`mailto:${extraDetails.email}`} className="text-text-muted hover:text-primary transition-colors">
-                          <Mail className="w-4.5 h-4.5" />
+                  {(officer.email || facebookUrl || instagramUrl || wechatUrl || tiktokUrl || twitterUrl || redditUrl || githubUrl || linkedinUrl) ? (
+                    <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
+                      {officer.email && (
+                        <a href={`mailto:${officer.email}`} className="p-2 rounded-xl bg-surface-800 border border-border text-text-muted hover:text-primary hover:border-primary/30 transition-all" title="Email">
+                          <Mail className="w-4 h-4" />
+                        </a>
+                      )}
+                      {facebookUrl && (
+                        <a href={facebookUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-blue-400 font-bold hover:border-blue-500/40 transition-all" title="Facebook">
+                          FB
+                        </a>
+                      )}
+                      {instagramUrl && (
+                        <a href={instagramUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-pink-400 font-bold hover:border-pink-500/40 transition-all" title="Instagram">
+                          IG
+                        </a>
+                      )}
+                      {wechatUrl && (
+                        <a href={wechatUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-emerald-400 font-bold hover:border-emerald-500/40 transition-all" title="WeChat">
+                          WeChat
+                        </a>
+                      )}
+                      {tiktokUrl && (
+                        <a href={tiktokUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-cyan-400 font-bold hover:border-cyan-500/40 transition-all" title="TikTok">
+                          TikTok
+                        </a>
+                      )}
+                      {twitterUrl && (
+                        <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-sky-400 font-bold hover:border-sky-500/40 transition-all" title="X (Twitter)">
+                          X
+                        </a>
+                      )}
+                      {redditUrl && (
+                        <a href={redditUrl} target="_blank" rel="noopener noreferrer" className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs text-orange-400 font-bold hover:border-orange-500/40 transition-all" title="Reddit">
+                          Reddit
                         </a>
                       )}
                       {githubUrl && (
-                        <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-primary transition-colors">
-                          <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
+                        <a href={githubUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-surface-800 border border-border text-text-muted hover:text-purple-400 hover:border-purple-500/30 transition-all" title="GitHub">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                           </svg>
                         </a>
                       )}
                       {linkedinUrl && (
-                        <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-text-muted hover:text-primary transition-colors">
-                          <svg className="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 24 24">
+                        <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="p-2 rounded-xl bg-surface-800 border border-border text-text-muted hover:text-blue-500 hover:border-blue-500/30 transition-all" title="LinkedIn">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
                           </svg>
                         </a>
                       )}
                     </div>
                   ) : (
-                    <span className="text-text-muted italic text-xs">No digital connections configured.</span>
+                    <span className="text-text-muted italic text-xs">No digital presence links configured.</span>
                   )}
                 </div>
               </div>
@@ -192,8 +225,14 @@ export default function OfficerDetail() {
                 </div>
                 <div className="flex-1 text-sm text-text-secondary leading-tight border-l-2 border-border/50 pl-4 py-1">
                   <span className="block font-bold text-text-primary mb-0.5">Core Technical Skills</span>
-                  {extraDetails.skills.length > 0 ? (
-                    extraDetails.skills.join(", ")
+                  {skills.length > 0 ? (
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      {skills.map((s, idx) => (
+                        <span key={idx} className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-accent/10 border border-accent/30 text-accent">
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   ) : (
                     <span className="text-text-muted italic">No area of expertise configured.</span>
                   )}

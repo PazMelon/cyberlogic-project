@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Star, Pencil, Trash2, Check, X } from "lucide-react";
+import { Plus, Star, Pencil, Trash2, Check, X, FileText, CheckCircle2, Clock, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router";
 import { fetchBlogs, deleteBlog, updateBlog, approveBlog, rejectBlog } from "../../../utils/api";
 import { Button, DataTable } from "../../../components/ui";
@@ -123,13 +123,17 @@ export function BlogManagement() {
     }
   };
 
+  const publishedCount = blogList.filter((b) => b.status === "published").length;
+  const pendingCount = blogList.filter((b) => b.status === "pending").length;
+  const featuredCount = blogList.filter((b) => b.featured).length;
+
   const blogColumns = [
     {
-      header: "Title",
+      header: "Title & Excerpt",
       accessor: (b: BlogPost) => (
-        <div>
-          <p className="text-sm font-semibold text-text-primary truncate max-w-xs">{b.title}</p>
-          <p className="text-xs text-text-muted truncate max-w-xs mt-0.5">{b.excerpt}</p>
+        <div className="py-0.5">
+          <p className="text-sm font-bold text-text-primary truncate max-w-md">{b.title}</p>
+          <p className="text-xs text-text-muted truncate max-w-md mt-0.5">{b.excerpt}</p>
         </div>
       ),
       sortable: true,
@@ -138,7 +142,7 @@ export function BlogManagement() {
     {
       header: "Category",
       accessor: (b: BlogPost) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${categoryColors[b.category] || "bg-surface-700 text-text-muted"} border`}>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${categoryColors[b.category] || "bg-surface-700 text-text-muted"} border`}>
           {b.category}
         </span>
       ),
@@ -151,7 +155,7 @@ export function BlogManagement() {
       accessor: (b: BlogPost) => (
         <div className="flex items-center gap-2">
           <img src={b.authorAvatar} alt={b.author} className="w-6 h-6 rounded-full bg-surface-700 object-cover border border-border/60" />
-          <span className="text-sm text-text-secondary font-medium">{b.author}</span>
+          <span className="text-xs text-text-secondary font-semibold">{b.author}</span>
         </div>
       ),
       sortable: true,
@@ -191,7 +195,7 @@ export function BlogManagement() {
                 className="p-1.5 rounded-lg text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
                 title="Approve & Publish"
               >
-                <Check className="w-3.5 h-3.5" />
+                <Check className="w-4 h-4" />
               </button>
               <button
                 type="button"
@@ -199,7 +203,7 @@ export function BlogManagement() {
                 className="p-1.5 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                 title="Reject"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </>
           )}
@@ -209,7 +213,7 @@ export function BlogManagement() {
             className="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-white/5 transition-colors cursor-pointer"
             title="Edit"
           >
-            <Pencil className="w-3.5 h-3.5" />
+            <Pencil className="w-4 h-4" />
           </button>
           <button
             type="button"
@@ -217,7 +221,7 @@ export function BlogManagement() {
             className="p-1.5 rounded-lg text-text-muted hover:text-error hover:bg-error/5 transition-colors cursor-pointer"
             title="Delete"
           >
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -251,39 +255,89 @@ export function BlogManagement() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="w-full space-y-6 animate-fadeIn text-left pb-12">
+      {/* Top Header Card */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-2xl bg-surface-900/80 border border-border/80 shadow-lg">
         <div>
-          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary">
-            Blog Posts
+          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary flex items-center gap-2.5">
+            <FileText className="w-6 h-6 text-primary" />
+            <span>Blog & CMS Management</span>
           </h1>
-          <p className="text-sm text-text-muted mt-1">{blogList.length} total blog posts</p>
+          <p className="text-xs text-text-muted mt-1">
+            Create, moderate, publish, and structure organization news, tech tutorials, and club announcements.
+          </p>
         </div>
         <Button
           type="button"
           variant="admin"
           icon={<Plus className="w-4 h-4" />}
-          className="px-4 py-2.5 cursor-pointer"
+          className="px-5 py-2.5 cursor-pointer shadow-lg font-bold"
           onClick={() => navigate("/admin/blogs/create")}
         >
           New Blog Post
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading blog posts from secure database...</p>
+      {/* Overview Metric Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10 text-primary border border-primary/20">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Total Posts</span>
+            <span className="text-base font-bold text-text-primary block mt-0.5">{blogList.length}</span>
+          </div>
         </div>
-      ) : (
-        <DataTable
-          data={blogList}
-          columns={blogColumns}
-          filterGroups={blogFilters}
-          searchPlaceholder="Search blogs..."
-          emptyStateText="No blog posts found matching the criteria."
-        />
-      )}
+
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Published</span>
+            <span className="text-base font-bold text-emerald-400 block mt-0.5">{publishedCount} Posts</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Pending Moderation</span>
+            <span className="text-base font-bold text-amber-400 block mt-0.5">{pendingCount} Submissions</span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Featured</span>
+            <span className="text-base font-bold text-purple-300 block mt-0.5">{featuredCount} Posts</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Full-Width Data Table */}
+      <div className="bg-surface-900/80 border border-border/80 rounded-2xl p-6 shadow-md">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+            <p className="text-xs text-text-muted">Loading blog post records...</p>
+          </div>
+        ) : (
+          <DataTable
+            data={blogList}
+            columns={blogColumns}
+            filterGroups={blogFilters}
+            searchPlaceholder="Search by title, excerpt, category, or author..."
+            emptyStateText="No blog posts found matching the criteria."
+          />
+        )}
+      </div>
     </div>
   );
 }
