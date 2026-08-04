@@ -1,6 +1,7 @@
 import { Radio, Swords } from 'lucide-react';
 import { type ChessGame } from '../../utils/chessApi';
 import { MatchRoomCard } from './MatchRoomCard';
+import { MatchRoomsSkeleton } from './ChessSkeletons';
 
 interface AvailableMatchRoomsCardProps {
   games: ChessGame[];
@@ -35,7 +36,7 @@ export function AvailableMatchRoomsCard({
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-[var(--cl-text-muted)]">Loading games...</div>
+        <MatchRoomsSkeleton count={4} />
       ) : games.length === 0 ? (
         <div className="py-12 text-center bg-[var(--cl-surface-950)]/50 rounded-xl border border-dashed border-[var(--cl-border)]">
           <Swords className="w-10 h-10 text-[var(--cl-text-muted)] mx-auto mb-2 opacity-50" />

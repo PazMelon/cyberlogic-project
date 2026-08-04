@@ -818,6 +818,7 @@ export default function ChessHub() {
               leaderboard={leaderboard}
               leaderboardSort={leaderboardSort}
               onSetLeaderboardSort={setLeaderboardSort}
+              loading={loading}
             />
           )}
 

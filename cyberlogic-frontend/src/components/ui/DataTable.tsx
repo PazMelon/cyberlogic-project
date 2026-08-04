@@ -53,6 +53,10 @@ interface DataTableProps<T> {
   // Expandable row support
   expandedRowIds?: Record<string | number, boolean>;
   renderExpandedRow?: (row: T) => React.ReactNode;
+
+  // Layout variant ("default" renders inner glass shadow card, "flat" renders seamless integrated borders)
+  variant?: "default" | "flat";
+  tableWrapperClassName?: string;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -79,7 +83,9 @@ export function DataTable<T extends Record<string, any>>({
   searchQuery: externalSearchQuery,
   onSearchQueryChange,
   expandedRowIds = {},
-  renderExpandedRow
+  renderExpandedRow,
+  variant = "default",
+  tableWrapperClassName = "",
 }: DataTableProps<T>) {
   // Search query state
   const [internalSearchQuery, setInternalSearchQuery] = useState("");
@@ -276,11 +282,15 @@ export function DataTable<T extends Record<string, any>>({
 
           {/* Dynamic Filter Pill Groups */}
           {showFilters && filterGroups.length > 0 && (
-            <div className="space-y-2 bg-surface-900/20 p-2 border border-border/40 rounded-2xl">
+            <div className={variant === "flat" ? "space-y-2" : "space-y-2 bg-surface-900/20 p-2 border border-border/40 rounded-2xl"}>
               {filterGroups.map((group) => {
                 const currentValue = activeFilters[group.field] || "All";
                 return (
-                  <div key={group.field} className="flex flex-col sm:flex-row sm:items-center gap-2 bg-surface-900/40 p-2.5 rounded-xl border border-border/50">
+                  <div key={group.field} className={`flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-xl border ${
+                    variant === "flat"
+                      ? "bg-[var(--cl-surface-950)]/60 border-[var(--cl-border)]/60"
+                      : "bg-surface-900/40 border-border/50"
+                  }`}>
                     <span className="font-semibold text-text-secondary w-20 flex items-center gap-1 text-[10px] uppercase tracking-wider select-none flex-shrink-0">
                       <Filter className="w-3.5 h-3.5 text-primary" /> {group.label}:
                     </span>
@@ -320,7 +330,13 @@ export function DataTable<T extends Record<string, any>>({
       )}
 
       {/* Grid Table Layout */}
-      <div className="glass rounded-xl overflow-hidden shadow-lg border border-border/80">
+      <div className={
+        tableWrapperClassName
+          ? tableWrapperClassName
+          : variant === "flat"
+          ? "rounded-2xl overflow-hidden border border-[var(--cl-border)] bg-[var(--cl-surface-950)]/40"
+          : "glass rounded-xl overflow-hidden shadow-lg border border-border/80"
+      }>
         <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full text-sm">
             <thead>

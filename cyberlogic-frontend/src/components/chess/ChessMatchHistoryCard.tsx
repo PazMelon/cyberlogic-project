@@ -14,19 +14,25 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
   const navigate = useNavigate();
   const [selectedLegacyGame, setSelectedLegacyGame] = useState<ChessGame | null>(null);
 
+  // Dynamic summary metrics
+  const totalMatches = history.length;
+  const rankedCount = history.filter((g) => g.type === 'ranked').length;
+  const casualCount = history.filter((g) => g.type === 'casual').length;
+  const drawCount = history.filter((g) => g.is_draw).length;
+
   const columns: ColumnDef<ChessGame>[] = [
     {
       header: 'Match Code',
       accessor: (row) => (
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold text-[var(--cl-primary-light)] bg-[var(--cl-surface-950)] px-2 py-0.5 rounded border border-[var(--cl-border)]">
+          <span className="font-mono text-xs font-bold text-[var(--cl-primary-light)] bg-[var(--cl-surface-950)] px-2 py-0.5 rounded-lg border border-[var(--cl-border)] shadow-xs">
             #{row.game_code}
           </span>
           <span
             className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${
               row.type === 'ranked'
-                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
             }`}
           >
             {row.type}
@@ -41,8 +47,8 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
       accessor: (row) => {
         const player = row.white_player;
         return (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-900 shrink-0" title="White" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-white border border-slate-900 shrink-0 shadow-xs" title="White Player" />
             <img
               src={player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(player?.name || 'white')}`}
               alt="White Player"
@@ -67,8 +73,8 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
       accessor: (row) => {
         const player = row.black_player;
         return (
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-white/50 shrink-0" title="Black" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-slate-900 border border-white/60 shrink-0 shadow-xs" title="Black Player" />
             <img
               src={player?.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(player?.name || 'black')}`}
               alt="Black Player"
@@ -159,7 +165,7 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
               navigate(`/app/chess/game/${row.game_code}?mode=replay`);
             }
           }}
-          className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 whitespace-nowrap"
+          className="bg-[var(--cl-primary)]/15 hover:bg-[var(--cl-primary)]/30 text-[var(--cl-primary-light)] border border-[var(--cl-primary)]/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95 whitespace-nowrap shadow-xs"
         >
           <Eye className="w-3.5 h-3.5" /> View Match
         </button>
@@ -202,11 +208,11 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
 
   return (
     <>
-      <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-5 shadow-xl space-y-4">
-        {/* Header Banner */}
+      <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+        {/* Header & Title Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[var(--cl-border)]/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[var(--cl-primary)]/15 border border-[var(--cl-primary)]/30 flex items-center justify-center text-[var(--cl-primary)]">
+            <div className="w-10 h-10 rounded-xl bg-[var(--cl-primary)]/15 border border-[var(--cl-primary)]/30 flex items-center justify-center text-[var(--cl-primary)] shadow-sm shrink-0">
               <History className="w-5 h-5" />
             </div>
             <div>
@@ -214,7 +220,7 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
                 Global Chess Match History
               </h2>
               <p className="text-xs text-[var(--cl-text-muted)] mt-0.5">
-                Archive of all completed, resigned, and drawn 1v1 chess matches across the platform.
+                Archive of completed, resigned, and drawn 1v1 chess matches with interactive move replays.
               </p>
             </div>
           </div>
@@ -223,16 +229,59 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
             <button
               onClick={onRefresh}
               disabled={loading}
-              className="self-start sm:self-auto bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] border border-[var(--cl-border)] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              className="self-start sm:self-auto bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] text-[var(--cl-text-primary)] border border-[var(--cl-border)] text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
             >
               <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh History
             </button>
           )}
         </div>
 
-        {/* Main DataTable Component */}
+        {/* Quick Summary Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-[var(--cl-surface-950)]/80 border border-[var(--cl-border)]/60 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">
+              ⚔️
+            </div>
+            <div>
+              <div className="text-[10px] uppercase font-bold text-[var(--cl-text-muted)] tracking-wider">Total Games</div>
+              <div className="text-base font-black text-[var(--cl-text-primary)]">{totalMatches}</div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--cl-surface-950)]/80 border border-[var(--cl-border)]/60 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+              🏆
+            </div>
+            <div>
+              <div className="text-[10px] uppercase font-bold text-[var(--cl-text-muted)] tracking-wider">Ranked</div>
+              <div className="text-base font-black text-amber-400">{rankedCount}</div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--cl-surface-950)]/80 border border-[var(--cl-border)]/60 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+              🎮
+            </div>
+            <div>
+              <div className="text-[10px] uppercase font-bold text-[var(--cl-text-muted)] tracking-wider">Casual</div>
+              <div className="text-base font-black text-emerald-400">{casualCount}</div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--cl-surface-950)]/80 border border-[var(--cl-border)]/60 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
+              🤝
+            </div>
+            <div>
+              <div className="text-[10px] uppercase font-bold text-[var(--cl-text-muted)] tracking-wider">Draws</div>
+              <div className="text-base font-black text-purple-400">{drawCount}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Integrated Flat DataTable Component */}
         {loading ? (
-          <div className="py-16 text-center text-xs text-[var(--cl-text-muted)] flex items-center justify-center gap-2">
+          <div className="py-16 text-center text-xs text-[var(--cl-text-muted)] flex items-center justify-center gap-2 bg-[var(--cl-surface-950)]/40 rounded-2xl border border-[var(--cl-border)]/60">
             <Swords className="w-5 h-5 text-[var(--cl-primary)] animate-spin" /> Loading match history records...
           </div>
         ) : (
@@ -246,6 +295,7 @@ export function ChessMatchHistoryCard({ history, loading, onRefresh }: ChessMatc
             enablePagination={true}
             defaultItemsPerPage={10}
             itemsPerPageOptions={[5, 10, 20, 50]}
+            variant="flat"
           />
         )}
       </div>

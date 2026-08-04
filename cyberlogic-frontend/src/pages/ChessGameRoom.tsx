@@ -4,6 +4,7 @@ import { Chess, type Square, type Color } from 'chess.js';
 import { useAuth } from '../context/AuthContext';
 import { useChessRealtime } from '../hooks/useChessRealtime';
 import { useDialog } from '../utils/useDialog';
+import { ChessGameRoomSkeleton } from '../components/chess/ChessSkeletons';
 import {
   fetchChessGame,
   joinChessGame,
@@ -639,13 +640,7 @@ export default function ChessGameRoom() {
   }
 
   if (loading || !game) {
-    return (
-      <div className="min-h-screen bg-[var(--cl-surface-950)] text-[var(--cl-text-primary)] flex items-center justify-center">
-        <div className="text-[var(--cl-text-secondary)] text-sm flex items-center gap-2">
-          <Swords className="w-5 h-5 text-[var(--cl-primary)] animate-spin" /> Loading Chess Match...
-        </div>
-      </div>
-    );
+    return <ChessGameRoomSkeleton />;
   }
 
   // Board grid layout (flip if playing black)
@@ -656,6 +651,10 @@ export default function ChessGameRoom() {
   const displayFiles = myColor === 'black' ? [...files].reverse() : files;
 
   const bootUserBack = () => {
+    if (isReplayMode) {
+      navigate('/app/chess?tab=history');
+      return;
+    }
     const tournamentId = (game as any)?.tournament_id || (game as any)?.tournament?.id;
     if (tournamentId) {
       navigate(`/app/chess?tab=tournaments&tournament=${tournamentId}`);
@@ -666,6 +665,18 @@ export default function ChessGameRoom() {
 
   const isReplay = isReplayMode || replayStep !== null || (game?.status === 'completed' && !showGameOverModal);
 
+  const backButtonTitle = isReplayMode
+    ? 'Back to Match History'
+    : (game as any)?.tournament_id || (game as any)?.tournament?.id
+    ? 'Back to Tournament Details'
+    : 'Back to Match Lobby';
+
+  const backButtonLabel = isReplayMode
+    ? 'Match History'
+    : (game as any)?.tournament_id || (game as any)?.tournament?.id
+    ? 'Tournament Details'
+    : 'Match Lobby';
+
   return (
     <div className="space-y-6 text-[var(--cl-text-primary)] font-sans">
       {/* Top Header Card */}
@@ -673,12 +684,12 @@ export default function ChessGameRoom() {
         <div className="flex items-center gap-3">
           <button
             onClick={bootUserBack}
-            title={(game as any)?.tournament_id || (game as any)?.tournament?.id ? 'Back to Tournament Details' : 'Back to Match Lobby'}
+            title={backButtonTitle}
             className="px-3 py-2 bg-[var(--cl-surface-950)] hover:bg-[var(--cl-surface-800)] border border-[var(--cl-border)] rounded-xl text-[var(--cl-text-secondary)] hover:text-[var(--cl-text-primary)] transition-all cursor-pointer flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-xs font-semibold hidden sm:inline">
-              {(game as any)?.tournament_id || (game as any)?.tournament?.id ? 'Tournament Details' : 'Match Lobby'}
+              {backButtonLabel}
             </span>
           </button>
           <div>

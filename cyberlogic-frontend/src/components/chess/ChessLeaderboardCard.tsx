@@ -1,16 +1,19 @@
 import { Trophy } from 'lucide-react';
 import { type ChessPlayerStat } from '../../utils/chessApi';
+import { LeaderboardSkeleton } from './ChessSkeletons';
 
 interface ChessLeaderboardCardProps {
   leaderboard: ChessPlayerStat[];
   leaderboardSort: 'elo' | 'reputation';
   onSetLeaderboardSort: (sort: 'elo' | 'reputation') => void;
+  loading?: boolean;
 }
 
 export function ChessLeaderboardCard({
   leaderboard,
   leaderboardSort,
   onSetLeaderboardSort,
+  loading = false,
 }: ChessLeaderboardCardProps) {
   return (
     <div className="glass border border-[var(--cl-border)] rounded-2xl p-5 sm:p-6 shadow-xl">
@@ -46,26 +49,29 @@ export function ChessLeaderboardCard({
         </div>
       </div>
 
-      <div className="overflow-x-auto no-scrollbar -mx-2 px-2">
-        <table className="w-full min-w-[580px] text-left text-sm text-[var(--cl-text-primary)]">
-          <thead className="bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] uppercase text-[11px] tracking-wider font-semibold border-b border-[var(--cl-border)]">
-            <tr>
-              <th className="px-3.5 py-3">Rank</th>
-              <th className="px-3.5 py-3">Player</th>
-              <th className="px-3.5 py-3">ELO Rating</th>
-              <th className="px-3.5 py-3">Peak ELO</th>
-              <th className="px-3.5 py-3">Ranked Record (W/L/D)</th>
-              <th className="px-3.5 py-3">Reputation Points</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--cl-border)]">
-            {leaderboard.length === 0 ? (
+      {loading ? (
+        <LeaderboardSkeleton rows={6} />
+      ) : (
+        <div className="overflow-x-auto no-scrollbar -mx-2 px-2">
+          <table className="w-full min-w-[580px] text-left text-sm text-[var(--cl-text-primary)]">
+            <thead className="bg-[var(--cl-surface-950)] text-[var(--cl-text-muted)] uppercase text-[11px] tracking-wider font-semibold border-b border-[var(--cl-border)]">
               <tr>
-                <td colSpan={6} className="py-8 text-center text-[var(--cl-text-muted)] italic">
-                  No leaderboard entries yet. Play a match to get ranked!
-                </td>
+                <th className="px-3.5 py-3">Rank</th>
+                <th className="px-3.5 py-3">Player</th>
+                <th className="px-3.5 py-3">ELO Rating</th>
+                <th className="px-3.5 py-3">Peak ELO</th>
+                <th className="px-3.5 py-3">Ranked Record (W/L/D)</th>
+                <th className="px-3.5 py-3">Reputation Points</th>
               </tr>
-            ) : (
+            </thead>
+            <tbody className="divide-y divide-[var(--cl-border)]">
+              {leaderboard.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-[var(--cl-text-muted)] italic">
+                    No leaderboard entries yet. Play a match to get ranked!
+                  </td>
+                </tr>
+              ) : (
               leaderboard.map((stat, index) => {
                 const rank = index + 1;
                 return (
@@ -118,6 +124,7 @@ export function ChessLeaderboardCard({
           </tbody>
         </table>
       </div>
+      )}
     </div>
   );
 }
