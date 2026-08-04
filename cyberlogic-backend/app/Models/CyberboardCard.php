@@ -53,4 +53,9 @@ class CyberboardCard extends Model
     {
         return $this->hasMany(CyberboardCardComment::class, 'card_id')->orderBy('created_at', 'asc');
     }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(CyberboardCardActivity::class, 'card_id')->orderBy('created_at', 'desc');
+    }
 }

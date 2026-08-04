@@ -21,6 +21,11 @@ class CyberboardBoard extends Model
         'created_by',
         'is_archived',
         'is_pinned',
+        'visibility',
+        'allowed_members',
+        'column_creation_policy',
+        'allowed_column_creator_roles',
+        'allowed_column_creator_users',
     ];
 
     protected function casts(): array
@@ -28,6 +33,9 @@ class CyberboardBoard extends Model
         return [
             'is_archived' => 'boolean',
             'is_pinned' => 'boolean',
+            'allowed_members' => 'array',
+            'allowed_column_creator_roles' => 'array',
+            'allowed_column_creator_users' => 'array',
         ];
     }
 

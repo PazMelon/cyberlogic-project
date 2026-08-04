@@ -374,7 +374,7 @@ class ChessService
         try {
             app(\App\Services\ChessTournamentService::class)->handleMatchFinished($game);
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error("[ChessService] Error advancing tournament match: " . $e->getMessage());
+            Log::error("[ChessService] Error advancing tournament match: " . $e->getMessage());
         }
 
         return $game;

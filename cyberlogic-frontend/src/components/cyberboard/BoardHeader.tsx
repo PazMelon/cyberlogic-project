@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowLeft, Radio, Share2, Plus, Users, Pin } from "lucide-react";
+import { ArrowLeft, Radio, Share2, Plus, Users, Pin, Lock, Settings } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
 interface BoardHeaderProps {
@@ -9,9 +9,11 @@ interface BoardHeaderProps {
   activeCollaboratorsCount: number;
   showCollaborators: boolean;
   copiedLink: boolean;
+  canManageBoard?: boolean;
   onToggleCollaborators: () => void;
   onCopyShareLink: () => void;
   onSuggestActivityClick: () => void;
+  onOpenSettings?: () => void;
 }
 
 export default function BoardHeader({
@@ -21,9 +23,11 @@ export default function BoardHeader({
   activeCollaboratorsCount,
   showCollaborators,
   copiedLink,
+  canManageBoard,
   onToggleCollaborators,
   onCopyShareLink,
   onSuggestActivityClick,
+  onOpenSettings,
 }: BoardHeaderProps) {
   const getActionLabel = (type?: string) => {
     switch (type) {
@@ -90,6 +94,13 @@ export default function BoardHeader({
             {board.title}
           </h1>
 
+          {board.visibility === "private" && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-bold border border-rose-500/20 flex-shrink-0">
+              <Lock className="w-3 h-3" />
+              <span>Private</span>
+            </span>
+          )}
+
           {board.is_pinned && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-bold border border-amber-500/20 flex-shrink-0">
               <Pin className="w-3 h-3 fill-amber-400" />
@@ -146,6 +157,18 @@ export default function BoardHeader({
           <Share2 className="w-4 h-4 flex-shrink-0" />
           <span className="hidden lg:inline">{copiedLink ? "Copied!" : "Share"}</span>
         </button>
+
+        {canManageBoard && onOpenSettings && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+            title="Board Settings"
+          >
+            <Settings className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden lg:inline">Settings</span>
+          </button>
+        )}
 
         <button
           type="button"

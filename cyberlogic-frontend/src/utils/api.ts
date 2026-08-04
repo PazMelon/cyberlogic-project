@@ -2928,6 +2928,18 @@ export interface CyberboardComment {
   user?: CyberboardUserSummary;
 }
 
+export interface CyberboardCardActivity {
+  id: number;
+  card_id: number;
+  user_id: number;
+  action: "created" | "updated" | "moved" | "voted" | "unvoted";
+  description: string;
+  changes?: Record<string, any> | null;
+  created_at: string;
+  updated_at?: string;
+  user?: CyberboardUserSummary;
+}
+
 export interface CyberboardCard {
   id: number;
   column_id: number;
@@ -2947,6 +2959,7 @@ export interface CyberboardCard {
   comments_count?: number;
   has_voted?: boolean;
   comments?: CyberboardComment[];
+  activities?: CyberboardCardActivity[];
 }
 
 export interface CyberboardColumn {
@@ -2975,6 +2988,11 @@ export interface CyberboardBoard {
   created_by: number;
   is_archived: boolean;
   is_pinned?: boolean;
+  visibility?: "public" | "private";
+  allowed_members?: number[] | null;
+  column_creation_policy?: "host_admin_only" | "specific_roles" | "specific_users" | "everyone";
+  allowed_column_creator_roles?: string[] | null;
+  allowed_column_creator_users?: number[] | null;
   created_at: string;
   updated_at: string;
   creator?: CyberboardUserSummary;
@@ -2993,7 +3011,8 @@ export async function fetchCyberboardBoards(): Promise<CyberboardBoard[]> {
 export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard> {
   const res = await apiRequest(`/api/cyberboard/${id}`);
   if (!res.ok) {
-    throw new Error("Failed to fetch board details.");
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to fetch board details.");
   }
   return res.json();
 }
@@ -3004,6 +3023,10 @@ export async function createCyberboardBoard(data: {
   type?: "activity" | "ideas" | "brainstorming" | "roadmap";
   category?: BoardCategory;
   cover_color?: string;
+  visibility?: "public" | "private";
+  allowed_members?: number[];
+  column_creation_policy?: "host_admin_only" | "specific_roles" | "everyone";
+  allowed_column_creator_roles?: string[];
 }): Promise<CyberboardBoard> {
   const res = await apiRequest("/api/cyberboard", {
     method: "POST",
@@ -3018,7 +3041,7 @@ export async function createCyberboardBoard(data: {
 
 export async function updateCyberboardBoard(
   id: number,
-  data: { title?: string; description?: string; cover_color?: string; is_archived?: boolean; is_pinned?: boolean }
+  data: Partial<CyberboardBoard>
 ): Promise<CyberboardBoard> {
   const res = await apiRequest(`/api/cyberboard/${id}`, {
     method: "PUT",
@@ -3078,14 +3101,7 @@ export async function createCyberboardCard(
 
 export async function updateCyberboardCard(
   id: number,
-  data: {
-    title?: string;
-    description?: string;
-    activity_date?: string;
-    activity_end_date?: string;
-    color_tag?: string;
-    priority?: "low" | "medium" | "high";
-  }
+  data: Partial<CyberboardCard>
 ): Promise<CyberboardCard> {
   const res = await apiRequest(`/api/cyberboard/cards/${id}`, {
     method: "PUT",

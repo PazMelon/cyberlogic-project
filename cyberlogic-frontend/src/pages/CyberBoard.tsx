@@ -37,7 +37,7 @@ export default function CyberBoard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [activeTab, setActiveTab] = useState<"all" | "my">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "my" | "shared">("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,8 +168,23 @@ export default function CyberBoard() {
   };
 
   const filteredBoards = boards.filter((board) => {
-    const matchesTab =
-      activeTab === "all" || (user && board.created_by === user.id);
+    const matchesTab = (() => {
+      if (activeTab === "all") {
+        return board.visibility !== "private";
+      }
+      if (activeTab === "my") {
+        return user ? board.created_by === user.id : false;
+      }
+      if (activeTab === "shared") {
+        if (!user) return false;
+        const isPrivate = board.visibility === "private";
+        const isOwner = board.created_by === user.id;
+        const allowedMembers = board.allowed_members || [];
+        const isAllowedMember = allowedMembers.includes(user.id);
+        return isPrivate && !isOwner && isAllowedMember;
+      }
+      return true;
+    })();
 
     const matchesSearch =
       board.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -208,8 +223,8 @@ export default function CyberBoard() {
         </button>
       </div>
 
-      {/* Navigation Tabs (All Boards vs My Boards) */}
-      <div className="flex border-b border-border/50 mb-6 p-0.5 bg-surface-950/40 rounded-xl max-w-[280px]">
+      {/* Navigation Tabs (All Boards, My Boards, Shared With Me) */}
+      <div className="flex border-b border-border/50 mb-6 p-0.5 bg-surface-950/40 rounded-xl max-w-xs sm:max-w-md">
         <button
           type="button"
           onClick={() => setActiveTab("all")}
@@ -231,6 +246,17 @@ export default function CyberBoard() {
           }`}
         >
           My Boards
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("shared")}
+          className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+            activeTab === "shared"
+              ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
+              : "text-text-muted hover:text-text-primary hover:bg-white/5"
+          }`}
+        >
+          Shared With Me
         </button>
       </div>
 

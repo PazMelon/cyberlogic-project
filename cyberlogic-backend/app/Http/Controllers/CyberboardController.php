@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CyberboardBoard;
 use App\Models\CyberboardCard;
+use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
 use App\Models\CyberboardColumn;
@@ -15,6 +16,70 @@ use Illuminate\Support\Facades\DB;
 
 class CyberboardController extends Controller
 {
+    /**
+     * Check if user is permitted to view board (handles private board exclusivity).
+     */
+    private function canUserViewBoard(CyberboardBoard $board, $user): bool
+    {
+        if ($board->visibility !== 'private') {
+            return true;
+        }
+        if (!$user) return false;
+        if ($board->created_by === $user->id) return true;
+        if (in_array($user->role, ['admin', 'superadmin'])) return true;
+        $allowedMembers = $board->allowed_members ?? [];
+        return in_array($user->id, $allowedMembers);
+    }
+
+    /**
+     * Check if user is permitted to create columns on board.
+     */
+    private function canUserCreateColumn(CyberboardBoard $board, $user): bool
+    {
+        if (!$user) return false;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        $isHost = $board->created_by === $user->id;
+        if ($isAdmin || $isHost) return true;
+
+        $policy = $board->column_creation_policy ?? 'everyone';
+        if ($policy === 'host_admin_only') {
+            return false;
+        }
+        if ($policy === 'specific_roles') {
+            $allowedRoles = $board->allowed_column_creator_roles ?? [];
+            return in_array($user->role, $allowedRoles);
+        }
+        if ($policy === 'specific_users') {
+            $allowedUsers = $board->allowed_column_creator_users ?? [];
+            return in_array($user->id, $allowedUsers);
+        }
+        return true;
+    }
+
+    /**
+     * Check if user is permitted to edit cards in a column based on column permissions.
+     */
+    private function canUserEditCardInColumn(CyberboardColumn $column, $user): bool
+    {
+        if (!$user) return false;
+        $board = $column->board ?? CyberboardBoard::find($column->board_id);
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        $isHost = $board && $board->created_by === $user->id;
+        if ($isAdmin || $isHost) return true;
+
+        $allowedRoles = $column->allowed_roles;
+        $allowedUsers = $column->allowed_users;
+        $hasRestriction = (!empty($allowedRoles)) || (!empty($allowedUsers));
+
+        if (!$hasRestriction) {
+            return true;
+        }
+
+        $roleAllowed = !empty($allowedRoles) && in_array($user->role, $allowedRoles);
+        $userAllowed = !empty($allowedUsers) && in_array($user->id, $allowedUsers);
+        return $roleAllowed || $userAllowed;
+    }
+
     /**
      * Get default columns setup for a new board.
      */
@@ -35,8 +100,21 @@ class CyberboardController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $isAdmin = $user && in_array($user->role, ['admin', 'superadmin']);
+
         $boards = CyberboardBoard::with(['creator:id,first_name,middle_name,last_name,avatar_path,role,username'])
             ->where('is_archived', false)
+            ->where(function ($q) use ($user, $isAdmin) {
+                if ($isAdmin) {
+                    return; // Admins see all boards
+                }
+                $q->where('visibility', '!=', 'private')
+                  ->orWhere('created_by', optional($user)->id);
+                if ($user) {
+                    $q->orWhereJsonContains('allowed_members', $user->id);
+                }
+            })
             ->withCount(['cards' => function ($q) {
                 $q->where('is_archived', false);
             }])
@@ -49,7 +127,7 @@ class CyberboardController extends Controller
 
     /**
      * GET /api/cyberboard/{id}
-     * Retrieve full details of a board including columns, cards, votes, and comments.
+     * Retrieve full details of a board including columns, cards, votes, activities, and comments.
      */
     public function show(Request $request, int $id): JsonResponse
     {
@@ -69,20 +147,31 @@ class CyberboardController extends Controller
                 $q->orderBy('created_at', 'asc');
             },
             'columns.cards.comments.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'columns.cards.activities' => function ($q) {
+                $q->orderBy('created_at', 'desc');
+            },
+            'columns.cards.activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
         ])->find($id);
 
         if (!$board) {
             return response()->json(['message' => 'Board not found'], 404);
         }
 
-        // Format board data with computed properties (votes_count, has_voted, comments_count)
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json([
+                'message' => 'This board is private. You need an invitation from the host to view it.',
+            ], 403);
+        }
+
+        // Format board data with computed properties (votes_count, has_voted, comments_count, activities)
         $formattedColumns = $board->columns->map(function ($column) use ($user) {
             $columnData = $column->toArray();
             $columnData['cards'] = $column->cards->map(function ($card) use ($user) {
                 $cardData = $card->toArray();
                 $cardData['votes_count'] = $card->votes->count();
                 $cardData['comments_count'] = $card->comments->count();
-                $cardData['has_voted'] = $card->votes->contains('user_id', $user->id);
+                $cardData['has_voted'] = $user ? $card->votes->contains('user_id', $user->id) : false;
+                $cardData['activities'] = $card->activities;
                 return $cardData;
             });
             return $columnData;
@@ -123,6 +212,14 @@ class CyberboardController extends Controller
             'type' => 'nullable|string|in:activity,ideas,brainstorming,roadmap',
             'category' => 'nullable|string|in:system,club_related,projects_tech,events_social,others',
             'cover_color' => 'nullable|string|max:30',
+            'visibility' => 'nullable|string|in:public,private',
+            'allowed_members' => 'nullable|array',
+            'allowed_members.*' => 'integer|exists:users,id',
+            'column_creation_policy' => 'nullable|string|in:host_admin_only,specific_roles,specific_users,everyone',
+            'allowed_column_creator_roles' => 'nullable|array',
+            'allowed_column_creator_roles.*' => 'string',
+            'allowed_column_creator_users' => 'nullable|array',
+            'allowed_column_creator_users.*' => 'integer|exists:users,id',
         ]);
 
         $category = $validated['category'] ?? 'club_related';
@@ -138,6 +235,11 @@ class CyberboardController extends Controller
             'type' => $validated['type'] ?? 'activity',
             'category' => $category,
             'cover_color' => $validated['cover_color'] ?? '#06b6d4',
+            'visibility' => $validated['visibility'] ?? 'public',
+            'allowed_members' => $validated['allowed_members'] ?? null,
+            'column_creation_policy' => $validated['column_creation_policy'] ?? 'everyone',
+            'allowed_column_creator_roles' => $validated['allowed_column_creator_roles'] ?? null,
+            'allowed_column_creator_users' => $validated['allowed_column_creator_users'] ?? null,
             'created_by' => $user->id,
             'is_archived' => false,
         ]);
@@ -178,6 +280,14 @@ class CyberboardController extends Controller
             'cover_color' => 'nullable|string|max:30',
             'is_archived' => 'nullable|boolean',
             'is_pinned' => 'nullable|boolean',
+            'visibility' => 'nullable|string|in:public,private',
+            'allowed_members' => 'nullable|array',
+            'allowed_members.*' => 'integer|exists:users,id',
+            'column_creation_policy' => 'nullable|string|in:host_admin_only,specific_roles,specific_users,everyone',
+            'allowed_column_creator_roles' => 'nullable|array',
+            'allowed_column_creator_roles.*' => 'string',
+            'allowed_column_creator_users' => 'nullable|array',
+            'allowed_column_creator_users.*' => 'integer|exists:users,id',
         ]);
 
         if (isset($validated['category']) && $validated['category'] === 'system' && !$isAdmin) {
@@ -329,11 +439,25 @@ class CyberboardController extends Controller
             'is_archived' => false,
         ]);
 
-        $card->load(['user:id,first_name,middle_name,last_name,avatar_path,role,username', 'votes', 'comments']);
+        // Log card creation activity
+        CyberboardCardActivity::create([
+            'card_id' => $card->id,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Created card '{$card->title}'",
+        ]);
+
+        $card->load([
+            'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'votes',
+            'comments',
+            'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+        ]);
         $cardArr = $card->toArray();
         $cardArr['votes_count'] = 0;
         $cardArr['comments_count'] = 0;
         $cardArr['has_voted'] = false;
+        $cardArr['activities'] = $card->activities;
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card' => $cardArr,
@@ -358,7 +482,7 @@ class CyberboardController extends Controller
 
     /**
      * PUT /api/cyberboard/cards/{id}
-     * Edit suggestion card details.
+     * Edit suggestion card details (enforces Column Permissions).
      */
     public function updateCard(Request $request, int $id): JsonResponse
     {
@@ -369,9 +493,8 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Card not found'], 404);
         }
 
-        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
-        if ($card->user_id !== $user->id && !$isAdmin) {
-            return response()->json(['message' => 'Unauthorized action'], 403);
+        if (!$this->canUserEditCardInColumn($card->column, $user)) {
+            return response()->json(['message' => 'You do not have permission to edit cards in this column based on column permissions.'], 403);
         }
 
         $validated = $request->validate([
@@ -383,13 +506,49 @@ class CyberboardController extends Controller
             'priority' => 'nullable|in:low,medium,high',
         ]);
 
+        $changeDescItems = [];
+        if (isset($validated['title']) && $validated['title'] !== $card->title) {
+            $changeDescItems[] = "title to '{$validated['title']}'";
+        }
+        if (array_key_exists('description', $validated) && $validated['description'] !== $card->description) {
+            $changeDescItems[] = "description";
+        }
+        if (isset($validated['priority']) && $validated['priority'] !== $card->priority) {
+            $changeDescItems[] = "priority to " . strtoupper($validated['priority']);
+        }
+        if (array_key_exists('activity_date', $validated) && $validated['activity_date'] !== $card->activity_date) {
+            $changeDescItems[] = "schedule start date";
+        }
+        if (array_key_exists('activity_end_date', $validated) && $validated['activity_end_date'] !== $card->activity_end_date) {
+            $changeDescItems[] = "schedule end date";
+        }
+        if (array_key_exists('color_tag', $validated) && $validated['color_tag'] !== $card->color_tag) {
+            $changeDescItems[] = "accent color";
+        }
+
         $card->update($validated);
-        $card->load(['user:id,first_name,middle_name,last_name,avatar_path,role,username', 'votes', 'comments']);
+
+        if (!empty($changeDescItems)) {
+            CyberboardCardActivity::create([
+                'card_id' => $card->id,
+                'user_id' => $user->id,
+                'action' => 'updated',
+                'description' => "Updated " . implode(', ', $changeDescItems),
+            ]);
+        }
+
+        $card->load([
+            'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'votes',
+            'comments',
+            'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+        ]);
 
         $cardArr = $card->toArray();
         $cardArr['votes_count'] = $card->votes->count();
         $cardArr['comments_count'] = $card->comments->count();
         $cardArr['has_voted'] = $card->votes->contains('user_id', $user->id);
+        $cardArr['activities'] = $card->activities;
 
         $boardId = $card->column->board_id;
         RealtimeService::broadcast("cyberboard:{$boardId}", [
@@ -518,12 +677,31 @@ class CyberboardController extends Controller
             $card->save();
         });
 
+        $fromColumnTitle = CyberboardColumn::where('id', $fromColumnId)->value('title') ?? 'Column';
+        $toColumnTitle = $targetColumn->title;
+        $activityDesc = $fromColumnId !== $toColumnId
+            ? "Moved card from '{$fromColumnTitle}' to '{$toColumnTitle}'"
+            : "Reordered position in '{$toColumnTitle}'";
+
+        CyberboardCardActivity::create([
+            'card_id' => $card->id,
+            'user_id' => $user->id,
+            'action' => 'moved',
+            'description' => $activityDesc,
+        ]);
+
+        $activities = CyberboardCardActivity::with('user:id,first_name,middle_name,last_name,avatar_path,role,username')
+            ->where('card_id', $card->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card_id' => $card->id,
             'from_column_id' => $fromColumnId,
             'to_column_id' => $toColumnId,
             'position' => $newPos,
             'moved_by_user_id' => $user->id,
+            'activities' => $activities,
         ], 'card:moved');
 
         if ($fromColumnId !== $toColumnId && $card->user_id !== $user->id) {
@@ -548,6 +726,7 @@ class CyberboardController extends Controller
             'card_id' => $card->id,
             'column_id' => $toColumnId,
             'position' => $newPos,
+            'activities' => $activities,
         ]);
     }
 
@@ -582,11 +761,25 @@ class CyberboardController extends Controller
         $votesCount = CyberboardCardVote::where('card_id', $id)->count();
         $boardId = $card->column->board_id;
 
+        $activityDesc = $hasVoted ? "Upvoted card" : "Removed upvote";
+        CyberboardCardActivity::create([
+            'card_id' => $id,
+            'user_id' => $user->id,
+            'action' => $hasVoted ? 'voted' : 'unvoted',
+            'description' => $activityDesc,
+        ]);
+
+        $activities = CyberboardCardActivity::with('user:id,first_name,middle_name,last_name,avatar_path,role,username')
+            ->where('card_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card_id' => $id,
             'votes_count' => $votesCount,
             'voted_by_user_id' => $user->id,
             'has_voted' => $hasVoted,
+            'activities' => $activities,
         ], 'card:voted');
 
         if ($hasVoted && $card->user_id !== $user->id) {
@@ -605,6 +798,7 @@ class CyberboardController extends Controller
             'card_id' => $id,
             'votes_count' => $votesCount,
             'has_voted' => $hasVoted,
+            'activities' => $activities,
         ]);
     }
 
@@ -723,9 +917,8 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Board not found'], 404);
         }
 
-        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
-        if ($board->created_by !== $user->id && !$isAdmin) {
-            return response()->json(['message' => 'Unauthorized action'], 403);
+        if (!$this->canUserCreateColumn($board, $user)) {
+            return response()->json(['message' => 'You do not have permission to add columns to this board based on board settings.'], 403);
         }
 
         $validated = $request->validate([

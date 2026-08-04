@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle, Lock } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
+  updateCyberboardCard,
   deleteCyberboardCard,
   moveCyberboardCard,
   toggleCyberboardCardVote,
@@ -13,6 +14,8 @@ import {
   updateCyberboardColumn,
   deleteCyberboardColumn,
   reorderCyberboardColumns,
+  updateCyberboardBoard,
+  deleteCyberboardBoard,
   type CyberboardBoard,
   type CyberboardCard,
   type CyberboardColumn,
@@ -29,6 +32,7 @@ import CardDetailModal from "../components/cyberboard/CardDetailModal";
 import NewSuggestionModal from "../components/cyberboard/NewSuggestionModal";
 import AddColumnModal from "../components/cyberboard/AddColumnModal";
 import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal";
+import BoardSettingsModal from "../components/cyberboard/BoardSettingsModal";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
 
 export default function CyberBoardView() {
@@ -67,6 +71,7 @@ export default function CyberBoardView() {
   const [showNewSuggestionModal, setShowNewSuggestionModal] = useState(false);
   const [targetColumnId, setTargetColumnId] = useState<number | undefined>(undefined);
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
+  const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
@@ -550,6 +555,56 @@ export default function CyberBoardView() {
     });
   };
 
+  const handleUpdateCard = async (cardId: number, data: Partial<CyberboardCard>) => {
+    try {
+      const updatedCard = await updateCyberboardCard(cardId, data);
+      setBoard((prev) => {
+        if (!prev || !prev.columns) return prev;
+        const updatedColumns = prev.columns.map((col) => {
+          const cards = (col.cards || []).map((c) => (c.id === cardId ? { ...c, ...updatedCard } : c));
+          return { ...col, cards };
+        });
+        return { ...prev, columns: updatedColumns };
+      });
+      setSelectedCard((prev) => (prev?.id === cardId ? { ...prev, ...updatedCard } : prev));
+      showToast("Card updated successfully.", "success");
+    } catch (err: any) {
+      console.error("Failed to update card:", err);
+      showToast(err.message || "Failed to update card.", "error");
+      throw err;
+    }
+  };
+
+  const handleSaveBoardSettings = async (updatedData: Partial<CyberboardBoard>) => {
+    if (!board) return;
+    try {
+      const updatedBoard = await updateCyberboardBoard(board.id, updatedData);
+      setBoard((prev) => (prev ? { ...prev, ...updatedBoard } : updatedBoard));
+      showToast("Board settings saved successfully.", "success");
+    } catch (err: any) {
+      console.error("Failed to save board settings:", err);
+      showToast(err.message || "Failed to save board settings.", "error");
+      throw err;
+    }
+  };
+
+  const handleDeleteBoard = (boardIdToDelete: number) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete CyberBoard?",
+      message: "Are you sure you want to delete this board and all its columns and cards? This action is permanent.",
+      onConfirm: async () => {
+        try {
+          await deleteCyberboardBoard(boardIdToDelete);
+          showToast("Board deleted successfully.", "success");
+          window.location.href = "/app/cyberboard";
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete board.", "error");
+        }
+      },
+    });
+  };
+
   const handleAddColumn = async (data: {
     title: string;
     color?: string;
@@ -683,6 +738,28 @@ export default function CyberBoardView() {
 
   const columns = board.columns || [];
   const totalCardsCount = columns.reduce((acc, col) => acc + (col.cards?.length || 0), 0);
+  const isHost = board ? board.created_by === user?.id : false;
+  const canManageBoard = isHost || isAdmin;
+
+  const canCreateColumn = (() => {
+    if (!board || !user) return false;
+    if (isAdmin || isHost) return true;
+    const policy = board.column_creation_policy || "everyone";
+    if (policy === "host_admin_only") return false;
+    if (policy === "specific_roles") {
+      const allowedRoles = board.allowed_column_creator_roles || [];
+      return user.role ? allowedRoles.includes(user.role) : false;
+    }
+    if (policy === "specific_users") {
+      const allowedUsers = board.allowed_column_creator_users || [];
+      return allowedUsers.includes(user.id);
+    }
+    return true;
+  })();
+
+  const selectedCardColumn = selectedCard
+    ? columns.find((c) => c.id === selectedCard.column_id)
+    : null;
 
   // Compute active collaborators list (Self + Remote board presence users)
   const activeCollaboratorsList = [
@@ -712,6 +789,26 @@ export default function CyberBoardView() {
       };
     }),
   ];
+
+  if (error && error.toLowerCase().includes("private")) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[75vh] p-6 text-center bg-surface-950 space-y-4">
+        <div className="p-4 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-lg">
+          <Lock className="w-10 h-10" />
+        </div>
+        <h2 className="text-xl font-bold text-text-primary">Private Board Access Denied</h2>
+        <p className="text-xs text-text-muted max-w-md leading-relaxed">
+          This board is private. You need an invitation from the board host to view or participate in this board.
+        </p>
+        <Link
+          to="/app/cyberboard"
+          className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all shadow-md shadow-primary/20"
+        >
+          Back to All Boards
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -746,12 +843,14 @@ export default function CyberBoardView() {
         activeCollaboratorsCount={activeCollaboratorsList.length}
         showCollaborators={showCollaborators}
         copiedLink={copiedLink}
+        canManageBoard={canManageBoard}
         onToggleCollaborators={() => setShowCollaborators((prev) => !prev)}
         onCopyShareLink={handleCopyShareLink}
         onSuggestActivityClick={() => {
           setTargetColumnId(columns[0]?.id);
           setShowNewSuggestionModal(true);
         }}
+        onOpenSettings={() => setShowBoardSettingsModal(true)}
       />
 
       {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar) */}
@@ -787,8 +886,8 @@ export default function CyberBoardView() {
             />
           ))}
 
-          {/* Add Column Button (Admin) */}
-          {isAdmin && (
+          {/* Add Column Button */}
+          {canCreateColumn && (
             <div className="w-72 flex-shrink-0">
               <button
                 type="button"
@@ -818,12 +917,23 @@ export default function CyberBoardView() {
           card={selectedCard}
           boardType={board.type}
           currentUserId={user?.id}
+          userRole={user?.role}
+          boardHostId={board.created_by}
+          columnPermissions={
+            selectedCardColumn
+              ? {
+                  allowed_roles: selectedCardColumn.allowed_roles,
+                  allowed_users: selectedCardColumn.allowed_users,
+                }
+              : undefined
+          }
           isAdmin={isAdmin}
           onClose={() => setSelectedCard(null)}
           onVoteToggle={handleVoteToggle}
           onAddComment={handleAddComment}
           onDeleteComment={(commentId) => handleDeleteComment(selectedCard.id, commentId)}
           onDeleteCard={handleDeleteCard}
+          onUpdateCard={handleUpdateCard}
         />
       )}
 
@@ -843,7 +953,19 @@ export default function CyberBoardView() {
         />
       )}
 
-      {/* Add Column Modal (Admin) */}
+      {/* Board Settings Modal */}
+      {showBoardSettingsModal && board && (
+        <BoardSettingsModal
+          board={board}
+          currentUserId={user?.id}
+          isAdmin={isAdmin}
+          onClose={() => setShowBoardSettingsModal(false)}
+          onSave={handleSaveBoardSettings}
+          onDeleteBoard={isHost || isAdmin ? handleDeleteBoard : undefined}
+        />
+      )}
+
+      {/* Add Column Modal (Admin/Host/Permitted) */}
       {showAddColumnModal && (
         <AddColumnModal
           collaboratorsList={activeCollaboratorsList}
