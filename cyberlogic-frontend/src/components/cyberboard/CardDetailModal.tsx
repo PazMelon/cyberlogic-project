@@ -352,30 +352,11 @@ export default function CardDetailModal({
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="">No SDLC Phase Assigned</option>
-                  {safeBoardPhases.length > 0 ? (
-                    safeBoardPhases.map((p, idx) => (
-                      <option key={`b-edit-phase-${idx}`} value={p.name}>
-                        {p.name}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <optgroup label="Waterfall SDLC Phases">
-                        <option value="Requirements & Planning">1. Requirements & Planning</option>
-                        <option value="Architecture & Design">2. Architecture & Design</option>
-                        <option value="Development & Implementation">3. Development & Implementation</option>
-                        <option value="Testing & QA">4. Testing & QA</option>
-                        <option value="Deployment & Release">5. Deployment & Release</option>
-                      </optgroup>
-                      <optgroup label="Agile / Scrum Sprints">
-                        <option value="Sprint 1">Sprint 1</option>
-                        <option value="Sprint 2">Sprint 2</option>
-                        <option value="Sprint 3">Sprint 3</option>
-                        <option value="Release v1.0">Release v1.0</option>
-                        <option value="Backlog">Backlog</option>
-                      </optgroup>
-                    </>
-                  )}
+                  {safeBoardPhases.map((p, idx) => (
+                    <option key={`b-edit-phase-${idx}`} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

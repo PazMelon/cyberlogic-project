@@ -89,7 +89,7 @@ export default function NewSuggestionModal({
   };
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
-  const [phase, setPhase] = useState<string>("Requirements & Planning");
+  const [phase, setPhase] = useState<string>(() => safeBoardPhases[0]?.name || "");
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -332,22 +332,7 @@ export default function NewSuggestionModal({
               </option>
             ))
           ) : (
-            <>
-              <optgroup label="Waterfall SDLC Phases">
-                <option value="Requirements & Planning">1. Requirements & Planning</option>
-                <option value="Architecture & Design">2. Architecture & Design</option>
-                <option value="Development & Implementation">3. Development & Implementation</option>
-                <option value="Testing & QA">4. Testing & QA</option>
-                <option value="Deployment & Release">5. Deployment & Release</option>
-              </optgroup>
-              <optgroup label="Agile / Scrum Sprints">
-                <option value="Sprint 1">Sprint 1</option>
-                <option value="Sprint 2">Sprint 2</option>
-                <option value="Sprint 3">Sprint 3</option>
-                <option value="Release v1.0">Release v1.0</option>
-                <option value="Backlog">Backlog</option>
-              </optgroup>
-            </>
+            <option value="">No SDLC Phase Assigned</option>
           )}
         </select>
       </div>
