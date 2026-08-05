@@ -525,7 +525,7 @@ class CyberboardController extends Controller
                 "You were assigned to task '{$card->title}' by {$user->first_name}",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'user-check',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -598,7 +598,7 @@ class CyberboardController extends Controller
                     "You were assigned to task '{$card->title}' by {$user->first_name}",
                     ['board_id' => $card->column->board_id, 'card_id' => $card->id],
                     'user-check',
-                    "/app/cyberboard/{$card->column->board_id}"
+                    "/app/cyberboard/{$card->column->board_id}?card={$card->id}"
                 );
             }
         }
