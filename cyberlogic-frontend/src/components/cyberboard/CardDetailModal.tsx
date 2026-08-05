@@ -11,6 +11,7 @@ import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import MentionText from "./MentionText";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
+import SearchableTaskPicker from "./SearchableTaskPicker";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
@@ -117,6 +118,7 @@ export default function CardDetailModal({
   const [editAssignedUserIds, setEditAssignedUserIds] = useState<number[]>([]);
   const [editPhase, setEditPhase] = useState<string>("");
   const [editPredecessorId, setEditPredecessorId] = useState<number | null>(null);
+  const [editParentId, setEditParentId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Attachment state
@@ -163,6 +165,7 @@ export default function CardDetailModal({
       setEditAssignedUserIds(initialIds);
       setEditPhase(card.phase || "");
       setEditPredecessorId(card.predecessor_id || null);
+      setEditParentId(card.parent_id || null);
     }
   }, [card]);
 
@@ -358,6 +361,7 @@ export default function CardDetailModal({
         priority: editPriority,
         phase: editPhase || null,
         predecessor_id: editPredecessorId || null,
+        parent_id: editParentId || null,
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
         activity_end_date: editActivityEndDate || null,
@@ -607,26 +611,34 @@ export default function CardDetailModal({
                 </select>
               </div>
 
+              {/* Parent Task Selector (Sub-task Relationship) */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
+                  <span>Parent Task (Sub-Task Relationship)</span>
+                </label>
+                <SearchableTaskPicker
+                  value={editParentId}
+                  onChange={(id) => setEditParentId(id)}
+                  cards={allBoardCards}
+                  excludeCardId={card.id}
+                  emptyLabel="None (Top-Level Parent Task)"
+                />
+              </div>
+
               {/* Predecessor / Dependency Task Selector */}
               <div>
                 <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-primary" />
                   <span>Predecessor Task (Dependency Link)</span>
                 </label>
-                <select
-                  value={editPredecessorId || ""}
-                  onChange={(e) => setEditPredecessorId(e.target.value ? parseInt(e.target.value, 10) : null)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
-                >
-                  <option value="">No Predecessor (Independent Task)</option>
-                  {allBoardCards
-                    .filter((c) => c.id !== card.id)
-                    .map((otherCard) => (
-                      <option key={`pred-opt-${otherCard.id}`} value={otherCard.id}>
-                        {otherCard.title}
-                      </option>
-                    ))}
-                </select>
+                <SearchableTaskPicker
+                  value={editPredecessorId}
+                  onChange={(id) => setEditPredecessorId(id)}
+                  cards={allBoardCards}
+                  excludeCardId={card.id}
+                  emptyLabel="No Predecessor (Independent Task)"
+                />
               </div>
 
               {/* Color Tag Selector */}

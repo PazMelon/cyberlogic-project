@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Users, X, ShieldCheck, UserX } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Users, X, ShieldCheck } from "lucide-react";
 import type { CyberboardBoard, DirectoryMember } from "../../utils/api";
 import { fetchDirectory } from "../../utils/api";
 
@@ -25,6 +25,8 @@ export default function CollaboratorsSidebar({
 }: CollaboratorsSidebarProps) {
   const [offlineMembers, setOfflineMembers] = useState<DirectoryMember[]>([]);
 
+  const hostId = board.created_by || board.creator?.id;
+
   useEffect(() => {
     if (board.visibility !== "private") return;
 
@@ -39,7 +41,7 @@ export default function CollaboratorsSidebar({
 
         const offline = directory.filter((m) => {
           if (onlineIds.has(m.id)) return false;
-          if (allowedIds.size > 0 && !allowedIds.has(m.id) && m.id !== board.creator_id) {
+          if (allowedIds.size > 0 && !allowedIds.has(m.id) && m.id !== hostId) {
             return false;
           }
           return true;
@@ -55,7 +57,7 @@ export default function CollaboratorsSidebar({
     return () => {
       isMounted = false;
     };
-  }, [board.visibility, board.allowed_members, board.creator_id, collaborators]);
+  }, [board.visibility, board.allowed_members, hostId, collaborators]);
 
   const isPrivate = board.visibility === "private";
 

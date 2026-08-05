@@ -71,8 +71,27 @@ export default function GanttRoadmapView({
   const [showGanttControlsSidebar, setShowGanttControlsSidebar] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
+  const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
+
+  const handleRemoveDependency = async (targetCardId: number) => {
+    try {
+      await updateCyberboardCard(targetCardId, { predecessor_id: null });
+    } catch (err) {
+      console.error("Failed to remove dependency:", err);
+    }
+  };
+
+  // Interactive Drag-to-Link Dependency State
+  const [linkingState, setLinkingState] = useState<{
+    fromCardId: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    targetCardId: number | null;
+  } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridTimelineRef = useRef<HTMLDivElement>(null);
@@ -80,6 +99,55 @@ export default function GanttRoadmapView({
   const isSyncingScrollRef = useRef<boolean>(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDraggedRef = useRef<boolean>(false);
+
+  // Drag-to-Link global mousemove and mouseup listeners
+  useEffect(() => {
+    if (!linkingState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!gridTimelineRef.current) return;
+      const containerRect = gridTimelineRef.current.getBoundingClientRect();
+      const currentX = e.clientX - containerRect.left + gridTimelineRef.current.scrollLeft;
+      const currentY = e.clientY - containerRect.top + gridTimelineRef.current.scrollTop;
+
+      let hoveredTargetId: number | null = null;
+      const elements = document.elementsFromPoint(e.clientX, e.clientY);
+      for (const el of elements) {
+        const cardIdAttr = el.getAttribute("data-gantt-card-id");
+        if (cardIdAttr) {
+          const id = Number(cardIdAttr);
+          if (id && id !== linkingState.fromCardId) {
+            hoveredTargetId = id;
+            break;
+          }
+        }
+      }
+
+      setLinkingState((prev) =>
+        prev ? { ...prev, currentX, currentY, targetCardId: hoveredTargetId } : null
+      );
+    };
+
+    const handleMouseUp = async () => {
+      if (linkingState && linkingState.targetCardId) {
+        const targetId = linkingState.targetCardId;
+        const sourceId = linkingState.fromCardId;
+        try {
+          await updateCyberboardCard(targetId, { predecessor_id: sourceId });
+        } catch (err) {
+          console.error("Failed to link dependency:", err);
+        }
+      }
+      setLinkingState(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [linkingState]);
 
 
 
@@ -364,9 +432,31 @@ export default function GanttRoadmapView({
     }
   }, [timeScale, zoomLevel]);
 
+  // Dynamically normalize card parent-child trees for real-time Gantt sync
+  const normalizedCards = useMemo(() => {
+    const rawActive = (cards || []).filter((c) => !c.is_archived);
+    const cardMap = new Map<number, CyberboardCard>();
+
+    rawActive.forEach((c) => {
+      cardMap.set(c.id, { ...c, sub_cards: c.sub_cards ? [...c.sub_cards] : [] });
+    });
+
+    rawActive.forEach((c) => {
+      if (c.parent_id && cardMap.has(c.parent_id)) {
+        const parent = cardMap.get(c.parent_id)!;
+        if (!parent.sub_cards) parent.sub_cards = [];
+        if (!parent.sub_cards.some((sc) => sc.id === c.id)) {
+          parent.sub_cards.push(cardMap.get(c.id)!);
+        }
+      }
+    });
+
+    return Array.from(cardMap.values());
+  }, [cards]);
+
   // Group cards according to groupBy option
   const groupedData = useMemo(() => {
-    const activeCards = cards.filter((c) => !c.is_archived);
+    const activeCards = normalizedCards;
 
     if (groupBy === "phase") {
       const phaseSettings = board.phase_settings || [
@@ -525,7 +615,7 @@ export default function GanttRoadmapView({
       });
       return rawGroups;
     }
-  }, [groupBy, columns, cards, board.creator, customCardPositions]);
+  }, [groupBy, columns, normalizedCards, board.creator, customCardPositions]);
 
   const unscheduledCards = useMemo(() => {
     return cards.filter((c) => !c.is_archived && (!c.activity_date && !c.activity_end_date));
@@ -806,7 +896,30 @@ export default function GanttRoadmapView({
 
   const canDragDates = timeScale === "day" || timeScale === "week";
 
-  const { dependencyLines } = useMemo(() => {
+  const handleLinkDragStart = (e: React.MouseEvent, cardId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!gridTimelineRef.current) return;
+
+    const layout = layoutMap.get(cardId);
+    const containerRect = gridTimelineRef.current.getBoundingClientRect();
+    const currentX = e.clientX - containerRect.left + gridTimelineRef.current.scrollLeft;
+    const currentY = e.clientY - containerRect.top + gridTimelineRef.current.scrollTop;
+
+    const startX = layout ? layout.endPx : currentX;
+    const startY = layout ? layout.centerYPx : currentY;
+
+    setLinkingState({
+      fromCardId: cardId,
+      startX,
+      startY,
+      currentX,
+      currentY,
+      targetCardId: null,
+    });
+  };
+
+  const { dependencyLines, layoutMap } = useMemo(() => {
     const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number; rowHeight: number }>();
     const rawLinks: Array<{
       id: string;
@@ -916,27 +1029,11 @@ export default function GanttRoadmapView({
       fromCardId: number;
       toCardId: number;
       pathD: string;
+      toX: number;
+      toY: number;
+      X_trunk: number;
       isDateless?: boolean;
     }> = [];
-
-    // Helper to check if direct connection path crosses any card bar in the layout
-    const isDirectPathBlocked = (fromId: number, toId: number, x1: number, y1: number, x2: number, y2: number) => {
-      const minY = Math.min(y1, y2);
-      const maxY = Math.max(y1, y2);
-      const minX = Math.min(x1, x2);
-      const maxX = Math.max(x1, x2);
-
-      let blocked = false;
-      layoutMap.forEach((layout, id) => {
-        if (id === fromId || id === toId) return;
-        if (layout.centerYPx > minY + 4 && layout.centerYPx < maxY - 4) {
-          if (layout.startPx < maxX + 8 && layout.endPx > minX - 8) {
-            blocked = true;
-          }
-        }
-      });
-      return blocked;
-    };
 
     linksBySource.forEach((links, fromCardId) => {
       const fromPos = layoutMap.get(fromCardId)!;
@@ -1051,12 +1148,15 @@ export default function GanttRoadmapView({
           fromCardId: link.fromCardId,
           toCardId: link.toCardId,
           pathD,
+          toX: x2,
+          toY: y2,
+          X_trunk,
           isDateless: link.isDateless,
         });
       });
     });
 
-    return { dependencyLines: lines };
+    return { dependencyLines: lines, layoutMap };
   }, [groupedData, gridMinWidth, expandedParents, getCardTimelinePosition]);
 
   // Helper to extract assigned users array cleanly
@@ -1612,22 +1712,96 @@ export default function GanttRoadmapView({
                   </marker>
                 </defs>
                 {dependencyLines.map((line) => {
-                  const isLineHovered = hoveredCardId === line.fromCardId || hoveredCardId === line.toCardId;
+                  const isHovered =
+                    hoveredLineId === line.id ||
+                    hoveredCardId === line.fromCardId ||
+                    hoveredCardId === line.toCardId;
+
                   return (
-                    <path
-                      key={line.id}
-                      d={line.pathD}
-                      fill="none"
-                      stroke={isLineHovered ? "#06b6d4" : "#64748b"}
-                      strokeWidth={isLineHovered ? "2.5" : "1.5"}
-                      opacity={isLineHovered ? "1" : "0.55"}
-                      strokeDasharray={line.isDateless ? "4,4" : "none"}
-                      markerEnd={isLineHovered ? "url(#gantt-arrow-active)" : "url(#gantt-arrow)"}
-                      className="transition-all duration-200"
-                    />
+                    <g key={line.id}>
+                      {/* Invisible wider hit area for easy hover & click */}
+                      <path
+                        d={line.pathD}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth="18"
+                        pointerEvents="stroke"
+                        className="cursor-pointer"
+                        onMouseEnter={() => setHoveredLineId(line.id)}
+                        onMouseLeave={() => setHoveredLineId(null)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveDependency(line.toCardId);
+                        }}
+                      />
+                      {/* Visual Dependency Line */}
+                      <path
+                        d={line.pathD}
+                        fill="none"
+                        stroke={isHovered ? (hoveredLineId === line.id ? "#f43f5e" : "#06b6d4") : "#64748b"}
+                        strokeWidth={isHovered ? "2.5" : "1.5"}
+                        opacity={isHovered ? "1" : "0.55"}
+                        strokeDasharray={line.isDateless ? "4,4" : "none"}
+                        markerEnd={isHovered ? "url(#gantt-arrow-active)" : "url(#gantt-arrow)"}
+                        pointerEvents="none"
+                        className="transition-all duration-200"
+                      />
+                    </g>
                   );
                 })}
+                {linkingState && (
+                  <g>
+                    <line
+                      x1={linkingState.startX}
+                      y1={linkingState.startY}
+                      x2={linkingState.currentX}
+                      y2={linkingState.currentY}
+                      stroke="#06b6d4"
+                      strokeWidth="3"
+                      strokeDasharray="6,4"
+                      className="animate-pulse"
+                    />
+                    <circle
+                      cx={linkingState.currentX}
+                      cy={linkingState.currentY}
+                      r="6"
+                      fill="#06b6d4"
+                      className="animate-ping"
+                    />
+                  </g>
+                )}
               </svg>
+
+              {/* Floating HTML Unlink Task Button at line endpoint */}
+              {(() => {
+                const activeLine = dependencyLines.find((l) => l.id === hoveredLineId);
+                if (!activeLine) return null;
+                return (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${Math.max(activeLine.X_trunk + 8, activeLine.toX - 95)}px`,
+                      top: `${activeLine.toY - 14}px`,
+                    }}
+                    className="z-50 pointer-events-auto flex items-center animate-in fade-in zoom-in-95 duration-150"
+                    onMouseEnter={() => setHoveredLineId(activeLine.id)}
+                    onMouseLeave={() => setHoveredLineId(null)}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveDependency(activeLine.toCardId);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-surface-950/95 border border-error text-error hover:bg-error hover:text-white text-[11px] font-bold shadow-2xl flex items-center gap-1.5 cursor-pointer backdrop-blur-md transition-all scale-105 active:scale-95"
+                      title="Click to remove predecessor dependency link"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Unlink Task</span>
+                    </button>
+                  </div>
+                );
+              })()}
               {groupedData.map((group) => {
                 const parentCards = group.cards.filter((c) => !c.parent_id);
                 const isGroupDragOver = dragOverGroupId === group.id;
@@ -1687,81 +1861,95 @@ export default function GanttRoadmapView({
                                 </div>
                               ) : (
                                 <div
-                                   draggable={!resizingState}
-                                   onDragStart={(e) => {
-                                     if (resizingState) {
-                                       e.preventDefault();
-                                       e.stopPropagation();
-                                       return;
-                                     }
-                                     handleGanttCardDragStart(e, card.id);
-                                   }}
-                                   className="relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing select-none"
-                                   style={{
-                                     left: `${pos.leftPercent}%`,
-                                     width: `${pos.widthPercent}%`,
-                                     minWidth: "28px",
-                                   }}
-                                   onMouseEnter={() => setHoveredCardId(card.id)}
-                                   onMouseLeave={() => setHoveredCardId(null)}
-                                 >
-                                   {/* Live Date Range Floating Tooltip on Hover / Drag */}
-                                   {(isHovered || resizingState?.cardId === card.id) && (
-                                     <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2.5 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1.5 backdrop-blur-md animate-in fade-in duration-150">
-                                       <Calendar className="w-3 h-3 text-cyan-400" />
-                                       <span>{formatDateRangeTooltip(pos.startDateStr, pos.endDateStr)}</span>
-                                     </div>
-                                   )}
-
-                                  {/* Left Date Handle (Start Date extension) */}
-                                  {canDragDates && (timeScale === "day" || timeScale === "week") && (
-                                    <div
-                                      draggable={false}
-                                      onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                      onMouseDown={(e) => handleResizeStart(e, card, "start")}
-                                      className="absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                      title="Drag left/right to adjust start date"
-                                    >
-                                      ‹
-                                    </div>
-                                  )}
-
-                                  <div
-                                    onMouseDown={(e) => {
-                                      hasDraggedRef.current = false;
-                                      handleResizeStart(e, card, "move");
+                                    data-gantt-card-id={card.id}
+                                    draggable={!resizingState}
+                                    onDragStart={(e) => {
+                                      if (resizingState) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        return;
+                                      }
+                                      handleGanttCardDragStart(e, card.id);
                                     }}
-                                    onClick={(e) => handleBarClick(e, card)}
-                                    className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                      isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
+                                    className={`relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing select-none ${
+                                      linkingState?.targetCardId === card.id ? "ring-2 ring-cyan-400 animate-pulse scale-[1.02] z-30" : ""
                                     }`}
                                     style={{
-                                      backgroundColor: cardColor,
-                                      backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
+                                      left: `${pos.leftPercent}%`,
+                                      width: `${pos.widthPercent}%`,
+                                      minWidth: "28px",
                                     }}
+                                    onMouseEnter={() => setHoveredCardId(card.id)}
+                                    onMouseLeave={() => setHoveredCardId(null)}
                                   >
-                                    <div className="flex items-center gap-1.5 truncate pr-1">
-                                      <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
-                                        {card.title}
-                                      </span>
+                                    {/* Live Date Range Floating Tooltip on Hover / Drag */}
+                                    {(isHovered || resizingState?.cardId === card.id) && (
+                                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2.5 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1.5 backdrop-blur-md animate-in fade-in duration-150">
+                                        <Calendar className="w-3 h-3 text-cyan-400" />
+                                        <span>{formatDateRangeTooltip(pos.startDateStr, pos.endDateStr)}</span>
+                                      </div>
+                                    )}
+
+                                    {/* Left Date Handle (Start Date extension) */}
+                                    {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                      <div
+                                        draggable={false}
+                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onMouseDown={(e) => handleResizeStart(e, card, "start")}
+                                        className="absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                        title="Drag left/right to adjust start date"
+                                      >
+                                        ‹
+                                      </div>
+                                    )}
+
+                                    <div
+                                      onMouseDown={(e) => {
+                                        hasDraggedRef.current = false;
+                                        handleResizeStart(e, card, "move");
+                                      }}
+                                      onClick={(e) => handleBarClick(e, card)}
+                                      className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                        isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
+                                      }`}
+                                      style={{
+                                        backgroundColor: cardColor,
+                                        backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-1.5 truncate pr-1">
+                                        <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
+                                          {card.title}
+                                        </span>
+                                      </div>
+
+                                      {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
                                     </div>
 
-                                    {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
-                                  </div>
+                                    {/* Right Date Handle (End Date extension) */}
+                                    {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                      <div
+                                        draggable={false}
+                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onMouseDown={(e) => handleResizeStart(e, card, "end")}
+                                        className="absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                        title="Drag left/right to adjust end date"
+                                      >
+                                        ›
+                                      </div>
+                                    )}
 
-                                  {/* Right Date Handle (End Date extension) */}
-                                  {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                    {/* Interactive Dependency Connector Handle Dot (Restored) */}
                                     <div
                                       draggable={false}
                                       onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                      onMouseDown={(e) => handleResizeStart(e, card, "end")}
-                                      className="absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                      title="Drag left/right to adjust end date"
+                                      onMouseDown={(e) => handleLinkDragStart(e, card.id)}
+                                      className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                      title="Click & drag to link predecessor dependency"
                                     >
-                                      ›
+                                      <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
                                     </div>
-                                  )}
-                                </div>
+                                  </div>
                               )}
                             </div>
 
@@ -1791,65 +1979,79 @@ export default function GanttRoadmapView({
                                         {renderTimelineAssigneeAvatars(subCard, 20)}
                                       </div>
                                     ) : (
-                                      <div
-                                         className="relative h-6 my-0.5 flex items-center group/bar select-none"
-                                         style={{
-                                           left: `${subPos.leftPercent}%`,
-                                           width: `${subPos.widthPercent}%`,
-                                           minWidth: "20px",
-                                         }}
-                                         onMouseEnter={() => setHoveredCardId(subCard.id)}
-                                         onMouseLeave={() => setHoveredCardId(null)}
-                                       >
-                                         {/* Live Date Range Floating Tooltip for Subcard */}
-                                         {(isSubHovered || resizingState?.cardId === subCard.id) && (
-                                           <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1 backdrop-blur-md animate-in fade-in duration-150">
-                                             <Calendar className="w-2.5 h-2.5 text-cyan-400" />
-                                             <span>{formatDateRangeTooltip(subPos.startDateStr, subPos.endDateStr)}</span>
-                                           </div>
-                                         )}
+                                        <div
+                                          data-gantt-card-id={subCard.id}
+                                          className={`relative h-6 my-0.5 flex items-center group/bar select-none ${
+                                            linkingState?.targetCardId === subCard.id ? "ring-2 ring-cyan-400 animate-pulse scale-[1.02] z-30" : ""
+                                          }`}
+                                          style={{
+                                            left: `${subPos.leftPercent}%`,
+                                            width: `${subPos.widthPercent}%`,
+                                            minWidth: "20px",
+                                          }}
+                                          onMouseEnter={() => setHoveredCardId(subCard.id)}
+                                          onMouseLeave={() => setHoveredCardId(null)}
+                                        >
+                                          {/* Live Date Range Floating Tooltip for Subcard */}
+                                          {(isSubHovered || resizingState?.cardId === subCard.id) && (
+                                            <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1 backdrop-blur-md animate-in fade-in duration-150">
+                                              <Calendar className="w-2.5 h-2.5 text-cyan-400" />
+                                              <span>{formatDateRangeTooltip(subPos.startDateStr, subPos.endDateStr)}</span>
+                                            </div>
+                                          )}
 
-                                         {/* Subcard Left Handle */}
-                                         {(timeScale === "day" || timeScale === "week") && (
+                                          {/* Subcard Left Handle */}
+                                          {(timeScale === "day" || timeScale === "week") && (
+                                            <div
+                                              draggable={false}
+                                              onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                              onMouseDown={(e) => handleResizeStart(e, subCard, "start")}
+                                              className="absolute left-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                              title="Drag to adjust start date"
+                                            >
+                                              ‹
+                                            </div>
+                                          )}
+
+                                          <div
+                                            onMouseDown={(e) => handleResizeStart(e, subCard, "move")}
+                                            onClick={(e) => handleBarClick(e, subCard)}
+                                            className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                              isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
+                                            }`}
+                                            style={{
+                                              backgroundColor: subColor,
+                                              backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
+                                            }}
+                                          >
+                                            <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
+                                            {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                          </div>
+
+                                          {/* Subcard Right Handle */}
+                                          {(timeScale === "day" || timeScale === "week") && (
+                                            <div
+                                              draggable={false}
+                                              onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                              onMouseDown={(e) => handleResizeStart(e, subCard, "end")}
+                                              className="absolute right-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                              title="Drag to adjust end date"
+                                            >
+                                              ›
+                                            </div>
+                                          )}
+
+                                           {/* Subcard Interactive Dependency Connector Handle Dot (Restored) */}
                                            <div
                                              draggable={false}
                                              onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                             onMouseDown={(e) => handleResizeStart(e, subCard, "start")}
-                                             className="absolute left-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                             title="Drag to adjust start date"
+                                             onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
+                                             className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                             title="Click & drag to link predecessor dependency"
                                            >
-                                             ‹
+                                             <div className="w-1 h-1 rounded-full bg-surface-950" />
                                            </div>
-                                         )}
-
-                                         <div
-                                           onMouseDown={(e) => handleResizeStart(e, subCard, "move")}
-                                           onClick={(e) => handleBarClick(e, subCard)}
-                                           className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                             isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
-                                           }`}
-                                           style={{
-                                             backgroundColor: subColor,
-                                             backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
-                                           }}
-                                         >
-                                           <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
-                                           {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
-                                         </div>
-
-                                         {/* Subcard Right Handle */}
-                                         {(timeScale === "day" || timeScale === "week") && (
-                                           <div
-                                             draggable={false}
-                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                             onMouseDown={(e) => handleResizeStart(e, subCard, "end")}
-                                             className="absolute right-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                             title="Drag to adjust end date"
-                                           >
-                                             ›
-                                           </div>
-                                         )}
-                                       </div>
+                                        </div>
                                     )}
                                   </div>
                                 );

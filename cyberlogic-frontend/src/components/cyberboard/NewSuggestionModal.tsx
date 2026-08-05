@@ -4,6 +4,7 @@ import type { CyberboardColumn, CyberboardCard, CyberboardAttachment } from "../
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
+import SearchableTaskPicker from "./SearchableTaskPicker";
 
 interface NewSuggestionModalProps {
   boardId: number;
@@ -289,18 +290,12 @@ export default function NewSuggestionModal({
               <Layers className="w-3.5 h-3.5 text-primary" />
               Parent Task (Optional Sub-Task)
             </label>
-            <select
-              value={parentId || ""}
-              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-            >
-              <option value="">None (Top-Level Parent Task)</option>
-              {availableParentCards.map((pCard) => (
-                <option key={pCard.id} value={pCard.id}>
-                  Sub-task of: {pCard.title}
-                </option>
-              ))}
-            </select>
+            <SearchableTaskPicker
+              value={parentId || null}
+              onChange={(id) => setParentId(id || undefined)}
+              cards={availableParentCards}
+              emptyLabel="None (Top-Level Parent Task)"
+            />
           </div>
         )}
 
@@ -350,18 +345,12 @@ export default function NewSuggestionModal({
             <Clock className="w-3.5 h-3.5 text-primary" />
             Predecessor Task (Dependency Link)
           </label>
-          <select
-            value={predecessorId || ""}
-            onChange={(e) => setPredecessorId(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-          >
-            <option value="">No Predecessor (Independent Task)</option>
-            {availablePredecessorCards.map((pCard) => (
-              <option key={`pred-new-${pCard.id}`} value={pCard.id}>
-                {pCard.title}
-              </option>
-            ))}
-          </select>
+          <SearchableTaskPicker
+            value={predecessorId || null}
+            onChange={(id) => setPredecessorId(id || undefined)}
+            cards={availablePredecessorCards}
+            emptyLabel="No Predecessor (Independent Task)"
+          />
         </div>
       )}
 
