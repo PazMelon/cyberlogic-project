@@ -437,16 +437,18 @@ export default function GanttRoadmapView({
     const rawActive = (cards || []).filter((c) => !c.is_archived);
     const cardMap = new Map<number, CyberboardCard>();
 
+    // 1. Initialize card map with empty sub_cards arrays (resetting stale sub_cards)
     rawActive.forEach((c) => {
-      cardMap.set(c.id, { ...c, sub_cards: c.sub_cards ? [...c.sub_cards] : [] });
+      cardMap.set(c.id, { ...c, sub_cards: [] });
     });
 
+    // 2. Populate parent sub_cards arrays dynamically based on parent_id relationships
     rawActive.forEach((c) => {
       if (c.parent_id && cardMap.has(c.parent_id)) {
         const parent = cardMap.get(c.parent_id)!;
-        if (!parent.sub_cards) parent.sub_cards = [];
-        if (!parent.sub_cards.some((sc) => sc.id === c.id)) {
-          parent.sub_cards.push(cardMap.get(c.id)!);
+        const currentChild = cardMap.get(c.id)!;
+        if (!parent.sub_cards!.some((sc) => sc.id === c.id)) {
+          parent.sub_cards!.push(currentChild);
         }
       }
     });

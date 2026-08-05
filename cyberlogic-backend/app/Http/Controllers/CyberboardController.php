@@ -633,6 +633,7 @@ class CyberboardController extends Controller
             'phase' => 'nullable|string|max:100',
             'position' => 'nullable|integer',
             'attachments' => 'nullable|array',
+            'column_id' => 'nullable|exists:cyberboard_columns,id',
             'checklist' => 'nullable|array',
             'completion_percentage' => 'nullable|integer|min:0|max:100',
         ]);

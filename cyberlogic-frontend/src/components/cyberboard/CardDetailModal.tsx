@@ -190,6 +190,80 @@ export default function CardDetailModal({
     }
   }, [card]);
 
+  const [pendingCompletionModal, setPendingCompletionModal] = useState<{
+    targetColumnId: number;
+    targetColumnTitle: string;
+    payload: Partial<CyberboardCard>;
+  } | null>(null);
+
+  const promptCompletionMoveIfTargetColExists = (
+    rate: number,
+    basePayload: Partial<CyberboardCard>
+  ) => {
+    // Determine overall completion rate taking subcards into account
+    const subcardsList = (card?.sub_cards && card.sub_cards.length > 0)
+      ? card.sub_cards
+      : (allBoardCards || []).filter((c) => c.parent_id === card?.id && !c.is_archived);
+
+    let overallRate = rate;
+    if (subcardsList.length > 0 && columns && columns.length > 0) {
+      const completedSubcardsCount = subcardsList.filter((sc) => {
+        const col = columns.find((c) => c.id === sc.column_id);
+        if (!col) return false;
+        return (
+          col.status_type === "completed" ||
+          col.title.toLowerCase().includes("done") ||
+          col.title.toLowerCase().includes("completed")
+        );
+      }).length;
+      const subcardsRate = (completedSubcardsCount / subcardsList.length) * 100;
+      const checklistRate = rate;
+      overallRate = Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
+    }
+
+    if (overallRate === 100 && columns && columns.length > 0) {
+      const completedCol = columns.find(
+        (c) =>
+          c.status_type === "completed" ||
+          c.title.toLowerCase().includes("done") ||
+          c.title.toLowerCase().includes("completed")
+      );
+      if (completedCol && card?.column_id !== completedCol.id) {
+        setPendingCompletionModal({
+          targetColumnId: completedCol.id,
+          targetColumnTitle: completedCol.title,
+          payload: { ...basePayload, column_id: completedCol.id },
+        });
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handleConfirmCompletionMove = async () => {
+    if (!pendingCompletionModal || !card || !onUpdateCard) return;
+    const payload = pendingCompletionModal.payload;
+    setPendingCompletionModal(null);
+    try {
+      await onUpdateCard(card.id, payload);
+    } catch (err) {
+      console.error("Failed to move card to completed column:", err);
+    }
+  };
+
+  const handleCancelCompletionMove = async () => {
+    if (!pendingCompletionModal || !card || !onUpdateCard) return;
+    const { payload } = pendingCompletionModal;
+    setPendingCompletionModal(null);
+    // Execute payload without column_id change
+    const { column_id, ...payloadWithoutCol } = payload;
+    try {
+      await onUpdateCard(card.id, payloadWithoutCol);
+    } catch (err) {
+      console.error("Failed to update card completion:", err);
+    }
+  };
+
   const handleToggleChecklistItem = async (itemId: string) => {
     const updated = checklist.map((item) =>
       item.id === itemId ? { ...item, completed: !item.completed } : item
@@ -197,9 +271,14 @@ export default function CardDetailModal({
     setChecklist(updated);
     const completedCount = updated.filter((item) => item.completed).length;
     const rate = Math.round((completedCount / updated.length) * 100);
-    if (card && onUpdateCard) {
+
+    const basePayload: Partial<CyberboardCard> = { checklist: updated, completion_percentage: rate };
+
+    const modalPrompted = promptCompletionMoveIfTargetColExists(rate, basePayload);
+
+    if (!modalPrompted && card && onUpdateCard) {
       try {
-        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+        await onUpdateCard(card.id, basePayload);
       } catch (err) {
         console.error("Failed to update checklist:", err);
       }
@@ -217,9 +296,13 @@ export default function CardDetailModal({
     setChecklist(updated);
     const completedCount = updated.filter((item) => item.completed).length;
     const rate = Math.round((completedCount / updated.length) * 100);
-    if (card && onUpdateCard) {
+    const basePayload: Partial<CyberboardCard> = { checklist: updated, completion_percentage: rate };
+
+    const modalPrompted = promptCompletionMoveIfTargetColExists(rate, basePayload);
+
+    if (!modalPrompted && card && onUpdateCard) {
       try {
-        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+        await onUpdateCard(card.id, basePayload);
       } catch (err) {
         console.error("Failed to add checklist item:", err);
       }
@@ -232,9 +315,13 @@ export default function CardDetailModal({
     const rate = updated.length > 0
       ? Math.round((updated.filter((item) => item.completed).length / updated.length) * 100)
       : manualCompletionPercentage;
-    if (card && onUpdateCard) {
+    const basePayload: Partial<CyberboardCard> = { checklist: updated, completion_percentage: rate };
+
+    const modalPrompted = promptCompletionMoveIfTargetColExists(rate, basePayload);
+
+    if (!modalPrompted && card && onUpdateCard) {
       try {
-        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+        await onUpdateCard(card.id, basePayload);
       } catch (err) {
         console.error("Failed to delete checklist item:", err);
       }
@@ -253,10 +340,14 @@ export default function CardDetailModal({
 
     sliderDebounceTimerRef.current = setTimeout(async () => {
       if (card && onUpdateCard && checklist.length === 0) {
-        try {
-          await onUpdateCard(card.id, { completion_percentage: clamped });
-        } catch (err) {
-          console.error("Failed to update completion percentage:", err);
+        const basePayload: Partial<CyberboardCard> = { completion_percentage: clamped };
+        const modalPrompted = promptCompletionMoveIfTargetColExists(clamped, basePayload);
+        if (!modalPrompted) {
+          try {
+            await onUpdateCard(card.id, basePayload);
+          } catch (err) {
+            console.error("Failed to update completion percentage:", err);
+          }
         }
       }
     }, 400);
@@ -881,6 +972,8 @@ export default function CardDetailModal({
             subCards={card.sub_cards}
             columns={columns}
             cardColumnId={card.column_id}
+            cardId={card.id}
+            allBoardCards={allBoardCards}
             onToggleItem={handleToggleChecklistItem}
             onAddItem={handleAddChecklistItem}
             onDeleteItem={handleDeleteChecklistItem}
@@ -889,34 +982,61 @@ export default function CardDetailModal({
           />
 
           {/* Sub-Cards / Sub-Tasks Breakdown Checklist */}
-          {card.sub_cards && card.sub_cards.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                  Sub-Tasks ({card.sub_cards.length})
-                </h4>
-              </div>
-              <div className="space-y-1.5 bg-surface-800/40 p-3 rounded-xl border border-border/50">
-                {card.sub_cards.map((subCard) => (
-                  <div
-                    key={subCard.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-surface-800 border border-border/40 text-xs hover:border-primary/40 transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
-                      <span className="font-medium text-text-primary">{subCard.title}</span>
-                    </div>
+          {(() => {
+            const subcardsList = (card.sub_cards && card.sub_cards.length > 0)
+              ? card.sub_cards
+              : (allBoardCards || []).filter((c) => c.parent_id === card.id && !c.is_archived);
 
-                    {subCard.assigned_user && (
-                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        @{subCard.assigned_user.username || subCard.assigned_user.first_name}
-                      </span>
-                    )}
-                  </div>
-                ))}
+            if (subcardsList.length === 0) return null;
+
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                    Sub-Tasks ({subcardsList.length})
+                  </h4>
+                </div>
+                <div className="space-y-1.5 bg-surface-800/40 p-3 rounded-xl border border-border/50">
+                  {subcardsList.map((subCard) => {
+                    const subCol = (columns || []).find((c) => c.id === subCard.column_id);
+                    const isSubColDone = subCol && (
+                      subCol.status_type === "completed" ||
+                      subCol.title.toLowerCase().includes("done") ||
+                      subCol.title.toLowerCase().includes("completed")
+                    );
+
+                    return (
+                      <div
+                        key={subCard.id}
+                        className="flex items-center justify-between p-2 rounded-lg bg-surface-800 border border-border/40 text-xs hover:border-primary/40 transition-all"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isSubColDone ? "bg-emerald-400" : "bg-primary"}`} />
+                          <span className={`font-medium ${isSubColDone ? "text-text-muted line-through" : "text-text-primary"}`}>
+                            {subCard.title}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {subCol && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${isSubColDone ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" : "text-text-muted bg-surface-700/50 border-border/50"}`}>
+                              {subCol.title}
+                            </span>
+                          )}
+
+                          {subCard.assigned_user && (
+                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                              @{subCard.assigned_user.username || subCard.assigned_user.first_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Target Dates */}
           {showDateSection && (
@@ -1398,6 +1518,42 @@ export default function CardDetailModal({
           )}
         </div>
       )}
+
+      {/* Confirmation Modal when reaching 100% completion */}
+      {pendingCompletionModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-surface-900 border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto">
+              <CheckSquare className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1.5">
+              <h3 className="text-base font-bold text-text-primary">
+                Mark Task as Completed?
+              </h3>
+              <p className="text-xs text-text-muted leading-relaxed">
+                Task <span className="font-semibold text-text-primary">"{card.title}"</span> has reached 100% completion. Would you like to move it to the <span className="font-bold text-emerald-400">"{pendingCompletionModal.targetColumnTitle}"</span> column status?
+              </p>
+            </div>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleCancelCompletionMove}
+                className="flex-1 py-2.5 rounded-xl border border-border bg-surface-800 hover:bg-surface-700 text-xs font-semibold text-text-secondary transition-all cursor-pointer"
+              >
+                Keep Current Column
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCompletionMove}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-surface-950 font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Move to {pendingCompletionModal.targetColumnTitle}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1757,6 +1913,8 @@ function TaskChecklistSection({
   subCards = [],
   columns = [],
   cardColumnId,
+  cardId,
+  allBoardCards = [],
   onToggleItem,
   onAddItem,
   onDeleteItem,
@@ -1768,6 +1926,8 @@ function TaskChecklistSection({
   subCards?: CyberboardCard[];
   columns?: CyberboardColumn[];
   cardColumnId?: number;
+  cardId?: number;
+  allBoardCards?: CyberboardCard[];
   onToggleItem: (id: string) => void;
   onAddItem: (text: string) => void;
   onDeleteItem: (id: string) => void;
@@ -1792,7 +1952,14 @@ function TaskChecklistSection({
   const totalItems = safeChecklist.length;
   const completedCount = safeChecklist.filter((i) => i.completed).length;
 
-  const safeSubcards = subCards || [];
+  const safeSubcards = useMemo(() => {
+    if (subCards && subCards.length > 0) return subCards;
+    if (cardId && allBoardCards && allBoardCards.length > 0) {
+      return allBoardCards.filter((c) => c.parent_id === cardId && !c.is_archived);
+    }
+    return [];
+  }, [subCards, allBoardCards, cardId]);
+
   const totalSubcards = safeSubcards.length;
   const completedSubcardsCount = useMemo(() => {
     if (totalSubcards === 0 || !columns || columns.length === 0) return 0;

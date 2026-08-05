@@ -560,6 +560,8 @@ export default function CyberBoardView() {
       return { ...prev, columns: updatedColumns };
     });
 
+    setSelectedCard((prev) => (prev?.id === cardId ? { ...prev, column_id: targetColId } : prev));
+
     try {
       await moveCyberboardCard(cardId, targetColId, newPos);
     } catch (err: any) {
@@ -1142,9 +1144,11 @@ export default function CyberBoardView() {
       </div>
 
       {/* Card Detail Modal */}
-      {selectedCard && (
-        <CardDetailModal
-          card={selectedCard}
+      {selectedCard && (() => {
+        const liveSelectedCard = columns.flatMap((c) => c.cards || []).find((c) => c.id === selectedCard.id) || selectedCard;
+        return (
+          <CardDetailModal
+            card={liveSelectedCard}
           allBoardCards={columns.flatMap((c) => c.cards || [])}
           boardType={board?.type}
           boardVisibility={board.visibility}
@@ -1170,7 +1174,8 @@ export default function CyberBoardView() {
           columns={columns}
           onUpdateCard={handleUpdateCard}
         />
-      )}
+        );
+      })()}
 
       {/* New Suggestion Modal */}
       {showNewSuggestionModal && (
