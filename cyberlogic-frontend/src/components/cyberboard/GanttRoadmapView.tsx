@@ -8,6 +8,7 @@ import {
   Clock,
   Plus,
   SlidersHorizontal,
+  Users,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard } from "../../utils/api";
 
@@ -51,6 +52,7 @@ export default function GanttRoadmapView({
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
+  const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,18 +184,26 @@ export default function GanttRoadmapView({
       });
 
       activeCards.forEach((c) => {
-        if (c.assigned_user) {
-          const key = `user-${c.assigned_user.id}`;
-          if (!assigneeMap.has(key)) {
-            assigneeMap.set(key, {
-              id: `assignee-${c.assigned_user.id}`,
-              title: `${c.assigned_user.first_name} ${c.assigned_user.last_name}`,
-              color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
-              cards: [],
-              avatar: c.assigned_user.avatar,
-            });
-          }
-          assigneeMap.get(key)?.cards.push(c);
+        const assignees = c.assigned_users && c.assigned_users.length > 0
+          ? c.assigned_users
+          : c.assigned_user
+          ? [c.assigned_user]
+          : [];
+
+        if (assignees.length > 0) {
+          assignees.forEach((u) => {
+            const key = `user-${u.id}`;
+            if (!assigneeMap.has(key)) {
+              assigneeMap.set(key, {
+                id: `assignee-${u.id}`,
+                title: `${u.first_name} ${u.last_name}`,
+                color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
+                cards: [],
+                avatar: u.avatar,
+              });
+            }
+            assigneeMap.get(key)?.cards.push(c);
+          });
         } else {
           assigneeMap.get("unassigned")?.cards.push(c);
         }
@@ -243,6 +253,167 @@ export default function GanttRoadmapView({
       startDateStr: startDate.toISOString().split("T")[0],
       endDateStr: endDate.toISOString().split("T")[0],
     };
+  };
+
+  // Helper to extract assigned users array cleanly
+  const getCardUsers = (cardItem: CyberboardCard) => {
+    return cardItem.assigned_users && cardItem.assigned_users.length > 0
+      ? cardItem.assigned_users
+      : cardItem.assigned_user
+      ? [cardItem.assigned_user]
+      : [];
+  };
+
+  // Renderer for Left Tree Rows (Crisp 20px Avatars + Sleek Overflow Badge + Hover Popover)
+  const renderTreeAssigneeAvatars = (cardItem: CyberboardCard) => {
+    const users = getCardUsers(cardItem);
+    if (users.length === 0) return null;
+
+    const isHovered = hoveredAssigneeCardId === cardItem.id;
+
+    return (
+      <div
+        className="relative flex items-center flex-shrink-0 cursor-pointer"
+        onMouseEnter={() => setHoveredAssigneeCardId(cardItem.id)}
+        onMouseLeave={() => setHoveredAssigneeCardId(null)}
+      >
+        {users.length === 1 ? (
+          <img
+            src={users[0].avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(users[0].first_name)}&background=06b6d4&color=fff`}
+            alt={users[0].first_name}
+            className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-surface-700 shadow-xs"
+          />
+        ) : (
+          <div className="flex items-center -space-x-1.5 overflow-visible">
+            {users.slice(0, 2).map((u) => (
+              <img
+                key={`tree-avatar-${cardItem.id}-${u.id}`}
+                src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                alt={u.first_name}
+                className="w-5 h-5 rounded-full object-cover border border-surface-900 ring-1 ring-border shadow-xs"
+              />
+            ))}
+            {users.length > 2 && (
+              <span className="text-[10px] font-bold text-text-primary bg-surface-800 border border-border px-1.5 py-0.5 rounded-full shadow-xs">
+                +{users.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Hover Popover Card */}
+        {isHovered && (
+          <div className="absolute right-0 top-full mt-1 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
+              </span>
+            </div>
+            <div className="max-h-36 overflow-y-auto space-y-1.5 scrollbar-thin">
+              {users.map((u) => (
+                <div key={`tree-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2 text-xs">
+                  <img
+                    src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                    alt={u.first_name}
+                    className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-border"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-text-primary text-[11px] truncate leading-tight">
+                      {u.first_name} {u.last_name}
+                    </span>
+                    <span className="text-[9px] text-text-muted truncate">
+                      @{u.username || u.first_name}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Adaptive Renderer for Timeline Bars (Preserves Title Space + Sleek Badge + Popover)
+  const renderTimelineAssigneeAvatars = (cardItem: CyberboardCard, widthPercent: number) => {
+    const users = getCardUsers(cardItem);
+    if (users.length === 0) return null;
+
+    const isHovered = hoveredAssigneeCardId === cardItem.id;
+    const isNarrow = widthPercent < 12;
+
+    return (
+      <div
+        className="relative flex items-center flex-shrink-0 ml-1.5 cursor-pointer"
+        onMouseEnter={(e) => {
+          e.stopPropagation();
+          setHoveredAssigneeCardId(cardItem.id);
+        }}
+        onMouseLeave={(e) => {
+          e.stopPropagation();
+          setHoveredAssigneeCardId(null);
+        }}
+      >
+        {isNarrow || users.length > 3 ? (
+          <div className="flex items-center gap-1 bg-surface-950/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white shadow-xs">
+            <Users className="w-3 h-3 text-white/90" />
+            <span>{users.length}</span>
+          </div>
+        ) : users.length === 1 ? (
+          <img
+            src={users[0].avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(users[0].first_name)}&background=06b6d4&color=fff`}
+            alt={users[0].first_name}
+            className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-white/30"
+          />
+        ) : (
+          <div className="flex items-center -space-x-1.5 overflow-visible">
+            {users.slice(0, 2).map((u) => (
+              <img
+                key={`bar-avatar-${cardItem.id}-${u.id}`}
+                src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                alt={u.first_name}
+                className="w-4 h-4 rounded-full object-cover border border-surface-900 ring-1 ring-white/30"
+              />
+            ))}
+            {users.length > 2 && (
+              <span className="text-[9px] font-extrabold text-white bg-surface-950/60 px-1 rounded-full border border-white/20">
+                +{users.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Hover Popover Card */}
+        {isHovered && (
+          <div className="absolute right-0 top-full mt-1.5 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150 text-left">
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
+              <span className="flex items-center gap-1">
+                <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
+              </span>
+            </div>
+            <div className="max-h-36 overflow-y-auto space-y-1.5 scrollbar-thin">
+              {users.map((u) => (
+                <div key={`bar-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2 text-xs">
+                  <img
+                    src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                    alt={u.first_name}
+                    className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-border"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-text-primary text-[11px] truncate leading-tight">
+                      {u.first_name} {u.last_name}
+                    </span>
+                    <span className="text-[9px] text-text-muted truncate">
+                      @{u.username || u.first_name}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -429,40 +600,26 @@ export default function GanttRoadmapView({
                                 </span>
                               </div>
 
-                              {card.assigned_user && (
-                                <img
-                                  src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
-                                  alt={card.assigned_user.first_name}
-                                  className="w-4 h-4 rounded-full object-cover flex-shrink-0"
-                                  title={`Assigned to ${card.assigned_user.first_name}`}
-                                />
-                              )}
-                            </div>
+                                {renderTreeAssigneeAvatars(card)}
+                              </div>
 
-                            {/* Sub-cards Indented Rows */}
-                            {isExpanded &&
-                              card.sub_cards?.map((subCard) => (
-                                <div
-                                  key={`row-left-sub-${subCard.id}`}
-                                  className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
-                                >
-                                  <span
-                                    onClick={() => onSelectCard(subCard)}
-                                    className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
+                              {/* Sub-cards Indented Rows */}
+                              {isExpanded &&
+                                card.sub_cards?.map((subCard) => (
+                                  <div
+                                    key={`row-left-sub-${subCard.id}`}
+                                    className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
                                   >
-                                    ↳ {subCard.title}
-                                  </span>
+                                    <span
+                                      onClick={() => onSelectCard(subCard)}
+                                      className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
+                                    >
+                                      ↳ {subCard.title}
+                                    </span>
 
-                                  {subCard.assigned_user && (
-                                    <img
-                                      src={subCard.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(subCard.assigned_user.first_name)}&background=06b6d4&color=fff`}
-                                      alt={subCard.assigned_user.first_name}
-                                      className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0"
-                                      title={`Assigned to ${subCard.assigned_user.first_name}`}
-                                    />
-                                  )}
-                                </div>
-                              ))}
+                                    {renderTreeAssigneeAvatars(subCard)}
+                                  </div>
+                                ))}
                           </React.Fragment>
                         );
                       })
@@ -566,13 +723,7 @@ export default function GanttRoadmapView({
                                     </span>
                                   </div>
 
-                                  {card.assigned_user && (
-                                    <img
-                                      src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
-                                      alt={card.assigned_user.first_name}
-                                      className="w-4 h-4 rounded-full border border-white/40 flex-shrink-0 object-cover"
-                                    />
-                                  )}
+                                   {renderTimelineAssigneeAvatars(card, widthPercent)}
                                 </div>
                               </div>
                             </div>
@@ -613,13 +764,7 @@ export default function GanttRoadmapView({
                                           ↳ {subCard.title}
                                         </span>
 
-                                        {subCard.assigned_user && (
-                                          <img
-                                            src={subCard.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(subCard.assigned_user.first_name)}&background=06b6d4&color=fff`}
-                                            alt={subCard.assigned_user.first_name}
-                                            className="w-3.5 h-3.5 rounded-full object-cover flex-shrink-0"
-                                          />
-                                        )}
+                                        {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
                                       </div>
                                     </div>
                                   </div>

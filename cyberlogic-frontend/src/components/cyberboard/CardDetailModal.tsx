@@ -455,7 +455,7 @@ export default function CardDetailModal({
               {card.assigned_users && card.assigned_users.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {card.assigned_users.map((u) => (
-                    <div key={`view-assignee-${u.id}`} className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                    <div key={`view-assignee-${u.id}`} className="flex items-center gap-1.5 bg-surface-800 px-2.5 py-1 rounded-lg border border-border/80 text-text-primary text-xs font-bold shadow-xs">
                       <img
                         src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
                         alt={u.first_name}
@@ -466,7 +466,7 @@ export default function CardDetailModal({
                   ))}
                 </div>
               ) : card.assigned_user ? (
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                <div className="flex items-center gap-1.5 bg-surface-800 px-2.5 py-1 rounded-lg border border-border/80 text-text-primary text-xs font-bold shadow-xs">
                   <img
                     src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
                     alt={card.assigned_user.first_name}
