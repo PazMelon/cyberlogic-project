@@ -177,10 +177,19 @@ export default function CyberBoardView() {
         setBoard((prev) => {
           if (!prev || !prev.columns) return prev;
           const updatedColumns = prev.columns.map((col) => {
-            const cards = (col.cards || []).map((c) =>
-              c.id === updatedCard.id ? { ...c, ...updatedCard } : c
-            );
-            return { ...col, cards };
+            const containsInCol = (col.cards || []).some((c) => c.id === updatedCard.id);
+            if (col.id === updatedCard.column_id) {
+              if (containsInCol) {
+                const cards = (col.cards || []).map((c) => (c.id === updatedCard.id ? { ...c, ...updatedCard } : c));
+                return { ...col, cards };
+              } else {
+                const cards = [...(col.cards || []), updatedCard];
+                return { ...col, cards };
+              }
+            } else if (containsInCol) {
+              return { ...col, cards: (col.cards || []).filter((c) => c.id !== updatedCard.id) };
+            }
+            return col;
           });
           return { ...prev, columns: updatedColumns };
         });
@@ -694,8 +703,19 @@ export default function CyberBoardView() {
       setBoard((prev) => {
         if (!prev || !prev.columns) return prev;
         const updatedColumns = prev.columns.map((col) => {
-          const cards = (col.cards || []).map((c) => (c.id === cardId ? { ...c, ...updatedCard } : c));
-          return { ...col, cards };
+          const containsInCol = (col.cards || []).some((c) => c.id === cardId);
+          if (col.id === updatedCard.column_id) {
+            if (containsInCol) {
+              const cards = (col.cards || []).map((c) => (c.id === cardId ? { ...c, ...updatedCard } : c));
+              return { ...col, cards };
+            } else {
+              const cards = [...(col.cards || []), updatedCard];
+              return { ...col, cards };
+            }
+          } else if (containsInCol) {
+            return { ...col, cards: (col.cards || []).filter((c) => c.id !== cardId) };
+          }
+          return col;
         });
         return { ...prev, columns: updatedColumns };
       });
@@ -1002,7 +1022,7 @@ export default function CyberBoardView() {
 
       {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar OR Gantt Roadmap View) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {viewMode === "gantt" && board.type === "roadmap" ? (
+        {viewMode === "gantt" ? (
           <div className="flex-1 h-full overflow-hidden">
             <GanttRoadmapView
               board={board}

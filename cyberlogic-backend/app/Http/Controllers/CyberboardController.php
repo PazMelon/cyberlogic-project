@@ -477,6 +477,8 @@ class CyberboardController extends Controller
             'priority' => 'nullable|in:low,medium,high',
             'phase' => 'nullable|string|max:100',
             'attachments' => 'nullable|array',
+            'checklist' => 'nullable|array',
+            'completion_percentage' => 'nullable|integer|min:0|max:100',
         ]);
 
         // Default to first column if column_id is not specified
@@ -531,6 +533,9 @@ class CyberboardController extends Controller
             'phase' => $validated['phase'] ?? null,
             'position' => $maxPosition + 1,
             'is_archived' => false,
+            'attachments' => $validated['attachments'] ?? null,
+            'checklist' => $validated['checklist'] ?? null,
+            'completion_percentage' => $validated['completion_percentage'] ?? 0,
         ]);
 
         // Log card creation activity
@@ -628,6 +633,8 @@ class CyberboardController extends Controller
             'phase' => 'nullable|string|max:100',
             'position' => 'nullable|integer',
             'attachments' => 'nullable|array',
+            'checklist' => 'nullable|array',
+            'completion_percentage' => 'nullable|integer|min:0|max:100',
         ]);
 
         if (isset($validated['assigned_user_ids'])) {

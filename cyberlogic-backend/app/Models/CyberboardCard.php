@@ -28,6 +28,8 @@ class CyberboardCard extends Model
         'position',
         'is_archived',
         'attachments',
+        'checklist',
+        'completion_percentage',
     ];
 
     protected $appends = ['assigned_users'];
@@ -44,6 +46,8 @@ class CyberboardCard extends Model
             'parent_id' => 'integer',
             'predecessor_id' => 'integer',
             'attachments' => 'array',
+            'checklist' => 'array',
+            'completion_percentage' => 'integer',
         ];
     }
 
