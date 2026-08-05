@@ -799,13 +799,15 @@ export default function GanttRoadmapView({
   );
 
   const isColumnCompleted = useCallback((colId?: number | null) => {
-    if (!colId) return false;
+    if (!colId || !columns || columns.length === 0) return false;
     const col = columns.find((c) => c.id === colId);
     if (!col) return false;
+    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
     return (
       col.status_type === "completed" ||
       col.title.toLowerCase().includes("done") ||
-      col.title.toLowerCase().includes("completed")
+      col.title.toLowerCase().includes("completed") ||
+      (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
     );
   }, [columns]);
 
