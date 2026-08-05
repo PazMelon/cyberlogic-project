@@ -291,7 +291,7 @@ export default function CyberBoardView() {
               if (parentCard && completedCol && parentCard.column_id !== completedCol.id) {
                 const siblingSubcards = allCards.filter((c) => c.parent_id === parentCard.id && !c.is_archived);
                 const allSubcardsDone = siblingSubcards.length > 0 && siblingSubcards.every((sc) => {
-                  const scCol = latestBoard.columns.find((c) => c.id === sc.column_id);
+                  const scCol = (latestBoard.columns || []).find((c) => c.id === sc.column_id);
                   if (!scCol) return false;
                   return (
                     scCol.status_type === "completed" ||
@@ -873,7 +873,7 @@ export default function CyberBoardView() {
             if (parentCard && completedCol && parentCard.column_id !== completedCol.id) {
               const siblingSubcards = allCards.filter((c) => c.parent_id === parentCard.id && !c.is_archived);
               const allSubcardsDone = siblingSubcards.length > 0 && siblingSubcards.every((sc) => {
-                const scCol = latestBoard.columns.find((c) => c.id === sc.column_id);
+                const scCol = (latestBoard.columns || []).find((c) => c.id === sc.column_id);
                 if (!scCol) return false;
                 return (
                   scCol.status_type === "completed" ||

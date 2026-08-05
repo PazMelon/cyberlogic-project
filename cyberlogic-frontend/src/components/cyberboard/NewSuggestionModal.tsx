@@ -254,6 +254,19 @@ export default function NewSuggestionModal({
         />
       </div>
 
+      {/* Task Description */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+          {copy.descLabel}
+        </label>
+        <MentionTextArea
+          value={description}
+          onValueChange={setDescription}
+          placeholder={copy.descPlaceholder}
+          rows={3}
+        />
+      </div>
+
       {/* Task Checklist & Completion Monitoring Section */}
       <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-xs">
         <div className="flex items-center justify-between gap-2">
