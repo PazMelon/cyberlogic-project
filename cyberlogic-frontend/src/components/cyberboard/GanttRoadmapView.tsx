@@ -75,8 +75,32 @@ export default function GanttRoadmapView({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridTimelineRef = useRef<HTMLDivElement>(null);
+  const leftScrollRef = useRef<HTMLDivElement>(null);
+  const isSyncingScrollRef = useRef<boolean>(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDraggedRef = useRef<boolean>(false);
+
+  const handleLeftScroll = useCallback(() => {
+    if (isSyncingScrollRef.current) return;
+    isSyncingScrollRef.current = true;
+    if (leftScrollRef.current && gridTimelineRef.current) {
+      gridTimelineRef.current.scrollTop = leftScrollRef.current.scrollTop;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScrollRef.current = false;
+    });
+  }, []);
+
+  const handleRightScroll = useCallback(() => {
+    if (isSyncingScrollRef.current) return;
+    isSyncingScrollRef.current = true;
+    if (leftScrollRef.current && gridTimelineRef.current) {
+      leftScrollRef.current.scrollTop = gridTimelineRef.current.scrollTop;
+    }
+    requestAnimationFrame(() => {
+      isSyncingScrollRef.current = false;
+    });
+  }, []);
 
   const handleMouseEnterAssignee = (cardId: number) => {
     if (hoverTimeoutRef.current) {
@@ -1250,8 +1274,16 @@ export default function GanttRoadmapView({
             </div>
           </div>
 
-          {/* Rows List (Left Panel) */}
-          <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
+          {/* Rows List (Left Panel - Completely Hidden Scrollbar with Wheel Forwarding) */}
+          <div
+            ref={leftScrollRef}
+            onWheel={(e) => {
+              if (gridTimelineRef.current) {
+                gridTimelineRef.current.scrollTop += e.deltaY;
+              }
+            }}
+            className="flex-1 overflow-hidden divide-y divide-border/40 select-none"
+          >
             {groupedData.map((group) => {
               const parentCards = group.cards.filter((c) => !c.parent_id);
               const isGroupDragOver = dragOverGroupId === group.id;
@@ -1400,12 +1432,15 @@ export default function GanttRoadmapView({
                 </div>
               );
             })}
+            {/* Horizontal scrollbar height spacer to maintain 100% vertical row alignment with right timeline */}
+            <div className="h-4 flex-shrink-0 border-t border-border/20 bg-surface-900/40" />
           </div>
         </div>
 
         {/* Right Panel: Timeline Grid & Bars */}
         <div
           ref={gridTimelineRef}
+          onScroll={handleRightScroll}
           className="flex-1 flex flex-col overflow-x-auto overflow-y-auto relative scrollbar-thin bg-surface-950"
         >
           <div style={{ minWidth: `${gridMinWidth}px` }} className="flex-1 flex flex-col relative transition-all duration-200">
