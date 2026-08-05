@@ -109,12 +109,20 @@ export default function GanttRoadmapView({
       setSelectedYear(today.getFullYear());
     }
     setTimeout(() => {
-      if (gridTimelineRef.current && todayPercentage !== null) {
+      if (gridTimelineRef.current) {
         const scrollWidth = gridTimelineRef.current.scrollWidth;
-        const targetScroll = (scrollWidth * (todayPercentage / 100)) - (gridTimelineRef.current.clientWidth / 2);
+        const calcPercent = todayPercentage !== null ? todayPercentage : 50;
+        const targetScroll = (scrollWidth * (calcPercent / 100)) - (gridTimelineRef.current.clientWidth / 2);
         gridTimelineRef.current.scrollTo({ left: Math.max(0, targetScroll), behavior: "smooth" });
       }
-    }, 100);
+    }, 150);
+  };
+
+  const handleScaleChange = (mode: TimeScaleMode) => {
+    setTimeScale(mode);
+    setTimeout(() => {
+      handleJumpToToday();
+    }, 150);
   };
 
   // Group cards according to groupBy option
@@ -197,22 +205,30 @@ export default function GanttRoadmapView({
           cards: prioCards,
         };
       });
-      // Populate allowed board members so every assignee group is visible
-      if (board.allowed_members && board.allowed_members.length > 0) {
-        board.allowed_members.forEach((m) => {
-          if (m.user) {
-            const key = `user-${m.user.id}`;
-            if (!assigneeMap.has(key)) {
-              assigneeMap.set(key, {
-                id: `assignee-${m.user.id}`,
-                title: `${m.user.first_name} ${m.user.last_name}`,
-                color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
-                cards: [],
-                avatar: m.user.avatar,
-              });
-            }
-          }
-        });
+    } else {
+      // Group by assignee
+      const assigneeMap = new Map<string, { id: string; columnId?: number; title: string; color: string; cards: CyberboardCard[]; avatar?: string }>();
+
+      assigneeMap.set("unassigned", {
+        id: "assignee-unassigned",
+        columnId: undefined,
+        title: "Unassigned Tasks",
+        color: "#64748b",
+        cards: [],
+      });
+
+      if (board.creator) {
+        const key = `user-${board.creator.id}`;
+        if (!assigneeMap.has(key)) {
+          assigneeMap.set(key, {
+            id: `assignee-${board.creator.id}`,
+            columnId: undefined,
+            title: board.creator.name || "Board Host",
+            color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
+            cards: [],
+            avatar: board.creator.avatar,
+          });
+        }
       }
 
       activeCards.forEach((c) => {
@@ -228,7 +244,8 @@ export default function GanttRoadmapView({
             if (!assigneeMap.has(key)) {
               assigneeMap.set(key, {
                 id: `assignee-${u.id}`,
-                title: `${u.first_name} ${u.last_name}`,
+                columnId: undefined,
+                title: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username || "Member",
                 color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
                 cards: [],
                 avatar: u.avatar,
@@ -243,7 +260,7 @@ export default function GanttRoadmapView({
 
       return Array.from(assigneeMap.values()).filter((g) => g.cards.length > 0 || g.id !== "assignee-unassigned");
     }
-  }, [groupBy, columns, cards, board.allowed_members]);
+  }, [groupBy, columns, cards, board.creator]);
 
   const unscheduledCards = useMemo(() => {
     return cards.filter((c) => !c.is_archived && (!c.activity_date && !c.activity_end_date));
@@ -335,27 +352,35 @@ export default function GanttRoadmapView({
     let startDate: Date;
     let endDate: Date;
 
-    if (card.activity_date) {
+    if (card.activity_date && card.activity_end_date) {
       startDate = new Date(card.activity_date);
+      endDate = new Date(card.activity_end_date);
+      if (typeof card.activity_end_date === "string" && !card.activity_end_date.includes("T")) {
+        endDate.setHours(23, 59, 59, 999);
+      }
+    } else if (card.activity_date) {
+      startDate = new Date(card.activity_date);
+      endDate = new Date(card.activity_date);
+      if (typeof card.activity_date === "string" && !card.activity_date.includes("T")) {
+        endDate.setHours(23, 59, 59, 999);
+      }
     } else if (card.activity_end_date) {
-      const endD = new Date(card.activity_end_date);
-      startDate = new Date(endD.getTime() - 7 * 24 * 60 * 60 * 1000);
+      startDate = new Date(card.activity_end_date);
+      endDate = new Date(card.activity_end_date);
+      if (typeof card.activity_end_date === "string" && !card.activity_end_date.includes("T")) {
+        endDate.setHours(23, 59, 59, 999);
+      }
     } else {
       startDate = new Date(card.created_at || Date.now());
+      endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    if (card.activity_end_date) {
-      endDate = new Date(card.activity_end_date);
-    } else {
-      endDate = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-    }
-
-    const cardStartMs = Math.max(rangeStartMs, startDate.getTime());
-    const cardEndMs = Math.min(rangeEndMs, endDate.getTime());
+    const cardStartMs = startDate.getTime();
+    const cardEndMs = endDate.getTime();
 
     const leftPercent = Math.max(0, Math.min(100, ((cardStartMs - rangeStartMs) / totalMs) * 100));
     const rightPercent = Math.max(0, Math.min(100, ((cardEndMs - rangeStartMs) / totalMs) * 100));
-    const widthPercent = Math.max(timeScale === "day" ? 2 : 4, rightPercent - leftPercent);
+    const widthPercent = Math.max(0.6, rightPercent - leftPercent);
 
     return {
       leftPercent,
@@ -567,7 +592,7 @@ export default function GanttRoadmapView({
               <Calendar className="w-3.5 h-3.5 text-primary" /> Scale:
             </span>
             <button
-              onClick={() => setTimeScale("month")}
+              onClick={() => handleScaleChange("month")}
               className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "month"
                   ? "bg-primary text-surface-950 shadow-sm"
@@ -577,7 +602,7 @@ export default function GanttRoadmapView({
               Months
             </button>
             <button
-              onClick={() => setTimeScale("week")}
+              onClick={() => handleScaleChange("week")}
               className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "week"
                   ? "bg-primary text-surface-950 shadow-sm"
@@ -587,7 +612,7 @@ export default function GanttRoadmapView({
               Weeks
             </button>
             <button
-              onClick={() => setTimeScale("day")}
+              onClick={() => handleScaleChange("day")}
               className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "day"
                   ? "bg-primary text-surface-950 shadow-sm"
@@ -911,7 +936,7 @@ export default function GanttRoadmapView({
                                   style={{
                                     left: `${leftPercent}%`,
                                     width: `${widthPercent}%`,
-                                    minWidth: "120px",
+                                    minWidth: "24px",
                                   }}
                                   onMouseEnter={() => setHoveredCardId(card.id)}
                                   onMouseLeave={() => setHoveredCardId(null)}
@@ -969,7 +994,7 @@ export default function GanttRoadmapView({
                                         style={{
                                           left: `${subPos.leftPercent}%`,
                                           width: `${subPos.widthPercent}%`,
-                                          minWidth: "100px",
+                                          minWidth: "20px",
                                         }}
                                         onMouseEnter={() => setHoveredCardId(subCard.id)}
                                         onMouseLeave={() => setHoveredCardId(null)}
