@@ -745,17 +745,6 @@ export default function CardDetailModal({
                   placeholder="Provide detailed context, instructions, or sub-task notes..."
                 />
               </div>
-
-              {/* Task Checklist & Completion Progress Section (Edit Mode) */}
-              <TaskChecklistSection
-                checklist={checklist}
-                completionPercentage={manualCompletionPercentage}
-                onToggleItem={handleToggleChecklistItem}
-                onAddItem={handleAddChecklistItem}
-                onDeleteItem={handleDeleteChecklistItem}
-                onManualCompletionChange={handleManualCompletionChange}
-                canEdit={true}
-              />
             </div>
 
             {/* Right Column: Metadata & Controls Sidebar */}
