@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User,
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
@@ -170,7 +170,20 @@ export default function CardDetailModal({
       setEditPhase(card.phase || "");
       setEditPredecessorId(card.predecessor_id || null);
       setEditParentId(card.parent_id || null);
-      setChecklist(card.checklist || []);
+
+      let parsedCl: CyberboardChecklistItem[] = [];
+      if (card.checklist) {
+        if (typeof card.checklist === "string") {
+          try {
+            parsedCl = JSON.parse(card.checklist);
+          } catch {
+            parsedCl = [];
+          }
+        } else if (Array.isArray(card.checklist)) {
+          parsedCl = card.checklist;
+        }
+      }
+      setChecklist(parsedCl);
       setManualCompletionPercentage(card.completion_percentage ?? 0);
     }
   }, [card]);
@@ -1752,8 +1765,21 @@ function TaskChecklistSection({
 }) {
   const [newItemText, setNewItemText] = useState("");
 
-  const totalItems = checklist.length;
-  const completedCount = checklist.filter((i) => i.completed).length;
+  const safeChecklist = useMemo(() => {
+    if (!checklist) return [];
+    if (typeof checklist === "string") {
+      try {
+        const parsed = JSON.parse(checklist);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return Array.isArray(checklist) ? checklist : [];
+  }, [checklist]);
+
+  const totalItems = safeChecklist.length;
+  const completedCount = safeChecklist.filter((i) => i.completed).length;
   const calculatedRate = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : completionPercentage;
 
   const handleSubmitNewItem = (e: React.FormEvent) => {
@@ -1789,7 +1815,7 @@ function TaskChecklistSection({
       {/* Checklist Items Scroll List */}
       {totalItems > 0 && (
         <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
-          {checklist.map((item) => (
+          {safeChecklist.map((item) => (
             <div
               key={item.id}
               className={`flex items-center justify-between gap-2 p-2 rounded-xl border transition-all ${

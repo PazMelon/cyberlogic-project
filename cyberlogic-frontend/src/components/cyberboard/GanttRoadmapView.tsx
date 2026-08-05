@@ -13,7 +13,7 @@ import {
   ZoomOut,
   X,
 } from "lucide-react";
-import type { CyberboardBoard, CyberboardColumn, CyberboardCard } from "../../utils/api";
+import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
 import { updateCyberboardCard } from "../../utils/api";
 
 interface GanttRoadmapViewProps {
@@ -797,9 +797,22 @@ export default function GanttRoadmapView({
   );
 
   const getCardCompletionRate = useCallback((card: CyberboardCard): number => {
-    if (card.checklist && card.checklist.length > 0) {
-      const completedCount = card.checklist.filter((item) => item.completed).length;
-      return Math.round((completedCount / card.checklist.length) * 100);
+    let cl: CyberboardChecklistItem[] = [];
+    if (card.checklist) {
+      if (typeof card.checklist === "string") {
+        try {
+          const parsed = JSON.parse(card.checklist);
+          if (Array.isArray(parsed)) cl = parsed;
+        } catch {
+          cl = [];
+        }
+      } else if (Array.isArray(card.checklist)) {
+        cl = card.checklist;
+      }
+    }
+    if (cl.length > 0) {
+      const completedCount = cl.filter((item) => item.completed).length;
+      return Math.round((completedCount / cl.length) * 100);
     }
     return card.completion_percentage ?? 0;
   }, []);
@@ -904,7 +917,7 @@ export default function GanttRoadmapView({
     };
 
     const handleMouseUp = () => {
-      if (resizingState && customCardDates[resizingState.cardId]) {
+      if (resizingState && hasDraggedRef.current && customCardDates[resizingState.cardId]) {
         const updated = customCardDates[resizingState.cardId];
         if (onUpdateCardDate && updated.activity_date && updated.activity_end_date) {
           onUpdateCardDate(resizingState.cardId, updated.activity_date, updated.activity_end_date);
