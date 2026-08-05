@@ -770,35 +770,47 @@ export default function GanttRoadmapView({
                                 ) : (
                                   <span className="w-3.5 flex-shrink-0" />
                                 )}
-
                                 <span
                                   onClick={() => onSelectCard(card)}
                                   className="text-xs font-semibold text-text-primary hover:text-primary cursor-pointer truncate"
                                 >
                                   {card.title}
                                 </span>
+
+                                {!card.activity_date && !card.activity_end_date && (
+                                  <span className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/80 text-text-secondary text-[9px] font-bold flex items-center gap-1 flex-shrink-0">
+                                    <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
+                                  </span>
+                                )}
                               </div>
 
-                                {renderTreeAssigneeAvatars(card)}
-                              </div>
+                              {renderTreeAssigneeAvatars(card)}
+                            </div>
 
-                              {/* Sub-cards Indented Rows */}
-                              {isExpanded &&
-                                card.sub_cards?.map((subCard) => (
-                                  <div
-                                    key={`row-left-sub-${subCard.id}`}
-                                    className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
-                                  >
+                            {/* Sub-cards Indented Rows */}
+                            {isExpanded &&
+                              card.sub_cards?.map((subCard) => (
+                                <div
+                                  key={`row-left-sub-${subCard.id}`}
+                                  className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
                                     <span
                                       onClick={() => onSelectCard(subCard)}
                                       className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
                                     >
                                       ↳ {subCard.title}
                                     </span>
-
-                                    {renderTreeAssigneeAvatars(subCard)}
+                                    {!subCard.activity_date && !subCard.activity_end_date && (
+                                      <span className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/80 text-text-secondary text-[9px] font-bold flex items-center gap-1 flex-shrink-0">
+                                        <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
+                                      </span>
+                                    )}
                                   </div>
-                                ))}
+
+                                  {renderTreeAssigneeAvatars(subCard)}
+                                </div>
+                              ))}
                           </React.Fragment>
                         );
                       })
@@ -866,7 +878,7 @@ export default function GanttRoadmapView({
                     <div className="divide-y divide-border/20">
                       {parentCards.length === 0 ? (
                         <div className="h-[44px] border-b border-border/20 flex items-center px-4 relative pointer-events-none">
-                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted/70 italic px-2.5 py-1 rounded-lg bg-surface-900/80 border border-border/40 shadow-xs backdrop-blur-xs">
+                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted italic px-3 py-1 rounded-lg bg-surface-800/90 border border-border/70 shadow-xs">
                             No tasks in group
                           </span>
                         </div>
@@ -881,35 +893,49 @@ export default function GanttRoadmapView({
                             <React.Fragment key={`gantt-row-parent-${card.id}`}>
                               {/* Parent Bar Row */}
                               <div className="h-[44px] px-2 flex items-center relative hover:bg-surface-900/10 transition-colors border-b border-border/20">
-                              <div
-                                className="relative h-8 my-0.5 flex items-center group/bar"
-                                style={{
-                                  left: `${leftPercent}%`,
-                                  width: `${widthPercent}%`,
-                                  minWidth: "120px",
-                                }}
-                                onMouseEnter={() => setHoveredCardId(card.id)}
-                                onMouseLeave={() => setHoveredCardId(null)}
-                              >
+                              {!card.activity_date && !card.activity_end_date ? (
                                 <div
                                   onClick={() => onSelectCard(card)}
-                                  className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                    isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
-                                  }`}
-                                  style={{
-                                    backgroundColor: cardColor,
-                                    backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
-                                  }}
+                                  className="sticky left-4 z-10 cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-800/95 border border-border/90 text-text-primary text-xs font-semibold shadow-md hover:border-primary/60 hover:bg-surface-800 transition-all group"
                                 >
-                                  <div className="flex items-center gap-1.5 truncate pr-1">
-                                    <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
-                                      {card.title}
-                                    </span>
-                                  </div>
-
-                                   {renderTimelineAssigneeAvatars(card, widthPercent)}
+                                  <Clock className="w-3.5 h-3.5 text-primary animate-pulse flex-shrink-0" />
+                                  <span className="font-bold truncate max-w-[220px]">{card.title}</span>
+                                  <span className="px-1.5 py-0.5 rounded-md bg-surface-700 text-text-secondary text-[9px] font-bold uppercase tracking-wider border border-border/60">
+                                    No dates set
+                                  </span>
+                                  {renderTimelineAssigneeAvatars(card, 20)}
                                 </div>
-                              </div>
+                              ) : (
+                                <div
+                                  className="relative h-8 my-0.5 flex items-center group/bar"
+                                  style={{
+                                    left: `${leftPercent}%`,
+                                    width: `${widthPercent}%`,
+                                    minWidth: "120px",
+                                  }}
+                                  onMouseEnter={() => setHoveredCardId(card.id)}
+                                  onMouseLeave={() => setHoveredCardId(null)}
+                                >
+                                  <div
+                                    onClick={() => onSelectCard(card)}
+                                    className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                      isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
+                                    }`}
+                                    style={{
+                                      backgroundColor: cardColor,
+                                      backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
+                                    }}
+                                  >
+                                    <div className="flex items-center gap-1.5 truncate pr-1">
+                                      <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
+                                        {card.title}
+                                      </span>
+                                    </div>
+
+                                    {renderTimelineAssigneeAvatars(card, widthPercent)}
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {/* Sub-Card Timeline Bars */}
@@ -918,39 +944,54 @@ export default function GanttRoadmapView({
                                 const subPos = getCardTimelinePosition(subCard);
                                 const subColor = subCard.color_tag || cardColor;
                                 const isSubHovered = hoveredCardId === subCard.id;
+                                const isSubDateless = !subCard.activity_date && !subCard.activity_end_date;
 
                                 return (
                                   <div
                                     key={`gantt-row-sub-${subCard.id}`}
                                     className="h-[38px] px-2 flex items-center relative bg-surface-950/20 hover:bg-surface-900/10 transition-colors border-b border-border/20"
                                   >
-                                    <div
-                                      className="relative h-6 my-0.5 flex items-center group/bar"
-                                      style={{
-                                        left: `${subPos.leftPercent}%`,
-                                        width: `${subPos.widthPercent}%`,
-                                        minWidth: "100px",
-                                      }}
-                                      onMouseEnter={() => setHoveredCardId(subCard.id)}
-                                      onMouseLeave={() => setHoveredCardId(null)}
-                                    >
+                                    {isSubDateless ? (
                                       <div
                                         onClick={() => onSelectCard(subCard)}
-                                        className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                          isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
-                                        }`}
-                                        style={{
-                                          backgroundColor: subColor,
-                                          opacity: 0.9,
-                                        }}
+                                        className="sticky left-8 z-10 cursor-pointer flex items-center gap-2 px-2.5 py-1 rounded-lg bg-surface-800/95 border border-border/90 text-text-secondary text-[11px] font-medium shadow-xs hover:border-primary/60 hover:bg-surface-800 transition-all"
                                       >
-                                        <span className="truncate drop-shadow-xs font-semibold">
-                                          ↳ {subCard.title}
+                                        <Clock className="w-3 h-3 text-primary animate-pulse flex-shrink-0" />
+                                        <span className="font-bold truncate max-w-[180px]">↳ {subCard.title}</span>
+                                        <span className="px-1.5 py-0.5 rounded bg-surface-700 text-text-muted text-[8px] font-bold uppercase tracking-wider border border-border/60">
+                                          No dates set
                                         </span>
-
-                                        {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                        {renderTimelineAssigneeAvatars(subCard, 20)}
                                       </div>
-                                    </div>
+                                    ) : (
+                                      <div
+                                        className="relative h-6 my-0.5 flex items-center group/bar"
+                                        style={{
+                                          left: `${subPos.leftPercent}%`,
+                                          width: `${subPos.widthPercent}%`,
+                                          minWidth: "100px",
+                                        }}
+                                        onMouseEnter={() => setHoveredCardId(subCard.id)}
+                                        onMouseLeave={() => setHoveredCardId(null)}
+                                      >
+                                        <div
+                                          onClick={() => onSelectCard(subCard)}
+                                          className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                            isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
+                                          }`}
+                                          style={{
+                                            backgroundColor: subColor,
+                                            opacity: 0.9,
+                                          }}
+                                        >
+                                          <span className="truncate drop-shadow-xs font-semibold">
+                                            ↳ {subCard.title}
+                                          </span>
+
+                                          {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
