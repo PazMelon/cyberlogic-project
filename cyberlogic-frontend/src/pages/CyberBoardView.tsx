@@ -83,19 +83,45 @@ export default function CyberBoardView() {
   const [showControlsSidebar, setShowControlsSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<"board" | "gantt">("board");
 
-  // Load board data
-  const loadBoard = useCallback(async () => {
+  // Transient Realtime Highlighted Item IDs (Auto-expire after 2 seconds)
+  const [highlightedCardIds, setHighlightedCardIds] = useState<Set<number>>(new Set());
+  const [highlightedColumnIds, setHighlightedColumnIds] = useState<Set<number>>(new Set());
+
+  const triggerCardHighlight = useCallback((cardId: number) => {
+    setHighlightedCardIds((prev) => new Set(prev).add(cardId));
+    setTimeout(() => {
+      setHighlightedCardIds((prev) => {
+        const next = new Set(prev);
+        next.delete(cardId);
+        return next;
+      });
+    }, 2000);
+  }, []);
+
+  const triggerColumnHighlight = useCallback((columnId: number) => {
+    setHighlightedColumnIds((prev) => new Set(prev).add(columnId));
+    setTimeout(() => {
+      setHighlightedColumnIds((prev) => {
+        const next = new Set(prev);
+        next.delete(columnId);
+        return next;
+      });
+    }, 2000);
+  }, []);
+
+  // Load board data (Silent background refresh option to prevent distracting loading spinners)
+  const loadBoard = useCallback(async (silent = false) => {
     if (!numericBoardId) return;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       const data = await fetchCyberboardBoard(numericBoardId);
       setBoard(data);
     } catch (err: any) {
       console.error("Failed to load board details:", err);
-      setError(err.message || "Failed to load board details.");
+      if (!silent) setError(err.message || "Failed to load board details.");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [numericBoardId]);
 
@@ -145,6 +171,7 @@ export default function CyberBoardView() {
           });
           return { ...prev, columns: updatedColumns };
         });
+        triggerCardHighlight(newCard.id);
       } else if (type === "card:updated") {
         const updatedCard: CyberboardCard = payload.card;
         setBoard((prev) => {
@@ -158,6 +185,7 @@ export default function CyberBoardView() {
           return { ...prev, columns: updatedColumns };
         });
         setSelectedCard((prev) => (prev?.id === updatedCard.id ? updatedCard : prev));
+        triggerCardHighlight(updatedCard.id);
       } else if (type === "card:deleted") {
         const cardId: number = payload.card_id;
         setBoard((prev) => {
@@ -222,6 +250,8 @@ export default function CyberBoardView() {
 
           return { ...prev, columns: updatedColumns };
         });
+
+        triggerCardHighlight(card_id);
 
         setSelectedCard((prev) => {
           if (prev && prev.id === card_id) {
@@ -350,11 +380,46 @@ export default function CyberBoardView() {
             return { ...prev, columns: reordered };
           });
         }
-      } else if (type === "column:created" || type === "column:updated" || type === "column:deleted") {
-        loadBoard();
+      } else if (type === "column:created") {
+        const newCol: CyberboardColumn = payload.column;
+        if (newCol) {
+          setBoard((prev) => {
+            if (!prev) return prev;
+            const existing = prev.columns || [];
+            if (existing.some((c) => c.id === newCol.id)) return prev;
+            return { ...prev, columns: [...existing, newCol] };
+          });
+          triggerColumnHighlight(newCol.id);
+        } else {
+          loadBoard(true);
+        }
+      } else if (type === "column:updated") {
+        const updatedCol: CyberboardColumn = payload.column;
+        if (updatedCol) {
+          setBoard((prev) => {
+            if (!prev || !prev.columns) return prev;
+            return {
+              ...prev,
+              columns: prev.columns.map((c) => (c.id === updatedCol.id ? { ...c, ...updatedCol } : c)),
+            };
+          });
+          triggerColumnHighlight(updatedCol.id);
+        } else {
+          loadBoard(true);
+        }
+      } else if (type === "column:deleted") {
+        const deletedColId = payload.column_id;
+        if (deletedColId) {
+          setBoard((prev) => {
+            if (!prev || !prev.columns) return prev;
+            return { ...prev, columns: prev.columns.filter((c) => c.id !== deletedColId) };
+          });
+        } else {
+          loadBoard(true);
+        }
       }
     },
-    [user?.id, loadBoard]
+    [user?.id, loadBoard, triggerCardHighlight, triggerColumnHighlight]
   );
 
   // Custom Realtime Hook
@@ -965,6 +1030,8 @@ export default function CyberBoardView() {
                     userRole={user?.role}
                     boardHostId={board.created_by}
                     isAdmin={isAdmin}
+                    isHighlighted={highlightedColumnIds.has(column.id)}
+                    highlightedCardIds={highlightedCardIds}
                     onCardClick={(card) => setSelectedCard(card)}
                     onVoteToggle={(cardId) => handleVoteToggle(cardId)}
                     onDeleteCard={(cardId) => handleDeleteCard(cardId)}

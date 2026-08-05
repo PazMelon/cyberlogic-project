@@ -9,6 +9,7 @@ interface BoardCardProps {
   boardType?: string;
   currentUserId?: number;
   isAdmin?: boolean;
+  isHighlighted?: boolean;
   onCardClick: (card: CyberboardCard) => void;
   onVoteToggle: (cardId: number, e: React.MouseEvent) => void;
   onDelete?: (cardId: number, e: React.MouseEvent) => void;
@@ -21,6 +22,7 @@ export default function BoardCard({
   boardType = "activity",
   currentUserId,
   isAdmin,
+  isHighlighted = false,
   onCardClick,
   onVoteToggle,
   onDelete,
@@ -73,7 +75,9 @@ export default function BoardCard({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onClick={() => onCardClick(card)}
-      className="group relative bg-surface-800/80 hover:bg-surface-800 border border-border/80 hover:border-primary/40 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:shadow-primary/5 transition-all duration-200 cursor-grab active:cursor-grabbing space-y-3"
+      className={`group relative bg-surface-800/80 hover:bg-surface-800 border border-border/80 hover:border-primary/40 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:shadow-primary/5 transition-all duration-200 cursor-grab active:cursor-grabbing space-y-3 ${
+        isHighlighted ? "animate-realtime-glow" : ""
+      }`}
       style={{
         borderLeftColor: card.color_tag || undefined,
         borderLeftWidth: card.color_tag ? "4px" : undefined,

@@ -1195,3 +1195,23 @@ input[type="datetime-local"] {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Real-time silent update highlight pulse animation */
+@keyframes realtimePulse {
+  0% {
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.8), 0 0 16px rgba(6, 182, 212, 0.4);
+    background-color: rgba(6, 182, 212, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.8), 0 0 20px rgba(168, 85, 247, 0.5);
+    background-color: rgba(168, 85, 247, 0.16);
+  }
+  100% {
+    box-shadow: 0 0 0 0px transparent;
+    background-color: transparent;
+  }
+}
+
+.animate-realtime-glow {
+  animation: realtimePulse 1.8s ease-in-out forwards;
+}

@@ -10,6 +10,8 @@ interface BoardColumnProps {
   userRole?: string;
   boardHostId?: number;
   isAdmin?: boolean;
+  isHighlighted?: boolean;
+  highlightedCardIds?: Set<number>;
   onCardClick: (card: CyberboardCard) => void;
   onVoteToggle: (cardId: number, e: React.MouseEvent) => void;
   onDeleteCard: (cardId: number, e: React.MouseEvent) => void;
@@ -30,6 +32,8 @@ export default function BoardColumn({
   userRole,
   boardHostId,
   isAdmin,
+  isHighlighted = false,
+  highlightedCardIds,
   onCardClick,
   onVoteToggle,
   onDeleteCard,
@@ -163,6 +167,8 @@ export default function BoardColumn({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`relative w-72 sm:w-80 flex-shrink-0 bg-surface-900/80 backdrop-blur-md rounded-2xl border transition-all duration-200 ease-out flex flex-col max-h-full ${
+        isHighlighted ? "animate-realtime-glow" : ""
+      } ${
         isColumnDragging
           ? "opacity-30 scale-95 border-dashed border-primary shadow-inner"
           : "hover:shadow-lg"
@@ -319,6 +325,7 @@ export default function BoardColumn({
               boardType={boardType}
               currentUserId={currentUserId}
               isAdmin={isAdmin}
+              isHighlighted={highlightedCardIds?.has(card.id)}
               onCardClick={onCardClick}
               onVoteToggle={onVoteToggle}
               onDelete={onDeleteCard}
