@@ -463,6 +463,7 @@ class CyberboardController extends Controller
         $validated = $request->validate([
             'column_id' => 'nullable|exists:cyberboard_columns,id',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
+            'predecessor_id' => 'nullable|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
             'assigned_user_ids' => 'nullable|array',
             'assigned_user_ids.*' => 'integer|exists:users,id',
@@ -514,6 +515,7 @@ class CyberboardController extends Controller
         $card = CyberboardCard::create([
             'column_id' => $columnId,
             'parent_id' => $validated['parent_id'] ?? null,
+            'predecessor_id' => $validated['predecessor_id'] ?? null,
             'user_id' => $user->id,
             'assigned_user_id' => $primaryAssignedUserId,
             'assigned_user_ids' => $assignedUserIds,
@@ -612,6 +614,7 @@ class CyberboardController extends Controller
             'title' => 'sometimes|required|string|max:200',
             'description' => 'nullable|string|max:2000',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
+            'predecessor_id' => 'nullable|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
             'assigned_user_ids' => 'nullable|array',
             'assigned_user_ids.*' => 'integer|exists:users,id',

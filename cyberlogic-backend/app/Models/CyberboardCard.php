@@ -14,6 +14,7 @@ class CyberboardCard extends Model
     protected $fillable = [
         'column_id',
         'parent_id',
+        'predecessor_id',
         'user_id',
         'assigned_user_id',
         'assigned_user_ids',
@@ -40,6 +41,7 @@ class CyberboardCard extends Model
             'assigned_user_id' => 'integer',
             'assigned_user_ids' => 'array',
             'parent_id' => 'integer',
+            'predecessor_id' => 'integer',
         ];
     }
 
