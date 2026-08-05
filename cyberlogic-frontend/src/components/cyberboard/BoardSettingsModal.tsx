@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Settings, X, Lock, Globe, ShieldCheck, Users, Search, Trash2, Check } from "lucide-react";
+import { Settings, X, Lock, Globe, ShieldCheck, Users, Search, Trash2, Check, Layers, Plus, RefreshCw, Info, SlidersHorizontal, GripVertical } from "lucide-react";
 import { fetchDirectory, type CyberboardBoard, type DirectoryMember, type BoardCategory } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 
@@ -65,7 +65,21 @@ export default function BoardSettingsModal({
   const [directoryMembers, setDirectoryMembers] = useState<CollaboratorOption[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDirectory, setIsLoadingDirectory] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "privacy" | "columns">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "privacy" | "columns" | "phases">("general");
+
+  const [methodology, setMethodology] = useState<"waterfall" | "agile" | "custom">(
+    board.methodology || "waterfall"
+  );
+  const [phaseSettings, setPhaseSettings] = useState<Array<{ name: string; color: string }>>(
+    board.phase_settings || [
+      { name: "Requirements & Planning", color: "#3b82f6" },
+      { name: "Architecture & Design", color: "#8b5cf6" },
+      { name: "Development & Implementation", color: "#06b6d4" },
+      { name: "Testing & QA", color: "#f59e0b" },
+      { name: "Deployment & Release", color: "#10b981" },
+    ]
+  );
+  const [draggedPhaseIndex, setDraggedPhaseIndex] = useState<number | null>(null);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
 
@@ -143,6 +157,8 @@ export default function BoardSettingsModal({
         column_creation_policy: columnPolicy,
         allowed_column_creator_roles: columnPolicy === "specific_roles" ? allowedCreatorRoles : [],
         allowed_column_creator_users: columnPolicy === "specific_users" ? allowedCreatorUsers : [],
+        methodology,
+        phase_settings: phaseSettings,
       });
       onClose();
     } catch (err) {
@@ -153,46 +169,7 @@ export default function BoardSettingsModal({
   };
 
   const formContent = (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Settings Tab Selector */}
-      <div className="flex items-center gap-1 p-1 bg-surface-800/80 rounded-xl border border-border/50 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => setActiveTab("general")}
-          className={`flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === "general"
-              ? "bg-surface-700 text-primary shadow-xs"
-              : "text-text-muted hover:text-text-primary"
-          }`}
-        >
-          <Settings className="w-3.5 h-3.5" />
-          <span>General</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("privacy")}
-          className={`flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === "privacy"
-              ? "bg-surface-700 text-primary shadow-xs"
-              : "text-text-muted hover:text-text-primary"
-          }`}
-        >
-          <Lock className="w-3.5 h-3.5" />
-          <span>Privacy & Access</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("columns")}
-          className={`flex-1 py-2 px-3 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-            activeTab === "columns"
-              ? "bg-surface-700 text-primary shadow-xs"
-              : "text-text-muted hover:text-text-primary"
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Column Controls</span>
-        </button>
-      </div>
+    <div className="space-y-6">
 
       {/* Tab 1: General Settings */}
       {activeTab === "general" && (
@@ -561,47 +538,187 @@ export default function BoardSettingsModal({
         </div>
       )}
 
-      {/* Footer Actions */}
-      <div className="pt-4 border-t border-border flex items-center justify-between gap-3">
-        {onDeleteBoard ? (
-          <button
-            type="button"
-            onClick={() => onDeleteBoard(board.id)}
-            className="px-3.5 py-2 rounded-xl text-error bg-error/10 hover:bg-error/20 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete Board</span>
-          </button>
-        ) : (
-          <div />
-        )}
+      {/* Tab 4: Dynamic Phases & Sprints Management */}
+      {activeTab === "phases" && (
+        <div className="h-full flex flex-col space-y-4 animate-in fade-in duration-150 min-h-0">
+          {/* Methodology Selector */}
+          <div className="space-y-1.5 flex-shrink-0">
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+              Project Methodology & Roadmap Type
+            </label>
+            <select
+              value={methodology}
+              onChange={(e) => setMethodology(e.target.value as any)}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all cursor-pointer"
+            >
+              <option value="waterfall">Waterfall SDLC (Sequential Phases)</option>
+              <option value="agile">Agile / Scrum (Iterative Sprints & Backlog)</option>
+              <option value="custom">Custom / Hybrid Milestones</option>
+            </select>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold transition-all cursor-pointer"
-          >
-            Cancel
-          </button>
+          {/* Preset Loader Buttons */}
+          <div className="p-3 rounded-xl bg-surface-800/60 border border-border/60 space-y-2 flex-shrink-0">
+            <span className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
+              Quick Load Preset Templates
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMethodology("waterfall");
+                  setPhaseSettings([
+                    { name: "Requirements & Planning", color: "#3b82f6" },
+                    { name: "Architecture & Design", color: "#8b5cf6" },
+                    { name: "Development & Implementation", color: "#06b6d4" },
+                    { name: "Testing & QA", color: "#f59e0b" },
+                    { name: "Deployment & Release", color: "#10b981" },
+                  ]);
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-650 text-text-primary text-[11px] font-semibold border border-border transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3 text-cyan-400" />
+                <span>Waterfall SDLC</span>
+              </button>
 
-          <button
-            type="submit"
-            disabled={!title.trim() || isSubmitting}
-            className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
-          >
-            {isSubmitting ? (
-              <span>Saving...</span>
-            ) : (
-              <>
-                <Check className="w-4 h-4" />
-                <span>Save Board Settings</span>
-              </>
-            )}
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMethodology("agile");
+                  setPhaseSettings([
+                    { name: "Sprint 1", color: "#06b6d4" },
+                    { name: "Sprint 2", color: "#3b82f6" },
+                    { name: "Sprint 3", color: "#8b5cf6" },
+                    { name: "Sprint 4", color: "#f59e0b" },
+                    { name: "Release v1.0", color: "#10b981" },
+                    { name: "Backlog", color: "#64748b" },
+                  ]);
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-650 text-text-primary text-[11px] font-semibold border border-border transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3 h-3 text-purple-400" />
+                <span>Agile Sprints</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Phase Settings Manager List (Flex Fill Occupy Available Height) */}
+          <div className="flex-1 flex flex-col space-y-2 min-h-0">
+            <div className="flex items-center justify-between flex-shrink-0">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+                Board Phases / Sprints ({phaseSettings.length})
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhaseSettings((prev) => [
+                    ...prev,
+                    {
+                      name: `Sprint ${prev.length + 1}`,
+                      color: PRESET_COLORS[prev.length % PRESET_COLORS.length],
+                    },
+                  ]);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Phase / Sprint</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin min-h-[220px]">
+              {phaseSettings.map((phaseItem, index) => {
+                const isDragging = draggedPhaseIndex === index;
+                return (
+                  <div
+                    key={`phase-edit-${index}`}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", index.toString());
+                      setDraggedPhaseIndex(index);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedPhaseIndex === null || draggedPhaseIndex === index) return;
+                      setPhaseSettings((prev) => {
+                        const updated = [...prev];
+                        const [moved] = updated.splice(draggedPhaseIndex, 1);
+                        updated.splice(index, 0, moved);
+                        return updated;
+                      });
+                      setDraggedPhaseIndex(null);
+                    }}
+                    onDragEnd={() => setDraggedPhaseIndex(null)}
+                    className={`p-2.5 rounded-xl bg-surface-800/80 border transition-all flex items-center justify-between gap-2.5 ${
+                      isDragging
+                        ? "opacity-40 border-primary border-dashed scale-[0.99]"
+                        : "border-border/60 hover:border-primary/40"
+                    }`}
+                  >
+                    {/* Drag Handle Grip Icon */}
+                    <div
+                      className="cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text-primary rounded transition-colors flex-shrink-0"
+                      title="Click and drag to reorder phase"
+                    >
+                      <GripVertical className="w-4 h-4" />
+                    </div>
+
+                    {/* Phase Name Input */}
+                    <input
+                      type="text"
+                      value={phaseItem.name}
+                      onChange={(e) => {
+                        const newName = e.target.value;
+                        setPhaseSettings((prev) =>
+                          prev.map((p, idx) => (idx === index ? { ...p, name: newName } : p))
+                        );
+                      }}
+                      placeholder="Phase / Sprint Name"
+                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-900 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                    />
+
+                    {/* Color Picker Swatches */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {PRESET_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => {
+                            setPhaseSettings((prev) =>
+                              prev.map((p, idx) => (idx === index ? { ...p, color } : p))
+                            );
+                          }}
+                          className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                            phaseItem.color === color ? "scale-125 ring-2 ring-white" : "opacity-70 hover:opacity-100"
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Delete Phase Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhaseSettings((prev) => prev.filter((_, idx) => idx !== index));
+                      }}
+                      className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                      title="Delete Phase / Sprint"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-    </form>
+      )}
+
+    </div>
   );
 
   if (isMobile) {
@@ -619,30 +736,167 @@ export default function BoardSettingsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-primary/10 text-primary">
-              <Settings className="w-5 h-5" />
-            </div>
-            <div>
+      <div className="bg-surface-900 border border-border rounded-3xl max-w-5xl w-full h-[700px] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col md:flex-row">
+        {/* Left Sidebar Panel */}
+        <div className="w-full md:w-72 bg-surface-900/90 border-b md:border-b-0 md:border-r border-border/80 p-6 flex flex-col justify-between flex-shrink-0">
+          <div>
+            {/* Header / Description */}
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <SlidersHorizontal className="w-5 h-5" />
+              </div>
               <h2 className="text-base font-bold text-text-primary">Board Settings</h2>
-              <p className="text-xs text-text-muted">Configure privacy, format, and permissions</p>
+              <span className="text-text-muted hover:text-text-primary cursor-pointer p-0.5" title="Customize board configuration">
+                <Info className="w-3.5 h-3.5" />
+              </span>
             </div>
-          </div>
+            <p className="text-xs text-text-muted leading-relaxed mb-6">
+              Customize board details, access rules, column permissions, and dynamic phase/sprint settings.
+            </p>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+            {/* Vertical Sidebar Navigation */}
+            <nav className="space-y-1.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab("general")}
+                className={`w-full px-3.5 py-3 rounded-2xl transition-all cursor-pointer flex items-center justify-between text-xs font-semibold ${
+                  activeTab === "general"
+                    ? "bg-surface-800 text-primary border border-border/60 shadow-xs font-bold"
+                    : "text-text-muted hover:text-text-primary hover:bg-surface-800/50"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Settings className="w-4 h-4" />
+                  <span>General Details</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("privacy")}
+                className={`w-full px-3.5 py-3 rounded-2xl transition-all cursor-pointer flex items-center justify-between text-xs font-semibold ${
+                  activeTab === "privacy"
+                    ? "bg-surface-800 text-primary border border-border/60 shadow-xs font-bold"
+                    : "text-text-muted hover:text-text-primary hover:bg-surface-800/50"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Lock className="w-4 h-4" />
+                  <span>Privacy & Access</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("columns")}
+                className={`w-full px-3.5 py-3 rounded-2xl transition-all cursor-pointer flex items-center justify-between text-xs font-semibold ${
+                  activeTab === "columns"
+                    ? "bg-surface-800 text-primary border border-border/60 shadow-xs font-bold"
+                    : "text-text-muted hover:text-text-primary hover:bg-surface-800/50"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Column Controls</span>
+                </div>
+              </button>
+
+              {type === "roadmap" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("phases")}
+                  className={`w-full px-3.5 py-3 rounded-2xl transition-all cursor-pointer flex items-center justify-between text-xs font-semibold ${
+                    activeTab === "phases"
+                      ? "bg-surface-800 text-primary border border-border/60 shadow-xs font-bold"
+                      : "text-text-muted hover:text-text-primary hover:bg-surface-800/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Layers className="w-4 h-4" />
+                    <span>Phases & Sprints</span>
+                  </div>
+                  <span className="px-2 py-0.5 text-[9px] font-extrabold rounded-full bg-primary/10 text-primary uppercase border border-primary/20">
+                    Dynamic
+                  </span>
+                </button>
+              )}
+            </nav>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto">{formContent}</div>
+        {/* Right Main Content Panel */}
+        <form onSubmit={handleSubmit} className="flex-1 bg-surface-950/40 flex flex-col justify-between relative overflow-hidden h-full">
+          {/* Section Header */}
+          <div className="p-6 pb-4 border-b border-border/60 flex items-center justify-between flex-shrink-0">
+            <div>
+              <h3 className="text-base font-bold text-text-primary">
+                {activeTab === "general" && "General Configuration"}
+                {activeTab === "privacy" && "Privacy & Access Control"}
+                {activeTab === "columns" && "Column Creator Permissions"}
+                {activeTab === "phases" && "Phases & Sprints Manager"}
+              </h3>
+              <p className="text-xs text-text-muted mt-0.5">
+                {activeTab === "general" && "Basic board details, type, and visual theme color"}
+                {activeTab === "privacy" && "Manage board visibility and permitted collaborators"}
+                {activeTab === "columns" && "Define who is allowed to create new columns on this board"}
+                {activeTab === "phases" && "Configure SDLC stages, Scrum Sprints, or custom milestones"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800/80 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Form Content Body (Scrollable Area) */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+            {formContent}
+          </div>
+
+          {/* Docked Action Footer (Edge-to-Edge Flush) */}
+          <div className="p-4 px-6 border-t border-border/60 bg-surface-900/90 backdrop-blur-md flex items-center justify-between gap-3 flex-shrink-0 w-full">
+            {onDeleteBoard ? (
+              <button
+                type="button"
+                onClick={() => onDeleteBoard(board.id)}
+                className="px-3.5 py-2 rounded-xl text-error bg-error/10 hover:bg-error/20 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Board</span>
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={!title.trim() || isSubmitting}
+                className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+              >
+                {isSubmitting ? (
+                  <span>Saving...</span>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
     </div>
   );

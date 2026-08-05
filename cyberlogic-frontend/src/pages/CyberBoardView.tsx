@@ -1008,6 +1008,7 @@ export default function CyberBoardView() {
           boardType={board.type}
           boardVisibility={board.visibility}
           allowedMembers={board.allowed_members}
+          boardPhases={board.phase_settings}
           currentUserId={user?.id}
           userRole={user?.role}
           boardHostId={board.created_by}
@@ -1035,6 +1036,7 @@ export default function CyberBoardView() {
           boardId={board.id}
           boardVisibility={board.visibility}
           allowedMembers={board.allowed_members}
+          boardPhases={board.phase_settings}
           columns={columns}
           allCards={columns.flatMap((c) => c.cards || [])}
           boardType={board.type}

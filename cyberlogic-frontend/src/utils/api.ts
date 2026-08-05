@@ -2969,6 +2969,7 @@ export interface CyberboardCard {
   parent_id?: number | null;
   user_id: number;
   assigned_user_id?: number | null;
+  assigned_user_ids?: number[] | null;
   title: string;
   description?: string | null;
   activity_date?: string | null;
@@ -2982,6 +2983,7 @@ export interface CyberboardCard {
   updated_at: string;
   user?: CyberboardUserSummary;
   assigned_user?: CyberboardUserSummary;
+  assigned_users?: CyberboardUserSummary[];
   parent?: { id: number; title: string };
   sub_cards?: CyberboardCard[];
   votes_count?: number;

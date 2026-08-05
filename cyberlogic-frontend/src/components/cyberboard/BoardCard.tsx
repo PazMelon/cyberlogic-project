@@ -141,7 +141,24 @@ export default function BoardCard({
           </div>
         )}
 
-        {card.assigned_user && (
+        {card.assigned_users && card.assigned_users.length > 0 ? (
+          <div className="flex items-center -space-x-1.5 overflow-hidden py-0.5">
+            {card.assigned_users.slice(0, 3).map((u) => (
+              <img
+                key={`card-badge-${u.id}`}
+                src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                alt={u.first_name}
+                title={`Assigned: ${u.first_name} ${u.last_name}`}
+                className="w-4 h-4 rounded-full object-cover border border-surface-800 ring-1 ring-emerald-500/40"
+              />
+            ))}
+            {card.assigned_users.length > 3 && (
+              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-1 rounded-full border border-emerald-500/30">
+                +{card.assigned_users.length - 3}
+              </span>
+            )}
+          </div>
+        ) : card.assigned_user ? (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20" title={`Assigned to ${card.assigned_user.first_name} ${card.assigned_user.last_name}`}>
             <img
               src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
@@ -150,7 +167,7 @@ export default function BoardCard({
             />
             <span>@{card.assigned_user.username || card.assigned_user.first_name}</span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Footer: Owner info & Upvotes/Comments */}

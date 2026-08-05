@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock } from "lucide-react";
+import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User, Layers, Tag, Flag } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
@@ -11,6 +11,7 @@ interface CardDetailModalProps {
   boardType?: string;
   boardVisibility?: string;
   allowedMembers?: number[] | null;
+  boardPhases?: Array<{ name: string; color: string }>;
   currentUserId?: number;
   userRole?: string;
   boardHostId?: number;
@@ -42,6 +43,7 @@ export default function CardDetailModal({
   boardType = "activity",
   boardVisibility = "public",
   allowedMembers = [],
+  boardPhases = [],
   currentUserId,
   userRole,
   boardHostId,
@@ -66,7 +68,7 @@ export default function CardDetailModal({
   const [editColorTag, setEditColorTag] = useState<string>("#06b6d4");
   const [editActivityDate, setEditActivityDate] = useState<string>("");
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
-  const [editAssignedUserId, setEditAssignedUserId] = useState<number | undefined>(undefined);
+  const [editAssignedUserIds, setEditAssignedUserIds] = useState<number[]>([]);
   const [editPhase, setEditPhase] = useState<string>("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
@@ -86,7 +88,12 @@ export default function CardDetailModal({
       setEditColorTag(card.color_tag || "#06b6d4");
       setEditActivityDate(card.activity_date ? card.activity_date.split("T")[0] : "");
       setEditActivityEndDate(card.activity_end_date ? card.activity_end_date.split("T")[0] : "");
-      setEditAssignedUserId(card.assigned_user_id || undefined);
+      const initialIds = card.assigned_user_ids && card.assigned_user_ids.length > 0
+        ? card.assigned_user_ids
+        : card.assigned_user_id
+        ? [card.assigned_user_id]
+        : [];
+      setEditAssignedUserIds(initialIds);
       setEditPhase(card.phase || "");
     }
   }, [card]);
@@ -134,7 +141,8 @@ export default function CardDetailModal({
       await onUpdateCard(card.id, {
         title: editTitle.trim(),
         description: editDescription.trim(),
-        assigned_user_id: editAssignedUserId || null,
+        assigned_user_id: editAssignedUserIds[0] || null,
+        assigned_user_ids: editAssignedUserIds,
         priority: editPriority,
         phase: editPhase || null,
         color_tag: editColorTag,
@@ -262,158 +270,209 @@ export default function CardDetailModal({
   );
 
   const modalBody = (
-    <div className="space-y-6">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Edit Form Mode */}
       {isEditing ? (
-        <form onSubmit={handleSaveCardEdits} className="space-y-4 animate-in fade-in duration-150">
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Title *</label>
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Description & Details</label>
-            <textarea
-              value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              rows={4}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none resize-none"
-            />
-          </div>
-
-          {/* Searchable Assignee Picker */}
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Assigned Member (Assignee)</label>
-            <SearchableAssigneePicker
-              value={editAssignedUserId}
-              onChange={(uId) => setEditAssignedUserId(uId || undefined)}
-              boardVisibility={boardVisibility}
-              allowedMembers={allowedMembers}
-              boardHostId={boardHostId}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Priority</label>
-              <select
-                value={editPriority}
-                onChange={(e) => setEditPriority(e.target.value as any)}
-                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
-              >
-                <option value="low">Low Priority</option>
-                <option value="medium">Medium Priority</option>
-                <option value="high">High Priority</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Accent Color Tag</label>
-              <div className="flex items-center gap-1.5 pt-1">
-                {PRESET_COLORS.map((c) => (
-                  <button
-                    type="button"
-                    key={c}
-                    onClick={() => setEditColorTag(c)}
-                    className={`w-6 h-6 rounded-full transition-all cursor-pointer ${
-                      editColorTag === c ? "ring-2 ring-primary ring-offset-2 ring-offset-surface-900 scale-110" : "hover:scale-105"
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">⚡ SDLC Project Phase / Sprint</label>
-            <select
-              value={editPhase}
-              onChange={(e) => setEditPhase(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
-            >
-              <option value="">No SDLC Phase Assigned</option>
-              <optgroup label="Waterfall SDLC Phases">
-                <option value="Requirements & Planning">1. Requirements & Planning</option>
-                <option value="Architecture & Design">2. Architecture & Design</option>
-                <option value="Development & Implementation">3. Development & Implementation</option>
-                <option value="Testing & QA">4. Testing & QA</option>
-                <option value="Deployment & Release">5. Deployment & Release</option>
-              </optgroup>
-              <optgroup label="Agile / Scrum Sprints">
-                <option value="Sprint 1">Sprint 1</option>
-                <option value="Sprint 2">Sprint 2</option>
-                <option value="Sprint 3">Sprint 3</option>
-                <option value="Release v1.0">Release v1.0</option>
-                <option value="Backlog">Backlog</option>
-              </optgroup>
-            </select>
-          </div>
-
-          {(boardType === "activity" || boardType === "roadmap") && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Start Date</label>
+        <form onSubmit={handleSaveCardEdits} className="flex-1 flex flex-col justify-between h-full overflow-hidden">
+          <div className="flex flex-col md:flex-row gap-6 p-6 overflow-y-auto scrollbar-thin flex-1">
+            {/* Left Column: Primary Content (Title & Description - Occupies Full Space) */}
+            <div className="flex-1 flex flex-col space-y-4 min-h-0">
+              <div className="flex-shrink-0">
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5">
+                  Card / Task Title *
+                </label>
                 <input
-                  type="date"
-                  value={editActivityDate}
-                  onChange={(e) => setEditActivityDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm font-semibold text-text-primary focus:border-primary focus:outline-none transition-all"
+                  placeholder="Task title..."
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={editActivityEndDate}
-                  onChange={(e) => setEditActivityEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+              <div className="flex-1 flex flex-col min-h-0">
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex-shrink-0">
+                  Description & Details
+                </label>
+                <textarea
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  className="w-full flex-1 min-h-[200px] p-3.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none resize-none transition-all scrollbar-thin"
+                  placeholder="Provide detailed context, instructions, or sub-task notes..."
                 />
               </div>
             </div>
-          )}
 
-          <div className="flex items-center justify-end gap-2 pt-2">
+            {/* Right Column: Metadata & Controls Sidebar */}
+            <div className="w-full md:w-80 space-y-4 bg-surface-900/60 p-4 rounded-2xl border border-border/60 flex-shrink-0">
+              {/* Searchable Assignee Picker */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <User className="w-3.5 h-3.5 text-primary" />
+                  <span>Assigned Members</span>
+                </label>
+                <SearchableAssigneePicker
+                  value={editAssignedUserIds}
+                  onChange={(uIds) => setEditAssignedUserIds(uIds)}
+                  boardVisibility={boardVisibility}
+                  allowedMembers={allowedMembers}
+                  boardHostId={boardHostId}
+                />
+              </div>
+
+              {/* Priority Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Flag className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Task Priority</span>
+                </label>
+                <select
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="low">🟢 Low Priority</option>
+                  <option value="medium">🟡 Medium Priority</option>
+                  <option value="high">🔴 High Priority</option>
+                </select>
+              </div>
+
+              {/* SDLC Phase / Sprint Selector */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Project Phase / Sprint</span>
+                </label>
+                <select
+                  value={editPhase}
+                  onChange={(e) => setEditPhase(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="">No SDLC Phase Assigned</option>
+                  {boardPhases.length > 0 ? (
+                    boardPhases.map((p, idx) => (
+                      <option key={`b-edit-phase-${idx}`} value={p.name}>
+                        {p.name}
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <optgroup label="Waterfall SDLC Phases">
+                        <option value="Requirements & Planning">1. Requirements & Planning</option>
+                        <option value="Architecture & Design">2. Architecture & Design</option>
+                        <option value="Development & Implementation">3. Development & Implementation</option>
+                        <option value="Testing & QA">4. Testing & QA</option>
+                        <option value="Deployment & Release">5. Deployment & Release</option>
+                      </optgroup>
+                      <optgroup label="Agile / Scrum Sprints">
+                        <option value="Sprint 1">Sprint 1</option>
+                        <option value="Sprint 2">Sprint 2</option>
+                        <option value="Sprint 3">Sprint 3</option>
+                        <option value="Release v1.0">Release v1.0</option>
+                        <option value="Backlog">Backlog</option>
+                      </optgroup>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* Color Tag Selector */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Tag className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Accent Tag Color</span>
+                </label>
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      type="button"
+                      key={c}
+                      onClick={() => setEditColorTag(c)}
+                      className={`w-6 h-6 rounded-full transition-all cursor-pointer ${
+                        editColorTag === c ? "ring-2 ring-primary ring-offset-2 ring-offset-surface-900 scale-110" : "hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Date Schedule Pickers */}
+              {(boardType === "activity" || boardType === "roadmap") && (
+                <div className="space-y-2 pt-1 border-t border-border/40">
+                  <div>
+                    <label className="block text-[11px] font-bold text-text-muted uppercase mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={editActivityDate}
+                      onChange={(e) => setEditActivityDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-text-muted uppercase mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={editActivityEndDate}
+                      onChange={(e) => setEditActivityEndDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sticky Docked Edit Footer */}
+          <div className="p-4 px-6 border-t border-border/60 bg-surface-900/90 backdrop-blur-md flex items-center justify-end gap-2 flex-shrink-0 w-full">
             <button
               type="button"
               onClick={() => setIsEditing(false)}
-              className="px-3.5 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold"
+              className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold cursor-pointer transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!editTitle.trim() || isSavingEdit}
-              className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light flex items-center gap-1.5 shadow-sm shadow-primary/20"
+              className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light flex items-center gap-1.5 shadow-sm shadow-primary/20 cursor-pointer transition-all"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>Save Changes</span>
+              <Check className="w-4 h-4" />
+              <span>{isSavingEdit ? "Saving..." : "Save Changes"}</span>
             </button>
           </div>
         </form>
       ) : (
-        /* View Mode */
-        <>
+        /* View Mode: Original Clean Flow */
+        <div className="space-y-6 overflow-y-auto p-6 flex-1 scrollbar-thin">
           {/* Metadata Bar (Assignee & Owner) */}
           <div className="p-3.5 rounded-xl bg-surface-800/50 border border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs">
-            {/* Assignee */}
-            <div className="flex items-center gap-2">
-              <span className="text-text-muted font-medium">Assignee:</span>
-              {card.assigned_user ? (
-                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-400">
+            {/* Assignees */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-text-muted font-medium">Assignees:</span>
+              {card.assigned_users && card.assigned_users.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {card.assigned_users.map((u) => (
+                    <div key={`view-assignee-${u.id}`} className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                      <img
+                        src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                        alt={u.first_name}
+                        className="w-4 h-4 rounded-full object-cover"
+                      />
+                      <span>{u.first_name} {u.last_name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : card.assigned_user ? (
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 text-emerald-400 text-xs font-bold">
                   <img
                     src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
                     alt={card.assigned_user.first_name}
                     className="w-4 h-4 rounded-full object-cover"
                   />
-                  <span className="font-bold">{card.assigned_user.first_name} {card.assigned_user.last_name}</span>
+                  <span>{card.assigned_user.first_name} {card.assigned_user.last_name}</span>
                 </div>
               ) : (
                 <span className="text-text-muted italic">Unassigned</span>
@@ -435,7 +494,7 @@ export default function CardDetailModal({
               {boardType === "ideas" || boardType === "brainstorming" ? "Description & Concept Details" : "Description & Details"}
             </h4>
             <div className="p-4 rounded-xl bg-surface-800/60 border border-border/50 text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-              {card.description ? <MentionText content={card.description} /> : "No detailed description provided."}
+              {card.description ? <MentionText content={card.description} /> : <span className="text-text-muted italic">No detailed description provided.</span>}
             </div>
           </div>
 
@@ -597,7 +656,7 @@ export default function CardDetailModal({
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -644,22 +703,26 @@ export default function CardDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className={`bg-surface-900 border border-border rounded-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 ${
-          showAuditLog ? "max-w-4xl" : "max-w-2xl"
+        className={`bg-surface-900 border border-border rounded-3xl w-full shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
+          isEditing
+            ? "max-w-4xl h-[700px] max-h-[92vh]"
+            : showAuditLog
+            ? "max-w-4xl max-h-[90vh]"
+            : "max-w-2xl max-h-[90vh]"
         }`}
       >
         {/* Header */}
         <div
-          className="p-4 sm:p-5 border-b border-border flex items-center justify-between gap-4"
+          className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between gap-4 bg-surface-900/90 flex-shrink-0"
           style={{
             borderTopColor: card.color_tag || undefined,
             borderTopWidth: card.color_tag ? "4px" : undefined,
           }}
         >
           <div className="space-y-1 min-w-0 pr-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border inline-block ${
+                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase border inline-block ${
                   card.priority === "high"
                     ? "bg-error/15 text-error border-error/30"
                     : card.priority === "low"
@@ -667,9 +730,16 @@ export default function CardDetailModal({
                     : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                 }`}
               >
-                {card.priority} priority
+                {card.priority || "medium"} priority
               </span>
+
+              {card.phase && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                  ⚡ {card.phase}
+                </span>
+              )}
             </div>
+
             <h2 className="text-base sm:text-lg font-bold text-text-primary truncate">
               {card.title}
             </h2>
@@ -699,7 +769,7 @@ export default function CardDetailModal({
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
-                className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                   isEditing
                     ? "bg-primary text-surface-950 font-bold"
                     : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
@@ -707,7 +777,7 @@ export default function CardDetailModal({
                 title="Edit Card Details"
               >
                 <Edit3 className="w-4 h-4" />
-                <span className="hidden xs:inline">{isEditing ? "Done Editing" : "Edit"}</span>
+                <span className="hidden xs:inline">{isEditing ? "View Details" : "Edit"}</span>
               </button>
             )}
 
@@ -723,7 +793,7 @@ export default function CardDetailModal({
 
         {/* Modal Layout with optional sidepanel */}
         <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
-          <div className="p-6 overflow-y-auto flex-1">{modalBody}</div>
+          <div className="overflow-hidden flex-1 flex flex-col">{modalBody}</div>
           {showAuditLog && auditLogSidepanel}
         </div>
       </div>
