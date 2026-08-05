@@ -52,7 +52,7 @@ export default function GanttRoadmapView({
   cards,
   canManageBoard,
   onSelectCard,
-  onUpdateCardDate: _onUpdateCardDate,
+  onUpdateCardDate,
   onAddNewCard,
   onUpdateCardPhase,
   onMoveCardColumn,
@@ -71,10 +71,12 @@ export default function GanttRoadmapView({
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
+  const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridTimelineRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasDraggedRef = useRef<boolean>(false);
 
   const handleMouseEnterAssignee = (cardId: number) => {
     if (hoverTimeoutRef.current) {
@@ -563,22 +565,26 @@ export default function GanttRoadmapView({
     let startDate: Date;
     let endDate: Date;
 
-    if (card.activity_date && card.activity_end_date) {
-      startDate = new Date(card.activity_date);
-      endDate = new Date(card.activity_end_date);
-      if (typeof card.activity_end_date === "string" && !card.activity_end_date.includes("T")) {
+    const custom = customCardDates[card.id];
+    const actDate = custom && custom.activity_date !== undefined ? custom.activity_date : card.activity_date;
+    const actEndDate = custom && custom.activity_end_date !== undefined ? custom.activity_end_date : card.activity_end_date;
+
+    if (actDate && actEndDate) {
+      startDate = new Date(actDate);
+      endDate = new Date(actEndDate);
+      if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
         endDate.setHours(23, 59, 59, 999);
       }
-    } else if (card.activity_date) {
-      startDate = new Date(card.activity_date);
-      endDate = new Date(card.activity_date);
-      if (typeof card.activity_date === "string" && !card.activity_date.includes("T")) {
+    } else if (actDate) {
+      startDate = new Date(actDate);
+      endDate = new Date(actDate);
+      if (typeof actDate === "string" && !actDate.includes("T")) {
         endDate.setHours(23, 59, 59, 999);
       }
-    } else if (card.activity_end_date) {
-      startDate = new Date(card.activity_end_date);
-      endDate = new Date(card.activity_end_date);
-      if (typeof card.activity_end_date === "string" && !card.activity_end_date.includes("T")) {
+    } else if (actEndDate) {
+      startDate = new Date(actEndDate);
+      endDate = new Date(actEndDate);
+      if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
         endDate.setHours(23, 59, 59, 999);
       }
     } else {
@@ -617,6 +623,135 @@ export default function GanttRoadmapView({
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 25));
   const handleResetZoom = () => setZoomLevel(100);
 
+  const formatDateRangeTooltip = (startStr?: string, endStr?: string) => {
+    if (!startStr) return "No date set";
+    try {
+      const d1 = new Date(startStr);
+      const d2 = endStr ? new Date(endStr) : d1;
+      const m1 = MONTH_NAMES[d1.getMonth()];
+      const m2 = MONTH_NAMES[d2.getMonth()];
+      if (startStr === endStr || !endStr) {
+        return `${m1} ${d1.getDate()}, ${d1.getFullYear()}`;
+      }
+      return `${m1} ${d1.getDate()} – ${m2} ${d2.getDate()}, ${d2.getFullYear()}`;
+    } catch {
+      return `${startStr} – ${endStr}`;
+    }
+  };
+
+  // Interactive Bar Edge Resizing & Bar Body Shifting (Start Date, End Date, and Shift Whole Date Range)
+  const [resizingState, setResizingState] = useState<{
+    cardId: number;
+    mode: "start" | "end" | "move";
+    startX: number;
+    origStartDate: string;
+    origEndDate: string;
+  } | null>(null);
+
+  const handleResizeStart = (
+    e: React.MouseEvent,
+    card: CyberboardCard,
+    mode: "start" | "end" | "move"
+  ) => {
+    if (timeScale !== "day" && timeScale !== "week") return;
+    e.stopPropagation();
+    hasDraggedRef.current = false;
+
+    const sDate = card.activity_date ? card.activity_date.split("T")[0] : new Date().toISOString().split("T")[0];
+    const eDate = card.activity_end_date ? card.activity_end_date.split("T")[0] : sDate;
+
+    setResizingState({
+      cardId: card.id,
+      mode,
+      startX: e.clientX,
+      origStartDate: sDate,
+      origEndDate: eDate,
+    });
+  };
+
+  useEffect(() => {
+    if (!resizingState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      const dx = e.clientX - resizingState.startX;
+      if (Math.abs(dx) > 3) {
+        hasDraggedRef.current = true;
+      }
+
+      const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
+      const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
+      const rangeStartMs = isNaN(sDate.getTime())
+        ? new Date(selectedYear, 0, 1).getTime()
+        : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate()).getTime();
+      const rangeEndMs = isNaN(eDate.getTime())
+        ? new Date(selectedYear, 11, 31).getTime()
+        : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate()).getTime();
+      const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
+
+      const msPerPx = totalMs / gridMinWidth;
+      const msDelta = dx * msPerPx;
+      const daysDelta = Math.round(msDelta / (24 * 60 * 60 * 1000));
+
+      const origStart = new Date(resizingState.origStartDate);
+      const origEnd = new Date(resizingState.origEndDate);
+
+      let newStartStr = resizingState.origStartDate;
+      let newEndStr = resizingState.origEndDate;
+
+      if (resizingState.mode === "start") {
+        const newStart = new Date(origStart.getTime() + daysDelta * 24 * 60 * 60 * 1000);
+        if (newStart <= origEnd) {
+          newStartStr = newStart.toISOString().split("T")[0];
+        }
+      } else if (resizingState.mode === "end") {
+        const newEnd = new Date(origEnd.getTime() + daysDelta * 24 * 60 * 60 * 1000);
+        if (newEnd >= origStart) {
+          newEndStr = newEnd.toISOString().split("T")[0];
+        }
+      } else if (resizingState.mode === "move") {
+        const newStart = new Date(origStart.getTime() + daysDelta * 24 * 60 * 60 * 1000);
+        const newEnd = new Date(origEnd.getTime() + daysDelta * 24 * 60 * 60 * 1000);
+        newStartStr = newStart.toISOString().split("T")[0];
+        newEndStr = newEnd.toISOString().split("T")[0];
+      }
+
+      setCustomCardDates((prev) => ({
+        ...prev,
+        [resizingState.cardId]: { activity_date: newStartStr, activity_end_date: newEndStr },
+      }));
+    };
+
+    const handleMouseUp = () => {
+      if (resizingState && customCardDates[resizingState.cardId]) {
+        const updated = customCardDates[resizingState.cardId];
+        if (onUpdateCardDate && updated.activity_date && updated.activity_end_date) {
+          onUpdateCardDate(resizingState.cardId, updated.activity_date, updated.activity_end_date);
+        }
+      }
+      setResizingState(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [resizingState, gridMinWidth, startDateStr, endDateStr, selectedYear, customCardDates, onUpdateCardDate]);
+
+  const handleBarClick = (e: React.MouseEvent, card: CyberboardCard) => {
+    e.stopPropagation();
+    if (hasDraggedRef.current) {
+      hasDraggedRef.current = false;
+      return;
+    }
+    onSelectCard(card);
+  };
+
+  const canDragDates = timeScale === "day" || timeScale === "week";
+
   // Calculate SVG Dependency Connector Line Paths (FS task links)
   const { dependencyLines } = useMemo(() => {
     const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number }>();
@@ -634,43 +769,49 @@ export default function GanttRoadmapView({
       currentY += 44; // group header height 44px
       const parentCards = group.cards.filter((c) => !c.parent_id);
 
-      parentCards.forEach((card) => {
-        const rowHeight = 44;
-        const centerY = currentY + rowHeight / 2;
-        const pos = getCardTimelinePosition(card);
-        const startPx = (gridMinWidth * pos.leftPercent) / 100;
-        const widthPx = Math.max(24, (gridMinWidth * pos.widthPercent) / 100);
-        const endPx = startPx + widthPx;
+      if (parentCards.length === 0) {
+        currentY += 44; // empty group placeholder row height 44px
+      } else {
+        parentCards.forEach((card) => {
+          const isDateless = !card.activity_date && !card.activity_end_date;
+          const rowHeight = 44;
+          const centerY = currentY + rowHeight / 2;
+          const pos = getCardTimelinePosition(card);
+          const startPx = isDateless ? 16 : (gridMinWidth * pos.leftPercent) / 100;
+          const widthPx = isDateless ? 160 : Math.max(24, (gridMinWidth * pos.widthPercent) / 100);
+          const endPx = startPx + widthPx;
 
-        layoutMap.set(card.id, {
-          startPx,
-          endPx,
-          centerYPx: centerY,
-        });
-
-        currentY += rowHeight;
-
-        // Subcards
-        const isExpanded = !!expandedParents[card.id];
-        if (isExpanded && card.sub_cards) {
-          card.sub_cards.forEach((subCard) => {
-            const subRowHeight = 38;
-            const subCenterY = currentY + subRowHeight / 2;
-            const subPos = getCardTimelinePosition(subCard);
-            const subStartPx = (gridMinWidth * subPos.leftPercent) / 100;
-            const subWidthPx = Math.max(20, (gridMinWidth * subPos.widthPercent) / 100);
-            const subEndPx = subStartPx + subWidthPx;
-
-            layoutMap.set(subCard.id, {
-              startPx: subStartPx,
-              endPx: subEndPx,
-              centerYPx: subCenterY,
-            });
-
-            currentY += subRowHeight;
+          layoutMap.set(card.id, {
+            startPx,
+            endPx,
+            centerYPx: centerY,
           });
-        }
-      });
+
+          currentY += rowHeight;
+
+          // Subcards
+          const isExpanded = !!expandedParents[card.id];
+          if (isExpanded && card.sub_cards) {
+            card.sub_cards.forEach((subCard) => {
+              const isSubDateless = !subCard.activity_date && !subCard.activity_end_date;
+              const subRowHeight = 38;
+              const subCenterY = currentY + subRowHeight / 2;
+              const subPos = getCardTimelinePosition(subCard);
+              const subStartPx = isSubDateless ? 32 : (gridMinWidth * subPos.leftPercent) / 100;
+              const subWidthPx = isSubDateless ? 140 : Math.max(20, (gridMinWidth * subPos.widthPercent) / 100);
+              const subEndPx = subStartPx + subWidthPx;
+
+              layoutMap.set(subCard.id, {
+                startPx: subStartPx,
+                endPx: subEndPx,
+                centerYPx: subCenterY,
+              });
+
+              currentY += subRowHeight;
+            });
+          }
+        });
+      }
     });
 
     // Build SVG Connector Paths for Explicit Predecessors & Subtask Relationships
@@ -1365,7 +1506,7 @@ export default function GanttRoadmapView({
                         </div>
                       ) : (
                         parentCards.map((card) => {
-                          const { leftPercent, widthPercent } = getCardTimelinePosition(card);
+                          const pos = getCardTimelinePosition(card);
                           const cardColor = card.color_tag || group.color || "#06b6d4";
                           const isHovered = hoveredCardId === card.id;
                           const isExpanded = !!expandedParents[card.id];
@@ -1397,19 +1538,51 @@ export default function GanttRoadmapView({
                                 </div>
                               ) : (
                                 <div
-                                  draggable
-                                  onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
-                                  className="relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing"
-                                  style={{
-                                    left: `${leftPercent}%`,
-                                    width: `${widthPercent}%`,
-                                    minWidth: "24px",
-                                  }}
-                                  onMouseEnter={() => setHoveredCardId(card.id)}
-                                  onMouseLeave={() => setHoveredCardId(null)}
-                                >
+                                   draggable={!resizingState}
+                                   onDragStart={(e) => {
+                                     if (resizingState) {
+                                       e.preventDefault();
+                                       e.stopPropagation();
+                                       return;
+                                     }
+                                     handleGanttCardDragStart(e, card.id);
+                                   }}
+                                   className="relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing select-none"
+                                   style={{
+                                     left: `${pos.leftPercent}%`,
+                                     width: `${pos.widthPercent}%`,
+                                     minWidth: "28px",
+                                   }}
+                                   onMouseEnter={() => setHoveredCardId(card.id)}
+                                   onMouseLeave={() => setHoveredCardId(null)}
+                                 >
+                                   {/* Live Date Range Floating Tooltip on Hover / Drag */}
+                                   {(isHovered || resizingState?.cardId === card.id) && (
+                                     <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2.5 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1.5 backdrop-blur-md animate-in fade-in duration-150">
+                                       <Calendar className="w-3 h-3 text-cyan-400" />
+                                       <span>{formatDateRangeTooltip(pos.startDateStr, pos.endDateStr)}</span>
+                                     </div>
+                                   )}
+
+                                  {/* Left Date Handle (Start Date extension) */}
+                                  {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                    <div
+                                      draggable={false}
+                                      onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                      onMouseDown={(e) => handleResizeStart(e, card, "start")}
+                                      className="absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                      title="Drag left/right to adjust start date"
+                                    >
+                                      ‹
+                                    </div>
+                                  )}
+
                                   <div
-                                    onClick={() => onSelectCard(card)}
+                                    onMouseDown={(e) => {
+                                      hasDraggedRef.current = false;
+                                      handleResizeStart(e, card, "move");
+                                    }}
+                                    onClick={(e) => handleBarClick(e, card)}
                                     className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
                                       isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
                                     }`}
@@ -1424,8 +1597,21 @@ export default function GanttRoadmapView({
                                       </span>
                                     </div>
 
-                                    {renderTimelineAssigneeAvatars(card, widthPercent)}
+                                    {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
                                   </div>
+
+                                  {/* Right Date Handle (End Date extension) */}
+                                  {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                    <div
+                                      draggable={false}
+                                      onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                      onMouseDown={(e) => handleResizeStart(e, card, "end")}
+                                      className="absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                      title="Drag left/right to adjust end date"
+                                    >
+                                      ›
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -1457,32 +1643,64 @@ export default function GanttRoadmapView({
                                       </div>
                                     ) : (
                                       <div
-                                        className="relative h-6 my-0.5 flex items-center group/bar"
-                                        style={{
-                                          left: `${subPos.leftPercent}%`,
-                                          width: `${subPos.widthPercent}%`,
-                                          minWidth: "20px",
-                                        }}
-                                        onMouseEnter={() => setHoveredCardId(subCard.id)}
-                                        onMouseLeave={() => setHoveredCardId(null)}
-                                      >
-                                        <div
-                                          onClick={() => onSelectCard(subCard)}
-                                          className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                            isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
-                                          }`}
-                                          style={{
-                                            backgroundColor: subColor,
-                                            opacity: 0.9,
-                                          }}
-                                        >
-                                          <span className="truncate drop-shadow-xs font-semibold">
-                                            ↳ {subCard.title}
-                                          </span>
+                                         className="relative h-6 my-0.5 flex items-center group/bar select-none"
+                                         style={{
+                                           left: `${subPos.leftPercent}%`,
+                                           width: `${subPos.widthPercent}%`,
+                                           minWidth: "20px",
+                                         }}
+                                         onMouseEnter={() => setHoveredCardId(subCard.id)}
+                                         onMouseLeave={() => setHoveredCardId(null)}
+                                       >
+                                         {/* Live Date Range Floating Tooltip for Subcard */}
+                                         {(isSubHovered || resizingState?.cardId === subCard.id) && (
+                                           <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1 backdrop-blur-md animate-in fade-in duration-150">
+                                             <Calendar className="w-2.5 h-2.5 text-cyan-400" />
+                                             <span>{formatDateRangeTooltip(subPos.startDateStr, subPos.endDateStr)}</span>
+                                           </div>
+                                         )}
 
-                                          {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
-                                        </div>
-                                      </div>
+                                         {/* Subcard Left Handle */}
+                                         {(timeScale === "day" || timeScale === "week") && (
+                                           <div
+                                             draggable={false}
+                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                             onMouseDown={(e) => handleResizeStart(e, subCard, "start")}
+                                             className="absolute left-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                             title="Drag to adjust start date"
+                                           >
+                                             ‹
+                                           </div>
+                                         )}
+
+                                         <div
+                                           onMouseDown={(e) => handleResizeStart(e, subCard, "move")}
+                                           onClick={(e) => handleBarClick(e, subCard)}
+                                           className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                             isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
+                                           }`}
+                                           style={{
+                                             backgroundColor: subColor,
+                                             backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
+                                           }}
+                                         >
+                                           <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
+                                           {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                         </div>
+
+                                         {/* Subcard Right Handle */}
+                                         {(timeScale === "day" || timeScale === "week") && (
+                                           <div
+                                             draggable={false}
+                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                             onMouseDown={(e) => handleResizeStart(e, subCard, "end")}
+                                             className="absolute right-0 top-0 bottom-0 w-2.5 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-lg flex items-center justify-center text-[9px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                             title="Drag to adjust end date"
+                                           >
+                                             ›
+                                           </div>
+                                         )}
+                                       </div>
                                     )}
                                   </div>
                                 );
