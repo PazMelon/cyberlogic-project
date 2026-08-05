@@ -626,6 +626,7 @@ class CyberboardController extends Controller
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
             'phase' => 'nullable|string|max:100',
+            'position' => 'nullable|integer',
             'attachments' => 'nullable|array',
         ]);
 

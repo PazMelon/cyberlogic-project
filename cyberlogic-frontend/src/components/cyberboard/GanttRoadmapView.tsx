@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard } from "../../utils/api";
+import { updateCyberboardCard } from "../../utils/api";
 
 interface GanttRoadmapViewProps {
   board: CyberboardBoard;
@@ -93,11 +94,17 @@ export default function GanttRoadmapView({
     });
   }, []);
 
-  const handleMouseEnterAssignee = (cardId: number) => {
+  const [hoveredAssigneePos, setHoveredAssigneePos] = useState<{ top: number; left: number } | null>(null);
+
+  const handleMouseEnterAssignee = (e: React.MouseEvent, cardId: number) => {
     if (hoverTimeoutRef.current) {
       clearTimeout(hoverTimeoutRef.current);
       hoverTimeoutRef.current = null;
     }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const top = rect.bottom + 6;
+    const left = Math.min(window.innerWidth - 270, Math.max(10, rect.left - 100));
+    setHoveredAssigneePos({ top, left });
     setHoveredAssigneeCardId(cardId);
   };
 
@@ -151,7 +158,28 @@ export default function GanttRoadmapView({
   const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
   const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
   const [dragOverCardId, setDragOverCardId] = useState<number | null>(null);
-  const [customCardPositions, setCustomCardPositions] = useState<Record<number, number>>({});
+  const [customCardPositions, setCustomCardPositions] = useState<Record<number, number>>(() => {
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(`gantt_card_positions_${board.id}`) : null;
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  const saveCardPositions = useCallback((updatedPositions: Record<number, number>) => {
+    setCustomCardPositions(updatedPositions);
+    try {
+      localStorage.setItem(`gantt_card_positions_${board.id}`, JSON.stringify(updatedPositions));
+    } catch (e) {
+      console.error("Failed to save card positions to localStorage:", e);
+    }
+    Object.entries(updatedPositions).forEach(([cardId, position]) => {
+      updateCyberboardCard(Number(cardId), { position }).catch((err) => {
+        console.error("Failed to persist card position to backend:", err);
+      });
+    });
+  }, [board.id]);
 
   const handleGanttCardDragStart = (e: React.DragEvent, cardId: number) => {
     e.stopPropagation();
@@ -219,12 +247,12 @@ export default function GanttRoadmapView({
       }
       currentGroupCards.splice(targetIndex, 0, activeCard);
 
-      // Update position order state
+      // Update position order state & persist to backend & localStorage
       const updatedPositions = { ...customCardPositions };
       currentGroupCards.forEach((c, idx) => {
         if (c) updatedPositions[c.id] = idx;
       });
-      setCustomCardPositions(updatedPositions);
+      saveCardPositions(updatedPositions);
     }
 
     // 2. Perform cross-group re-assignment if dragged from a different group
@@ -920,19 +948,17 @@ export default function GanttRoadmapView({
       : [];
   };
 
-  // Renderer for Left Tree Rows (Crisp Avatars + Bigger Hover Popover Card)
+  // Renderer for Left Tree Rows (Crisp Avatars + Unblocked Fixed Hover Popover Card)
   const renderTreeAssigneeAvatars = (cardItem: CyberboardCard) => {
     if (groupBy === "assignee") return null;
 
     const users = getCardUsers(cardItem);
     if (users.length === 0) return null;
 
-    const isHovered = hoveredAssigneeCardId === cardItem.id;
-
     return (
       <div
         className="relative flex items-center flex-shrink-0 cursor-pointer"
-        onMouseEnter={() => handleMouseEnterAssignee(cardItem.id)}
+        onMouseEnter={(e) => handleMouseEnterAssignee(e, cardItem.id)}
         onMouseLeave={handleMouseLeaveAssignee}
       >
         {users.length === 1 ? (
@@ -956,40 +982,6 @@ export default function GanttRoadmapView({
                 +{users.length - 2}
               </span>
             )}
-          </div>
-        )}
-
-        {/* Bigger Interactive Hover Popover Card */}
-        {isHovered && (
-          <div
-            onMouseEnter={() => handleMouseEnterAssignee(cardItem.id)}
-            onMouseLeave={handleMouseLeaveAssignee}
-            className="absolute right-0 top-full mt-1.5 w-64 bg-surface-900/98 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-50 p-3 space-y-2.5 animate-in fade-in zoom-in-95 duration-150 before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-5"
-          >
-            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-primary border-b border-border/60 pb-2 flex-shrink-0">
-              <span className="flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-primary" /> Assigned Members ({users.length})
-              </span>
-            </div>
-            <div className="max-h-52 overflow-y-auto space-y-2 scrollbar-thin pr-1">
-              {users.map((u) => (
-                <div key={`tree-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2.5 text-xs p-1 rounded-lg hover:bg-surface-800/60 transition-colors">
-                  <img
-                    src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
-                    alt={u.first_name}
-                    className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-border shadow-xs"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-bold text-text-primary text-xs truncate leading-snug">
-                      {u.first_name} {u.last_name}
-                    </span>
-                    <span className="text-[10px] text-text-muted truncate">
-                      @{u.username || u.first_name}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
@@ -1872,6 +1864,50 @@ export default function GanttRoadmapView({
           </div>
         </div>
       )}
+
+      {/* Unblocked Fixed Hover Popover for Assigned Members */}
+      {hoveredAssigneeCardId && hoveredAssigneePos && (() => {
+        const targetCard = cards.find((c) => c.id === hoveredAssigneeCardId);
+        if (!targetCard) return null;
+        const users = getCardUsers(targetCard);
+        if (users.length === 0) return null;
+
+        return (
+          <div
+            style={{ top: `${hoveredAssigneePos.top}px`, left: `${hoveredAssigneePos.left}px` }}
+            onMouseEnter={() => {
+              if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+            }}
+            onMouseLeave={handleMouseLeaveAssignee}
+            className="fixed w-64 bg-surface-900/98 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-[100] p-3 space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-primary border-b border-border/60 pb-2 flex-shrink-0">
+              <span className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-primary" /> Assigned Members ({users.length})
+              </span>
+            </div>
+            <div className="max-h-52 overflow-y-auto space-y-2 scrollbar-thin pr-1">
+              {users.map((u) => (
+                <div key={`fixed-tree-popover-${targetCard.id}-${u.id}`} className="flex items-center gap-2.5 text-xs p-1 rounded-lg hover:bg-surface-800/60 transition-colors">
+                  <img
+                    src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                    alt={u.first_name}
+                    className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-border shadow-xs"
+                  />
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-text-primary text-xs truncate leading-snug">
+                      {u.first_name} {u.last_name}
+                    </span>
+                    <span className="text-[10px] text-text-muted truncate">
+                      @{u.username || u.first_name}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
