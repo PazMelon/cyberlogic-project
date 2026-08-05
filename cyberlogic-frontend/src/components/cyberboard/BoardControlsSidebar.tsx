@@ -40,6 +40,7 @@ interface BoardControlsSidebarProps {
 export default function BoardControlsSidebar({
   isOpen,
   onClose,
+  board,
   activeCollaboratorsCount,
   boardPresenceUsers = {},
   copiedLink,
@@ -247,7 +248,7 @@ export default function BoardControlsSidebar({
             )}
           </button>
 
-          {onExportToExcel && (
+          {board.type === "roadmap" && onExportToExcel && (
             <button
               type="button"
               onClick={onExportToExcel}

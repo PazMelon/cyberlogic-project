@@ -246,8 +246,8 @@ export default function BoardHeader({
             <span>{copiedLink ? "Copied!" : "Share"}</span>
           </button>
 
-          {/* Export Excel Button */}
-          {onExportToExcel && (
+          {/* Export Excel Button (Visible for Project Roadmap boards only) */}
+          {board.type === "roadmap" && onExportToExcel && (
             <button
               type="button"
               onClick={onExportToExcel}
@@ -317,7 +317,7 @@ export default function BoardHeader({
         {/* Mobile / Tablet Overflow Dropdown Menu */}
         {showMenu && (
           <div className="md:hidden absolute top-full right-0 mt-2 w-56 rounded-2xl bg-surface-900 border border-border/80 shadow-2xl p-2 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
-            {onExportToExcel && (
+            {board.type === "roadmap" && onExportToExcel && (
               <button
                 type="button"
                 onClick={() => {

@@ -91,9 +91,6 @@ export default function CyberBoardView() {
     try {
       const data = await fetchCyberboardBoard(numericBoardId);
       setBoard(data);
-      if (data?.type === "roadmap") {
-        setViewMode("gantt");
-      }
     } catch (err: any) {
       console.error("Failed to load board details:", err);
       setError(err.message || "Failed to load board details.");
