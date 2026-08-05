@@ -708,7 +708,18 @@ export default function GanttRoadmapView({
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(minZoomLevel, prev - 25));
   const handleResetZoom = () => setZoomLevel(timeScale === "month" ? 125 : 100);
 
-  const getCardTimelinePosition = (card: CyberboardCard) => {
+  // Batch pre-compute card timeline positions once per cards update for 60 FPS performance
+  const timelinePositionMap = useMemo(() => {
+    const map = new Map<
+      number,
+      {
+        leftPercent: number;
+        widthPercent: number;
+        startDateStr: string;
+        endDateStr: string;
+      }
+    >();
+
     const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
     const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
 
@@ -722,50 +733,68 @@ export default function GanttRoadmapView({
 
     const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
 
-    let startDate: Date;
-    let endDate: Date;
+    normalizedCards.forEach((card) => {
+      let startDate: Date;
+      let endDate: Date;
 
-    const custom = customCardDates[card.id];
-    const actDate = custom && custom.activity_date !== undefined ? custom.activity_date : card.activity_date;
-    const actEndDate = custom && custom.activity_end_date !== undefined ? custom.activity_end_date : card.activity_end_date;
+      const custom = customCardDates[card.id];
+      const actDate = custom && custom.activity_date !== undefined ? custom.activity_date : card.activity_date;
+      const actEndDate = custom && custom.activity_end_date !== undefined ? custom.activity_end_date : card.activity_end_date;
 
-    if (actDate && actEndDate) {
-      startDate = new Date(actDate);
-      endDate = new Date(actEndDate);
-      if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
-        endDate.setHours(23, 59, 59, 999);
+      if (actDate && actEndDate) {
+        startDate = new Date(actDate);
+        endDate = new Date(actEndDate);
+        if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+      } else if (actDate) {
+        startDate = new Date(actDate);
+        endDate = new Date(actDate);
+        if (typeof actDate === "string" && !actDate.includes("T")) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+      } else if (actEndDate) {
+        startDate = new Date(actEndDate);
+        endDate = new Date(actEndDate);
+        if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
+          endDate.setHours(23, 59, 59, 999);
+        }
+      } else {
+        startDate = new Date(card.created_at || Date.now());
+        endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
       }
-    } else if (actDate) {
-      startDate = new Date(actDate);
-      endDate = new Date(actDate);
-      if (typeof actDate === "string" && !actDate.includes("T")) {
-        endDate.setHours(23, 59, 59, 999);
-      }
-    } else if (actEndDate) {
-      startDate = new Date(actEndDate);
-      endDate = new Date(actEndDate);
-      if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
-        endDate.setHours(23, 59, 59, 999);
-      }
-    } else {
-      startDate = new Date(card.created_at || Date.now());
-      endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
-    }
 
-    const cardStartMs = startDate.getTime();
-    const cardEndMs = endDate.getTime();
+      const cardStartMs = startDate.getTime();
+      const cardEndMs = endDate.getTime();
 
-    const leftPercent = Math.max(0, Math.min(100, ((cardStartMs - rangeStartMs) / totalMs) * 100));
-    const rightPercent = Math.max(0, Math.min(100, ((cardEndMs - rangeStartMs) / totalMs) * 100));
-    const widthPercent = Math.max(0.6, rightPercent - leftPercent);
+      const leftPercent = Math.max(0, Math.min(100, ((cardStartMs - rangeStartMs) / totalMs) * 100));
+      const rightPercent = Math.max(0, Math.min(100, ((cardEndMs - rangeStartMs) / totalMs) * 100));
+      const widthPercent = Math.max(0.6, rightPercent - leftPercent);
 
-    return {
-      leftPercent,
-      widthPercent,
-      startDateStr: startDate.toISOString().split("T")[0],
-      endDateStr: endDate.toISOString().split("T")[0],
-    };
-  };
+      map.set(card.id, {
+        leftPercent,
+        widthPercent,
+        startDateStr: startDate.toISOString().split("T")[0],
+        endDateStr: endDate.toISOString().split("T")[0],
+      });
+    });
+
+    return map;
+  }, [normalizedCards, startDateStr, endDateStr, selectedYear, customCardDates]);
+
+  const getCardTimelinePosition = useCallback(
+    (card: CyberboardCard) => {
+      const cached = timelinePositionMap.get(card.id);
+      if (cached) return cached;
+      return {
+        leftPercent: 0,
+        widthPercent: 10,
+        startDateStr: `${selectedYear}-01-01`,
+        endDateStr: `${selectedYear}-01-02`,
+      };
+    },
+    [timelinePositionMap, selectedYear]
+  );
 
   const formatDateRangeTooltip = (startStr?: string, endStr?: string) => {
     if (!startStr) return "No date set";
