@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, Link, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, AlertCircle, Lock, Kanban } from "lucide-react";
 import {
   fetchCyberboardBoard,
@@ -110,6 +110,21 @@ export default function CyberBoardView() {
       document.title = "CyberBoard | Cyberlogic";
     }
   }, [board?.title]);
+
+  const [searchParams] = useSearchParams();
+  const cardParam = searchParams.get("card") || searchParams.get("card_id");
+
+  // Auto-open card detail modal if opened via notification link with ?card=cardId
+  useEffect(() => {
+    if (board && cardParam) {
+      const targetCardId = Number(cardParam);
+      const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
+      const foundCard = allBoardCards.find((c) => c.id === targetCardId);
+      if (foundCard) {
+        setSelectedCard(foundCard);
+      }
+    }
+  }, [board, cardParam]);
 
   // Real-time WebSocket board event handler
   const handleWsBoardEvent = useCallback(
@@ -991,6 +1006,8 @@ export default function CyberBoardView() {
         <CardDetailModal
           card={selectedCard}
           boardType={board.type}
+          boardVisibility={board.visibility}
+          allowedMembers={board.allowed_members}
           currentUserId={user?.id}
           userRole={user?.role}
           boardHostId={board.created_by}
@@ -1016,7 +1033,10 @@ export default function CyberBoardView() {
       {showNewSuggestionModal && (
         <NewSuggestionModal
           boardId={board.id}
+          boardVisibility={board.visibility}
+          allowedMembers={board.allowed_members}
           columns={columns}
+          allCards={columns.flatMap((c) => c.cards || [])}
           boardType={board.type}
           defaultColumnId={targetColumnId}
           currentUserId={user?.id}

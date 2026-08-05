@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { X, Sparkles, UserCheck, Layers } from "lucide-react";
+import { X, Sparkles, Layers, Calendar, Tag, AlertCircle } from "lucide-react";
 import type { CyberboardColumn, CyberboardCard } from "../../utils/api";
-import { fetchMentionSuggestions } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
+import SearchableAssigneePicker from "./SearchableAssigneePicker";
 
 interface NewSuggestionModalProps {
   boardId: number;
+  boardVisibility?: string;
+  allowedMembers?: number[] | null;
   columns: CyberboardColumn[];
   allCards?: CyberboardCard[];
   defaultParentId?: number;
@@ -40,6 +42,8 @@ const COLOR_PRESETS = [
 ];
 
 export default function NewSuggestionModal({
+  boardVisibility = "public",
+  allowedMembers = [],
   columns,
   allCards = [],
   defaultParentId,
@@ -54,17 +58,8 @@ export default function NewSuggestionModal({
 }: NewSuggestionModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [assignedUserId, setAssignedUserId] = useState<number | undefined>(undefined);
+  const [assignedUserId, setAssignedUserId] = useState<number | null>(null);
   const [parentId, setParentId] = useState<number | undefined>(defaultParentId);
-  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchMentionSuggestions().then((users) => {
-      if (Array.isArray(users)) {
-        setUserSuggestions(users);
-      }
-    }).catch(() => {});
-  }, []);
 
   const isColumnAllowed = (col: CyberboardColumn) => {
     const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
@@ -102,12 +97,11 @@ export default function NewSuggestionModal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Filter possible parent cards
+  // Filter available parent cards for sub-task assignment
   const availableParentCards = (allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || [])).filter(
     (c) => !c.parent_id
   );
 
-  // Board Type labels helper
   const isDateVisible = boardType === "activity" || boardType === "roadmap";
 
   const getFormCopy = () => {
@@ -115,43 +109,43 @@ export default function NewSuggestionModal({
       case "ideas":
         return {
           modalTitle: "Submit New Idea",
-          subtitle: "Post a new suggestion or feature idea to the board",
+          subtitle: "Post a suggestion or feature concept to the community board",
           titleLabel: "Idea Title",
-          titlePlaceholder: "e.g. Add dark mode toggle, Mobile app notifications",
-          descLabel: "Description & Concept Details",
-          descPlaceholder: "Describe your idea, benefits, and implementation thoughts...",
+          titlePlaceholder: "e.g. Add dark mode toggle, Mobile app push notifications",
+          descLabel: "Description & Details",
+          descPlaceholder: "Describe your idea, value proposition, and implementation thoughts...",
           submitButton: "Submit Idea",
         };
       case "brainstorming":
         return {
           modalTitle: "New Brainstorm Topic",
-          subtitle: "Start a collaborative topic for discussion and ideation",
+          subtitle: "Start a collaborative topic for team ideation & workshop",
           titleLabel: "Topic Title",
           titlePlaceholder: "e.g. Hackathon 2026 Theme Ideas, Club Workshop Schedule",
-          descLabel: "Topic Outline & Notes",
-          descPlaceholder: "Outline the key points, questions, or agenda for this topic...",
+          descLabel: "Topic Details & Agenda",
+          descPlaceholder: "Outline key discussion points, questions, or goals...",
           submitButton: "Post Topic",
         };
       case "roadmap":
         return {
           modalTitle: "Add Roadmap Initiative / Sub-Task",
           subtitle: "Define a project milestone, feature deliverable, or sub-task",
-          titleLabel: "Initiative / Task Title",
+          titleLabel: "Task / Deliverable Title",
           titlePlaceholder: "e.g. Auth System Overhaul, Database Migration Sprint",
           descLabel: "Deliverables & Scope",
-          descPlaceholder: "Outline key objectives, tech requirements, and deliverables...",
+          descPlaceholder: "Detail key objectives, technical dependencies, and target goals...",
           submitButton: "Add to Roadmap",
         };
       case "activity":
       default:
         return {
           modalTitle: "Propose Event / Activity",
-          subtitle: "Create a task or scheduled club activity on the board",
+          subtitle: "Create a scheduled activity or task on the board",
           titleLabel: "Activity Title",
-          titlePlaceholder: "e.g. Flutter Development Bootcamp, CS Gaming Night",
+          titlePlaceholder: "e.g. Flutter Bootcamp 2026, CS Gaming Social Night",
           descLabel: "Activity Details",
-          descPlaceholder: "Add description, agenda, venue/link, or organizers...",
-          submitButton: "Create Task",
+          descPlaceholder: "Add description, agenda, venue link, or target goals...",
+          submitButton: "Create Activity",
         };
     }
   };
@@ -165,7 +159,7 @@ export default function NewSuggestionModal({
       return;
     }
     if (!columnId) {
-      setError("Please select a column.");
+      setError("Please select a target column.");
       return;
     }
 
@@ -193,81 +187,17 @@ export default function NewSuggestionModal({
   };
 
   const formBody = (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-error text-xs">
-          {error}
+        <div className="p-3.5 rounded-xl bg-error/10 border border-error/20 text-error text-xs flex items-center gap-2 font-medium">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Target Column */}
-      {columns.length > 0 && (
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-            Board Stage / Column
-          </label>
-          <select
-            value={columnId}
-            onChange={(e) => setColumnId(Number(e.target.value))}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-          >
-            {columns.map((col) => {
-              const allowed = isColumnAllowed(col);
-              return (
-                <option key={col.id} value={col.id} disabled={!allowed}>
-                  {col.icon} {col.title} {!allowed ? " 🔒 (Restricted)" : ""}
-                </option>
-              );
-            })}
-          </select>
-        </div>
-      )}
-
-      {/* Parent Task Selector */}
-      {availableParentCards.length > 0 && (
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-primary" />
-            Parent Task (Optional Sub-Task)
-          </label>
-          <select
-            value={parentId || ""}
-            onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-          >
-            <option value="">None (Top-Level Parent Task)</option>
-            {availableParentCards.map((pCard) => (
-              <option key={pCard.id} value={pCard.id}>
-                Sub-task of: {pCard.title}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Assignee Selector */}
+      {/* Task Title */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
-          <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-          Assign Task To (Assignee)
-        </label>
-        <select
-          value={assignedUserId || ""}
-          onChange={(e) => setAssignedUserId(e.target.value ? Number(e.target.value) : undefined)}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-        >
-          <option value="">Unassigned</option>
-          {userSuggestions.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.first_name} {u.last_name} (@{u.username})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Generalized Title */}
-      <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
           {copy.titleLabel} <span className="text-error">*</span>
         </label>
         <input
@@ -276,13 +206,13 @@ export default function NewSuggestionModal({
           onChange={(e) => setTitle(e.target.value)}
           placeholder={copy.titlePlaceholder}
           required
-          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all"
+          className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium"
         />
       </div>
 
-      {/* Generalized Description */}
+      {/* Description */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
           {copy.descLabel}
         </label>
         <MentionTextArea
@@ -290,15 +220,97 @@ export default function NewSuggestionModal({
           onValueChange={setDescription}
           rows={3}
           placeholder={copy.descPlaceholder}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary focus:outline-none focus:border-primary transition-all resize-none"
+          className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
         />
+      </div>
+
+      {/* Grid Controls Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+        {/* Target Stage / Column */}
+        {columns.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+              Board Stage / Column
+            </label>
+            <select
+              value={columnId}
+              onChange={(e) => setColumnId(Number(e.target.value))}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+            >
+              {columns.map((col) => {
+                const allowed = isColumnAllowed(col);
+                return (
+                  <option key={col.id} value={col.id} disabled={!allowed}>
+                    {col.icon} {col.title} {!allowed ? " 🔒 (Restricted)" : ""}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        )}
+
+        {/* Searchable Assignee Picker (Permission-Scoped) */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+            Assignee (Task Owner)
+          </label>
+          <SearchableAssigneePicker
+            value={assignedUserId}
+            onChange={(uId) => setAssignedUserId(uId)}
+            boardVisibility={boardVisibility}
+            allowedMembers={allowedMembers}
+            boardHostId={boardHostId}
+          />
+        </div>
+      </div>
+
+      {/* Sub-Task & Priority Controls Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Parent Task Selector (Optional Sub-card) */}
+        {availableParentCards.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-primary" />
+              Parent Task (Optional Sub-Task)
+            </label>
+            <select
+              value={parentId || ""}
+              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+            >
+              <option value="">None (Top-Level Parent Task)</option>
+              {availableParentCards.map((pCard) => (
+                <option key={pCard.id} value={pCard.id}>
+                  Sub-task of: {pCard.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Priority Level */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+            Priority Level
+          </label>
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value as any)}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            <option value="low">🟢 Low Priority</option>
+            <option value="medium">🟡 Medium Priority</option>
+            <option value="high">🔴 High Priority</option>
+          </select>
+        </div>
       </div>
 
       {/* Target Dates Grid */}
       {isDateVisible && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
               {boardType === "roadmap" ? "Target Start Date" : "Start Date"}
             </label>
             <input
@@ -310,8 +322,9 @@ export default function NewSuggestionModal({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-              {boardType === "roadmap" ? "Target End Date / Deadline" : "End Date"}
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              {boardType === "roadmap" ? "Target Deadline" : "End Date"}
             </label>
             <input
               type="date"
@@ -323,49 +336,33 @@ export default function NewSuggestionModal({
         </div>
       )}
 
-      {/* Priority & Color Tag */}
-      <div className="grid grid-cols-2 gap-3 pt-1">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider">
-            Priority Level
-          </label>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value as any)}
-            className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-          >
-            <option value="low">Low Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="high">High Priority</option>
-          </select>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider block">
-            Color Accent
-          </label>
-          <div className="flex items-center gap-1.5 pt-1">
-            {COLOR_PRESETS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => setColorTag(color)}
-                className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
-                  colorTag === color ? "scale-125 ring-2 ring-white" : "opacity-80 hover:opacity-100"
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
-          </div>
+      {/* Accent Color Tag */}
+      <div className="space-y-1.5 pt-1">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+          <Tag className="w-3.5 h-3.5 text-primary" />
+          Color Tag Accent
+        </label>
+        <div className="flex items-center gap-2 pt-1">
+          {COLOR_PRESETS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => setColorTag(color)}
+              className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
+                colorTag === color ? "scale-125 ring-2 ring-primary ring-offset-2 ring-offset-surface-900 shadow-md" : "opacity-80 hover:opacity-100 hover:scale-110"
+              }`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
         </div>
       </div>
 
       {/* Submit CTAs */}
-      <div className="flex items-center justify-end gap-2 pt-4 border-t border-border/50">
+      <div className="flex items-center justify-end gap-2.5 pt-5 border-t border-border/60">
         <button
           type="button"
           onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+          className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
         >
           Cancel
         </button>
@@ -373,7 +370,7 @@ export default function NewSuggestionModal({
         <button
           type="submit"
           disabled={isSubmitting || !title.trim()}
-          className="px-5 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
+          className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
         >
           <Sparkles className="w-4 h-4" />
           <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>
@@ -396,13 +393,16 @@ export default function NewSuggestionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-surface-900 border border-border/80 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        {/* Top Header Accent Line */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-primary via-accent to-primary" />
+
         {/* Modal Header */}
-        <div className="p-5 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Sparkles className="w-4 h-4" />
+        <div className="px-6 py-4 border-b border-border/60 flex items-center justify-between bg-surface-900/90">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs">
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-text-primary">
@@ -424,7 +424,7 @@ export default function NewSuggestionModal({
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 overflow-y-auto">
+        <div className="p-6 overflow-y-auto scrollbar-thin">
           {formBody}
         </div>
       </div>

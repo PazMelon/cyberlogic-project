@@ -5,10 +5,13 @@ import { fetchMentionSuggestions } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import MentionText from "./MentionText";
+import SearchableAssigneePicker from "./SearchableAssigneePicker";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
   boardType?: string;
+  boardVisibility?: string;
+  allowedMembers?: number[] | null;
   currentUserId?: number;
   userRole?: string;
   boardHostId?: number;
@@ -38,6 +41,8 @@ const PRESET_COLORS = [
 export default function CardDetailModal({
   card,
   boardType = "activity",
+  boardVisibility = "public",
+  allowedMembers = [],
   currentUserId,
   userRole,
   boardHostId,
@@ -137,6 +142,7 @@ export default function CardDetailModal({
       await onUpdateCard(card.id, {
         title: editTitle.trim(),
         description: editDescription.trim(),
+        assigned_user_id: editAssignedUserId || null,
         priority: editPriority,
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
@@ -288,21 +294,16 @@ export default function CardDetailModal({
             />
           </div>
 
-          {/* Assignee Selector */}
+          {/* Searchable Assignee Picker */}
           <div>
             <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Assigned Member (Assignee)</label>
-            <select
-              value={editAssignedUserId || ""}
-              onChange={(e) => setEditAssignedUserId(e.target.value ? Number(e.target.value) : undefined)}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
-            >
-              <option value="">Unassigned</option>
-              {userSuggestions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.first_name} {u.last_name} (@{u.username})
-                </option>
-              ))}
-            </select>
+            <SearchableAssigneePicker
+              value={editAssignedUserId}
+              onChange={(uId) => setEditAssignedUserId(uId || undefined)}
+              boardVisibility={boardVisibility}
+              allowedMembers={allowedMembers}
+              boardHostId={boardHostId}
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
