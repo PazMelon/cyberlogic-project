@@ -27,6 +27,7 @@ class CyberboardCard extends Model
         'phase',
         'position',
         'is_archived',
+        'attachments',
     ];
 
     protected $appends = ['assigned_users'];
@@ -42,6 +43,7 @@ class CyberboardCard extends Model
             'assigned_user_ids' => 'array',
             'parent_id' => 'integer',
             'predecessor_id' => 'integer',
+            'attachments' => 'array',
         ];
     }
 

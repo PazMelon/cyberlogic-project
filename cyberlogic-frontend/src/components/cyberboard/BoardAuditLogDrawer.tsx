@@ -25,6 +25,7 @@ export default function BoardAuditLogDrawer({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterCategory>("all");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
 
@@ -42,6 +43,7 @@ export default function BoardAuditLogDrawer({
     try {
       const data = await fetchCyberboardBoardActivities(boardId);
       setActivities(data);
+      setVisibleCount(20);
     } catch (err: any) {
       console.error("Failed to load board audit logs:", err);
       setError(err.message || "Failed to load activity logs.");
@@ -79,6 +81,19 @@ export default function BoardAuditLogDrawer({
       return true;
     });
   }, [activities, filter]);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [filter]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 60) {
+      if (visibleCount < filteredActivities.length) {
+        setVisibleCount((prev) => prev + 20);
+      }
+    }
+  };
 
   const getActionBadge = (action: string) => {
     switch (action) {
@@ -169,7 +184,7 @@ export default function BoardAuditLogDrawer({
       </div>
 
       {/* Audit Log Timeline Items */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4" onScroll={handleScroll}>
         {isLoading ? (
           <div className="py-12 text-center space-y-3">
             <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
@@ -193,89 +208,98 @@ export default function BoardAuditLogDrawer({
             <p className="text-[11px] text-text-muted">Card actions like creating, editing, or moving will appear here.</p>
           </div>
         ) : (
-          <div className="relative pl-3 border-l border-border/80 space-y-4">
-            {filteredActivities.map((act) => {
-              const badge = getActionBadge(act.action);
-              const IconComp = badge.icon;
-              const userName = act.user
-                ? act.user.name || `${act.user.first_name || ""} ${act.user.last_name || ""}`.trim()
-                : "Board Member";
-              const userAvatar =
-                act.user?.avatar ||
-                "https://api.dicebear.com/9.x/avataaars/svg?seed=" + (act.user_id || "user");
+          <div className="space-y-4">
+            <div className="relative pl-3 border-l border-border/80 space-y-4">
+              {filteredActivities.slice(0, visibleCount).map((act) => {
+                const badge = getActionBadge(act.action);
+                const IconComp = badge.icon;
+                const userName = act.user
+                  ? act.user.name || `${act.user.first_name || ""} ${act.user.last_name || ""}`.trim()
+                  : "Board Member";
+                const userAvatar =
+                  act.user?.avatar ||
+                  "https://api.dicebear.com/9.x/avataaars/svg?seed=" + (act.user_id || "user");
 
-              const formattedTime = act.created_at
-                ? new Date(act.created_at).toLocaleString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "";
+                const formattedTime = act.created_at
+                  ? new Date(act.created_at).toLocaleString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "";
 
-              return (
-                <div key={act.id} className="relative pl-4 group">
-                  {/* Timeline Dot */}
-                  <div className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-surface-900 group-hover:scale-125 transition-all" />
+                return (
+                  <div key={act.id} className="relative pl-4 group">
+                    {/* Timeline Dot */}
+                    <div className="absolute -left-[17px] top-1.5 w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-surface-900 group-hover:scale-125 transition-all" />
 
-                  <div className="p-3 rounded-xl bg-surface-800/60 border border-border/60 hover:bg-surface-800 transition-all space-y-2">
-                    {/* Header: User + Action Badge */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <img
-                          src={userAvatar}
-                          alt={userName}
-                          className="w-5 h-5 rounded-full object-cover border border-border flex-shrink-0"
-                        />
-                        <span className="text-xs font-semibold text-text-primary truncate">{userName}</span>
+                    <div className="p-3 rounded-xl bg-surface-800/60 border border-border/60 hover:bg-surface-800 transition-all space-y-2">
+                      {/* Header: User + Action Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img
+                            src={userAvatar}
+                            alt={userName}
+                            className="w-5 h-5 rounded-full object-cover border border-border flex-shrink-0"
+                          />
+                          <span className="text-xs font-semibold text-text-primary truncate">{userName}</span>
+                        </div>
+
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${badge.bg}`}>
+                          <IconComp className="w-3 h-3" />
+                          <span>{badge.label}</span>
+                        </span>
                       </div>
 
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 ${badge.bg}`}>
-                        <IconComp className="w-3 h-3" />
-                        <span>{badge.label}</span>
-                      </span>
-                    </div>
+                      {/* Description */}
+                      {(() => {
+                        const moveMatch = act.description.match(/Moved card from ['"](.+?)['"] to ['"](.+?)['"]/i);
+                        if (moveMatch) {
+                          const [, fromCol, toCol] = moveMatch;
+                          return (
+                            <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-primary py-0.5">
+                              <span className="text-text-muted">Moved from</span>
+                              <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 font-bold border border-purple-500/30 text-[11px]">
+                                {fromCol}
+                              </span>
+                              <span className="text-purple-400 font-bold text-xs">➔</span>
+                              <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 text-[11px]">
+                                {toCol}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return <p className="text-xs text-text-secondary leading-snug">{act.description}</p>;
+                      })()}
 
-                    {/* Description */}
-                    {(() => {
-                      const moveMatch = act.description.match(/Moved card from ['"](.+?)['"] to ['"](.+?)['"]/i);
-                      if (moveMatch) {
-                        const [, fromCol, toCol] = moveMatch;
-                        return (
-                          <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-primary py-0.5">
-                            <span className="text-text-muted">Moved from</span>
-                            <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 font-bold border border-purple-500/30 text-[11px]">
-                              {fromCol}
-                            </span>
-                            <span className="text-purple-400 font-bold text-xs">➔</span>
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 text-[11px]">
-                              {toCol}
-                            </span>
-                          </div>
-                        );
-                      }
-                      return <p className="text-xs text-text-secondary leading-snug">{act.description}</p>;
-                    })()}
-
-                    {/* Card Title Link & Timestamp Footer */}
-                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-[11px] text-text-muted">
-                      {act.card ? (
-                        <button
-                          type="button"
-                          onClick={() => onSelectCard && act.card && onSelectCard(act.card.id)}
-                          className="font-medium text-primary hover:underline truncate max-w-[180px] cursor-pointer"
-                        >
-                          📄 {act.card.title}
-                        </button>
-                      ) : (
-                        <span className="italic text-[10px]">Activity Log</span>
-                      )}
-                      <span className="flex-shrink-0 text-[10px] text-text-muted">{formattedTime}</span>
+                      {/* Card Title Link & Timestamp Footer */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/40 text-[11px] text-text-muted">
+                        {act.card ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectCard && act.card && onSelectCard(act.card.id)}
+                            className="font-medium text-primary hover:underline truncate max-w-[180px] cursor-pointer"
+                          >
+                            📄 {act.card.title}
+                          </button>
+                        ) : (
+                          <span className="italic text-[10px]">Activity Log</span>
+                        )}
+                        <span className="flex-shrink-0 text-[10px] text-text-muted">{formattedTime}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+
+            {visibleCount < filteredActivities.length && (
+              <div className="py-3 text-center text-xs text-text-muted font-medium flex items-center justify-center gap-2 border-t border-border/40">
+                <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <span>Scroll down to load more ({visibleCount} of {filteredActivities.length} shown)...</span>
+              </div>
+            )}
           </div>
         )}
       </div>

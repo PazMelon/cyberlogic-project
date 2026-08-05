@@ -1,5 +1,5 @@
 import React from "react";
-import { ThumbsUp, MessageSquare, Calendar, Trash2 } from "lucide-react";
+import { ThumbsUp, MessageSquare, Calendar, Trash2, Paperclip } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 
 import MentionText from "./MentionText";
@@ -142,6 +142,13 @@ export default function BoardCard({
         {card.phase && (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 text-[10px] font-semibold border border-cyan-500/20" title={`SDLC Phase: ${card.phase}`}>
             <span>⚡ {card.phase}</span>
+          </div>
+        )}
+
+        {card.attachments && card.attachments.length > 0 && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20" title={`${card.attachments.length} Attachment(s)`}>
+            <Paperclip className="w-3 h-3 text-emerald-400" />
+            <span>{card.attachments.length}</span>
           </div>
         )}
 

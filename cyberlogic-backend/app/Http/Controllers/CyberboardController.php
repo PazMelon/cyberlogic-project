@@ -9,6 +9,8 @@ use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
 use App\Models\CyberboardColumn;
 use App\Models\User;
+use App\Services\AuditLogger;
+use App\Services\ImageOptimizer;
 use App\Services\NotificationService;
 use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
@@ -474,6 +476,7 @@ class CyberboardController extends Controller
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
             'phase' => 'nullable|string|max:100',
+            'attachments' => 'nullable|array',
         ]);
 
         // Default to first column if column_id is not specified
@@ -623,6 +626,7 @@ class CyberboardController extends Controller
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
             'phase' => 'nullable|string|max:100',
+            'attachments' => 'nullable|array',
         ]);
 
         if (isset($validated['assigned_user_ids'])) {
@@ -1247,5 +1251,31 @@ class CyberboardController extends Controller
         ], 'column:deleted');
 
         return response()->json(['message' => 'Column deleted successfully']);
+    }
+
+    /**
+     * POST /api/cyberboard/cards/upload-attachment
+     * Upload an image attachment for a task card.
+     */
+    public function uploadAttachment(Request $request): JsonResponse
+    {
+        $request->validate([
+            'image' => 'required|file|mimes:jpeg,png,webp,jpg,gif|max:5120',
+        ]);
+
+        if ($request->file('image')->isValid()) {
+            $path = ImageOptimizer::optimize($request->file('image'), 'cyberboard_attachments');
+            $file = $request->file('image');
+
+            AuditLogger::log('uploaded', 'CyberboardCard', null, 'Task Card Attachment Image', ['path' => $path], $request);
+
+            return response()->json([
+                'url' => asset('storage/' . $path),
+                'original_name' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+            ]);
+        }
+
+        return response()->json(['error' => 'Failed to upload attachment image.'], 400);
     }
 }

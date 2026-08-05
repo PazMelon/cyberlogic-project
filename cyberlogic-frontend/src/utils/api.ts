@@ -2963,6 +2963,18 @@ export interface CyberboardCardActivity {
   };
 }
 
+export interface CyberboardAttachment {
+  id: string;
+  type: "link" | "image";
+  title: string;
+  url: string;
+  provider?: "google_drive" | "dropbox" | "onedrive" | "figma" | "github" | "general" | "upload";
+  file_size?: number;
+  original_size?: number;
+  optimized_size?: number;
+  created_at: string;
+}
+
 export interface CyberboardCard {
   id: number;
   column_id: number;
@@ -2980,6 +2992,7 @@ export interface CyberboardCard {
   phase?: string | null;
   position: number;
   is_archived: boolean;
+  attachments?: CyberboardAttachment[] | null;
   created_at: string;
   updated_at: string;
   user?: CyberboardUserSummary;
@@ -3133,6 +3146,7 @@ export async function createCyberboardCard(
     color_tag?: string;
     priority?: "low" | "medium" | "high";
     phase?: string;
+    attachments?: CyberboardAttachment[] | null;
   }
 ): Promise<CyberboardCard> {
   const res = await apiRequest(`/api/cyberboard/${boardId}/cards`, {
@@ -3143,6 +3157,25 @@ export async function createCyberboardCard(
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.message || "Failed to create card.");
   }
+  return res.json();
+}
+
+export async function uploadCyberboardAttachment(
+  file: File
+): Promise<{ url: string; original_name: string; size: number }> {
+  const formData = new FormData();
+  formData.append("image", file);
+
+  const res = await apiRequest("/api/cyberboard/cards/upload-attachment", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.error || "Failed to upload attachment image.");
+  }
+
   return res.json();
 }
 

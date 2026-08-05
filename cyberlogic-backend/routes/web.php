@@ -252,6 +252,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/cyberboard/{id}', [CyberboardController::class, 'destroyBoard']);
 
     Route::post('/api/cyberboard/{boardId}/cards', [CyberboardController::class, 'storeCard']);
+    Route::post('/api/cyberboard/cards/upload-attachment', [CyberboardController::class, 'uploadAttachment']);
     Route::put('/api/cyberboard/cards/{id}', [CyberboardController::class, 'updateCard']);
     Route::delete('/api/cyberboard/cards/{id}', [CyberboardController::class, 'destroyCard']);
     Route::put('/api/cyberboard/cards/{id}/move', [CyberboardController::class, 'moveCard']);

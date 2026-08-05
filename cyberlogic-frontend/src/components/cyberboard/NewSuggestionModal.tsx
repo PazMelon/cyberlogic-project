@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Sparkles, Layers, Calendar, Tag, AlertCircle } from "lucide-react";
-import type { CyberboardColumn, CyberboardCard } from "../../utils/api";
+import { X, Sparkles, Layers, Calendar, Tag, AlertCircle, Clock } from "lucide-react";
+import type { CyberboardColumn, CyberboardCard, CyberboardAttachment } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
@@ -23,6 +23,7 @@ interface NewSuggestionModalProps {
   onSubmit: (data: {
     column_id?: number;
     parent_id?: number | null;
+    predecessor_id?: number | null;
     assigned_user_id?: number | null;
     assigned_user_ids?: number[] | null;
     title: string;
@@ -32,6 +33,7 @@ interface NewSuggestionModalProps {
     priority?: "low" | "medium" | "high";
     color_tag?: string;
     phase?: string;
+    attachments?: CyberboardAttachment[] | null;
   }) => Promise<void>;
 }
 
@@ -90,6 +92,7 @@ export default function NewSuggestionModal({
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
   const [phase, setPhase] = useState<string>(() => safeBoardPhases[0]?.name || "");
+  const [predecessorId, setPredecessorId] = useState<number | undefined>(undefined);
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -110,6 +113,8 @@ export default function NewSuggestionModal({
     (c) => !c.parent_id
   );
 
+  const availablePredecessorCards = allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || []);
+
   const isDateVisible = boardType === "activity" || boardType === "roadmap";
 
   const getFormCopy = () => {
@@ -117,21 +122,21 @@ export default function NewSuggestionModal({
       case "ideas":
         return {
           modalTitle: "Submit New Idea",
-          subtitle: "Post a suggestion or feature concept to the community board",
+          subtitle: "Propose a new feature, improvement, or creative concept",
           titleLabel: "Idea Title",
-          titlePlaceholder: "e.g. Add dark mode toggle, Mobile app push notifications",
-          descLabel: "Description & Details",
-          descPlaceholder: "Describe your idea, value proposition, and implementation thoughts...",
+          titlePlaceholder: "e.g. Add dark mode toggle to dashboard",
+          descLabel: "Detailed Concept & Context",
+          descPlaceholder: "Describe your idea, benefits, or implementation notes...",
           submitButton: "Submit Idea",
         };
       case "brainstorming":
         return {
-          modalTitle: "New Brainstorm Topic",
-          subtitle: "Start a collaborative topic for team ideation & workshop",
+          modalTitle: "New Discussion Topic",
+          subtitle: "Start a open topic for team feedback & collaborative discussion",
           titleLabel: "Topic Title",
-          titlePlaceholder: "e.g. Hackathon 2026 Theme Ideas, Club Workshop Schedule",
-          descLabel: "Topic Details & Agenda",
-          descPlaceholder: "Outline key discussion points, questions, or goals...",
+          titlePlaceholder: "e.g. Brainstorming session for anniversary event",
+          descLabel: "Topic Background",
+          descPlaceholder: "Outline key questions or context for the team...",
           submitButton: "Post Topic",
         };
       case "roadmap":
@@ -177,6 +182,7 @@ export default function NewSuggestionModal({
       await onSubmit({
         column_id: columnId,
         parent_id: parentId || null,
+        predecessor_id: predecessorId || null,
         assigned_user_id: assignedUserIds[0] || null,
         assigned_user_ids: assignedUserIds,
         title: title.trim(),
@@ -336,6 +342,28 @@ export default function NewSuggestionModal({
           )}
         </select>
       </div>
+
+      {/* Predecessor Task Selector (Dependency Link) */}
+      {availablePredecessorCards.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            Predecessor Task (Dependency Link)
+          </label>
+          <select
+            value={predecessorId || ""}
+            onChange={(e) => setPredecessorId(e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            <option value="">No Predecessor (Independent Task)</option>
+            {availablePredecessorCards.map((pCard) => (
+              <option key={`pred-new-${pCard.id}`} value={pCard.id}>
+                {pCard.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Target Dates Grid */}
       {isDateVisible && (
