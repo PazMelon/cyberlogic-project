@@ -2975,6 +2975,12 @@ export interface CyberboardAttachment {
   created_at: string;
 }
 
+export interface CyberboardChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 export interface CyberboardCard {
   id: number;
   column_id: number;
@@ -2993,6 +2999,8 @@ export interface CyberboardCard {
   position: number;
   is_archived: boolean;
   attachments?: CyberboardAttachment[] | null;
+  checklist?: CyberboardChecklistItem[] | null;
+  completion_percentage?: number | null;
   created_at: string;
   updated_at: string;
   user?: CyberboardUserSummary;

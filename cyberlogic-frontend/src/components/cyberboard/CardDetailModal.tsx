@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User,
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
-  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply
+  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare
 } from "lucide-react";
-import type { CyberboardCard, CyberboardAttachment } from "../../utils/api";
+import type { CyberboardCard, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment } from "../../utils/api";
 import { optimizeAndConvertToWebP } from "../../utils/imageOptimizer";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -149,6 +149,10 @@ export default function CardDetailModal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Checklist & Completion Rate state
+  const [checklist, setChecklist] = useState<CyberboardChecklistItem[]>([]);
+  const [manualCompletionPercentage, setManualCompletionPercentage] = useState<number>(0);
+
   useEffect(() => {
     if (card) {
       setEditTitle(card.title || "");
@@ -166,8 +170,82 @@ export default function CardDetailModal({
       setEditPhase(card.phase || "");
       setEditPredecessorId(card.predecessor_id || null);
       setEditParentId(card.parent_id || null);
+      setChecklist(card.checklist || []);
+      setManualCompletionPercentage(card.completion_percentage ?? 0);
     }
   }, [card]);
+
+  const handleToggleChecklistItem = async (itemId: string) => {
+    const updated = checklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    setChecklist(updated);
+    const completedCount = updated.filter((item) => item.completed).length;
+    const rate = Math.round((completedCount / updated.length) * 100);
+    if (card && onUpdateCard) {
+      try {
+        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+      } catch (err) {
+        console.error("Failed to update checklist:", err);
+      }
+    }
+  };
+
+  const handleAddChecklistItem = async (text: string) => {
+    if (!text.trim()) return;
+    const newItem: CyberboardChecklistItem = {
+      id: `check-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      text: text.trim(),
+      completed: false,
+    };
+    const updated = [...checklist, newItem];
+    setChecklist(updated);
+    const completedCount = updated.filter((item) => item.completed).length;
+    const rate = Math.round((completedCount / updated.length) * 100);
+    if (card && onUpdateCard) {
+      try {
+        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+      } catch (err) {
+        console.error("Failed to add checklist item:", err);
+      }
+    }
+  };
+
+  const handleDeleteChecklistItem = async (itemId: string) => {
+    const updated = checklist.filter((item) => item.id !== itemId);
+    setChecklist(updated);
+    const rate = updated.length > 0
+      ? Math.round((updated.filter((item) => item.completed).length / updated.length) * 100)
+      : manualCompletionPercentage;
+    if (card && onUpdateCard) {
+      try {
+        await onUpdateCard(card.id, { checklist: updated, completion_percentage: rate });
+      } catch (err) {
+        console.error("Failed to delete checklist item:", err);
+      }
+    }
+  };
+
+  const sliderDebounceTimerRef = useRef<any>(null);
+
+  const handleManualCompletionChange = (val: number) => {
+    const clamped = Math.max(0, Math.min(100, val));
+    setManualCompletionPercentage(clamped);
+
+    if (sliderDebounceTimerRef.current) {
+      clearTimeout(sliderDebounceTimerRef.current);
+    }
+
+    sliderDebounceTimerRef.current = setTimeout(async () => {
+      if (card && onUpdateCard && checklist.length === 0) {
+        try {
+          await onUpdateCard(card.id, { completion_percentage: clamped });
+        } catch (err) {
+          console.error("Failed to update completion percentage:", err);
+        }
+      }
+    }, 400);
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -351,6 +429,10 @@ export default function CardDetailModal({
     e.preventDefault();
     if (!editTitle.trim() || !onUpdateCard || isSavingEdit) return;
 
+    const computedRate = checklist.length > 0
+      ? Math.round((checklist.filter((i) => i.completed).length / checklist.length) * 100)
+      : manualCompletionPercentage;
+
     setIsSavingEdit(true);
     try {
       await onUpdateCard(card.id, {
@@ -365,6 +447,8 @@ export default function CardDetailModal({
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
         activity_end_date: editActivityEndDate || null,
+        checklist: checklist.length > 0 ? checklist : null,
+        completion_percentage: computedRate,
       });
       setIsEditing(false);
     } catch (err) {
@@ -555,6 +639,17 @@ export default function CardDetailModal({
                   placeholder="Provide detailed context, instructions, or sub-task notes..."
                 />
               </div>
+
+              {/* Task Checklist & Completion Progress Section (Edit Mode) */}
+              <TaskChecklistSection
+                checklist={checklist}
+                completionPercentage={manualCompletionPercentage}
+                onToggleItem={handleToggleChecklistItem}
+                onAddItem={handleAddChecklistItem}
+                onDeleteItem={handleDeleteChecklistItem}
+                onManualCompletionChange={handleManualCompletionChange}
+                canEdit={true}
+              />
             </div>
 
             {/* Right Column: Metadata & Controls Sidebar */}
@@ -763,6 +858,17 @@ export default function CardDetailModal({
               {card.description ? <MentionText content={card.description} /> : <span className="text-text-muted italic">No detailed description provided.</span>}
             </div>
           </div>
+
+          {/* Task Checklist & Completion Progress Section (View Mode) */}
+          <TaskChecklistSection
+            checklist={checklist}
+            completionPercentage={manualCompletionPercentage}
+            onToggleItem={handleToggleChecklistItem}
+            onAddItem={handleAddChecklistItem}
+            onDeleteItem={handleDeleteChecklistItem}
+            onManualCompletionChange={handleManualCompletionChange}
+            canEdit={canEditCard}
+          />
 
           {/* Sub-Cards / Sub-Tasks Breakdown Checklist */}
           {card.sub_cards && card.sub_cards.length > 0 && (
@@ -1623,6 +1729,153 @@ export default function CardDetailModal({
           </div>
         );
       })()}
+    </div>
+  );
+}
+
+function TaskChecklistSection({
+  checklist = [],
+  completionPercentage = 0,
+  onToggleItem,
+  onAddItem,
+  onDeleteItem,
+  onManualCompletionChange,
+  canEdit = true,
+}: {
+  checklist: CyberboardChecklistItem[];
+  completionPercentage: number;
+  onToggleItem: (id: string) => void;
+  onAddItem: (text: string) => void;
+  onDeleteItem: (id: string) => void;
+  onManualCompletionChange: (val: number) => void;
+  canEdit?: boolean;
+}) {
+  const [newItemText, setNewItemText] = useState("");
+
+  const totalItems = checklist.length;
+  const completedCount = checklist.filter((i) => i.completed).length;
+  const calculatedRate = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : completionPercentage;
+
+  const handleSubmitNewItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemText.trim()) return;
+    onAddItem(newItemText.trim());
+    setNewItemText("");
+  };
+
+  return (
+    <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-md">
+      {/* Header & Overall Progress Bar */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-text-primary text-xs font-bold uppercase tracking-wider">
+            <CheckSquare className="w-4 h-4 text-emerald-400" />
+            <span>Task Checklist & Completion Rate</span>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-extrabold">
+            {totalItems > 0 ? `${completedCount}/${totalItems} (${calculatedRate}%)` : `${calculatedRate}% Done`}
+          </span>
+        </div>
+
+        {/* Progress Fill Bar */}
+        <div className="w-full h-2 rounded-full bg-surface-800 border border-border/60 overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-300 rounded-full"
+            style={{ width: `${calculatedRate}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Checklist Items Scroll List */}
+      {totalItems > 0 && (
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
+          {checklist.map((item) => (
+            <div
+              key={item.id}
+              className={`flex items-center justify-between gap-2 p-2 rounded-xl border transition-all ${
+                item.completed
+                  ? "bg-emerald-500/5 border-emerald-500/20 text-text-muted"
+                  : "bg-surface-800/80 border-border/60 text-text-primary"
+              }`}
+            >
+              <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={item.completed}
+                  onChange={() => canEdit && onToggleItem(item.id)}
+                  disabled={!canEdit}
+                  className="w-4 h-4 rounded border-border text-emerald-500 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer"
+                />
+                <span className={`text-xs font-medium truncate ${item.completed ? "line-through opacity-70" : ""}`}>
+                  {item.text}
+                </span>
+              </label>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteItem(item.id)}
+                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors"
+                  title="Remove checklist item"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add New Item Form */}
+      {canEdit && (
+        <form onSubmit={handleSubmitNewItem} className="flex items-center gap-2 pt-1">
+          <input
+            type="text"
+            value={newItemText}
+            onChange={(e) => setNewItemText(e.target.value)}
+            placeholder="Add a sub-task / checklist item..."
+            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!newItemText.trim()}
+            className="px-3 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add</span>
+          </button>
+        </form>
+      )}
+
+      {/* Manual Completion Percentage Slider (Shown when NO checklist items exist) */}
+      {totalItems === 0 && (
+        <div className="pt-2 border-t border-border/40 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-text-muted font-semibold">Manual Completion Percentage:</span>
+            <span className="font-bold text-primary">{completionPercentage}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={completionPercentage}
+              onChange={(e) => canEdit && onManualCompletionChange(Number(e.target.value))}
+              disabled={!canEdit}
+              className="flex-1 accent-emerald-500 h-2 rounded-lg bg-surface-800 cursor-pointer"
+            />
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={completionPercentage}
+              onChange={(e) => canEdit && onManualCompletionChange(Number(e.target.value))}
+              disabled={!canEdit}
+              className="w-16 px-2 py-1 rounded-lg bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

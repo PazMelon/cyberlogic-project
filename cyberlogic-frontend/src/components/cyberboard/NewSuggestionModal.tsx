@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Sparkles, Layers, Calendar, Tag, AlertCircle, Clock } from "lucide-react";
-import type { CyberboardColumn, CyberboardCard, CyberboardAttachment } from "../../utils/api";
+import { X, Sparkles, Layers, Calendar, Tag, AlertCircle, Clock, CheckSquare, Plus, Trash2 } from "lucide-react";
+import type { CyberboardColumn, CyberboardCard, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
@@ -35,6 +35,8 @@ interface NewSuggestionModalProps {
     color_tag?: string;
     phase?: string;
     attachments?: CyberboardAttachment[] | null;
+    checklist?: CyberboardChecklistItem[] | null;
+    completion_percentage?: number | null;
   }) => Promise<void>;
 }
 
@@ -166,6 +168,25 @@ export default function NewSuggestionModal({
 
   const copy = getFormCopy();
 
+  const [checklist, setChecklist] = useState<CyberboardChecklistItem[]>([]);
+  const [newChecklistText, setNewChecklistText] = useState("");
+  const [completionPercentage, setCompletionPercentage] = useState<number>(0);
+
+  const handleAddChecklistItem = () => {
+    if (!newChecklistText.trim()) return;
+    const newItem: CyberboardChecklistItem = {
+      id: `check-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      text: newChecklistText.trim(),
+      completed: false,
+    };
+    setChecklist((prev) => [...prev, newItem]);
+    setNewChecklistText("");
+  };
+
+  const handleDeleteChecklistItem = (id: string) => {
+    setChecklist((prev) => prev.filter((i) => i.id !== id));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
@@ -176,6 +197,10 @@ export default function NewSuggestionModal({
       setError("Please select a target column.");
       return;
     }
+
+    const computedRate = checklist.length > 0
+      ? Math.round((checklist.filter((i) => i.completed).length / checklist.length) * 100)
+      : completionPercentage;
 
     setIsSubmitting(true);
     setError(null);
@@ -193,6 +218,8 @@ export default function NewSuggestionModal({
         priority,
         color_tag: colorTag,
         phase: phase || undefined,
+        checklist: checklist.length > 0 ? checklist : null,
+        completion_percentage: computedRate,
       });
       onClose();
     } catch (err: any) {
@@ -227,18 +254,92 @@ export default function NewSuggestionModal({
         />
       </div>
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
-          {copy.descLabel}
-        </label>
-        <MentionTextArea
-          value={description}
-          onValueChange={setDescription}
-          rows={3}
-          placeholder={copy.descPlaceholder}
-          className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
-        />
+      {/* Task Checklist & Completion Monitoring Section */}
+      <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-xs">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-text-primary uppercase tracking-wider">
+            <CheckSquare className="w-4 h-4 text-emerald-400" />
+            <span>Task Checklist & Initial Completion</span>
+          </div>
+          {checklist.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-extrabold border border-emerald-500/20">
+              {checklist.length} items
+            </span>
+          )}
+        </div>
+
+        {/* Existing Checklist Items List */}
+        {checklist.length > 0 && (
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+            {checklist.map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-800/80 border border-border/60 text-xs">
+                <span className="font-medium text-text-primary truncate">{item.text}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteChecklistItem(item.id)}
+                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add Checklist Item Row */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newChecklistText}
+            onChange={(e) => setNewChecklistText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddChecklistItem();
+              }
+            }}
+            placeholder="Add a checklist item (e.g. Write unit tests)..."
+            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleAddChecklistItem}
+            disabled={!newChecklistText.trim()}
+            className="px-3 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Item</span>
+          </button>
+        </div>
+
+        {/* Manual Completion Percentage (Shown when no checklist items added) */}
+        {checklist.length === 0 && (
+          <div className="pt-2 border-t border-border/40 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-text-muted font-semibold">Initial Manual Completion Rate:</span>
+              <span className="font-bold text-primary">{completionPercentage}%</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={completionPercentage}
+                onChange={(e) => setCompletionPercentage(Number(e.target.value))}
+                className="flex-1 accent-emerald-500 h-2 rounded-lg bg-surface-800 cursor-pointer"
+              />
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={completionPercentage}
+                onChange={(e) => setCompletionPercentage(Math.max(0, Math.min(100, Number(e.target.value))))}
+                className="w-16 px-2 py-1 rounded-lg bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid Controls Section */}

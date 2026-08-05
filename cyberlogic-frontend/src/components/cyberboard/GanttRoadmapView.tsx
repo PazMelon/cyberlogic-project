@@ -796,6 +796,14 @@ export default function GanttRoadmapView({
     [timelinePositionMap, selectedYear]
   );
 
+  const getCardCompletionRate = useCallback((card: CyberboardCard): number => {
+    if (card.checklist && card.checklist.length > 0) {
+      const completedCount = card.checklist.filter((item) => item.completed).length;
+      return Math.round((completedCount / card.checklist.length) * 100);
+    }
+    return card.completion_percentage ?? 0;
+  }, []);
+
   const formatDateRangeTooltip = (startStr?: string, endStr?: string) => {
     if (!startStr) return "No date set";
     try {
@@ -1946,13 +1954,33 @@ export default function GanttRoadmapView({
                                         backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
                                       }}
                                     >
-                                      <div className="flex items-center gap-1.5 truncate pr-1">
-                                        <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
-                                          {card.title}
-                                        </span>
-                                      </div>
+                                      {(() => {
+                                        const rate = getCardCompletionRate(card);
+                                        return (
+                                          <>
+                                            {rate > 0 && (
+                                              <div
+                                                className="absolute left-0 top-0 bottom-0 bg-white/30 border-r border-white/40 pointer-events-none transition-all duration-300 rounded-l-xl z-0"
+                                                style={{ width: `${rate}%` }}
+                                              />
+                                            )}
+                                            <div className="flex items-center gap-1.5 truncate pr-1 z-10">
+                                              <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
+                                                {card.title}
+                                              </span>
+                                              {rate > 0 && (
+                                                <span className="px-1.5 py-0.2 rounded-full bg-black/40 border border-white/30 text-[9px] font-extrabold text-white shadow-xs backdrop-blur-xs flex-shrink-0">
+                                                  {rate}%
+                                                </span>
+                                              )}
+                                            </div>
 
-                                      {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
+                                            <div className="z-10">
+                                              {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
+                                            </div>
+                                          </>
+                                        );
+                                      })()}
                                     </div>
 
                                     {/* Right Date Handle (End Date extension) */}
@@ -2053,8 +2081,30 @@ export default function GanttRoadmapView({
                                               backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
                                             }}
                                           >
-                                            <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
-                                            {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                            {(() => {
+                                              const subRate = getCardCompletionRate(subCard);
+                                              return (
+                                                <>
+                                                  {subRate > 0 && (
+                                                    <div
+                                                      className="absolute left-0 top-0 bottom-0 bg-white/30 border-r border-white/40 pointer-events-none transition-all duration-300 rounded-l-lg z-0"
+                                                      style={{ width: `${subRate}%` }}
+                                                    />
+                                                  )}
+                                                  <div className="flex items-center gap-1.5 truncate z-10">
+                                                    <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
+                                                    {subRate > 0 && (
+                                                      <span className="px-1.5 py-0.2 rounded-full bg-black/40 border border-white/30 text-[8px] font-extrabold text-white shadow-xs backdrop-blur-xs flex-shrink-0">
+                                                        {subRate}%
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                  <div className="z-10">
+                                                    {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                                  </div>
+                                                </>
+                                              );
+                                            })()}
                                           </div>
 
                                           {/* Subcard Right Handle */}
