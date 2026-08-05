@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
-import { fetchMentionSuggestions } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import MentionText from "./MentionText";
@@ -68,7 +67,6 @@ export default function CardDetailModal({
   const [editActivityDate, setEditActivityDate] = useState<string>("");
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
   const [editAssignedUserId, setEditAssignedUserId] = useState<number | undefined>(undefined);
-  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
@@ -77,14 +75,6 @@ export default function CardDetailModal({
     const handleResize = () => setIsMobile(window.innerWidth < 640);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    fetchMentionSuggestions().then((users) => {
-      if (Array.isArray(users)) {
-        setUserSuggestions(users);
-      }
-    }).catch(() => {});
   }, []);
 
   useEffect(() => {
