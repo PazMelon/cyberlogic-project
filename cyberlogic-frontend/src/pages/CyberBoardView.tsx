@@ -35,7 +35,9 @@ import AddColumnModal from "../components/cyberboard/AddColumnModal";
 import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal";
 import BoardSettingsModal from "../components/cyberboard/BoardSettingsModal";
 import BoardAuditLogDrawer from "../components/cyberboard/BoardAuditLogDrawer";
+import BoardControlsSidebar from "../components/cyberboard/BoardControlsSidebar";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
+import { exportBoardToExcel } from "../utils/exportBoardToExcel";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -78,6 +80,7 @@ export default function CyberBoardView() {
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(true);
+  const [showControlsSidebar, setShowControlsSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<"board" | "gantt">("board");
 
   // Load board data
@@ -883,6 +886,8 @@ export default function CyberBoardView() {
         isConnected={isConnected}
         activeCollaboratorsCount={activeCollaboratorsList.length}
         showCollaborators={showCollaborators}
+        showControlsSidebar={showControlsSidebar}
+        onToggleControlsSidebar={() => setShowControlsSidebar((prev) => !prev)}
         copiedLink={copiedLink}
         canManageBoard={canManageBoard}
         viewMode={viewMode}
@@ -895,6 +900,13 @@ export default function CyberBoardView() {
         }}
         onOpenSettings={() => setShowBoardSettingsModal(true)}
         onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
+        onExportToExcel={() => {
+          if (board) {
+            const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
+            exportBoardToExcel(board, board.columns || [], allBoardCards);
+            showToast("Excel spreadsheet exported successfully!", "success");
+          }
+        }}
       />
 
       {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar OR Gantt Roadmap View) */}
@@ -1106,6 +1118,30 @@ export default function CyberBoardView() {
         onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
         onConfirm={confirmModal.onConfirm}
       />
+
+      {/* Unified Board Controls Sidebar Overlay */}
+      {board && (
+        <BoardControlsSidebar
+          isOpen={showControlsSidebar}
+          onClose={() => setShowControlsSidebar(false)}
+          board={board}
+          activeCollaboratorsCount={activeCollaboratorsList.length}
+          boardPresenceUsers={boardPresenceUsers}
+          copiedLink={copiedLink}
+          canManageBoard={canManageBoard}
+          viewMode={viewMode}
+          onCopyShareLink={handleCopyShareLink}
+          onOpenSettings={() => setShowBoardSettingsModal(true)}
+          onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
+          onExportToExcel={() => {
+            if (board) {
+              const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
+              exportBoardToExcel(board, board.columns || [], allBoardCards);
+              showToast("Excel spreadsheet exported successfully!", "success");
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

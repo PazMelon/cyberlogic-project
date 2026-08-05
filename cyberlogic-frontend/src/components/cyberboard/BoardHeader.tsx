@@ -13,6 +13,8 @@ import {
   LayoutGrid,
   GanttChart,
   MoreVertical,
+  SlidersHorizontal,
+  FileSpreadsheet,
 } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
@@ -26,11 +28,14 @@ interface BoardHeaderProps {
   canManageBoard?: boolean;
   viewMode?: "board" | "gantt";
   onViewModeChange?: (mode: "board" | "gantt") => void;
+  showControlsSidebar?: boolean;
+  onToggleControlsSidebar?: () => void;
   onToggleCollaborators: () => void;
   onCopyShareLink: () => void;
   onSuggestActivityClick: () => void;
   onOpenSettings?: () => void;
   onOpenBoardAuditLog: () => void;
+  onExportToExcel?: () => void;
 }
 
 export default function BoardHeader({
@@ -43,11 +48,14 @@ export default function BoardHeader({
   canManageBoard,
   viewMode = "board",
   onViewModeChange,
+  showControlsSidebar,
+  onToggleControlsSidebar,
   onToggleCollaborators,
   onCopyShareLink,
   onSuggestActivityClick,
   onOpenSettings,
   onOpenBoardAuditLog,
+  onExportToExcel,
 }: BoardHeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -123,7 +131,7 @@ export default function BoardHeader({
         </Link>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
-          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[120px] xs:max-w-[170px] sm:max-w-xs md:max-w-md">
+          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[160px] sm:max-w-xs md:max-w-sm lg:max-w-md">
             {board.title}
           </h1>
 
@@ -141,15 +149,15 @@ export default function BoardHeader({
             </span>
           )}
 
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden md:inline-block ${catBadge.bg}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden lg:inline-block ${catBadge.bg}`}>
             {catBadge.label}
           </span>
 
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden lg:inline-block ${typeBadge.bg}`}>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border flex-shrink-0 hidden xl:inline-block ${typeBadge.bg}`}>
             {typeBadge.label}
           </span>
 
-          <span className="px-2 py-0.5 rounded-full bg-surface-800 text-text-secondary text-[10px] font-bold border border-border flex-shrink-0 hidden sm:inline-block">
+          <span className="px-2 py-0.5 rounded-full bg-surface-800 text-text-secondary text-[10px] font-bold border border-border flex-shrink-0 hidden lg:inline-block">
             {totalCardsCount} cards
           </span>
 
@@ -196,8 +204,8 @@ export default function BoardHeader({
           </div>
         )}
 
-        {/* Desktop Buttons (Visible on md screens and larger) */}
-        <div className="hidden md:flex items-center gap-1.5 sm:gap-2">
+        {/* Desktop Buttons (Visible on 2xl screens >= 1440px and larger) */}
+        <div className="hidden 2xl:flex items-center gap-1.5 sm:gap-2">
           {/* Activity Audit Log Button */}
           <button
             type="button"
@@ -206,7 +214,7 @@ export default function BoardHeader({
             title="Board Activity Audit Logs"
           >
             <History className="w-4 h-4 flex-shrink-0 text-primary" />
-            <span className="hidden xl:inline">Activity Logs</span>
+            <span>Activity Logs</span>
           </button>
 
           {/* Collaborators Button */}
@@ -221,7 +229,7 @@ export default function BoardHeader({
             title="Toggle Active Collaborators Panel"
           >
             <Users className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden lg:inline">Collaborators</span>
+            <span>Collaborators</span>
             <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">
               {activeCollaboratorsCount}
             </span>
@@ -235,8 +243,21 @@ export default function BoardHeader({
             title="Share Board Link"
           >
             <Share2 className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden lg:inline">{copiedLink ? "Copied!" : "Share"}</span>
+            <span>{copiedLink ? "Copied!" : "Share"}</span>
           </button>
+
+          {/* Export Excel Button */}
+          {onExportToExcel && (
+            <button
+              type="button"
+              onClick={onExportToExcel}
+              className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
+              title="Export Board to Excel Spreadsheet (.xlsx)"
+            >
+              <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+              <span>Export Excel</span>
+            </button>
+          )}
 
           {/* Settings Button */}
           {canManageBoard && onOpenSettings && (
@@ -247,10 +268,27 @@ export default function BoardHeader({
               title="Board Settings"
             >
               <Settings className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden lg:inline">Settings</span>
+              <span>Settings</span>
             </button>
           )}
         </div>
+
+        {/* Board Controls Sidebar Toggle Button (Visible on screens < 2xl) */}
+        {onToggleControlsSidebar && (
+          <button
+            type="button"
+            onClick={onToggleControlsSidebar}
+            className={`2xl:hidden px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              showControlsSidebar
+                ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
+                : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
+            }`}
+            title="Board Controls & Options"
+          >
+            <SlidersHorizontal className="w-4 h-4 flex-shrink-0 text-primary" />
+            <span>Controls</span>
+          </button>
+        )}
 
         {/* Primary CTA (+ Suggest Activity / Milestone) */}
         <button
@@ -278,7 +316,39 @@ export default function BoardHeader({
 
         {/* Mobile / Tablet Overflow Dropdown Menu */}
         {showMenu && (
-          <div className="md:hidden absolute top-full right-0 mt-2 w-52 rounded-2xl bg-surface-900 border border-border/80 shadow-2xl p-2 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+          <div className="md:hidden absolute top-full right-0 mt-2 w-56 rounded-2xl bg-surface-900 border border-border/80 shadow-2xl p-2 z-50 flex flex-col gap-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150">
+            {onExportToExcel && (
+              <button
+                type="button"
+                onClick={() => {
+                  onExportToExcel();
+                  setShowMenu(false);
+                }}
+                className="w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <span>Export Board to Excel (.xlsx)</span>
+              </button>
+            )}
+
+            {onToggleControlsSidebar && (
+              <button
+                type="button"
+                onClick={() => {
+                  onToggleControlsSidebar();
+                  setShowMenu(false);
+                }}
+                className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors ${
+                  showControlsSidebar
+                    ? "bg-primary/15 text-primary"
+                    : "text-text-primary hover:bg-surface-800"
+                }`}
+              >
+                <SlidersHorizontal className="w-4 h-4 text-primary" />
+                <span>Board Controls Drawer</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => {

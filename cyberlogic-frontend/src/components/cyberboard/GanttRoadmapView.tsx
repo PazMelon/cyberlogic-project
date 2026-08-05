@@ -11,6 +11,7 @@ import {
   Users,
   ZoomIn,
   ZoomOut,
+  X,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard } from "../../utils/api";
 
@@ -58,6 +59,7 @@ export default function GanttRoadmapView({
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
+  const [showGanttControlsSidebar, setShowGanttControlsSidebar] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
@@ -537,65 +539,27 @@ export default function GanttRoadmapView({
   return (
     <div ref={containerRef} className="flex flex-col w-full h-full bg-surface-950 text-text-primary overflow-hidden">
       {/* 1. Responsive Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md">
-        {/* Left: Grouping, Scale & Zoom controls */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
-          {/* Mobile & Tablet Dropdown Controls (< md screens) */}
-          <div className="flex md:hidden items-center gap-2 w-full justify-between sm:justify-start flex-wrap">
-            <div className="flex items-center gap-1.5 bg-surface-800/90 px-2 py-1 rounded-xl border border-border/80">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-              <select
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
-                className="bg-transparent text-text-primary text-xs font-semibold focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="phase" className="bg-surface-900 text-text-primary">SDLC Phase</option>
-                <option value="column" className="bg-surface-900 text-text-primary">Columns</option>
-                <option value="priority" className="bg-surface-900 text-text-primary">Priority</option>
-                <option value="assignee" className="bg-surface-900 text-text-primary">Assignee</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-surface-800/90 px-2 py-1 rounded-xl border border-border/80">
-              <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-              <select
-                value={timeScale}
-                onChange={(e) => handleScaleChange(e.target.value as TimeScaleMode)}
-                className="bg-transparent text-text-primary text-xs font-semibold focus:outline-none cursor-pointer pr-1"
-              >
-                <option value="month" className="bg-surface-900 text-text-primary">Months</option>
-                <option value="week" className="bg-surface-900 text-text-primary">Weeks</option>
-                <option value="day" className="bg-surface-900 text-text-primary">Days</option>
-              </select>
-            </div>
-
-            {/* Mobile Zoom Control */}
-            <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-1.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
-              <button
-                onClick={handleZoomOut}
-                disabled={zoomLevel <= 50}
-                className="p-0.5 rounded text-text-muted hover:text-text-primary disabled:opacity-30 cursor-pointer"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span
-                onClick={handleResetZoom}
-                className="px-1 text-[11px] font-bold text-text-primary font-mono cursor-pointer min-w-[36px] text-center"
-              >
-                {zoomLevel}%
-              </span>
-              <button
-                onClick={handleZoomIn}
-                disabled={zoomLevel >= 250}
-                className="p-0.5 rounded text-text-muted hover:text-text-primary disabled:opacity-30 cursor-pointer"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-            </div>
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-20">
+        {/* Title & Today Jump (Visible on all screens) */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-text-primary">
+            <Layers className="w-4 h-4 text-primary" />
+            <span>Gantt Roadmap</span>
           </div>
 
-          {/* Desktop Grouping Buttons (>= md screens) */}
-          <div className="hidden md:flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+          <button
+            onClick={handleJumpToToday}
+            className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Today</span>
+          </button>
+        </div>
+
+        {/* Desktop Toolbar Controls (>= 1440px 2xl screens) */}
+        <div className="hidden 2xl:flex items-center gap-3">
+          {/* Grouping Buttons */}
+          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
               <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Group by:
             </span>
@@ -641,8 +605,8 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Desktop Scale Selector (>= md screens) */}
-          <div className="hidden md:flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+          {/* Scale Selector */}
+          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-primary" /> Scale:
             </span>
@@ -678,8 +642,8 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Desktop Zoom Control (>= md screens) */}
-          <div className="hidden md:flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+          {/* Zoom Level Control */}
+          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
             <button
               onClick={handleZoomOut}
               disabled={zoomLevel <= 50}
@@ -705,6 +669,46 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
+          {/* Interactive Date Range Picker */}
+          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-2.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider">Range:</span>
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+            />
+            <span className="text-text-muted font-bold text-xs">–</span>
+            <input
+              type="date"
+              value={endDateStr}
+              onChange={(e) => setEndDateStr(e.target.value)}
+              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+            />
+          </div>
+
+          {/* Year Selector */}
+          <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
+            <button
+              onClick={() => setSelectedYear((y) => y - 1)}
+              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+              title="Previous Year"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
+              {selectedYear}
+            </span>
+            <button
+              onClick={() => setSelectedYear((y) => y + 1)}
+              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+              title="Next Year"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Unscheduled items badge */}
           {unscheduledCards.length > 0 && (
             <button
@@ -721,56 +725,25 @@ export default function GanttRoadmapView({
           )}
         </div>
 
-        {/* Right: Date Range Picker, Year Selector & Today Button */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          {/* Interactive Date Range Picker */}
-          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-2.5 py-1 rounded-xl text-xs text-text-primary shadow-xs overflow-x-auto max-w-full">
-            <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider hidden sm:inline">Range:</span>
-            <input
-              type="date"
-              value={startDateStr}
-              onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-[11px] sm:text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
-            />
-            <span className="text-text-muted font-bold text-xs">–</span>
-            <input
-              type="date"
-              value={endDateStr}
-              onChange={(e) => setEndDateStr(e.target.value)}
-              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-[11px] sm:text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
+        {/* Mobile, Tablet & HD Screens Controls Drawer Button (< 1440px 2xl screens) */}
+        <div className="flex 2xl:hidden items-center gap-2">
+          {unscheduledCards.length > 0 && (
             <button
-              onClick={handleJumpToToday}
-              className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+              onClick={() => setShowUnscheduledDrawer(!showUnscheduledDrawer)}
+              className="px-2 py-1 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs font-bold flex items-center gap-1"
             >
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Today</span>
+              <Clock className="w-3.5 h-3.5" />
+              <span>{unscheduledCards.length}</span>
             </button>
+          )}
 
-            <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
-              <button
-                onClick={() => setSelectedYear((y) => y - 1)}
-                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-                title="Previous Year"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
-                {selectedYear}
-              </span>
-              <button
-                onClick={() => setSelectedYear((y) => y + 1)}
-                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-                title="Next Year"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={() => setShowGanttControlsSidebar(true)}
+            className="px-3 py-1.5 rounded-xl bg-primary/15 border border-primary/40 text-primary text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer hover:bg-primary/25 transition-all"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+            <span>Gantt Controls</span>
+          </button>
         </div>
       </div>
 
@@ -1089,6 +1062,124 @@ export default function GanttRoadmapView({
           </div>
         </div>
       </div>
+
+      {/* Mobile / Tablet Slide-Over Gantt Controls Sidebar Drawer */}
+      {showGanttControlsSidebar && (
+        <div className="fixed top-0 right-0 bottom-0 z-50 w-80 sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+          <div className="h-16 px-5 border-b border-border/80 flex items-center justify-between bg-surface-900/90 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                <SlidersHorizontal className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-text-primary">Gantt View Controls</h2>
+                <p className="text-[11px] text-text-muted">Grouping, Scale & Date Filters</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowGanttControlsSidebar(false)}
+              className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
+            {/* Grouping */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Group Tasks By:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["phase", "column", "priority", "assignee"] as const).map((mode) => (
+                  <button
+                    key={`gantt-sidebar-group-${mode}`}
+                    onClick={() => setGroupBy(mode)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                      groupBy === mode
+                        ? "bg-primary text-surface-950 border-primary font-bold shadow-xs"
+                        : "bg-surface-800/80 text-text-secondary border-border/60 hover:text-text-primary"
+                    }`}
+                  >
+                    {mode === "phase" ? "SDLC Phase" : mode === "column" ? "Columns" : mode === "priority" ? "Priority" : "Assignee"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Time Scale */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Time Scale Granularity:</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(["month", "week", "day"] as const).map((mode) => (
+                  <button
+                    key={`gantt-sidebar-scale-${mode}`}
+                    onClick={() => handleScaleChange(mode)}
+                    className={`px-2.5 py-2 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer border ${
+                      timeScale === mode
+                        ? "bg-primary text-surface-950 border-primary font-bold shadow-xs"
+                        : "bg-surface-800/80 text-text-secondary border-border/60 hover:text-text-primary"
+                    }`}
+                  >
+                    {mode}s
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Gantt Zoom Level:</label>
+              <div className="flex items-center justify-between bg-surface-800/90 p-2.5 rounded-xl border border-border/60">
+                <button
+                  onClick={handleZoomOut}
+                  disabled={zoomLevel <= 50}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <span
+                  onClick={handleResetZoom}
+                  className="text-xs font-bold text-text-primary font-mono cursor-pointer hover:text-primary transition-colors"
+                >
+                  {zoomLevel}%
+                </span>
+                <button
+                  onClick={handleZoomIn}
+                  disabled={zoomLevel >= 250}
+                  className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Date Range Picker */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Date Range Filter:</label>
+              <div className="flex flex-col gap-2 bg-surface-800/90 p-3 rounded-xl border border-border/60">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-text-muted font-semibold uppercase">Start Date:</span>
+                  <input
+                    type="date"
+                    value={startDateStr}
+                    onChange={(e) => setStartDateStr(e.target.value)}
+                    className="bg-surface-900 border border-border/80 text-text-primary px-2.5 py-1.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-text-muted font-semibold uppercase">End Date:</span>
+                  <input
+                    type="date"
+                    value={endDateStr}
+                    onChange={(e) => setEndDateStr(e.target.value)}
+                    className="bg-surface-900 border border-border/80 text-text-primary px-2.5 py-1.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
