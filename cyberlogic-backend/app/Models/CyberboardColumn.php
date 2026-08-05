@@ -16,6 +16,7 @@ class CyberboardColumn extends Model
         'title',
         'icon',
         'color',
+        'status_type',
         'position',
         'allowed_roles',
         'allowed_users',
