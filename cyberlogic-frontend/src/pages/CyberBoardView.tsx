@@ -273,6 +273,74 @@ export default function CyberBoardView() {
           }
           return prev;
         });
+
+        // Trigger real-time parent completion check when any card is moved via WebSocket
+        setBoard((latestBoard) => {
+          if (latestBoard?.columns) {
+            const allCards = latestBoard.columns.flatMap((c) => c.cards || []);
+            const movedCard = allCards.find((c) => c.id === card_id);
+            if (movedCard && movedCard.parent_id) {
+              const parentCard = allCards.find((c) => c.id === movedCard.parent_id);
+              const completedCol = latestBoard.columns.find(
+                (c) =>
+                  c.status_type === "completed" ||
+                  c.title.toLowerCase().includes("done") ||
+                  c.title.toLowerCase().includes("completed")
+              );
+
+              if (parentCard && completedCol && parentCard.column_id !== completedCol.id) {
+                const siblingSubcards = allCards.filter((c) => c.parent_id === parentCard.id && !c.is_archived);
+                const allSubcardsDone = siblingSubcards.length > 0 && siblingSubcards.every((sc) => {
+                  const scCol = latestBoard.columns.find((c) => c.id === sc.column_id);
+                  if (!scCol) return false;
+                  return (
+                    scCol.status_type === "completed" ||
+                    scCol.title.toLowerCase().includes("done") ||
+                    scCol.title.toLowerCase().includes("completed")
+                  );
+                });
+
+                let parentChecklistDone = true;
+                if (parentCard.checklist) {
+                  let cl: any[] = [];
+                  if (typeof parentCard.checklist === "string") {
+                    try { cl = JSON.parse(parentCard.checklist); } catch { cl = []; }
+                  } else if (Array.isArray(parentCard.checklist)) {
+                    cl = parentCard.checklist;
+                  }
+                  if (cl.length > 0) {
+                    parentChecklistDone = cl.every((i) => i.completed);
+                  }
+                }
+
+                if (allSubcardsDone && parentChecklistDone) {
+                  updateCyberboardCard(parentCard.id, { column_id: completedCol.id }).then((updatedParent) => {
+                    setBoard((b) => {
+                      if (!b || !b.columns) return b;
+                      const newCols = b.columns.map((col) => {
+                        const contains = (col.cards || []).some((c) => c.id === updatedParent.id);
+                        if (col.id === updatedParent.column_id) {
+                          return {
+                            ...col,
+                            cards: contains
+                              ? (col.cards || []).map((c) => (c.id === updatedParent.id ? { ...c, ...updatedParent } : c))
+                              : [...(col.cards || []), updatedParent],
+                          };
+                        } else if (contains) {
+                          return { ...col, cards: (col.cards || []).filter((c) => c.id !== updatedParent.id) };
+                        }
+                        return col;
+                      });
+                      return { ...b, columns: newCols };
+                    });
+                    showToast(`Parent card '${parentCard.title}' automatically moved to '${completedCol.title}'!`, "success");
+                  }).catch((e) => console.error("Failed auto move parent on WebSocket move:", e));
+                }
+              }
+            }
+          }
+          return latestBoard;
+        });
       } else if (type === "card:voted") {
         const { card_id, votes_count, voted_by_user_id, has_voted, activities } = payload;
         const isMe = user?.id === voted_by_user_id;
@@ -562,8 +630,73 @@ export default function CyberBoardView() {
 
     setSelectedCard((prev) => (prev?.id === cardId ? { ...prev, column_id: targetColId } : prev));
 
+    // Helper function to check if parent card should auto-move to completed column when subcards finish
+    const checkAndAutoMoveParentIfAllSubcardsCompleted = async (
+      currentCols: CyberboardColumn[],
+      childCard: CyberboardCard
+    ) => {
+      if (!childCard.parent_id) return;
+      const allCards = currentCols.flatMap((c) => c.cards || []);
+      const parentCard = allCards.find((c) => c.id === childCard.parent_id);
+      if (!parentCard) return;
+
+      const completedCol = currentCols.find(
+        (c) =>
+          c.status_type === "completed" ||
+          c.title.toLowerCase().includes("done") ||
+          c.title.toLowerCase().includes("completed")
+      );
+      if (!completedCol || parentCard.column_id === completedCol.id) return;
+
+      // Check if all subcards of this parent are in completed column
+      const siblingSubcards = allCards.filter((c) => c.parent_id === parentCard.id && !c.is_archived);
+      if (siblingSubcards.length === 0) return;
+
+      const allSubcardsDone = siblingSubcards.every((sc) => {
+        const scCol = currentCols.find((c) => c.id === sc.column_id);
+        if (!scCol) return false;
+        return (
+          scCol.status_type === "completed" ||
+          scCol.title.toLowerCase().includes("done") ||
+          scCol.title.toLowerCase().includes("completed")
+        );
+      });
+
+      // Check parent checklist
+      let parentChecklistDone = true;
+      if (parentCard.checklist) {
+        let cl: any[] = [];
+        if (typeof parentCard.checklist === "string") {
+          try { cl = JSON.parse(parentCard.checklist); } catch { cl = []; }
+        } else if (Array.isArray(parentCard.checklist)) {
+          cl = parentCard.checklist;
+        }
+        if (cl.length > 0) {
+          parentChecklistDone = cl.every((i) => i.completed);
+        }
+      }
+
+      if (allSubcardsDone && parentChecklistDone) {
+        try {
+          await handleUpdateCard(parentCard.id, { column_id: completedCol.id });
+          showToast(`Parent card '${parentCard.title}' automatically moved to '${completedCol.title}'!`, "success");
+        } catch (e) {
+          console.error("Failed to auto move parent card:", e);
+        }
+      }
+    };
+
     try {
       await moveCyberboardCard(cardId, targetColId, newPos);
+      if (targetCard && board?.columns) {
+        // Re-read latest columns state for parent check
+        setBoard((latestBoard) => {
+          if (latestBoard?.columns) {
+            checkAndAutoMoveParentIfAllSubcardsCompleted(latestBoard.columns, targetCard!);
+          }
+          return latestBoard;
+        });
+      }
     } catch (err: any) {
       console.error("Failed to move card on server:", err);
       showToast(err.message || "Failed to move card.", "error");
@@ -723,6 +856,73 @@ export default function CyberBoardView() {
       });
       setSelectedCard((prev) => (prev?.id === cardId ? { ...prev, ...updatedCard } : prev));
       showToast("Card updated successfully.", "success");
+
+      // Auto-check parent completion if subcard was updated
+      if (updatedCard.parent_id) {
+        setBoard((latestBoard) => {
+          if (latestBoard?.columns) {
+            const allCards = latestBoard.columns.flatMap((c) => c.cards || []);
+            const parentCard = allCards.find((c) => c.id === updatedCard.parent_id);
+            const completedCol = latestBoard.columns.find(
+              (c) =>
+                c.status_type === "completed" ||
+                c.title.toLowerCase().includes("done") ||
+                c.title.toLowerCase().includes("completed")
+            );
+
+            if (parentCard && completedCol && parentCard.column_id !== completedCol.id) {
+              const siblingSubcards = allCards.filter((c) => c.parent_id === parentCard.id && !c.is_archived);
+              const allSubcardsDone = siblingSubcards.length > 0 && siblingSubcards.every((sc) => {
+                const scCol = latestBoard.columns.find((c) => c.id === sc.column_id);
+                if (!scCol) return false;
+                return (
+                  scCol.status_type === "completed" ||
+                  scCol.title.toLowerCase().includes("done") ||
+                  scCol.title.toLowerCase().includes("completed")
+                );
+              });
+
+              let parentChecklistDone = true;
+              if (parentCard.checklist) {
+                let cl: any[] = [];
+                if (typeof parentCard.checklist === "string") {
+                  try { cl = JSON.parse(parentCard.checklist); } catch { cl = []; }
+                } else if (Array.isArray(parentCard.checklist)) {
+                  cl = parentCard.checklist;
+                }
+                if (cl.length > 0) {
+                  parentChecklistDone = cl.every((i) => i.completed);
+                }
+              }
+
+              if (allSubcardsDone && parentChecklistDone) {
+                updateCyberboardCard(parentCard.id, { column_id: completedCol.id }).then((updatedParent) => {
+                  setBoard((b) => {
+                    if (!b || !b.columns) return b;
+                    const newCols = b.columns.map((col) => {
+                      const contains = (col.cards || []).some((c) => c.id === updatedParent.id);
+                      if (col.id === updatedParent.column_id) {
+                        return {
+                          ...col,
+                          cards: contains
+                            ? (col.cards || []).map((c) => (c.id === updatedParent.id ? { ...c, ...updatedParent } : c))
+                            : [...(col.cards || []), updatedParent],
+                        };
+                      } else if (contains) {
+                        return { ...col, cards: (col.cards || []).filter((c) => c.id !== updatedParent.id) };
+                      }
+                      return col;
+                    });
+                    return { ...b, columns: newCols };
+                  });
+                  showToast(`Parent card '${parentCard.title}' automatically moved to '${completedCol.title}'!`, "success");
+                }).catch((e) => console.error("Failed auto move parent:", e));
+              }
+            }
+          }
+          return latestBoard;
+        });
+      }
     } catch (err: any) {
       console.error("Failed to update card:", err);
       showToast(err.message || "Failed to update card.", "error");

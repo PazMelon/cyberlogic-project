@@ -1953,11 +1953,11 @@ function TaskChecklistSection({
   const completedCount = safeChecklist.filter((i) => i.completed).length;
 
   const safeSubcards = useMemo(() => {
-    if (subCards && subCards.length > 0) return subCards;
     if (cardId && allBoardCards && allBoardCards.length > 0) {
-      return allBoardCards.filter((c) => c.parent_id === cardId && !c.is_archived);
+      const liveChildren = allBoardCards.filter((c) => c.parent_id === cardId && !c.is_archived);
+      if (liveChildren.length > 0) return liveChildren;
     }
-    return [];
+    return subCards || [];
   }, [subCards, allBoardCards, cardId]);
 
   const totalSubcards = safeSubcards.length;
