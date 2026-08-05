@@ -23,6 +23,7 @@ interface GanttRoadmapViewProps {
 }
 
 type GroupByOption = "phase" | "column" | "priority" | "assignee";
+type TimeScaleMode = "month" | "week" | "day";
 
 const MONTH_NAMES = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -49,6 +50,8 @@ export default function GanttRoadmapView({
 }: GanttRoadmapViewProps) {
   const currentYearNow = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth());
+  const [timeScale, setTimeScale] = useState<TimeScaleMode>("month");
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
@@ -217,10 +220,55 @@ export default function GanttRoadmapView({
     return cards.filter((c) => !c.is_archived && (!c.activity_date && !c.activity_end_date));
   }, [cards]);
 
+  // Compute Timeline Columns based on timeScale (Month, Week, Day)
+  const timelineColumns = useMemo(() => {
+    if (timeScale === "month") {
+      return MONTH_NAMES.map((name) => ({ label: name, sublabel: "" }));
+    } else if (timeScale === "week") {
+      const monthName = MONTH_NAMES[selectedMonthIndex];
+      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
+      return [
+        { label: `W1 (${monthName})`, sublabel: `1 - 7` },
+        { label: `W2 (${monthName})`, sublabel: `8 - 14` },
+        { label: `W3 (${monthName})`, sublabel: `15 - 21` },
+        { label: `W4 (${monthName})`, sublabel: `22 - 28` },
+        { label: `W5 (${monthName})`, sublabel: `29 - ${daysInMonth}` },
+      ];
+    } else {
+      // Day scale: Every day of the selected month
+      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
+      const monthName = MONTH_NAMES[selectedMonthIndex];
+      const dayLetters = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const days = [];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateObj = new Date(selectedYear, selectedMonthIndex, d);
+        const dayName = dayLetters[dateObj.getDay()];
+        days.push({
+          label: `${d}`,
+          sublabel: dayName,
+          fullLabel: `${monthName} ${d}, ${selectedYear}`,
+        });
+      }
+      return days;
+    }
+  }, [timeScale, selectedYear, selectedMonthIndex]);
+
   const getCardTimelinePosition = (card: CyberboardCard) => {
-    const yearStart = new Date(selectedYear, 0, 1).getTime();
-    const yearEnd = new Date(selectedYear, 11, 31, 23, 59, 59).getTime();
-    const totalYearMs = yearEnd - yearStart;
+    let rangeStartMs: number;
+    let rangeEndMs: number;
+
+    if (timeScale === "month") {
+      rangeStartMs = new Date(selectedYear, 0, 1, 0, 0, 0).getTime();
+      rangeEndMs = new Date(selectedYear, 11, 31, 23, 59, 59).getTime();
+    } else {
+      // Week and Day modes focus on selectedMonthIndex
+      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
+      rangeStartMs = new Date(selectedYear, selectedMonthIndex, 1, 0, 0, 0).getTime();
+      rangeEndMs = new Date(selectedYear, selectedMonthIndex, daysInMonth, 23, 59, 59).getTime();
+    }
+
+    const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
 
     let startDate: Date;
     let endDate: Date;
@@ -240,12 +288,12 @@ export default function GanttRoadmapView({
       endDate = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
     }
 
-    const cardStartMs = Math.max(yearStart, startDate.getTime());
-    const cardEndMs = Math.min(yearEnd, endDate.getTime());
+    const cardStartMs = Math.max(rangeStartMs, startDate.getTime());
+    const cardEndMs = Math.min(rangeEndMs, endDate.getTime());
 
-    const leftPercent = Math.max(0, Math.min(100, ((cardStartMs - yearStart) / totalYearMs) * 100));
-    const rightPercent = Math.max(0, Math.min(100, ((cardEndMs - yearStart) / totalYearMs) * 100));
-    const widthPercent = Math.max(3, rightPercent - leftPercent);
+    const leftPercent = Math.max(0, Math.min(100, ((cardStartMs - rangeStartMs) / totalMs) * 100));
+    const rightPercent = Math.max(0, Math.min(100, ((cardEndMs - rangeStartMs) / totalMs) * 100));
+    const widthPercent = Math.max(timeScale === "day" ? 2 : 4, rightPercent - leftPercent);
 
     return {
       leftPercent,
@@ -301,9 +349,13 @@ export default function GanttRoadmapView({
           </div>
         )}
 
-        {/* Hover Popover Card */}
+        {/* Hover Popover Card (Interactive, no pointer-events-none) */}
         {isHovered && (
-          <div className="absolute right-0 top-full mt-1 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+          <div
+            onMouseEnter={() => setHoveredAssigneeCardId(cardItem.id)}
+            onMouseLeave={() => setHoveredAssigneeCardId(null)}
+            className="absolute right-0 top-full mt-1 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+          >
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
@@ -383,9 +435,19 @@ export default function GanttRoadmapView({
           </div>
         )}
 
-        {/* Hover Popover Card */}
+        {/* Hover Popover Card (Interactive, no pointer-events-none) */}
         {isHovered && (
-          <div className="absolute right-0 top-full mt-1.5 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150 text-left">
+          <div
+            onMouseEnter={(e) => {
+              e.stopPropagation();
+              setHoveredAssigneeCardId(cardItem.id);
+            }}
+            onMouseLeave={(e) => {
+              e.stopPropagation();
+              setHoveredAssigneeCardId(null);
+            }}
+            className="absolute right-0 top-full mt-1.5 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150 text-left"
+          >
             <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
               <span className="flex items-center gap-1">
                 <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
@@ -468,6 +530,43 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
+          {/* Time Scale Mode Selector (Month, Week, Day) */}
+          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+            <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5 text-primary" /> Scale:
+            </span>
+            <button
+              onClick={() => setTimeScale("month")}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                timeScale === "month"
+                  ? "bg-primary text-surface-950 shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+            >
+              Months
+            </button>
+            <button
+              onClick={() => setTimeScale("week")}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                timeScale === "week"
+                  ? "bg-primary text-surface-950 shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+            >
+              Weeks
+            </button>
+            <button
+              onClick={() => setTimeScale("day")}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                timeScale === "day"
+                  ? "bg-primary text-surface-950 shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+            >
+              Days
+            </button>
+          </div>
+
           {/* Unscheduled items badge */}
           {unscheduledCards.length > 0 && (
             <button
@@ -484,8 +583,22 @@ export default function GanttRoadmapView({
           )}
         </div>
 
-        {/* Right: Year Selector & Today Button */}
+        {/* Right: Month Selector (in Week & Day modes), Year Selector & Today Button */}
         <div className="flex items-center gap-3">
+          {timeScale !== "month" && (
+            <select
+              value={selectedMonthIndex}
+              onChange={(e) => setSelectedMonthIndex(Number(e.target.value))}
+              className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer shadow-xs"
+            >
+              {MONTH_NAMES.map((mName, idx) => (
+                <option key={mName} value={idx}>
+                  {mName} {selectedYear}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             onClick={handleJumpToToday}
             className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
@@ -636,22 +749,25 @@ export default function GanttRoadmapView({
           ref={gridTimelineRef}
           className="flex-1 flex flex-col overflow-x-auto overflow-y-auto relative scrollbar-thin bg-surface-950"
         >
-          <div className="min-w-[950px] sm:min-w-[1150px] flex-1 flex flex-col relative">
-            {/* Months Header Bar */}
+          <div className={`${timeScale === "day" ? "min-w-[1600px]" : "min-w-[950px] sm:min-w-[1150px]"} flex-1 flex flex-col relative`}>
+            {/* Timeline Column Headers Bar */}
             <div className="h-12 border-b border-border/80 flex items-center bg-surface-900/90 sticky top-0 z-20 backdrop-blur-md">
-              {MONTH_NAMES.map((monthName) => (
+              {timelineColumns.map((col, cIdx) => (
                 <div
-                  key={monthName}
-                  className="flex-1 h-full border-r border-border/40 flex items-center justify-center font-bold text-[11px] tracking-wider text-text-secondary uppercase"
+                  key={`timeline-col-${cIdx}`}
+                  className="flex-1 h-full border-r border-border/40 flex flex-col items-center justify-center font-bold text-text-secondary uppercase px-1 text-center"
                 >
-                  {monthName}
+                  <span className="text-[11px] tracking-wider font-bold text-text-primary">{col.label}</span>
+                  {col.sublabel && (
+                    <span className="text-[9px] text-text-muted font-mono font-normal leading-none">{col.sublabel}</span>
+                  )}
                 </div>
               ))}
             </div>
 
             {/* Background Grid Columns */}
             <div className="absolute inset-0 top-12 flex pointer-events-none z-0">
-              {MONTH_NAMES.map((_, idx) => (
+              {timelineColumns.map((_, idx) => (
                 <div key={`grid-${idx}`} className="flex-1 border-r border-border/20 h-full" />
               ))}
 
