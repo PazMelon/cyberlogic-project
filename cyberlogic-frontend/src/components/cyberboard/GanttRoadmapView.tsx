@@ -806,14 +806,12 @@ export default function GanttRoadmapView({
 
   const canDragDates = timeScale === "day" || timeScale === "week";
 
-  // Calculate SVG Dependency Connector Line Paths (FS task links)
   const { dependencyLines } = useMemo(() => {
-    const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number }>();
-    const lines: Array<{
+    const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number; rowHeight: number }>();
+    const rawLinks: Array<{
       id: string;
       fromCardId: number;
       toCardId: number;
-      pathD: string;
       isDateless?: boolean;
     }> = [];
 
@@ -839,6 +837,7 @@ export default function GanttRoadmapView({
             startPx,
             endPx,
             centerYPx: centerY,
+            rowHeight,
           });
 
           currentY += rowHeight;
@@ -859,6 +858,7 @@ export default function GanttRoadmapView({
                 startPx: subStartPx,
                 endPx: subEndPx,
                 centerYPx: subCenterY,
+                rowHeight: subRowHeight,
               });
 
               currentY += subRowHeight;
@@ -868,7 +868,7 @@ export default function GanttRoadmapView({
       }
     });
 
-    // Build SVG Connector Paths for Explicit Predecessors & Subtask Relationships
+    // Collect explicit predecessor & subtask links
     groupedData.forEach((group) => {
       const parentCards = group.cards.filter((c) => !c.parent_id);
 
@@ -876,27 +876,10 @@ export default function GanttRoadmapView({
         // 1. Explicit predecessor dependency
         const predecessorId = card.predecessor_id;
         if (predecessorId && layoutMap.has(predecessorId) && layoutMap.has(card.id)) {
-          const fromPos = layoutMap.get(predecessorId)!;
-          const toPos = layoutMap.get(card.id)!;
-          const x1 = fromPos.endPx;
-          const y1 = fromPos.centerYPx;
-          const x2 = toPos.startPx;
-          const y2 = toPos.centerYPx;
-
-          let pathD = "";
-          if (x2 > x1 + 16) {
-            const midX = x1 + (x2 - x1) / 2;
-            pathD = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2 - 4}`;
-          } else {
-            const midX = x1 + 12;
-            pathD = `M ${x1} ${y1} H ${midX} V ${(y1 + y2) / 2} H ${Math.max(8, x2 - 12)} V ${y2} H ${x2 - 4}`;
-          }
-
-          lines.push({
+          rawLinks.push({
             id: `dep-${predecessorId}-${card.id}`,
             fromCardId: predecessorId,
             toCardId: card.id,
-            pathD,
             isDateless: !card.activity_date && !card.activity_end_date,
           });
         }
@@ -907,32 +890,169 @@ export default function GanttRoadmapView({
           card.sub_cards.forEach((subCard) => {
             const sourceId = subCard.predecessor_id;
             if (sourceId && layoutMap.has(sourceId) && layoutMap.has(subCard.id)) {
-              const fromPos = layoutMap.get(sourceId)!;
-              const toPos = layoutMap.get(subCard.id)!;
-              const x1 = fromPos.endPx;
-              const y1 = fromPos.centerYPx;
-              const x2 = toPos.startPx;
-              const y2 = toPos.centerYPx;
-
-              let pathD = "";
-              if (x2 > x1 + 16) {
-                const midX = x1 + (x2 - x1) / 2;
-                pathD = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2 - 4}`;
-              } else {
-                const midX = x1 + 12;
-                pathD = `M ${x1} ${y1} H ${midX} V ${(y1 + y2) / 2} H ${Math.max(8, x2 - 12)} V ${y2} H ${x2 - 4}`;
-              }
-
-              lines.push({
+              rawLinks.push({
                 id: `dep-${sourceId}-${subCard.id}`,
                 fromCardId: sourceId,
                 toCardId: subCard.id,
-                pathD,
                 isDateless: !subCard.activity_date && !subCard.activity_end_date,
               });
             }
           });
         }
+      });
+    });
+
+    // Group links by source card so multiple outgoing links share origin line & diverge gradually
+    const linksBySource = new Map<number, typeof rawLinks>();
+    rawLinks.forEach((link) => {
+      if (!linksBySource.has(link.fromCardId)) {
+        linksBySource.set(link.fromCardId, []);
+      }
+      linksBySource.get(link.fromCardId)!.push(link);
+    });
+
+    const lines: Array<{
+      id: string;
+      fromCardId: number;
+      toCardId: number;
+      pathD: string;
+      isDateless?: boolean;
+    }> = [];
+
+    // Helper to check if direct connection path crosses any card bar in the layout
+    const isDirectPathBlocked = (fromId: number, toId: number, x1: number, y1: number, x2: number, y2: number) => {
+      const minY = Math.min(y1, y2);
+      const maxY = Math.max(y1, y2);
+      const minX = Math.min(x1, x2);
+      const maxX = Math.max(x1, x2);
+
+      let blocked = false;
+      layoutMap.forEach((layout, id) => {
+        if (id === fromId || id === toId) return;
+        if (layout.centerYPx > minY + 4 && layout.centerYPx < maxY - 4) {
+          if (layout.startPx < maxX + 8 && layout.endPx > minX - 8) {
+            blocked = true;
+          }
+        }
+      });
+      return blocked;
+    };
+
+    linksBySource.forEach((links, fromCardId) => {
+      const fromPos = layoutMap.get(fromCardId)!;
+      const x1 = fromPos.endPx;
+      const y1 = fromPos.centerYPx;
+
+      // Sort target cards vertically
+      const sortedLinks = [...links].sort((a, b) => {
+        const toA = layoutMap.get(a.toCardId)!;
+        const toB = layoutMap.get(b.toCardId)!;
+        return toA.centerYPx - toB.centerYPx;
+      });
+
+      // Y range spanned by source and all targets in this group
+      const allY = [y1, ...sortedLinks.map((l) => layoutMap.get(l.toCardId)!.centerYPx)];
+      const minY = Math.min(...allY);
+      const maxY = Math.max(...allY);
+
+      // Find the minimum startPx of ALL cards in layoutMap located within the vertical row range [minY, maxY]
+      let minCardStartX = Math.min(x1, ...sortedLinks.map((l) => layoutMap.get(l.toCardId)!.startPx));
+      layoutMap.forEach((layout) => {
+        if (layout.centerYPx >= minY - 4 && layout.centerYPx <= maxY + 4) {
+          if (layout.startPx < minCardStartX) {
+            minCardStartX = layout.startPx;
+          }
+        }
+      });
+
+      // Check if all targets are far enough forward (x2 >= x1 + 24)
+      const allForward = sortedLinks.every((l) => layoutMap.get(l.toCardId)!.startPx >= x1 + 24);
+
+      // Check if x1 + 14 right stem trunk collides with any card bar in the Y range
+      let trunkRightBlocked = false;
+      layoutMap.forEach((layout) => {
+        if (layout.centerYPx >= minY - 4 && layout.centerYPx <= maxY + 4) {
+          if (layout.startPx < x1 + 20 && layout.endPx > x1 + 8) {
+            trunkRightBlocked = true;
+          }
+        }
+      });
+
+      const useLeftTrunk = !allForward || trunkRightBlocked || minCardStartX < x1 + 16;
+
+      // X position of shared vertical trunk line
+      const X_trunk = useLeftTrunk
+        ? Math.max(8, minCardStartX - 16)
+        : x1 + 14;
+
+      const rowHalfHeight = fromPos.rowHeight / 2;
+      const y_channel = maxY >= y1
+        ? y1 + rowHalfHeight + 4
+        : y1 - rowHalfHeight - 4;
+
+      sortedLinks.forEach((link) => {
+        const toPos = layoutMap.get(link.toCardId)!;
+        const x2 = toPos.startPx;
+        const y2 = toPos.centerYPx;
+
+        let pathD = "";
+
+        if (!useLeftTrunk) {
+          // Shared Right Trunk (Forward target cards):
+          // Line leaves x1 -> X_trunk (x1 + 14), goes vertically down X_trunk, and branches horizontally to x2 - 4 at target row y2
+          const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(x2 - 4 - X_trunk) / 2);
+          const dirY = y2 >= y1 ? 1 : -1;
+
+          if (r < 1.5 || Math.abs(y2 - y1) < 4) {
+            pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${x2 - 4}`;
+          } else {
+            pathD = `M ${x1} ${y1}` +
+                    ` H ${X_trunk - r}` +
+                    ` Q ${X_trunk} ${y1}, ${X_trunk} ${y1 + r * dirY}` +
+                    ` V ${y2 - r * dirY}` +
+                    ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                    ` H ${x2 - 4}`;
+          }
+        } else {
+          // Shared Left Bypass Trunk (Backward/Overlapping targets or blocked path):
+          // Leaves (x1, y1) -> goes right 14px -> curves to y_channel -> goes left to X_trunk (left of ALL cards)
+          // -> runs down shared vertical trunk X_trunk (|) -> branches right at target y2 (|_____) into x2 - 4
+          const dirY1 = y_channel >= y1 ? 1 : -1;
+          const dirY2 = y2 >= y_channel ? 1 : -1;
+
+          const maxR = 6;
+          const r = Math.min(
+            maxR,
+            Math.abs(x1 + 14 - x1) / 2,
+            Math.abs(y_channel - y1) / 2,
+            Math.abs(x1 + 14 - X_trunk) / 2,
+            Math.abs(y2 - y_channel) / 2,
+            Math.abs(x2 - 4 - X_trunk) / 2
+          );
+
+          if (r < 1.5) {
+            pathD = `M ${x1} ${y1} H ${x1 + 14} V ${y_channel} H ${X_trunk} V ${y2} H ${x2 - 4}`;
+          } else {
+            pathD = `M ${x1} ${y1}` +
+                    ` H ${x1 + 14 - r}` +
+                    ` Q ${x1 + 14} ${y1}, ${x1 + 14} ${y1 + r * dirY1}` +
+                    ` V ${y_channel - r * dirY1}` +
+                    ` Q ${x1 + 14} ${y_channel}, ${x1 + 14 - r} ${y_channel}` +
+                    ` H ${X_trunk + r}` +
+                    ` Q ${X_trunk} ${y_channel}, ${X_trunk} ${y_channel + r * dirY2}` +
+                    ` V ${y2 - r * dirY2}` +
+                    ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                    ` H ${x2 - 4}`;
+          }
+        }
+
+        lines.push({
+          id: link.id,
+          fromCardId: link.fromCardId,
+          toCardId: link.toCardId,
+          pathD,
+          isDateless: link.isDateless,
+        });
       });
     });
 
