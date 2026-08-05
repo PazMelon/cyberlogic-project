@@ -8,6 +8,7 @@ import SearchableAssigneePicker from "./SearchableAssigneePicker";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
+  allBoardCards?: CyberboardCard[];
   boardType?: string;
   boardVisibility?: string;
   allowedMembers?: number[] | null;
@@ -40,6 +41,7 @@ const PRESET_COLORS = [
 
 export default function CardDetailModal({
   card,
+  allBoardCards = [],
   boardType = "activity",
   boardVisibility = "public",
   allowedMembers = [],
@@ -72,6 +74,7 @@ export default function CardDetailModal({
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
   const [editAssignedUserIds, setEditAssignedUserIds] = useState<number[]>([]);
   const [editPhase, setEditPhase] = useState<string>("");
+  const [editPredecessorId, setEditPredecessorId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
@@ -97,6 +100,7 @@ export default function CardDetailModal({
         : [];
       setEditAssignedUserIds(initialIds);
       setEditPhase(card.phase || "");
+      setEditPredecessorId(card.predecessor_id || null);
     }
   }, [card]);
 
@@ -147,6 +151,7 @@ export default function CardDetailModal({
         assigned_user_ids: editAssignedUserIds,
         priority: editPriority,
         phase: editPhase || null,
+        predecessor_id: editPredecessorId || null,
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
         activity_end_date: editActivityEndDate || null,
@@ -357,6 +362,28 @@ export default function CardDetailModal({
                       {p.name}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              {/* Predecessor / Dependency Task Selector */}
+              <div>
+                <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>Predecessor Task (Dependency Link)</span>
+                </label>
+                <select
+                  value={editPredecessorId || ""}
+                  onChange={(e) => setEditPredecessorId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                  className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  <option value="">No Predecessor (Independent Task)</option>
+                  {allBoardCards
+                    .filter((c) => c.id !== card.id)
+                    .map((otherCard) => (
+                      <option key={`pred-opt-${otherCard.id}`} value={otherCard.id}>
+                        {otherCard.title}
+                      </option>
+                    ))}
                 </select>
               </div>
 

@@ -509,6 +509,33 @@ export default function CyberBoardView() {
       }
     }
 
+    // Check Predecessor Task Completion Restriction
+    if (targetCard.predecessor_id) {
+      const allBoardCards = board.columns.flatMap((col) => col.cards || []);
+      const predecessorCard = allBoardCards.find((c) => c.id === targetCard.predecessor_id);
+      if (predecessorCard) {
+        const predecessorColumn = board.columns.find((c) => c.id === predecessorCard.column_id);
+        const isPredecessorDone =
+          predecessorColumn?.status_type === "completed" ||
+          predecessorColumn?.title.toLowerCase().includes("done") ||
+          predecessorColumn?.title.toLowerCase().includes("complete");
+
+        const isTargetDoneOrProgress =
+          targetColumn?.status_type === "completed" ||
+          targetColumn?.status_type === "in_progress" ||
+          targetColumn?.title.toLowerCase().includes("done") ||
+          targetColumn?.title.toLowerCase().includes("progress");
+
+        if (isTargetDoneOrProgress && !isPredecessorDone) {
+          showToast(
+            `Cannot move '${targetCard.title}': Predecessor task '${predecessorCard.title}' is not completed yet!`,
+            "error"
+          );
+          return;
+        }
+      }
+    }
+
     const newPos = (targetColumn?.cards || []).length;
 
     // Optimistic state update
@@ -714,6 +741,7 @@ export default function CyberBoardView() {
   const handleAddColumn = async (data: {
     title: string;
     color?: string;
+    status_type?: string | null;
     allowed_roles?: string[] | null;
     allowed_users?: number[] | null;
   }) => {
@@ -722,6 +750,7 @@ export default function CyberBoardView() {
     setBoard((prev) => {
       if (!prev) return prev;
       const cols = prev.columns || [];
+      if (cols.some((c) => c.id === newCol.id)) return prev;
       return { ...prev, columns: [...cols, newCol] };
     });
     showToast("New column created!", "success");
@@ -1096,7 +1125,8 @@ export default function CyberBoardView() {
       {selectedCard && (
         <CardDetailModal
           card={selectedCard}
-          boardType={board.type}
+          allBoardCards={columns.flatMap((c) => c.cards || [])}
+          boardType={board?.type}
           boardVisibility={board.visibility}
           allowedMembers={board.allowed_members}
           boardPhases={board.phase_settings}

@@ -391,7 +391,7 @@ export default function ConfigureColumnModal({
             disabled={submitting || !title.trim()}
             className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer"
           >
-            {submitting ? "Saving..." : "Save Restrictions"}
+            {submitting ? "Saving..." : "Save"}
           </button>
         </div>
       )}
@@ -403,7 +403,7 @@ export default function ConfigureColumnModal({
       <BottomSheet
         isOpen={true}
         onClose={onClose}
-        title="Column Settings & Restrictions"
+        title="Column Settings"
         initialSnap="3/4"
         footer={
           <div className="flex items-center justify-end gap-2">
@@ -420,7 +420,7 @@ export default function ConfigureColumnModal({
               disabled={submitting || !title.trim()}
               className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-primary/20"
             >
-              {submitting ? "Saving..." : "Save Restrictions"}
+              {submitting ? "Saving..." : "Save"}
             </button>
           </div>
         }
@@ -437,7 +437,7 @@ export default function ConfigureColumnModal({
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-primary" />
             <h2 className="text-base font-bold text-text-primary">
-              Column Settings & Drag Restrictions
+              Column Settings
             </h2>
           </div>
           <button

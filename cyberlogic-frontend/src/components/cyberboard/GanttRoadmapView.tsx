@@ -617,6 +617,133 @@ export default function GanttRoadmapView({
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 25));
   const handleResetZoom = () => setZoomLevel(100);
 
+  // Calculate SVG Dependency Connector Line Paths (FS task links)
+  const { dependencyLines } = useMemo(() => {
+    const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number }>();
+    const lines: Array<{
+      id: string;
+      fromCardId: number;
+      toCardId: number;
+      pathD: string;
+      isDateless?: boolean;
+    }> = [];
+
+    let currentY = 0; // top offset inside timeline rows container
+
+    groupedData.forEach((group) => {
+      currentY += 44; // group header height 44px
+      const parentCards = group.cards.filter((c) => !c.parent_id);
+
+      parentCards.forEach((card) => {
+        const rowHeight = 44;
+        const centerY = currentY + rowHeight / 2;
+        const pos = getCardTimelinePosition(card);
+        const startPx = (gridMinWidth * pos.leftPercent) / 100;
+        const widthPx = Math.max(24, (gridMinWidth * pos.widthPercent) / 100);
+        const endPx = startPx + widthPx;
+
+        layoutMap.set(card.id, {
+          startPx,
+          endPx,
+          centerYPx: centerY,
+        });
+
+        currentY += rowHeight;
+
+        // Subcards
+        const isExpanded = !!expandedParents[card.id];
+        if (isExpanded && card.sub_cards) {
+          card.sub_cards.forEach((subCard) => {
+            const subRowHeight = 38;
+            const subCenterY = currentY + subRowHeight / 2;
+            const subPos = getCardTimelinePosition(subCard);
+            const subStartPx = (gridMinWidth * subPos.leftPercent) / 100;
+            const subWidthPx = Math.max(20, (gridMinWidth * subPos.widthPercent) / 100);
+            const subEndPx = subStartPx + subWidthPx;
+
+            layoutMap.set(subCard.id, {
+              startPx: subStartPx,
+              endPx: subEndPx,
+              centerYPx: subCenterY,
+            });
+
+            currentY += subRowHeight;
+          });
+        }
+      });
+    });
+
+    // Build SVG Connector Paths for Explicit Predecessors & Subtask Relationships
+    groupedData.forEach((group) => {
+      const parentCards = group.cards.filter((c) => !c.parent_id);
+
+      parentCards.forEach((card) => {
+        // 1. Explicit predecessor dependency
+        const predecessorId = card.predecessor_id;
+        if (predecessorId && layoutMap.has(predecessorId) && layoutMap.has(card.id)) {
+          const fromPos = layoutMap.get(predecessorId)!;
+          const toPos = layoutMap.get(card.id)!;
+          const x1 = fromPos.endPx;
+          const y1 = fromPos.centerYPx;
+          const x2 = toPos.startPx;
+          const y2 = toPos.centerYPx;
+
+          let pathD = "";
+          if (x2 > x1 + 16) {
+            const midX = x1 + (x2 - x1) / 2;
+            pathD = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2 - 4}`;
+          } else {
+            const midX = x1 + 12;
+            pathD = `M ${x1} ${y1} H ${midX} V ${(y1 + y2) / 2} H ${Math.max(8, x2 - 12)} V ${y2} H ${x2 - 4}`;
+          }
+
+          lines.push({
+            id: `dep-${predecessorId}-${card.id}`,
+            fromCardId: predecessorId,
+            toCardId: card.id,
+            pathD,
+            isDateless: !card.activity_date && !card.activity_end_date,
+          });
+        }
+
+        // 2. Subtask links (from subCard.predecessor_id or subCard.parent_id)
+        const isExpanded = !!expandedParents[card.id];
+        if (isExpanded && card.sub_cards && card.sub_cards.length > 0) {
+          card.sub_cards.forEach((subCard) => {
+            const sourceId = subCard.predecessor_id || subCard.parent_id;
+            if (sourceId && layoutMap.has(sourceId) && layoutMap.has(subCard.id)) {
+              const fromPos = layoutMap.get(sourceId)!;
+              const toPos = layoutMap.get(subCard.id)!;
+              const x1 = fromPos.endPx;
+              const y1 = fromPos.centerYPx;
+              const x2 = toPos.startPx;
+              const y2 = toPos.centerYPx;
+
+              let pathD = "";
+              if (x2 > x1 + 16) {
+                const midX = x1 + (x2 - x1) / 2;
+                pathD = `M ${x1} ${y1} H ${midX} V ${y2} H ${x2 - 4}`;
+              } else {
+                const midX = x1 + 12;
+                pathD = `M ${x1} ${y1} H ${midX} V ${(y1 + y2) / 2} H ${Math.max(8, x2 - 12)} V ${y2} H ${x2 - 4}`;
+              }
+
+              lines.push({
+                id: `dep-${sourceId}-${subCard.id}`,
+                fromCardId: sourceId,
+                toCardId: subCard.id,
+                pathD,
+                isDateless: !subCard.activity_date && !subCard.activity_end_date,
+              });
+            }
+          });
+        }
+      });
+    });
+
+    return { dependencyLines: lines };
+  }, [groupedData, gridMinWidth, expandedParents, getCardTimelinePosition]);
+
   // Helper to extract assigned users array cleanly
   const getCardUsers = (cardItem: CyberboardCard) => {
     return cardItem.assigned_users && cardItem.assigned_users.length > 0
@@ -1168,6 +1295,49 @@ export default function GanttRoadmapView({
 
             {/* Timeline Rows Body */}
             <div className="flex-1 divide-y divide-border/40 relative z-10">
+              {/* SVG Task Dependency Connector Lines Overlay */}
+              <svg className="absolute inset-0 pointer-events-none z-20 w-full h-full overflow-visible">
+                <defs>
+                  <marker
+                    id="gantt-arrow"
+                    viewBox="0 0 10 10"
+                    refX="7"
+                    refY="5"
+                    markerWidth="6"
+                    markerHeight="6"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
+                  </marker>
+                  <marker
+                    id="gantt-arrow-active"
+                    viewBox="0 0 10 10"
+                    refX="7"
+                    refY="5"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#06b6d4" />
+                  </marker>
+                </defs>
+                {dependencyLines.map((line) => {
+                  const isLineHovered = hoveredCardId === line.fromCardId || hoveredCardId === line.toCardId;
+                  return (
+                    <path
+                      key={line.id}
+                      d={line.pathD}
+                      fill="none"
+                      stroke={isLineHovered ? "#06b6d4" : "#64748b"}
+                      strokeWidth={isLineHovered ? "2.5" : "1.5"}
+                      opacity={isLineHovered ? "1" : "0.55"}
+                      strokeDasharray={line.isDateless ? "4,4" : "none"}
+                      markerEnd={isLineHovered ? "url(#gantt-arrow-active)" : "url(#gantt-arrow)"}
+                      className="transition-all duration-200"
+                    />
+                  );
+                })}
+              </svg>
               {groupedData.map((group) => {
                 const parentCards = group.cards.filter((c) => !c.parent_id);
                 const isGroupDragOver = dragOverGroupId === group.id;
