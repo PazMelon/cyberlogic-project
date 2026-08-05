@@ -991,6 +991,21 @@ export default function CyberBoardView() {
                 setTargetColumnId(colId || columns[0]?.id);
                 setShowNewSuggestionModal(true);
               }}
+              onUpdateCardPhase={async (cardId, phase) => {
+                await handleUpdateCard(cardId, { phase });
+                showToast(`Moved task to phase "${phase}".`, "info");
+              }}
+              onMoveCardColumn={async (cardId, targetColumnId) => {
+                await handleCardDrop(cardId, targetColumnId);
+              }}
+              onUpdateCardPriority={async (cardId, priority) => {
+                await handleUpdateCard(cardId, { priority });
+                showToast(`Updated task priority to "${priority.toUpperCase()}".`, "info");
+              }}
+              onUpdateCardAssignees={async (cardId, userIds) => {
+                await handleUpdateCard(cardId, { assigned_user_ids: userIds });
+                showToast("Updated task assignment.", "info");
+              }}
             />
           </div>
         ) : (

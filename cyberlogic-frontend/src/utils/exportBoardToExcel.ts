@@ -30,14 +30,16 @@ export function exportBoardToExcel(
       }
     }
 
-    // Check if card is in a completed stage
-    const colName = (card as any).column_title || columns.find((c) => c.id === card.column_id)?.title || "";
-    if (
+    // Check if card is in a completed stage (via column.status_type or title fallback)
+    const matchingCol = columns.find((c) => c.id === card.column_id);
+    const colName = (card as any).column_title || matchingCol?.title || "";
+    const isCompletedType = matchingCol?.status_type === "completed" ||
       colName.toLowerCase().includes("done") ||
       colName.toLowerCase().includes("complete") ||
       colName.toLowerCase().includes("finish") ||
-      (card as any).is_completed
-    ) {
+      (card as any).is_completed;
+
+    if (isCompletedType) {
       completedCount++;
     }
   });
@@ -62,21 +64,27 @@ export function exportBoardToExcel(
     return String(diffDays);
   };
 
-  const getStatusBgColor = (statusName: string): { bg: string; text: string } => {
+  const getStatusBgColor = (statusName: string, statusType?: string | null): { bg: string; text: string } => {
+    if (statusType === "completed") return { bg: "#16a34a", text: "#ffffff" }; // Crisp Green
+    if (statusType === "in_progress") return { bg: "#65a30d", text: "#ffffff" }; // Lime Green
+    if (statusType === "under_review") return { bg: "#06b6d4", text: "#ffffff" }; // Cyan
+    if (statusType === "blocked") return { bg: "#ea580c", text: "#ffffff" }; // Amber/Orange
+    if (statusType === "not_started") return { bg: "#fef08a", text: "#1e293b" }; // Light Yellow
+
     const s = statusName.toLowerCase();
     if (s.includes("done") || s.includes("complete")) {
-      return { bg: "#16a34a", text: "#ffffff" }; // Crisp Green
+      return { bg: "#16a34a", text: "#ffffff" };
     }
     if (s.includes("progress") || s.includes("review") || s.includes("testing")) {
-      return { bg: "#65a30d", text: "#ffffff" }; // Lime Green
+      return { bg: "#65a30d", text: "#ffffff" };
     }
     if (s.includes("overdue") || s.includes("blocked") || s.includes("stuck")) {
-      return { bg: "#ea580c", text: "#ffffff" }; // Orange / Amber
+      return { bg: "#ea580c", text: "#ffffff" };
     }
     if (s.includes("hold") || s.includes("pending")) {
-      return { bg: "#94a3b8", text: "#ffffff" }; // Slate
+      return { bg: "#94a3b8", text: "#ffffff" };
     }
-    return { bg: "#fef08a", text: "#1e293b" }; // Light Yellow (Not Started / Backlog)
+    return { bg: "#fef08a", text: "#1e293b" };
   };
 
   // 2. Group cards by Phase or Column
@@ -310,9 +318,10 @@ export function exportBoardToExcel(
 
           const taskRowsHtml = sec.cards
             .map((card) => {
+              const matchingCol = columns.find((c) => c.id === card.column_id);
               const colName =
                 (card as any).column_title ||
-                columns.find((c) => c.id === card.column_id)?.title ||
+                matchingCol?.title ||
                 "Not Started";
 
               const responsibleNames =
@@ -323,7 +332,7 @@ export function exportBoardToExcel(
               const startDate = formatDateShort(card.activity_date);
               const endDate = formatDateShort(card.activity_end_date);
               const duration = calculateDurationDays(card.activity_date, card.activity_end_date);
-              const statusStyle = getStatusBgColor(colName);
+              const statusStyle = getStatusBgColor(colName, matchingCol?.status_type);
 
               return `
                 <tr class="task-row">

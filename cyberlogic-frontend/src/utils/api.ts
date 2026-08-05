@@ -2999,6 +2999,7 @@ export interface CyberboardColumn {
   title: string;
   icon?: string | null;
   color?: string | null;
+  status_type?: "not_started" | "in_progress" | "under_review" | "completed" | "blocked" | string | null;
   position: number;
   allowed_roles?: string[] | null;
   allowed_users?: number[] | null;
@@ -3225,6 +3226,7 @@ export async function createCyberboardColumn(
     title: string;
     icon?: string;
     color?: string;
+    status_type?: string | null;
     allowed_roles?: string[] | null;
     allowed_users?: number[] | null;
   }
@@ -3245,6 +3247,7 @@ export async function updateCyberboardColumn(
     title?: string;
     icon?: string;
     color?: string;
+    status_type?: string | null;
     allowed_roles?: string[] | null;
     allowed_users?: number[] | null;
   }

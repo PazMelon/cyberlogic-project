@@ -16,6 +16,7 @@ interface ConfigureColumnModalProps {
   onSubmit: (columnId: number, data: {
     title?: string;
     color?: string;
+    status_type?: string | null;
     allowed_roles?: string[] | null;
     allowed_users?: number[] | null;
   }) => Promise<void>;
@@ -29,6 +30,7 @@ export default function ConfigureColumnModal({
 }: ConfigureColumnModalProps) {
   const [title, setTitle] = useState(column.title || "");
   const [color, setColor] = useState(column.color || "#06b6d4");
+  const [statusType, setStatusType] = useState<string>(column.status_type || "not_started");
 
   const initialPreset = () => {
     const roles = column.allowed_roles || [];
@@ -119,6 +121,7 @@ export default function ConfigureColumnModal({
       await onSubmit(column.id, {
         title: title.trim(),
         color,
+        status_type: statusType,
         allowed_roles,
         allowed_users,
       });
@@ -157,6 +160,40 @@ export default function ConfigureColumnModal({
             onChange={(e) => setColor(e.target.value)}
             className="w-full h-9 p-1 rounded-xl bg-surface-800 border border-border cursor-pointer"
           />
+        </div>
+      </div>
+
+      {/* Gantt Roadmap View Status Category Mapping */}
+      <div className="space-y-2">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+          Gantt Chart Status Mapping
+        </label>
+        <p className="text-[11px] text-text-muted">
+          Choose what status tasks in this column will be marked with in the Gantt Roadmap View & Excel exports:
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {[
+            { id: "not_started", label: "Not Started / To Do", color: "#fef08a", bg: "bg-yellow-500/10 border-yellow-500/30 text-yellow-400" },
+            { id: "in_progress", label: "In Progress / Active", color: "#65a30d", bg: "bg-lime-500/10 border-lime-500/30 text-lime-400" },
+            { id: "under_review", label: "Under Review / QA", color: "#06b6d4", bg: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400" },
+            { id: "completed", label: "Completed / Done", color: "#16a34a", bg: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" },
+            { id: "blocked", label: "Blocked / On Hold", color: "#ea580c", bg: "bg-amber-500/10 border-amber-500/30 text-amber-400" },
+          ].map((st) => (
+            <button
+              key={st.id}
+              type="button"
+              onClick={() => setStatusType(st.id)}
+              className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                statusType === st.id
+                  ? `${st.bg} border-2 font-bold shadow-xs`
+                  : "bg-surface-800/50 border-border/60 text-text-secondary hover:text-text-primary hover:bg-surface-800"
+              }`}
+            >
+              <span className="truncate">{st.label}</span>
+              {statusType === st.id && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+            </button>
+          ))}
         </div>
       </div>
 

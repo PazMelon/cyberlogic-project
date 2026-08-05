@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,6 +23,10 @@ interface GanttRoadmapViewProps {
   onSelectCard: (card: CyberboardCard) => void;
   onUpdateCardDate?: (cardId: number, activityDate: string, activityEndDate: string) => Promise<void>;
   onAddNewCard?: (columnId?: number) => void;
+  onUpdateCardPhase?: (cardId: number, phase: string) => Promise<void>;
+  onMoveCardColumn?: (cardId: number, targetColumnId: number) => Promise<void>;
+  onUpdateCardPriority?: (cardId: number, priority: "high" | "medium" | "low") => Promise<void>;
+  onUpdateCardAssignees?: (cardId: number, userIds: number[]) => Promise<void>;
 }
 
 type GroupByOption = "phase" | "column" | "priority" | "assignee";
@@ -50,6 +54,10 @@ export default function GanttRoadmapView({
   onSelectCard,
   onUpdateCardDate: _onUpdateCardDate,
   onAddNewCard,
+  onUpdateCardPhase,
+  onMoveCardColumn,
+  onUpdateCardPriority,
+  onUpdateCardAssignees,
 }: GanttRoadmapViewProps) {
   const currentYearNow = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
@@ -90,6 +98,181 @@ export default function GanttRoadmapView({
       ...prev,
       [parentId]: !prev[parentId],
     }));
+  };
+
+  // Resolve status category & styling from column.status_type or title fallback (Darker theme-compatible badges)
+  const getCardStatusInfo = useCallback(
+    (card: CyberboardCard) => {
+      const col = columns.find((c) => c.id === card.column_id);
+      if (col?.status_type) {
+        switch (col.status_type) {
+          case "completed":
+            return { label: "Done", bg: "bg-emerald-950/90 text-emerald-300 border-emerald-600/60 font-bold" };
+          case "in_progress":
+            return { label: "In Progress", bg: "bg-lime-950/90 text-lime-300 border-lime-600/60 font-bold" };
+          case "under_review":
+            return { label: "Testing", bg: "bg-cyan-950/90 text-cyan-300 border-cyan-600/60 font-bold" };
+          case "blocked":
+            return { label: "Blocked", bg: "bg-amber-950/90 text-amber-300 border-amber-600/60 font-bold" };
+          case "not_started":
+            return { label: "To Do", bg: "bg-slate-900/90 text-slate-200 border-slate-700/70 font-bold" };
+        }
+      }
+      const colName = col?.title || "";
+      if (colName.toLowerCase().includes("done") || colName.toLowerCase().includes("complete")) {
+        return { label: "Done", bg: "bg-emerald-950/90 text-emerald-300 border-emerald-600/60 font-bold" };
+      }
+      if (colName.toLowerCase().includes("progress") || colName.toLowerCase().includes("review")) {
+        return { label: "In Progress", bg: "bg-lime-950/90 text-lime-300 border-lime-600/60 font-bold" };
+      }
+      return { label: colName || "To Do", bg: "bg-slate-900/90 text-slate-200 border-slate-700/70 font-bold" };
+    },
+    [columns]
+  );
+
+  // Drag-and-Drop Reordering within Gantt View & Swimlanes
+  const [draggedCardId, setDraggedCardId] = useState<number | null>(null);
+  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
+  const [dragOverCardId, setDragOverCardId] = useState<number | null>(null);
+  const [customCardPositions, setCustomCardPositions] = useState<Record<number, number>>({});
+
+  const handleGanttCardDragStart = (e: React.DragEvent, cardId: number) => {
+    e.stopPropagation();
+    setDraggedCardId(cardId);
+    e.dataTransfer.setData("text/plain", cardId.toString());
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleGanttGroupDragOver = (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverGroupId !== groupId) {
+      setDragOverGroupId(groupId);
+    }
+  };
+
+  const handleGanttGroupDragLeave = (e: React.DragEvent, groupId: string) => {
+    e.preventDefault();
+    if (dragOverGroupId === groupId) {
+      setDragOverGroupId(null);
+    }
+  };
+
+  const handleGanttCardDragOver = (e: React.DragEvent, cardId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "move";
+    if (dragOverCardId !== cardId) {
+      setDragOverCardId(cardId);
+    }
+  };
+
+  const handleGanttCardDragLeave = (e: React.DragEvent, cardId: number) => {
+    e.preventDefault();
+    if (dragOverCardId === cardId) {
+      setDragOverCardId(null);
+    }
+  };
+
+  const handleGanttDropOnCard = async (e: React.DragEvent, targetCard: CyberboardCard, group: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverGroupId(null);
+    setDragOverCardId(null);
+
+    const cardIdStr = e.dataTransfer.getData("text/plain");
+    const activeCardId = cardIdStr ? parseInt(cardIdStr, 10) : draggedCardId;
+    setDraggedCardId(null);
+
+    if (!activeCardId || isNaN(activeCardId) || activeCardId === targetCard.id) return;
+
+    // 1. Reorder inside the group
+    const currentGroupCards = [...group.cards];
+    const sourceIndex = currentGroupCards.findIndex((c) => c.id === activeCardId);
+    const targetIndex = currentGroupCards.findIndex((c) => c.id === targetCard.id);
+
+    if (targetIndex !== -1) {
+      let activeCard = currentGroupCards[sourceIndex];
+      if (!activeCard) {
+        activeCard = cards.find((c) => c.id === activeCardId)!;
+      }
+      if (sourceIndex !== -1) {
+        currentGroupCards.splice(sourceIndex, 1);
+      }
+      currentGroupCards.splice(targetIndex, 0, activeCard);
+
+      // Update position order state
+      const updatedPositions = { ...customCardPositions };
+      currentGroupCards.forEach((c, idx) => {
+        if (c) updatedPositions[c.id] = idx;
+      });
+      setCustomCardPositions(updatedPositions);
+    }
+
+    // 2. Perform cross-group re-assignment if dragged from a different group
+    if (groupBy === "phase") {
+      if (onUpdateCardPhase && group.title) {
+        await onUpdateCardPhase(activeCardId, group.title);
+      }
+    } else if (groupBy === "column") {
+      if (onMoveCardColumn && group.columnId) {
+        await onMoveCardColumn(activeCardId, group.columnId);
+      }
+    } else if (groupBy === "priority") {
+      if (onUpdateCardPriority) {
+        const rawPrio = group.id.replace("prio-", "");
+        if (["high", "medium", "low"].includes(rawPrio)) {
+          await onUpdateCardPriority(activeCardId, rawPrio as "high" | "medium" | "low");
+        }
+      }
+    } else if (groupBy === "assignee") {
+      if (onUpdateCardAssignees) {
+        const rawUserIdStr = group.id.replace("assignee-", "").replace("user-", "");
+        const userId = parseInt(rawUserIdStr, 10);
+        if (!isNaN(userId)) {
+          await onUpdateCardAssignees(activeCardId, [userId]);
+        }
+      }
+    }
+  };
+
+  const handleGanttGroupDrop = async (e: React.DragEvent, group: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverGroupId(null);
+    setDragOverCardId(null);
+
+    const cardIdStr = e.dataTransfer.getData("text/plain");
+    const targetCardId = cardIdStr ? parseInt(cardIdStr, 10) : draggedCardId;
+    setDraggedCardId(null);
+
+    if (!targetCardId || isNaN(targetCardId)) return;
+
+    if (groupBy === "phase") {
+      if (onUpdateCardPhase && group.title) {
+        await onUpdateCardPhase(targetCardId, group.title);
+      }
+    } else if (groupBy === "column") {
+      if (onMoveCardColumn && group.columnId) {
+        await onMoveCardColumn(targetCardId, group.columnId);
+      }
+    } else if (groupBy === "priority") {
+      if (onUpdateCardPriority) {
+        const rawPrio = group.id.replace("prio-", "");
+        if (["high", "medium", "low"].includes(rawPrio)) {
+          await onUpdateCardPriority(targetCardId, rawPrio as "high" | "medium" | "low");
+        }
+      }
+    } else if (groupBy === "assignee") {
+      if (onUpdateCardAssignees) {
+        const rawUserIdStr = group.id.replace("assignee-", "").replace("user-", "");
+        const userId = parseInt(rawUserIdStr, 10);
+        if (!isNaN(userId)) {
+          await onUpdateCardAssignees(targetCardId, [userId]);
+        }
+      }
+    }
   };
 
   // Today calculations
@@ -178,10 +361,23 @@ export default function GanttRoadmapView({
         }
       });
 
-      return Array.from(phaseMap.values()).filter((g) => g.cards.length > 0 || g.id !== "phase-unphased");
+      const resultGroups = Array.from(phaseMap.values()).filter((g) => g.cards.length > 0 || g.id !== "phase-unphased");
+      resultGroups.forEach((g) => {
+        g.cards.sort((a, b) => {
+          const posA = customCardPositions[a.id] ?? a.position ?? 0;
+          const posB = customCardPositions[b.id] ?? b.position ?? 0;
+          return posA - posB;
+        });
+      });
+      return resultGroups;
     } else if (groupBy === "column") {
       return columns.map((col, idx) => {
         const colCards = activeCards.filter((c) => c.column_id === col.id);
+        colCards.sort((a, b) => {
+          const posA = customCardPositions[a.id] ?? a.position ?? 0;
+          const posB = customCardPositions[b.id] ?? b.position ?? 0;
+          return posA - posB;
+        });
         return {
           id: `col-${col.id}`,
           columnId: col.id,
@@ -199,6 +395,11 @@ export default function GanttRoadmapView({
       };
       return priorities.map((prio) => {
         const prioCards = activeCards.filter((c) => c.priority === prio);
+        prioCards.sort((a, b) => {
+          const posA = customCardPositions[a.id] ?? a.position ?? 0;
+          const posB = customCardPositions[b.id] ?? b.position ?? 0;
+          return posA - posB;
+        });
         return {
           id: `prio-${prio}`,
           columnId: undefined,
@@ -260,9 +461,17 @@ export default function GanttRoadmapView({
         }
       });
 
-      return Array.from(assigneeMap.values()).filter((g) => g.cards.length > 0 || g.id !== "assignee-unassigned");
+      const rawGroups = Array.from(assigneeMap.values()).filter((g) => g.cards.length > 0 || g.id !== "assignee-unassigned");
+      rawGroups.forEach((g) => {
+        g.cards.sort((a, b) => {
+          const posA = customCardPositions[a.id] ?? a.position ?? 0;
+          const posB = customCardPositions[b.id] ?? b.position ?? 0;
+          return posA - posB;
+        });
+      });
+      return rawGroups;
     }
-  }, [groupBy, columns, cards, board.creator]);
+  }, [groupBy, columns, cards, board.creator, customCardPositions]);
 
   const unscheduledCards = useMemo(() => {
     return cards.filter((c) => !c.is_archived && (!c.activity_date && !c.activity_end_date));
@@ -750,25 +959,34 @@ export default function GanttRoadmapView({
 
       {/* 2. Main Gantt Layout */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        {/* Left Column: Group & Task Hierarchy Titles */}
-        <div className="w-56 sm:w-72 flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg">
-          <div className="h-12 border-b border-border/80 px-4 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
-            <span className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" />
-              {groupBy === "phase" ? "Phases" : groupBy === "column" ? "Stages" : groupBy === "priority" ? "Priority" : "Assignees"}
+        {/* Left Column: Group & Task Hierarchy Titles + Dedicated STATUS Column */}
+        <div className="w-72 sm:w-[400px] flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg">
+          <div className="h-12 border-b border-border/80 px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
+            <span className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+              <Layers className="w-4 h-4 text-primary flex-shrink-0" />
+              <span className="truncate">{groupBy === "phase" ? "Tasks & Phases" : groupBy === "column" ? "Tasks & Stages" : groupBy === "priority" ? "Tasks & Priority" : "Tasks & Assignees"}</span>
             </span>
-            <span className="text-[10px] text-text-muted font-normal">
-              {groupedData.length} groups
-            </span>
+            <div className="w-28 flex-shrink-0 text-center font-bold text-[10px] text-text-muted uppercase tracking-widest border-l border-border/40 pl-2">
+              Status
+            </div>
           </div>
 
           {/* Rows List (Left Panel) */}
           <div className="flex-1 overflow-y-auto divide-y divide-border/40 scrollbar-thin">
             {groupedData.map((group) => {
               const parentCards = group.cards.filter((c) => !c.parent_id);
+              const isGroupDragOver = dragOverGroupId === group.id;
 
               return (
-                <div key={group.id} className="bg-surface-900/40">
+                <div
+                  key={group.id}
+                  onDragOver={(e) => handleGanttGroupDragOver(e, group.id)}
+                  onDragLeave={(e) => handleGanttGroupDragLeave(e, group.id)}
+                  onDrop={(e) => handleGanttGroupDrop(e, group)}
+                  className={`transition-colors duration-150 ${
+                    isGroupDragOver ? "bg-primary/15 border-l-4 border-primary" : "bg-surface-900/40"
+                  }`}
+                >
                   {/* Group Title Bar */}
                   <div className="h-[44px] px-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
                     <div className="flex items-center gap-2 min-w-0">
@@ -808,12 +1026,24 @@ export default function GanttRoadmapView({
                       parentCards.map((card) => {
                         const hasSubCards = card.sub_cards && card.sub_cards.length > 0;
                         const isExpanded = !!expandedParents[card.id];
+                        const statusInfo = getCardStatusInfo(card);
+
+                        const isCardDragOver = dragOverCardId === card.id;
 
                         return (
                           <React.Fragment key={`row-left-${card.id}`}>
                             {/* Parent Card Row */}
-                            <div className="h-[44px] px-3 flex items-center justify-between gap-2 hover:bg-surface-800/40 transition-colors border-b border-border/20">
-                              <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              draggable
+                              onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
+                              onDragOver={(e) => handleGanttCardDragOver(e, card.id)}
+                              onDragLeave={(e) => handleGanttCardDragLeave(e, card.id)}
+                              onDrop={(e) => handleGanttDropOnCard(e, card, group)}
+                              className={`h-[44px] px-3 flex items-center justify-between gap-2 transition-all border-b border-border/20 cursor-grab active:cursor-grabbing group/leftrow ${
+                                isCardDragOver ? "bg-primary/20 border-t-2 border-primary ring-1 ring-primary/40" : "hover:bg-surface-800/40"
+                              }`}
+                            >
+                              <div className="flex-1 items-center gap-2 min-w-0 flex">
                                 {hasSubCards ? (
                                   <button
                                     onClick={() => toggleParentExpand(card.id)}
@@ -838,35 +1068,51 @@ export default function GanttRoadmapView({
                                     <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
                                   </span>
                                 )}
+
+                                {renderTreeAssigneeAvatars(card)}
                               </div>
 
-                              {renderTreeAssigneeAvatars(card)}
+                              {/* Dedicated STATUS Column Cell */}
+                              <div className="w-28 flex-shrink-0 flex items-center justify-center border-l border-border/20 pl-2">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border tracking-wide shadow-2xs ${statusInfo.bg}`}>
+                                  {statusInfo.label}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Sub-cards Indented Rows */}
                             {isExpanded &&
-                              card.sub_cards?.map((subCard) => (
-                                <div
-                                  key={`row-left-sub-${subCard.id}`}
-                                  className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                      onClick={() => onSelectCard(subCard)}
-                                      className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
-                                    >
-                                      ↳ {subCard.title}
-                                    </span>
-                                    {!subCard.activity_date && !subCard.activity_end_date && (
-                                      <span className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/80 text-text-secondary text-[9px] font-bold flex items-center gap-1 flex-shrink-0">
-                                        <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
+                              card.sub_cards?.map((subCard) => {
+                                const subStatusInfo = getCardStatusInfo(subCard);
+                                return (
+                                  <div
+                                    key={`row-left-sub-${subCard.id}`}
+                                    className="h-[38px] pl-7 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
+                                  >
+                                    <div className="flex-1 items-center gap-2 min-w-0 flex">
+                                      <span
+                                        onClick={() => onSelectCard(subCard)}
+                                        className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
+                                      >
+                                        ↳ {subCard.title}
                                       </span>
-                                    )}
-                                  </div>
+                                      {!subCard.activity_date && !subCard.activity_end_date && (
+                                        <span className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/80 text-text-secondary text-[9px] font-bold flex items-center gap-1 flex-shrink-0">
+                                          <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
+                                        </span>
+                                      )}
+                                      {renderTreeAssigneeAvatars(subCard)}
+                                    </div>
 
-                                  {renderTreeAssigneeAvatars(subCard)}
-                                </div>
-                              ))}
+                                    {/* Dedicated STATUS Column Cell for Subtask */}
+                                    <div className="w-28 flex-shrink-0 flex items-center justify-center border-l border-border/20 pl-2">
+                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border tracking-wide ${subStatusInfo.bg}`}>
+                                        {subStatusInfo.label}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                           </React.Fragment>
                         );
                       })
@@ -924,9 +1170,18 @@ export default function GanttRoadmapView({
             <div className="flex-1 divide-y divide-border/40 relative z-10">
               {groupedData.map((group) => {
                 const parentCards = group.cards.filter((c) => !c.parent_id);
+                const isGroupDragOver = dragOverGroupId === group.id;
 
                 return (
-                  <div key={`gantt-grid-group-${group.id}`} className="bg-transparent">
+                  <div
+                    key={`gantt-grid-group-${group.id}`}
+                    onDragOver={(e) => handleGanttGroupDragOver(e, group.id)}
+                    onDragLeave={(e) => handleGanttGroupDragLeave(e, group.id)}
+                    onDrop={(e) => handleGanttGroupDrop(e, group)}
+                    className={`transition-colors duration-150 ${
+                      isGroupDragOver ? "bg-primary/10" : "bg-transparent"
+                    }`}
+                  >
                     {/* Group Header Spacer */}
                     <div className="h-[44px] border-b border-border/40 bg-surface-900/30" />
 
@@ -948,11 +1203,20 @@ export default function GanttRoadmapView({
                           return (
                             <React.Fragment key={`gantt-row-parent-${card.id}`}>
                               {/* Parent Bar Row */}
-                              <div className="h-[44px] px-2 flex items-center relative hover:bg-surface-900/10 transition-colors border-b border-border/20">
+                              <div
+                                onDragOver={(e) => handleGanttCardDragOver(e, card.id)}
+                                onDragLeave={(e) => handleGanttCardDragLeave(e, card.id)}
+                                onDrop={(e) => handleGanttDropOnCard(e, card, group)}
+                                className={`h-[44px] px-2 flex items-center relative transition-colors border-b border-border/20 ${
+                                  dragOverCardId === card.id ? "bg-primary/15 border-t-2 border-primary" : "hover:bg-surface-900/10"
+                                }`}
+                              >
                               {!card.activity_date && !card.activity_end_date ? (
                                 <div
+                                  draggable
+                                  onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
                                   onClick={() => onSelectCard(card)}
-                                  className="sticky left-4 z-10 cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-800/95 border border-border/90 text-text-primary text-xs font-semibold shadow-md hover:border-primary/60 hover:bg-surface-800 transition-all group"
+                                  className="sticky left-4 z-10 cursor-grab active:cursor-grabbing flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-800/95 border border-border/90 text-text-primary text-xs font-semibold shadow-md hover:border-primary/60 hover:bg-surface-800 transition-all group"
                                 >
                                   <Clock className="w-3.5 h-3.5 text-primary animate-pulse flex-shrink-0" />
                                   <span className="font-bold truncate max-w-[220px]">{card.title}</span>
@@ -963,7 +1227,9 @@ export default function GanttRoadmapView({
                                 </div>
                               ) : (
                                 <div
-                                  className="relative h-8 my-0.5 flex items-center group/bar"
+                                  draggable
+                                  onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
+                                  className="relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing"
                                   style={{
                                     left: `${leftPercent}%`,
                                     width: `${widthPercent}%`,
