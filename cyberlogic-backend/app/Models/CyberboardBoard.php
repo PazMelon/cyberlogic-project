@@ -26,6 +26,8 @@ class CyberboardBoard extends Model
         'column_creation_policy',
         'allowed_column_creator_roles',
         'allowed_column_creator_users',
+        'methodology',
+        'phase_settings',
     ];
 
     protected function casts(): array
@@ -36,6 +38,7 @@ class CyberboardBoard extends Model
             'allowed_members' => 'array',
             'allowed_column_creator_roles' => 'array',
             'allowed_column_creator_users' => 'array',
+            'phase_settings' => 'array',
         ];
     }
 

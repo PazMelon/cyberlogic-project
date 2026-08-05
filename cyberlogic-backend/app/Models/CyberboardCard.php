@@ -22,6 +22,7 @@ class CyberboardCard extends Model
         'activity_end_date',
         'color_tag',
         'priority',
+        'phase',
         'position',
         'is_archived',
     ];

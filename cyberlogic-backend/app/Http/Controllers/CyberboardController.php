@@ -264,6 +264,8 @@ class CyberboardController extends Controller
             'allowed_column_creator_roles.*' => 'string',
             'allowed_column_creator_users' => 'nullable|array',
             'allowed_column_creator_users.*' => 'integer|exists:users,id',
+            'methodology' => 'nullable|string|in:waterfall,agile,custom',
+            'phase_settings' => 'nullable|array',
         ]);
 
         $category = $validated['category'] ?? 'club_related';
@@ -271,6 +273,29 @@ class CyberboardController extends Controller
             return response()->json([
                 'message' => 'Only admins and superadmins can create System category boards.',
             ], 403);
+        }
+
+        $methodology = $validated['methodology'] ?? 'waterfall';
+        $phaseSettings = $validated['phase_settings'] ?? null;
+
+        if (($validated['type'] ?? 'activity') === 'roadmap' && empty($phaseSettings)) {
+            if ($methodology === 'agile') {
+                $phaseSettings = [
+                    ['name' => 'Sprint 1', 'color' => '#06b6d4'],
+                    ['name' => 'Sprint 2', 'color' => '#3b82f6'],
+                    ['name' => 'Sprint 3', 'color' => '#8b5cf6'],
+                    ['name' => 'Release v1.0', 'color' => '#10b981'],
+                    ['name' => 'Backlog', 'color' => '#64748b'],
+                ];
+            } else {
+                $phaseSettings = [
+                    ['name' => 'Requirements & Planning', 'color' => '#3b82f6'],
+                    ['name' => 'Architecture & Design', 'color' => '#8b5cf6'],
+                    ['name' => 'Development & Implementation', 'color' => '#06b6d4'],
+                    ['name' => 'Testing & QA', 'color' => '#f59e0b'],
+                    ['name' => 'Deployment & Release', 'color' => '#10b981'],
+                ];
+            }
         }
 
         $board = CyberboardBoard::create([
@@ -284,6 +309,8 @@ class CyberboardController extends Controller
             'column_creation_policy' => $validated['column_creation_policy'] ?? 'everyone',
             'allowed_column_creator_roles' => $validated['allowed_column_creator_roles'] ?? null,
             'allowed_column_creator_users' => $validated['allowed_column_creator_users'] ?? null,
+            'methodology' => $methodology,
+            'phase_settings' => $phaseSettings,
             'created_by' => $user->id,
             'is_archived' => false,
         ]);
@@ -441,6 +468,7 @@ class CyberboardController extends Controller
             'activity_end_date' => 'nullable|date|after_or_equal:activity_date',
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
+            'phase' => 'nullable|string|max:100',
         ]);
 
         // Default to first column if column_id is not specified
@@ -485,6 +513,7 @@ class CyberboardController extends Controller
             'activity_end_date' => $validated['activity_end_date'] ?? null,
             'color_tag' => $validated['color_tag'] ?? null,
             'priority' => $validated['priority'] ?? 'medium',
+            'phase' => $validated['phase'] ?? null,
             'position' => $maxPosition + 1,
             'is_archived' => false,
         ]);
@@ -576,6 +605,7 @@ class CyberboardController extends Controller
             'activity_end_date' => 'nullable|date|after_or_equal:activity_date',
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
+            'phase' => 'nullable|string|max:100',
         ]);
 
         $changeDescItems = [];
