@@ -111,7 +111,7 @@ export default function BoardControlsSidebar({
                       }`}
                     >
                       {mode === "phase"
-                        ? "SDLC Phase"
+                        ? "Phases"
                         : mode === "column"
                         ? "Columns"
                         : mode === "priority"

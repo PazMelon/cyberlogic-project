@@ -571,7 +571,7 @@ export default function GanttRoadmapView({
                   : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
               }`}
             >
-              SDLC Phase
+              Phases
             </button>
             <button
               onClick={() => setGroupBy("column")}
@@ -709,18 +709,19 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Unscheduled items badge */}
+          {/* Unscheduled items badge (Icon + Count only) */}
           {unscheduledCards.length > 0 && (
             <button
               onClick={() => setShowUnscheduledDrawer(!showUnscheduledDrawer)}
-              className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-2 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
                 showUnscheduledDrawer
                   ? "bg-amber-500/20 text-amber-400 border-amber-500/40"
                   : "bg-surface-800/80 text-amber-400 border-border hover:bg-surface-700/60"
               }`}
+              title={`${unscheduledCards.length} unscheduled tasks without dates`}
             >
               <Clock className="w-3.5 h-3.5" />
-              <span>{unscheduledCards.length} Unscheduled</span>
+              <span>{unscheduledCards.length}</span>
             </button>
           )}
         </div>
@@ -754,7 +755,7 @@ export default function GanttRoadmapView({
           <div className="h-12 border-b border-border/80 px-4 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
             <span className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-primary" />
-              {groupBy === "phase" ? "SDLC Phases" : groupBy === "column" ? "Stages" : groupBy === "priority" ? "Priority" : "Assignees"}
+              {groupBy === "phase" ? "Phases" : groupBy === "column" ? "Stages" : groupBy === "priority" ? "Priority" : "Assignees"}
             </span>
             <span className="text-[10px] text-text-muted font-normal">
               {groupedData.length} groups
@@ -1100,7 +1101,7 @@ export default function GanttRoadmapView({
                         : "bg-surface-800/80 text-text-secondary border-border/60 hover:text-text-primary"
                     }`}
                   >
-                    {mode === "phase" ? "SDLC Phase" : mode === "column" ? "Columns" : mode === "priority" ? "Priority" : "Assignee"}
+                    {mode === "phase" ? "Phases" : mode === "column" ? "Columns" : mode === "priority" ? "Priority" : "Assignee"}
                   </button>
                 ))}
               </div>
