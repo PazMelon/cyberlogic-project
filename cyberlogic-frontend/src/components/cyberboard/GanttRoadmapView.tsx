@@ -80,16 +80,7 @@ export default function GanttRoadmapView({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDraggedRef = useRef<boolean>(false);
 
-  const handleLeftScroll = useCallback(() => {
-    if (isSyncingScrollRef.current) return;
-    isSyncingScrollRef.current = true;
-    if (leftScrollRef.current && gridTimelineRef.current) {
-      gridTimelineRef.current.scrollTop = leftScrollRef.current.scrollTop;
-    }
-    requestAnimationFrame(() => {
-      isSyncingScrollRef.current = false;
-    });
-  }, []);
+
 
   const handleRightScroll = useCallback(() => {
     if (isSyncingScrollRef.current) return;
