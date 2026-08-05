@@ -56,6 +56,8 @@ export default function CardDetailModal({
   onDeleteCard,
   onUpdateCard,
 }: CardDetailModalProps) {
+  const safeBoardPhases = boardPhases || [];
+
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuditLog, setShowAuditLog] = useState(false);
@@ -350,8 +352,8 @@ export default function CardDetailModal({
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
                 >
                   <option value="">No SDLC Phase Assigned</option>
-                  {boardPhases.length > 0 ? (
-                    boardPhases.map((p, idx) => (
+                  {safeBoardPhases.length > 0 ? (
+                    safeBoardPhases.map((p, idx) => (
                       <option key={`b-edit-phase-${idx}`} value={p.name}>
                         {p.name}
                       </option>

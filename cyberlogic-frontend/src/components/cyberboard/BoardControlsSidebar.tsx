@@ -5,9 +5,6 @@ import {
   Settings,
   History,
   SlidersHorizontal,
-  ZoomIn,
-  ZoomOut,
-  Sparkles,
   Circle,
   FileSpreadsheet,
 } from "lucide-react";
@@ -22,19 +19,10 @@ interface BoardControlsSidebarProps {
   boardPresenceUsers?: Record<number, BoardPresenceUser>;
   copiedLink: boolean;
   canManageBoard?: boolean;
-  viewMode?: "board" | "gantt";
   onCopyShareLink: () => void;
   onOpenSettings?: () => void;
   onOpenBoardAuditLog: () => void;
   onExportToExcel?: () => void;
-  groupBy?: "phase" | "column" | "priority" | "assignee";
-  onGroupByChange?: (mode: "phase" | "column" | "priority" | "assignee") => void;
-  timeScale?: "month" | "week" | "day";
-  onTimeScaleChange?: (mode: "month" | "week" | "day") => void;
-  zoomLevel?: number;
-  onZoomIn?: () => void;
-  onZoomOut?: () => void;
-  onResetZoom?: () => void;
 }
 
 export default function BoardControlsSidebar({
@@ -45,19 +33,10 @@ export default function BoardControlsSidebar({
   boardPresenceUsers = {},
   copiedLink,
   canManageBoard,
-  viewMode = "board",
   onCopyShareLink,
   onOpenSettings,
   onOpenBoardAuditLog,
   onExportToExcel,
-  groupBy = "phase",
-  onGroupByChange,
-  timeScale = "month",
-  onTimeScaleChange,
-  zoomLevel = 100,
-  onZoomIn,
-  onZoomOut,
-  onResetZoom,
 }: BoardControlsSidebarProps) {
   if (!isOpen) return null;
 
@@ -88,99 +67,7 @@ export default function BoardControlsSidebar({
 
       {/* Drawer Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-thin">
-        {/* Section 1: Gantt Roadmap View Controls (Visible when in Gantt mode) */}
-        {viewMode === "gantt" && (
-          <div className="space-y-4 bg-surface-950/60 p-4 rounded-2xl border border-border/60">
-            <div className="flex items-center gap-2 text-xs font-bold text-text-primary uppercase tracking-wider">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span>Gantt View Controls</span>
-            </div>
-
-            {/* Grouping Selector */}
-            {onGroupByChange && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-text-muted">Group Tasks By:</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {(["phase", "column", "priority", "assignee"] as const).map((mode) => (
-                    <button
-                      key={`sidebar-group-${mode}`}
-                      onClick={() => onGroupByChange(mode)}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                        groupBy === mode
-                          ? "bg-primary text-surface-950 border-primary font-bold shadow-xs"
-                          : "bg-surface-800/80 text-text-secondary border-border/60 hover:text-text-primary hover:bg-surface-700/60"
-                      }`}
-                    >
-                      {mode === "phase"
-                        ? "Phases"
-                        : mode === "column"
-                        ? "Columns"
-                        : mode === "priority"
-                        ? "Priority"
-                        : "Assignee"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Scale Selector */}
-            {onTimeScaleChange && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-text-muted">Time Scale Granularity:</label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(["month", "week", "day"] as const).map((mode) => (
-                    <button
-                      key={`sidebar-scale-${mode}`}
-                      onClick={() => onTimeScaleChange(mode)}
-                      className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer border ${
-                        timeScale === mode
-                          ? "bg-primary text-surface-950 border-primary font-bold shadow-xs"
-                          : "bg-surface-800/80 text-text-secondary border-border/60 hover:text-text-primary hover:bg-surface-700/60"
-                      }`}
-                    >
-                      {mode}s
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Zoom Controls */}
-            {onZoomIn && onZoomOut && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-text-muted">Gantt Zoom Level:</label>
-                <div className="flex items-center justify-between bg-surface-800/90 p-2 rounded-xl border border-border/60">
-                  <button
-                    onClick={onZoomOut}
-                    disabled={zoomLevel <= 50}
-                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                  <span
-                    onClick={onResetZoom}
-                    className="text-xs font-bold text-text-primary font-mono cursor-pointer hover:text-primary transition-colors"
-                    title="Reset Zoom to 100%"
-                  >
-                    {zoomLevel}%
-                  </span>
-                  <button
-                    onClick={onZoomIn}
-                    disabled={zoomLevel >= 250}
-                    className="p-1.5 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Section 2: Active Collaborators */}
+        {/* Section 1: Active Collaborators */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-text-primary uppercase tracking-wider">
@@ -226,7 +113,7 @@ export default function BoardControlsSidebar({
           </div>
         </div>
 
-        {/* Section 3: Quick Action Tools */}
+        {/* Section 2: Quick Action Tools */}
         <div className="space-y-2 pt-2 border-t border-border/60">
           <label className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">
             Quick Actions
@@ -234,7 +121,10 @@ export default function BoardControlsSidebar({
 
           <button
             type="button"
-            onClick={onCopyShareLink}
+            onClick={() => {
+              onCopyShareLink();
+              onClose();
+            }}
             className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center justify-between transition-all cursor-pointer group"
           >
             <div className="flex items-center gap-2.5">
@@ -251,7 +141,10 @@ export default function BoardControlsSidebar({
           {board.type === "roadmap" && onExportToExcel && (
             <button
               type="button"
-              onClick={onExportToExcel}
+              onClick={() => {
+                onExportToExcel();
+                onClose();
+              }}
               className="w-full px-4 py-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs font-bold text-emerald-400 flex items-center gap-2.5 transition-all cursor-pointer group shadow-xs"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform flex-shrink-0" />
@@ -261,7 +154,10 @@ export default function BoardControlsSidebar({
 
           <button
             type="button"
-            onClick={onOpenBoardAuditLog}
+            onClick={() => {
+              onOpenBoardAuditLog();
+              onClose();
+            }}
             className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center gap-2.5 transition-all cursor-pointer group"
           >
             <History className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
@@ -271,7 +167,10 @@ export default function BoardControlsSidebar({
           {canManageBoard && onOpenSettings && (
             <button
               type="button"
-              onClick={onOpenSettings}
+              onClick={() => {
+                onOpenSettings();
+                onClose();
+              }}
               className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center gap-2.5 transition-all cursor-pointer group"
             >
               <Settings className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />

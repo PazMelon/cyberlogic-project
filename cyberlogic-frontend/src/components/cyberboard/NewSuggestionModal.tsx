@@ -60,6 +60,9 @@ export default function NewSuggestionModal({
   onClose,
   onSubmit,
 }: NewSuggestionModalProps) {
+  const safeBoardPhases = boardPhases || [];
+  const safeColumns = columns || [];
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedUserIds, setAssignedUserIds] = useState<number[]>([]);
@@ -76,13 +79,13 @@ export default function NewSuggestionModal({
     return Boolean(roleMatch || userMatch);
   };
 
-  const allowedColumns = columns.filter(isColumnAllowed);
+  const allowedColumns = safeColumns.filter(isColumnAllowed);
 
   const initialColumnId = () => {
     if (defaultColumnId && allowedColumns.some((col) => col.id === defaultColumnId)) {
       return defaultColumnId;
     }
-    return allowedColumns[0]?.id || columns[0]?.id;
+    return allowedColumns[0]?.id || safeColumns[0]?.id;
   };
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
@@ -194,7 +197,7 @@ export default function NewSuggestionModal({
   };
 
   const formBody = (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id="new-suggestion-form" onSubmit={handleSubmit} className="space-y-5">
       {error && (
         <div className="p-3.5 rounded-xl bg-error/10 border border-error/20 text-error text-xs flex items-center gap-2 font-medium">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -322,8 +325,8 @@ export default function NewSuggestionModal({
           onChange={(e) => setPhase(e.target.value)}
           className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
         >
-          {boardPhases.length > 0 ? (
-            boardPhases.map((p, idx) => (
+          {safeBoardPhases.length > 0 ? (
+            safeBoardPhases.map((p, idx) => (
               <option key={`b-phase-${idx}`} value={p.name}>
                 {p.name}
               </option>
@@ -402,24 +405,26 @@ export default function NewSuggestionModal({
       </div>
 
       {/* Submit CTAs */}
-      <div className="flex items-center justify-end gap-2.5 pt-5 border-t border-border/60">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
-        >
-          Cancel
-        </button>
+      {!isMobile && (
+        <div className="flex items-center justify-end gap-2.5 pt-5 border-t border-border/60">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
 
-        <button
-          type="submit"
-          disabled={isSubmitting || !title.trim()}
-          className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>
-        </button>
-      </div>
+          <button
+            type="submit"
+            disabled={isSubmitting || !title.trim()}
+            className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>
+          </button>
+        </div>
+      )}
     </form>
   );
 
@@ -430,6 +435,27 @@ export default function NewSuggestionModal({
         onClose={onClose}
         title={copy.modalTitle}
         initialSnap="3/4"
+        footer={
+          <div className="flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              form="new-suggestion-form"
+              disabled={isSubmitting || !title.trim()}
+              className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>
+            </button>
+          </div>
+        }
       >
         {formBody}
       </BottomSheet>

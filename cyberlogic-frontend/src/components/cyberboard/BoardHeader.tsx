@@ -331,24 +331,6 @@ export default function BoardHeader({
               </button>
             )}
 
-            {onToggleControlsSidebar && (
-              <button
-                type="button"
-                onClick={() => {
-                  onToggleControlsSidebar();
-                  setShowMenu(false);
-                }}
-                className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-colors ${
-                  showControlsSidebar
-                    ? "bg-primary/15 text-primary"
-                    : "text-text-primary hover:bg-surface-800"
-                }`}
-              >
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
-                <span>Board Controls Drawer</span>
-              </button>
-            )}
-
             <button
               type="button"
               onClick={() => {

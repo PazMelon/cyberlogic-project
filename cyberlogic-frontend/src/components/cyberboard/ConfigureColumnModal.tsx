@@ -131,7 +131,7 @@ export default function ConfigureColumnModal({
   };
 
   const formBody = (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id="configure-column-form" onSubmit={handleSubmit} className="space-y-5">
       {/* Column Title & Color */}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1.5">
@@ -340,22 +340,24 @@ export default function ConfigureColumnModal({
       </div>
 
       {/* Action CTAs */}
-      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-4 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitting || !title.trim()}
-          className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer"
-        >
-          {submitting ? "Saving..." : "Save Restrictions"}
-        </button>
-      </div>
+      {!isMobile && (
+        <div className="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || !title.trim()}
+            className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {submitting ? "Saving..." : "Save Restrictions"}
+          </button>
+        </div>
+      )}
     </form>
   );
 
@@ -366,6 +368,25 @@ export default function ConfigureColumnModal({
         onClose={onClose}
         title="Column Settings & Restrictions"
         initialSnap="3/4"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="configure-column-form"
+              disabled={submitting || !title.trim()}
+              className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 cursor-pointer shadow-md shadow-primary/20"
+            >
+              {submitting ? "Saving..." : "Save Restrictions"}
+            </button>
+          </div>
+        }
       >
         {formBody}
       </BottomSheet>

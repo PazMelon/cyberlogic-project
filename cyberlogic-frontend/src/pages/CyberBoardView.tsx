@@ -79,7 +79,7 @@ export default function CyberBoardView() {
   const [showBoardAuditLog, setShowBoardAuditLog] = useState(false);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showCollaborators, setShowCollaborators] = useState(true);
+  const [showCollaborators, setShowCollaborators] = useState(false);
   const [showControlsSidebar, setShowControlsSidebar] = useState(false);
   const [viewMode, setViewMode] = useState<"board" | "gantt">("board");
 
@@ -1126,7 +1126,6 @@ export default function CyberBoardView() {
           boardPresenceUsers={boardPresenceUsers}
           copiedLink={copiedLink}
           canManageBoard={canManageBoard}
-          viewMode={viewMode}
           onCopyShareLink={handleCopyShareLink}
           onOpenSettings={() => setShowBoardSettingsModal(true)}
           onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}

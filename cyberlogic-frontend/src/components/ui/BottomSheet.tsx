@@ -7,6 +7,7 @@ interface BottomSheetProps {
   title?: string;
   initialSnap?: "1/2" | "3/4" | "fullscreen";
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 export function BottomSheet({
@@ -15,6 +16,7 @@ export function BottomSheet({
   title,
   initialSnap = "3/4",
   children,
+  footer,
 }: BottomSheetProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,13 @@ export function BottomSheet({
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 min-h-0">
           {children}
         </div>
+
+        {/* Docked Pinned Footer */}
+        {footer && (
+          <div className="p-4 sm:px-5 sm:py-4 border-t border-border/80 bg-surface-900 flex-shrink-0 z-10 shadow-2xl">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

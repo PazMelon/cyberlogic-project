@@ -652,64 +652,66 @@ export default function BoardSettingsModal({
                       setDraggedPhaseIndex(null);
                     }}
                     onDragEnd={() => setDraggedPhaseIndex(null)}
-                    className={`p-2.5 rounded-xl bg-surface-800/80 border transition-all flex items-center justify-between gap-2.5 ${
+                    className={`p-2.5 rounded-xl bg-surface-800/80 border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
                       isDragging
                         ? "opacity-40 border-primary border-dashed scale-[0.99]"
                         : "border-border/60 hover:border-primary/40"
                     }`}
                   >
-                    {/* Drag Handle Grip Icon */}
-                    <div
-                      className="cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text-primary rounded transition-colors flex-shrink-0"
-                      title="Click and drag to reorder phase"
-                    >
-                      <GripVertical className="w-4 h-4" />
+                    {/* Drag Handle & Phase Name Input */}
+                    <div className="flex items-center gap-2 flex-1 w-full min-w-0">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-1 text-text-muted hover:text-text-primary rounded transition-colors flex-shrink-0"
+                        title="Click and drag to reorder phase"
+                      >
+                        <GripVertical className="w-4 h-4" />
+                      </div>
+
+                      <input
+                        type="text"
+                        value={phaseItem.name}
+                        onChange={(e) => {
+                          const newName = e.target.value;
+                          setPhaseSettings((prev) =>
+                            prev.map((p, idx) => (idx === index ? { ...p, name: newName } : p))
+                          );
+                        }}
+                        placeholder="Phase / Sprint Name"
+                        className="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-surface-900 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                      />
                     </div>
 
-                    {/* Phase Name Input */}
-                    <input
-                      type="text"
-                      value={phaseItem.name}
-                      onChange={(e) => {
-                        const newName = e.target.value;
-                        setPhaseSettings((prev) =>
-                          prev.map((p, idx) => (idx === index ? { ...p, name: newName } : p))
-                        );
-                      }}
-                      placeholder="Phase / Sprint Name"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-surface-900 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
-                    />
+                    {/* Color Picker Swatches & Delete Button */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-border/40 flex-shrink-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {PRESET_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => {
+                              setPhaseSettings((prev) =>
+                                prev.map((p, idx) => (idx === index ? { ...p, color } : p))
+                              );
+                            }}
+                            className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
+                              phaseItem.color === color ? "scale-125 ring-2 ring-white" : "opacity-70 hover:opacity-100"
+                            }`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
 
-                    {/* Color Picker Swatches */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {PRESET_COLORS.map((color) => (
-                        <button
-                          key={color}
-                          type="button"
-                          onClick={() => {
-                            setPhaseSettings((prev) =>
-                              prev.map((p, idx) => (idx === index ? { ...p, color } : p))
-                            );
-                          }}
-                          className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
-                            phaseItem.color === color ? "scale-125 ring-2 ring-white" : "opacity-70 hover:opacity-100"
-                          }`}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhaseSettings((prev) => prev.filter((_, idx) => idx !== index));
+                        }}
+                        className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer flex-shrink-0 ml-auto sm:ml-0"
+                        title="Delete Phase / Sprint"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-
-                    {/* Delete Phase Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPhaseSettings((prev) => prev.filter((_, idx) => idx !== index));
-                      }}
-                      className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer flex-shrink-0"
-                      title="Delete Phase / Sprint"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
                   </div>
                 );
               })}
@@ -728,8 +730,111 @@ export default function BoardSettingsModal({
         onClose={onClose}
         title="Board Settings"
         initialSnap="3/4"
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            {onDeleteBoard ? (
+              <button
+                type="button"
+                onClick={() => onDeleteBoard(board.id)}
+                className="px-3 py-2 rounded-xl text-error bg-error/10 hover:bg-error/20 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="board-settings-mobile-form"
+                disabled={!title.trim() || isSubmitting}
+                className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
+              >
+                {isSubmitting ? (
+                  <span>Saving...</span>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        }
       >
-        {formContent}
+        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="space-y-4">
+          {/* Mobile Tab Navigation Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/60">
+            <button
+              type="button"
+              onClick={() => setActiveTab("general")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "general"
+                  ? "bg-primary text-surface-950 font-bold"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>General</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("privacy")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "privacy"
+                  ? "bg-primary text-surface-950 font-bold"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Privacy</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("columns")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === "columns"
+                  ? "bg-primary text-surface-950 font-bold"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Columns</span>
+            </button>
+
+            {type === "roadmap" && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("phases")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === "phases"
+                    ? "bg-primary text-surface-950 font-bold"
+                    : "bg-surface-800 text-text-muted hover:text-text-primary"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Phases & Sprints</span>
+              </button>
+            )}
+          </div>
+
+          {/* Tab Content Fields */}
+          <div className="py-1">
+            {formContent}
+          </div>
+        </form>
       </BottomSheet>
     );
   }
