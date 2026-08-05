@@ -849,6 +849,56 @@ export default function CyberBoardView() {
   };
 
   const handleUpdateCard = async (cardId: number, data: Partial<CyberboardCard>) => {
+    const targetCard = board?.columns?.flatMap((col) => col.cards || []).find((c) => c.id === cardId);
+    if (targetCard && board?.columns) {
+      const predIds = (targetCard.predecessor_ids && targetCard.predecessor_ids.length > 0)
+        ? targetCard.predecessor_ids
+        : (targetCard.predecessor_id ? [targetCard.predecessor_id] : []);
+
+      if (predIds.length > 0) {
+        const lastColPosition = board.columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
+        const incompletePredecessors: CyberboardCard[] = [];
+
+        for (const predId of predIds) {
+          const predCard = board.columns.flatMap((col) => col.cards || []).find((c) => c.id === predId);
+          if (predCard) {
+            const predCol = board.columns.find((c) => c.id === predCard.column_id);
+            const isPredDone = predCol && (
+              predCol.status_type === "completed" ||
+              predCol.title.toLowerCase().includes("done") ||
+              predCol.title.toLowerCase().includes("complete") ||
+              (predCol.position !== undefined && predCol.position === lastColPosition && lastColPosition > 0)
+            );
+            if (!isPredDone) {
+              incompletePredecessors.push(predCard);
+            }
+          }
+        }
+
+        const isMovingToDoneOrProgress = data.column_id && (() => {
+          const col = board.columns.find((c) => c.id === data.column_id);
+          return col && (
+            col.status_type === "completed" ||
+            col.status_type === "in_progress" ||
+            col.title.toLowerCase().includes("done") ||
+            col.title.toLowerCase().includes("progress") ||
+            (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
+          );
+        })();
+
+        const isCompletingTo100 = data.completion_percentage === 100;
+
+        if ((isMovingToDoneOrProgress || isCompletingTo100) && incompletePredecessors.length > 0) {
+          const predTitles = incompletePredecessors.map((c) => `'${c.title}'`).join(", ");
+          showToast(
+            `Cannot update task: Predecessor task${incompletePredecessors.length > 1 ? "s" : ""} ${predTitles} ${incompletePredecessors.length > 1 ? "are" : "is"} not completed yet!`,
+            "error"
+          );
+          return;
+        }
+      }
+    }
+
     try {
       const updatedCard = await updateCyberboardCard(cardId, data);
       setBoard((prev) => {
@@ -1389,6 +1439,7 @@ export default function CyberBoardView() {
           onDeleteCard={handleDeleteCard}
           columns={columns}
           onUpdateCard={handleUpdateCard}
+          onShowToast={(msg, type) => showToast(msg, type)}
         />
         );
       })()}

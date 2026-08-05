@@ -75,9 +75,22 @@ export default function GanttRoadmapView({
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
 
-  const handleRemoveDependency = async (targetCardId: number) => {
+  const handleRemoveDependency = async (targetCardId: number, fromCardId: number) => {
+    const allCards = columns.flatMap((col) => col.cards || []);
+    const targetCard = allCards.find((c) => c.id === targetCardId);
+    if (!targetCard) return;
+
+    const existingPredIds = (targetCard.predecessor_ids && targetCard.predecessor_ids.length > 0)
+      ? targetCard.predecessor_ids
+      : (targetCard.predecessor_id ? [targetCard.predecessor_id] : []);
+
+    const nextPredIds = existingPredIds.filter((id) => id !== fromCardId);
+
     try {
-      await updateCyberboardCard(targetCardId, { predecessor_id: null });
+      await updateCyberboardCard(targetCardId, {
+        predecessor_ids: nextPredIds,
+        predecessor_id: nextPredIds[0] || null,
+      });
     } catch (err) {
       console.error("Failed to remove dependency:", err);
     }
@@ -132,10 +145,25 @@ export default function GanttRoadmapView({
       if (linkingState && linkingState.targetCardId) {
         const targetId = linkingState.targetCardId;
         const sourceId = linkingState.fromCardId;
-        try {
-          await updateCyberboardCard(targetId, { predecessor_id: sourceId });
-        } catch (err) {
-          console.error("Failed to link dependency:", err);
+        const allCards = columns.flatMap((col) => col.cards || []);
+        const targetCard = allCards.find((c) => c.id === targetId);
+
+        if (targetCard) {
+          const existingPredIds = (targetCard.predecessor_ids && targetCard.predecessor_ids.length > 0)
+            ? targetCard.predecessor_ids
+            : (targetCard.predecessor_id ? [targetCard.predecessor_id] : []);
+
+          if (!existingPredIds.includes(sourceId)) {
+            const nextPredIds = [...existingPredIds, sourceId];
+            try {
+              await updateCyberboardCard(targetId, {
+                predecessor_ids: nextPredIds,
+                predecessor_id: nextPredIds[0] || null,
+              });
+            } catch (err) {
+              console.error("Failed to link dependency:", err);
+            }
+          }
         }
       }
       setLinkingState(null);
@@ -1843,7 +1871,7 @@ export default function GanttRoadmapView({
                         onMouseLeave={() => setHoveredLineId(null)}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleRemoveDependency(line.toCardId);
+                          handleRemoveDependency(line.toCardId, line.fromCardId);
                         }}
                       />
                       {/* Visual Dependency Line */}
@@ -1903,7 +1931,7 @@ export default function GanttRoadmapView({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveDependency(activeLine.toCardId);
+                        handleRemoveDependency(activeLine.toCardId, activeLine.fromCardId);
                       }}
                       className="px-2.5 py-1 rounded-xl bg-surface-950/95 border border-error text-error hover:bg-error hover:text-white text-[11px] font-bold shadow-2xl flex items-center gap-1.5 cursor-pointer backdrop-blur-md transition-all scale-105 active:scale-95"
                       title="Click to remove predecessor dependency link"

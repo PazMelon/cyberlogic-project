@@ -35,6 +35,7 @@ interface CardDetailModalProps {
   onDeleteCard: (cardId: number) => void;
   columns?: CyberboardColumn[];
   onUpdateCard?: (cardId: number, data: Partial<CyberboardCard>) => Promise<void>;
+  onShowToast?: (text: string, type?: "error" | "info" | "success") => void;
 }
 
 const PRESET_COLORS = [
@@ -102,6 +103,7 @@ export default function CardDetailModal({
   onDeleteCard,
   columns = [],
   onUpdateCard,
+  onShowToast,
 }: CardDetailModalProps) {
   const safeBoardPhases = boardPhases || [];
 
@@ -201,6 +203,34 @@ export default function CardDetailModal({
     payload: Partial<CyberboardCard>;
   } | null>(null);
 
+  const getIncompletePredecessors = (targetCard?: CyberboardCard | null) => {
+    if (!targetCard) return [];
+    const predIds = (targetCard.predecessor_ids && targetCard.predecessor_ids.length > 0)
+      ? targetCard.predecessor_ids
+      : (targetCard.predecessor_id ? [targetCard.predecessor_id] : []);
+
+    if (predIds.length === 0 || !allBoardCards || !columns || columns.length === 0) return [];
+    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
+
+    const incomplete: CyberboardCard[] = [];
+    for (const pId of predIds) {
+      const pCard = allBoardCards.find((c) => c.id === pId);
+      if (pCard) {
+        const pCol = columns.find((c) => c.id === pCard.column_id);
+        const isPDone = pCol && (
+          pCol.status_type === "completed" ||
+          pCol.title.toLowerCase().includes("done") ||
+          pCol.title.toLowerCase().includes("complete") ||
+          (pCol.position !== undefined && pCol.position === lastColPosition && lastColPosition > 0)
+        );
+        if (!isPDone) {
+          incomplete.push(pCard);
+        }
+      }
+    }
+    return incomplete;
+  };
+
   const promptCompletionMoveIfTargetColExists = (
     rate: number,
     basePayload: Partial<CyberboardCard>
@@ -212,13 +242,15 @@ export default function CardDetailModal({
 
     let overallRate = rate;
     if (subcardsList.length > 0 && columns && columns.length > 0) {
+      const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
       const completedSubcardsCount = subcardsList.filter((sc) => {
         const col = columns.find((c) => c.id === sc.column_id);
         if (!col) return false;
         return (
           col.status_type === "completed" ||
           col.title.toLowerCase().includes("done") ||
-          col.title.toLowerCase().includes("completed")
+          col.title.toLowerCase().includes("completed") ||
+          (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
         );
       }).length;
       const subcardsRate = (completedSubcardsCount / subcardsList.length) * 100;
@@ -226,20 +258,34 @@ export default function CardDetailModal({
       overallRate = Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
     }
 
-    if (overallRate === 100 && columns && columns.length > 0) {
-      const completedCol = columns.find(
-        (c) =>
-          c.status_type === "completed" ||
-          c.title.toLowerCase().includes("done") ||
-          c.title.toLowerCase().includes("completed")
-      );
-      if (completedCol && card?.column_id !== completedCol.id) {
-        setPendingCompletionModal({
-          targetColumnId: completedCol.id,
-          targetColumnTitle: completedCol.title,
-          payload: { ...basePayload, column_id: completedCol.id },
-        });
+    if (overallRate === 100) {
+      const incomplete = getIncompletePredecessors(card);
+      if (incomplete.length > 0) {
+        const predTitles = incomplete.map((c) => `'${c.title}'`).join(", ");
+        if (onShowToast) {
+          onShowToast(
+            `Cannot complete task: Predecessor task${incomplete.length > 1 ? "s" : ""} ${predTitles} ${incomplete.length > 1 ? "are" : "is"} not completed yet!`,
+            "error"
+          );
+        }
         return true;
+      }
+
+      if (columns && columns.length > 0) {
+        const completedCol = columns.find(
+          (c) =>
+            c.status_type === "completed" ||
+            c.title.toLowerCase().includes("done") ||
+            c.title.toLowerCase().includes("completed")
+        );
+        if (completedCol && card?.column_id !== completedCol.id) {
+          setPendingCompletionModal({
+            targetColumnId: completedCol.id,
+            targetColumnTitle: completedCol.title,
+            payload: { ...basePayload, column_id: completedCol.id },
+          });
+          return true;
+        }
       }
     }
     return false;
@@ -337,6 +383,22 @@ export default function CardDetailModal({
 
   const handleManualCompletionChange = (val: number) => {
     const clamped = Math.max(0, Math.min(100, val));
+
+    if (clamped === 100) {
+      const incomplete = getIncompletePredecessors(card);
+      if (incomplete.length > 0) {
+        const predTitles = incomplete.map((c) => `'${c.title}'`).join(", ");
+        setManualCompletionPercentage(card?.completion_percentage ?? 0);
+        if (onShowToast) {
+          onShowToast(
+            `Cannot set 100% completion: Predecessor task${incomplete.length > 1 ? "s" : ""} ${predTitles} ${incomplete.length > 1 ? "are" : "is"} not completed yet!`,
+            "error"
+          );
+        }
+        return;
+      }
+    }
+
     setManualCompletionPercentage(clamped);
 
     if (sliderDebounceTimerRef.current) {
