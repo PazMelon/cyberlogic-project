@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,6 +9,8 @@ import {
   Plus,
   SlidersHorizontal,
   Users,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard } from "../../utils/api";
 
@@ -50,9 +52,11 @@ export default function GanttRoadmapView({
 }: GanttRoadmapViewProps) {
   const currentYearNow = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
-  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number>(new Date().getMonth());
+  const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
+  const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
   const [timeScale, setTimeScale] = useState<TimeScaleMode>("month");
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
@@ -60,6 +64,24 @@ export default function GanttRoadmapView({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridTimelineRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnterAssignee = (cardId: number) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setHoveredAssigneeCardId(cardId);
+  };
+
+  const handleMouseLeaveAssignee = () => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredAssigneeCardId(null);
+    }, 250);
+  };
 
   const toggleParentExpand = (parentId: number) => {
     setExpandedParents((prev) => ({
@@ -175,16 +197,23 @@ export default function GanttRoadmapView({
           cards: prioCards,
         };
       });
-    } else {
-      // Group by assignee
-      const assigneeMap = new Map<string, { id: string; title: string; color: string; cards: CyberboardCard[]; avatar?: string }>();
-
-      assigneeMap.set("unassigned", {
-        id: "assignee-unassigned",
-        title: "Unassigned Tasks",
-        color: "#64748b",
-        cards: [],
-      });
+      // Populate allowed board members so every assignee group is visible
+      if (board.allowed_members && board.allowed_members.length > 0) {
+        board.allowed_members.forEach((m) => {
+          if (m.user) {
+            const key = `user-${m.user.id}`;
+            if (!assigneeMap.has(key)) {
+              assigneeMap.set(key, {
+                id: `assignee-${m.user.id}`,
+                title: `${m.user.first_name} ${m.user.last_name}`,
+                color: PRESET_COLORS[assigneeMap.size % PRESET_COLORS.length],
+                cards: [],
+                avatar: m.user.avatar,
+              });
+            }
+          }
+        });
+      }
 
       activeCards.forEach((c) => {
         const assignees = c.assigned_users && c.assigned_users.length > 0
@@ -214,59 +243,92 @@ export default function GanttRoadmapView({
 
       return Array.from(assigneeMap.values()).filter((g) => g.cards.length > 0 || g.id !== "assignee-unassigned");
     }
-  }, [groupBy, columns, cards]);
+  }, [groupBy, columns, cards, board.allowed_members]);
 
   const unscheduledCards = useMemo(() => {
     return cards.filter((c) => !c.is_archived && (!c.activity_date && !c.activity_end_date));
   }, [cards]);
 
-  // Compute Timeline Columns based on timeScale (Month, Week, Day)
-  const timelineColumns = useMemo(() => {
-    if (timeScale === "month") {
-      return MONTH_NAMES.map((name) => ({ label: name, sublabel: "" }));
-    } else if (timeScale === "week") {
-      const monthName = MONTH_NAMES[selectedMonthIndex];
-      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
-      return [
-        { label: `W1 (${monthName})`, sublabel: `1 - 7` },
-        { label: `W2 (${monthName})`, sublabel: `8 - 14` },
-        { label: `W3 (${monthName})`, sublabel: `15 - 21` },
-        { label: `W4 (${monthName})`, sublabel: `22 - 28` },
-        { label: `W5 (${monthName})`, sublabel: `29 - ${daysInMonth}` },
-      ];
-    } else {
-      // Day scale: Every day of the selected month
-      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
-      const monthName = MONTH_NAMES[selectedMonthIndex];
-      const dayLetters = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-      const days = [];
+  useEffect(() => {
+    setStartDateStr(`${selectedYear}-01-01`);
+    setEndDateStr(`${selectedYear}-12-31`);
+  }, [selectedYear]);
 
-      for (let d = 1; d <= daysInMonth; d++) {
-        const dateObj = new Date(selectedYear, selectedMonthIndex, d);
-        const dayName = dayLetters[dateObj.getDay()];
-        days.push({
-          label: `${d}`,
-          sublabel: dayName,
-          fullLabel: `${monthName} ${d}, ${selectedYear}`,
+  // Compute Timeline Columns based on timeScale and date range
+  const timelineColumns = useMemo(() => {
+    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
+    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
+
+    const rangeStart = isNaN(sDate.getTime()) ? new Date(selectedYear, 0, 1) : sDate;
+    const rangeEnd = isNaN(eDate.getTime()) ? new Date(selectedYear, 11, 31) : eDate;
+
+    if (timeScale === "month") {
+      const cols = [];
+      let curr = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
+      const endLimit = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), 1);
+
+      while (curr <= endLimit) {
+        const mName = MONTH_NAMES[curr.getMonth()];
+        const daysInM = new Date(curr.getFullYear(), curr.getMonth() + 1, 0).getDate();
+        cols.push({
+          label: `${mName} ${curr.getFullYear() !== selectedYear ? curr.getFullYear() : ""}`.trim(),
+          sublabel: `${mName} 1–${daysInM}`,
         });
+        curr = new Date(curr.getFullYear(), curr.getMonth() + 1, 1);
       }
-      return days;
+      return cols.length > 0 ? cols : MONTH_NAMES.map((name) => ({ label: name, sublabel: "" }));
+    } else if (timeScale === "week") {
+      const cols = [];
+      let curr = new Date(rangeStart);
+      let weekNum = 1;
+
+      while (curr <= rangeEnd) {
+        const nextWeek = new Date(curr.getTime() + 6 * 24 * 60 * 60 * 1000);
+        const actualEnd = nextWeek > rangeEnd ? rangeEnd : nextWeek;
+        const mName = MONTH_NAMES[curr.getMonth()];
+
+        cols.push({
+          label: `W${weekNum}`,
+          sublabel: `${mName} ${curr.getDate()}–${actualEnd.getDate()}`,
+        });
+
+        curr = new Date(curr.getTime() + 7 * 24 * 60 * 60 * 1000);
+        weekNum++;
+      }
+      return cols.length > 0 ? cols : [{ label: "W1", sublabel: "" }];
+    } else {
+      const cols = [];
+      let curr = new Date(rangeStart);
+      const dayLetters = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+      while (curr <= rangeEnd) {
+        const mName = MONTH_NAMES[curr.getMonth()];
+        const dNum = curr.getDate();
+        const dayName = dayLetters[curr.getDay()];
+
+        cols.push({
+          label: `${dNum}`,
+          sublabel: `${mName} ${dNum} (${dayName})`,
+          fullLabel: `${mName} ${dNum}, ${curr.getFullYear()}`,
+        });
+
+        curr = new Date(curr.getTime() + 24 * 60 * 60 * 1000);
+      }
+      return cols.length > 0 ? cols : [{ label: "1", sublabel: "Day 1" }];
     }
-  }, [timeScale, selectedYear, selectedMonthIndex]);
+  }, [timeScale, selectedYear, startDateStr, endDateStr]);
 
   const getCardTimelinePosition = (card: CyberboardCard) => {
-    let rangeStartMs: number;
-    let rangeEndMs: number;
+    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
+    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
 
-    if (timeScale === "month") {
-      rangeStartMs = new Date(selectedYear, 0, 1, 0, 0, 0).getTime();
-      rangeEndMs = new Date(selectedYear, 11, 31, 23, 59, 59).getTime();
-    } else {
-      // Week and Day modes focus on selectedMonthIndex
-      const daysInMonth = new Date(selectedYear, selectedMonthIndex + 1, 0).getDate();
-      rangeStartMs = new Date(selectedYear, selectedMonthIndex, 1, 0, 0, 0).getTime();
-      rangeEndMs = new Date(selectedYear, selectedMonthIndex, daysInMonth, 23, 59, 59).getTime();
-    }
+    const rangeStartMs = isNaN(sDate.getTime())
+      ? new Date(selectedYear, 0, 1, 0, 0, 0).getTime()
+      : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate(), 0, 0, 0).getTime();
+
+    const rangeEndMs = isNaN(eDate.getTime())
+      ? new Date(selectedYear, 11, 31, 23, 59, 59).getTime()
+      : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate(), 23, 59, 59).getTime();
 
     const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
 
@@ -303,6 +365,22 @@ export default function GanttRoadmapView({
     };
   };
 
+  const gridMinWidth = useMemo(() => {
+    let base = 1100;
+    if (timeScale === "day") {
+      base = Math.max(1200, timelineColumns.length * 55);
+    } else if (timeScale === "week") {
+      base = Math.max(1000, timelineColumns.length * 200);
+    } else {
+      base = Math.max(1100, timelineColumns.length * 95);
+    }
+    return Math.round(base * (zoomLevel / 100));
+  }, [timeScale, timelineColumns.length, zoomLevel]);
+
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(250, prev + 25));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 25));
+  const handleResetZoom = () => setZoomLevel(100);
+
   // Helper to extract assigned users array cleanly
   const getCardUsers = (cardItem: CyberboardCard) => {
     return cardItem.assigned_users && cardItem.assigned_users.length > 0
@@ -312,8 +390,10 @@ export default function GanttRoadmapView({
       : [];
   };
 
-  // Renderer for Left Tree Rows (Crisp 20px Avatars + Sleek Overflow Badge + Hover Popover)
+  // Renderer for Left Tree Rows (Crisp Avatars + Bigger Hover Popover Card)
   const renderTreeAssigneeAvatars = (cardItem: CyberboardCard) => {
+    if (groupBy === "assignee") return null;
+
     const users = getCardUsers(cardItem);
     if (users.length === 0) return null;
 
@@ -322,14 +402,14 @@ export default function GanttRoadmapView({
     return (
       <div
         className="relative flex items-center flex-shrink-0 cursor-pointer"
-        onMouseEnter={() => setHoveredAssigneeCardId(cardItem.id)}
-        onMouseLeave={() => setHoveredAssigneeCardId(null)}
+        onMouseEnter={() => handleMouseEnterAssignee(cardItem.id)}
+        onMouseLeave={handleMouseLeaveAssignee}
       >
         {users.length === 1 ? (
           <img
             src={users[0].avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(users[0].first_name)}&background=06b6d4&color=fff`}
             alt={users[0].first_name}
-            className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-surface-700 shadow-xs"
+            className="w-5.5 h-5.5 rounded-full object-cover flex-shrink-0 border border-surface-700 shadow-xs"
           />
         ) : (
           <div className="flex items-center -space-x-1.5 overflow-visible">
@@ -338,7 +418,7 @@ export default function GanttRoadmapView({
                 key={`tree-avatar-${cardItem.id}-${u.id}`}
                 src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
                 alt={u.first_name}
-                className="w-5 h-5 rounded-full object-cover border border-surface-900 ring-1 ring-border shadow-xs"
+                className="w-5.5 h-5.5 rounded-full object-cover border border-surface-900 ring-1 ring-border shadow-xs"
               />
             ))}
             {users.length > 2 && (
@@ -349,31 +429,31 @@ export default function GanttRoadmapView({
           </div>
         )}
 
-        {/* Hover Popover Card (Interactive, no pointer-events-none) */}
+        {/* Bigger Interactive Hover Popover Card */}
         {isHovered && (
           <div
-            onMouseEnter={() => setHoveredAssigneeCardId(cardItem.id)}
-            onMouseLeave={() => setHoveredAssigneeCardId(null)}
-            className="absolute right-0 top-full mt-1 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150"
+            onMouseEnter={() => handleMouseEnterAssignee(cardItem.id)}
+            onMouseLeave={handleMouseLeaveAssignee}
+            className="absolute right-0 top-full mt-1.5 w-64 bg-surface-900/98 backdrop-blur-xl border border-border rounded-2xl shadow-2xl z-50 p-3 space-y-2.5 animate-in fade-in zoom-in-95 duration-150 before:content-[''] before:absolute before:-top-3 before:left-0 before:right-0 before:h-5"
           >
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-primary border-b border-border/60 pb-2 flex-shrink-0">
+              <span className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-primary" /> Assigned Members ({users.length})
               </span>
             </div>
-            <div className="max-h-36 overflow-y-auto space-y-1.5 scrollbar-thin">
+            <div className="max-h-52 overflow-y-auto space-y-2 scrollbar-thin pr-1">
               {users.map((u) => (
-                <div key={`tree-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2 text-xs">
+                <div key={`tree-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2.5 text-xs p-1 rounded-lg hover:bg-surface-800/60 transition-colors">
                   <img
                     src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
                     alt={u.first_name}
-                    className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-border"
+                    className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-border shadow-xs"
                   />
                   <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-text-primary text-[11px] truncate leading-tight">
+                    <span className="font-bold text-text-primary text-xs truncate leading-snug">
                       {u.first_name} {u.last_name}
                     </span>
-                    <span className="text-[9px] text-text-muted truncate">
+                    <span className="text-[10px] text-text-muted truncate">
                       @{u.username || u.first_name}
                     </span>
                   </div>
@@ -386,26 +466,17 @@ export default function GanttRoadmapView({
     );
   };
 
-  // Adaptive Renderer for Timeline Bars (Preserves Title Space + Sleek Badge + Popover)
+  // Adaptive Renderer for Timeline Bars (Static Badges ONLY - Popover Disabled on Bars)
   const renderTimelineAssigneeAvatars = (cardItem: CyberboardCard, widthPercent: number) => {
+    if (groupBy === "assignee") return null;
+
     const users = getCardUsers(cardItem);
     if (users.length === 0) return null;
 
-    const isHovered = hoveredAssigneeCardId === cardItem.id;
     const isNarrow = widthPercent < 12;
 
     return (
-      <div
-        className="relative flex items-center flex-shrink-0 ml-1.5 cursor-pointer"
-        onMouseEnter={(e) => {
-          e.stopPropagation();
-          setHoveredAssigneeCardId(cardItem.id);
-        }}
-        onMouseLeave={(e) => {
-          e.stopPropagation();
-          setHoveredAssigneeCardId(null);
-        }}
-      >
+      <div className="flex items-center flex-shrink-0 ml-1.5" title={`Assigned to ${users.map((u) => u.first_name).join(", ")}`}>
         {isNarrow || users.length > 3 ? (
           <div className="flex items-center gap-1 bg-surface-950/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white shadow-xs">
             <Users className="w-3 h-3 text-white/90" />
@@ -432,46 +503,6 @@ export default function GanttRoadmapView({
                 +{users.length - 2}
               </span>
             )}
-          </div>
-        )}
-
-        {/* Hover Popover Card (Interactive, no pointer-events-none) */}
-        {isHovered && (
-          <div
-            onMouseEnter={(e) => {
-              e.stopPropagation();
-              setHoveredAssigneeCardId(cardItem.id);
-            }}
-            onMouseLeave={(e) => {
-              e.stopPropagation();
-              setHoveredAssigneeCardId(null);
-            }}
-            className="absolute right-0 top-full mt-1.5 w-52 bg-surface-900/95 backdrop-blur-md border border-border/90 rounded-2xl shadow-2xl z-50 p-2.5 space-y-2 animate-in fade-in zoom-in-95 duration-150 text-left"
-          >
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-primary border-b border-border/50 pb-1 flex-shrink-0">
-              <span className="flex items-center gap-1">
-                <Users className="w-3 h-3 text-primary" /> Assigned ({users.length})
-              </span>
-            </div>
-            <div className="max-h-36 overflow-y-auto space-y-1.5 scrollbar-thin">
-              {users.map((u) => (
-                <div key={`bar-popover-${cardItem.id}-${u.id}`} className="flex items-center gap-2 text-xs">
-                  <img
-                    src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
-                    alt={u.first_name}
-                    className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-border"
-                  />
-                  <div className="flex flex-col min-w-0">
-                    <span className="font-semibold text-text-primary text-[11px] truncate leading-tight">
-                      {u.first_name} {u.last_name}
-                    </span>
-                    <span className="text-[9px] text-text-muted truncate">
-                      @{u.username || u.first_name}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         )}
       </div>
@@ -567,6 +598,33 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
+          {/* Zoom Level Control */}
+          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+            <button
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 50}
+              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
+              title="Zoom Out Columns"
+            >
+              <ZoomOut className="w-3.5 h-3.5" />
+            </button>
+            <span
+              onClick={handleResetZoom}
+              className="px-1.5 text-xs font-bold text-text-primary font-mono cursor-pointer hover:text-primary transition-colors min-w-[42px] text-center"
+              title="Click to reset zoom to 100%"
+            >
+              {zoomLevel}%
+            </span>
+            <button
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 250}
+              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 disabled:opacity-30 transition-all cursor-pointer"
+              title="Zoom In Columns"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
           {/* Unscheduled items badge */}
           {unscheduledCards.length > 0 && (
             <button
@@ -583,21 +641,26 @@ export default function GanttRoadmapView({
           )}
         </div>
 
-        {/* Right: Month Selector (in Week & Day modes), Year Selector & Today Button */}
+        {/* Right: Date Range Picker, Year Selector & Today Button */}
         <div className="flex items-center gap-3">
-          {timeScale !== "month" && (
-            <select
-              value={selectedMonthIndex}
-              onChange={(e) => setSelectedMonthIndex(Number(e.target.value))}
-              className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer shadow-xs"
-            >
-              {MONTH_NAMES.map((mName, idx) => (
-                <option key={mName} value={idx}>
-                  {mName} {selectedYear}
-                </option>
-              ))}
-            </select>
-          )}
+          {/* Interactive Date Range Picker */}
+          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-3 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider">Range:</span>
+            <input
+              type="date"
+              value={startDateStr}
+              onChange={(e) => setStartDateStr(e.target.value)}
+              className="bg-surface-900 border border-border/80 text-text-primary px-2 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+            />
+            <span className="text-text-muted font-bold text-xs">–</span>
+            <input
+              type="date"
+              value={endDateStr}
+              onChange={(e) => setEndDateStr(e.target.value)}
+              className="bg-surface-900 border border-border/80 text-text-primary px-2 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+            />
+          </div>
 
           <button
             onClick={handleJumpToToday}
@@ -681,7 +744,10 @@ export default function GanttRoadmapView({
                   {/* Group Items List (Tree Rows) */}
                   <div className="divide-y divide-border/20">
                     {parentCards.length === 0 ? (
-                      <div className="h-[44px] px-3 flex items-center text-[11px] text-text-muted/60 italic border-b border-border/20">No tasks in group</div>
+                      <div className="h-[44px] px-4 flex items-center gap-2 text-xs font-semibold text-text-muted/80 bg-surface-950/20 border-b border-border/20">
+                        <span className="w-1.5 h-1.5 rounded-full bg-text-muted/40 flex-shrink-0" />
+                        <span>No tasks in group</span>
+                      </div>
                     ) : (
                       parentCards.map((card) => {
                         const hasSubCards = card.sub_cards && card.sub_cards.length > 0;
@@ -749,7 +815,7 @@ export default function GanttRoadmapView({
           ref={gridTimelineRef}
           className="flex-1 flex flex-col overflow-x-auto overflow-y-auto relative scrollbar-thin bg-surface-950"
         >
-          <div className={`${timeScale === "day" ? "min-w-[1600px]" : "min-w-[950px] sm:min-w-[1150px]"} flex-1 flex flex-col relative`}>
+          <div style={{ minWidth: `${gridMinWidth}px` }} className="flex-1 flex flex-col relative transition-all duration-200">
             {/* Timeline Column Headers Bar */}
             <div className="h-12 border-b border-border/80 flex items-center bg-surface-900/90 sticky top-0 z-20 backdrop-blur-md">
               {timelineColumns.map((col, cIdx) => (
@@ -799,8 +865,10 @@ export default function GanttRoadmapView({
                     {/* Timeline Bars for Cards & Sub-Cards */}
                     <div className="divide-y divide-border/20">
                       {parentCards.length === 0 ? (
-                        <div className="h-[44px] border-b border-border/20 flex items-center justify-center text-[11px] text-text-muted/40 italic pointer-events-none">
-                          No tasks in group
+                        <div className="h-[44px] border-b border-border/20 flex items-center px-4 relative pointer-events-none">
+                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted/70 italic px-2.5 py-1 rounded-lg bg-surface-900/80 border border-border/40 shadow-xs backdrop-blur-xs">
+                            No tasks in group
+                          </span>
                         </div>
                       ) : (
                         parentCards.map((card) => {
