@@ -111,6 +111,8 @@ interface MentionTextAreaProps
   value: string;
   onValueChange: (val: string) => void;
   containerClassName?: string;
+  allowedUserIds?: number[] | null;
+  isPrivateBoard?: boolean;
 }
 
 export default function MentionTextArea({
@@ -120,6 +122,8 @@ export default function MentionTextArea({
   className = "",
   placeholder = "Type your content... (Use @ to mention individuals or @officers)",
   rows = 3,
+  allowedUserIds,
+  isPrivateBoard = false,
   ...props
 }: MentionTextAreaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -193,7 +197,9 @@ export default function MentionTextArea({
     }, 10);
   };
 
-  const filteredGroups = GROUP_MENTIONS.filter(
+  const availableGroups = isPrivateBoard ? [] : GROUP_MENTIONS;
+
+  const filteredGroups = availableGroups.filter(
     (g) =>
       `${g.first_name} ${g.last_name}`
         .toLowerCase()
@@ -201,15 +207,32 @@ export default function MentionTextArea({
       g.username.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
+  const allowedSet =
+    allowedUserIds && allowedUserIds.length > 0
+      ? new Set(allowedUserIds.map((id) => Number(id)))
+      : null;
+
   const filteredUsers = [
     ...filteredGroups,
     ...(users || [])
-      .filter((u) => u.status === "approved")
       .filter((u) => {
+        // Do not exclude users just because status field is missing
+        if (u.status && u.status !== "approved" && u.status !== "active") {
+          return false;
+        }
+
+        if (isPrivateBoard && allowedSet && !allowedSet.has(Number(u.id))) {
+          return false;
+        }
+
         const q = mentionQuery.toLowerCase();
-        const fullName = `${u.first_name} ${u.last_name}`.toLowerCase();
-        const username = (u.username || "").toLowerCase();
-        return fullName.includes(q) || username.includes(q);
+        const firstName = u.first_name || "";
+        const lastName = u.last_name || "";
+        const name = u.name || "";
+        const fullName = `${firstName} ${lastName} ${name}`.toLowerCase();
+        const username = (u.username || name || "").toLowerCase();
+
+        return !q || fullName.includes(q) || username.includes(q);
       }),
   ];
 
@@ -230,8 +253,12 @@ export default function MentionTextArea({
       if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         const selected = filteredUsers[activeMentionIndex];
-        if (selected && selected.username) {
-          selectMention(selected.username);
+        const selectedHandle =
+          selected?.username ||
+          selected?.name?.replace(/\s+/g, "") ||
+          (selected?.id ? `user_${selected.id}` : "");
+        if (selectedHandle) {
+          selectMention(selectedHandle);
         }
         return;
       }
@@ -279,7 +306,15 @@ export default function MentionTextArea({
               const isGroup = "icon" in item;
               const isSelected = idx === activeMentionIndex;
               const IconComp = isGroup ? item.icon : UserIcon;
-              const uName = item.username || "";
+              const uName =
+                item.username ||
+                item.name?.replace(/\s+/g, "") ||
+                (item.id ? `user_${item.id}` : "");
+
+              const displayName =
+                item.first_name || item.last_name
+                  ? `${item.first_name || ""} ${item.last_name || ""}`.trim()
+                  : item.name || item.username || "Member";
 
               return (
                 <button
@@ -295,7 +330,7 @@ export default function MentionTextArea({
                   {"avatar" in item && item.avatar ? (
                     <img
                       src={item.avatar}
-                      alt={item.username}
+                      alt={displayName}
                       className="w-6 h-6 rounded-full object-cover flex-shrink-0 bg-surface-800 border border-border"
                     />
                   ) : (
@@ -307,10 +342,10 @@ export default function MentionTextArea({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-xs font-bold truncate">
-                        {item.first_name} {item.last_name}
+                        {displayName}
                       </span>
-                      <span className="text-[10px] text-text-muted">
-                        @{item.username}
+                      <span className="text-[10px] text-text-muted truncate">
+                        @{uName}
                       </span>
                     </div>
                   </div>

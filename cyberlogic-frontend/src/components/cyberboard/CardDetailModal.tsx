@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User,
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
-  Loader2, Sparkles, ChevronLeft, ChevronRight, Download
+  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply
 } from "lucide-react";
 import type { CyberboardCard, CyberboardAttachment } from "../../utils/api";
 import { uploadCyberboardAttachment } from "../../utils/api";
@@ -399,13 +399,37 @@ export default function CardDetailModal({
     }
   };
 
-  const rawComments = card.comments || [];
-  const comments = rawComments.filter(
-    (cm, index, self) => index === self.findIndex((c) => c.id === cm.id)
-  );
+  const [visibleCommentsCount, setVisibleCommentsCount] = useState(10);
 
-  const activities = card.activities || [];
-  const showDateSection = boardType !== "ideas" && boardType !== "brainstorming" && (card.activity_date || card.activity_end_date);
+  useEffect(() => {
+    setVisibleCommentsCount(10);
+  }, [card?.id]);
+
+  const rawComments = card?.comments || [];
+  const comments = rawComments.filter(
+    (c) => !(c.content && c.content.startsWith("[AUDIT_LOG]:"))
+  );
+  const visibleComments = comments.slice(0, visibleCommentsCount);
+  const hasMoreComments = comments.length > visibleCommentsCount;
+
+  const handleCommentsScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 40 && hasMoreComments) {
+      setVisibleCommentsCount((prev) => Math.min(prev + 10, comments.length));
+    }
+  };
+
+  const handleReplyComment = (cm: any) => {
+    const authorHandle = cm.user?.username || cm.user?.name || "member";
+    const mentionTag = `@${authorHandle.replace(/\s+/g, "")} `;
+    setNewComment((prev) => {
+      if (prev.includes(mentionTag.trim())) return prev;
+      return prev ? `${prev} ${mentionTag}` : mentionTag;
+    });
+  };
+
+  const activities = card?.activities || [];
+  const showDateSection = boardType !== "ideas" && boardType !== "brainstorming" && (card?.activity_date || card?.activity_end_date);
 
   // Sidepanel Component for Audit Logs
   const auditLogSidepanel = (
@@ -1035,30 +1059,64 @@ export default function CardDetailModal({
             );
           })()}
 
-          {/* Upvote CTA */}
-          <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-4">
-            <div className="space-y-0.5">
-              <h4 className="text-sm font-bold text-text-primary">
-                {boardType === "ideas" ? "Support this idea" : boardType === "brainstorming" ? "Support this topic" : "Support this suggestion"}
-              </h4>
-              <p className="text-xs text-text-muted">
-                Upvote to let project leads and members know community interest level
-              </p>
-            </div>
+          {/* Upvote / Exclusive Member Vote Card Section */}
+          {boardVisibility === "private" ? (
+            <div className="p-4 rounded-2xl bg-surface-800/80 border border-amber-500/30 space-y-3 shadow-sm">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                      <span>Exclusive Member Voting</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] border border-amber-500/30 font-bold">Private Board</span>
+                    </h4>
+                    <p className="text-xs text-text-muted">
+                      Exclusive board member vote card & feedback tally
+                    </p>
+                  </div>
+                </div>
 
-            <button
-              type="button"
-              onClick={() => onVoteToggle(card.id)}
-              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
-                card.has_voted
-                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20 scale-105"
-                  : "bg-surface-800 text-text-primary hover:bg-surface-700 border border-border"
-              }`}
-            >
-              <ThumbsUp className={`w-4 h-4 ${card.has_voted ? "fill-surface-950" : ""}`} />
-              <span>{card.votes_count || 0} Votes</span>
-            </button>
-          </div>
+                <button
+                  type="button"
+                  onClick={() => onVoteToggle(card.id)}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                    card.has_voted
+                      ? "bg-amber-400 text-surface-950 shadow-md shadow-amber-400/20 scale-105"
+                      : "bg-surface-900 text-text-primary hover:bg-surface-700 border border-border"
+                  }`}
+                >
+                  <ThumbsUp className={`w-4 h-4 ${card.has_voted ? "fill-surface-950" : ""}`} />
+                  <span>{card.has_voted ? "Voted" : "Cast Vote"} ({card.votes_count || 0})</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-bold text-text-primary">
+                  {boardType === "ideas" ? "Support this idea" : boardType === "brainstorming" ? "Support this topic" : "Support this suggestion"}
+                </h4>
+                <p className="text-xs text-text-muted">
+                  Upvote to let project leads and members know community interest level
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onVoteToggle(card.id)}
+                className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                  card.has_voted
+                    ? "bg-primary text-surface-950 shadow-md shadow-primary/20 scale-105"
+                    : "bg-surface-800 text-text-primary hover:bg-surface-700 border border-border"
+                }`}
+              >
+                <ThumbsUp className={`w-4 h-4 ${card.has_voted ? "fill-surface-950" : ""}`} />
+                <span>{card.votes_count || 0} Votes</span>
+              </button>
+            </div>
+          )}
 
           {/* Comments Section */}
           <div className="space-y-4 pt-2">
@@ -1069,66 +1127,122 @@ export default function CardDetailModal({
               </h4>
             </div>
 
-            <form onSubmit={handleSubmitComment} className="flex gap-2.5 items-center">
+            {/* Redesigned Multiline-Friendly Comment Box */}
+            <form onSubmit={handleSubmitComment} className="rounded-2xl bg-surface-800/80 border border-border/80 p-3 shadow-inner space-y-2.5 focus-within:border-primary/60 transition-all">
               <MentionTextArea
                 value={newComment}
                 onValueChange={setNewComment}
-                rows={1}
-                containerClassName="flex-1 min-w-0"
-                placeholder="Write a comment... (Use @ to mention @officers or members)"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none min-h-[42px]"
+                allowedUserIds={
+                  boardVisibility === "private"
+                    ? [
+                        ...(allowedMembers || []),
+                        ...(currentUserId ? [currentUserId] : []),
+                        ...(boardHostId ? [boardHostId] : []),
+                        ...(card?.user_id ? [card.user_id] : []),
+                        ...(card?.assigned_user?.id ? [card.assigned_user.id] : []),
+                        ...(card?.assigned_users ? card.assigned_users.map((u) => u.id) : []),
+                      ]
+                    : undefined
+                }
+                isPrivateBoard={boardVisibility === "private"}
+                rows={2}
+                containerClassName="w-full min-w-0"
+                placeholder={
+                  boardVisibility === "private"
+                    ? "Write a comment... (Use @ to mention private board members)"
+                    : "Write a comment... (Use @ to mention anyone or groups)"
+                }
+                className="w-full px-3 py-2 rounded-xl bg-surface-900/60 border border-border/40 text-xs text-text-primary focus:border-primary/80 focus:outline-none transition-all resize-y min-h-[56px] max-h-[160px]"
               />
-              <button
-                type="submit"
-                disabled={!newComment.trim() || isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer flex-shrink-0 shadow-sm shadow-primary/20"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Post</span>
-              </button>
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/30">
+                <span className="text-[11px] text-text-muted flex items-center gap-1.5">
+                  <span className="font-bold text-primary">@</span> {boardVisibility === "private" ? "Mention board members" : "Mention members or groups"}
+                </span>
+                <button
+                  type="submit"
+                  disabled={!newComment.trim() || isSubmitting}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-primary-light text-surface-950 font-bold text-xs hover:brightness-110 active:scale-95 transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Post Comment</span>
+                </button>
+              </div>
             </form>
 
-            <div className="space-y-3 min-h-[140px] max-h-[380px] overflow-y-auto pr-1">
+            {/* Paginated Comments List */}
+            <div
+              onScroll={handleCommentsScroll}
+              className="space-y-3 min-h-[140px] max-h-[380px] overflow-y-auto pr-1 scrollbar-thin"
+            >
               {comments.length === 0 ? (
                 <p className="text-xs text-text-muted italic text-center py-6">
                   No comments yet. Start the conversation!
                 </p>
               ) : (
-                comments.map((cm) => {
-                  const canDeleteCm = cm.user_id === currentUserId || isAdmin;
-                  return (
-                    <div
-                      key={cm.id}
-                      className="p-3.5 rounded-xl bg-surface-800/50 border border-border/40 space-y-1.5 group"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={cm.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
-                            alt={cm.user?.name || "User"}
-                            className="w-5 h-5 rounded-full border border-border object-cover"
-                          />
-                          <span className="text-xs font-bold text-text-primary">{cm.user?.name || "Member"}</span>
-                          <span className="text-[10px] text-text-muted">{formatDate(cm.created_at)}</span>
+                <>
+                  {visibleComments.map((cm) => {
+                    const canDeleteCm = cm.user_id === currentUserId || isAdmin;
+                    return (
+                      <div
+                        key={cm.id}
+                        className="p-3.5 rounded-xl bg-surface-800/50 border border-border/40 space-y-2 group"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={cm.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
+                              alt={cm.user?.name || "User"}
+                              className="w-5 h-5 rounded-full border border-border object-cover"
+                            />
+                            <span className="text-xs font-bold text-text-primary">{cm.user?.name || "Member"}</span>
+                            <span className="text-[10px] text-text-muted">{formatDate(cm.created_at)}</span>
+                          </div>
+
+                          {canDeleteCm && (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteComment(cm.id)}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded-md transition-all cursor-pointer"
+                              title="Delete Comment"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
 
-                        {canDeleteCm && (
+                        <div className="text-xs text-text-secondary leading-relaxed pl-7 whitespace-pre-wrap">
+                          <MentionText content={cm.content} />
+                        </div>
+
+                        {/* Inline Reply Trigger (Inserts @Mention into Comment Box) */}
+                        <div className="flex items-center justify-between pt-1 pl-7 border-t border-border/20">
                           <button
                             type="button"
-                            onClick={() => onDeleteComment(cm.id)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded-md transition-all cursor-pointer"
-                            title="Delete Comment"
+                            onClick={() => handleReplyComment(cm)}
+                            className="text-[11px] font-bold text-text-muted hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Reply className="w-3 h-3" />
+                            <span>Reply</span>
                           </button>
-                        )}
+                        </div>
                       </div>
-                      <div className="text-xs text-text-secondary leading-relaxed pl-7 whitespace-pre-wrap">
-                        <MentionText content={cm.content} />
-                      </div>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+
+                  {hasMoreComments && (
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCommentsCount((prev) => Math.min(prev + 10, comments.length))}
+                      className="w-full py-2.5 text-xs font-bold text-primary hover:text-primary-light bg-primary/10 hover:bg-primary/20 rounded-xl border border-primary/20 transition-all cursor-pointer text-center"
+                    >
+                      Load More Comments ({comments.length - visibleCommentsCount} remaining)
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

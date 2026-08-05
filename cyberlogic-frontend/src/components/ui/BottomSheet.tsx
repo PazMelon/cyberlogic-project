@@ -6,6 +6,7 @@ interface BottomSheetProps {
   onClose: () => void;
   title?: string;
   initialSnap?: "1/2" | "3/4" | "fullscreen";
+  maxWidthClass?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -15,6 +16,7 @@ export function BottomSheet({
   onClose,
   title,
   initialSnap = "3/4",
+  maxWidthClass = "max-w-3xl sm:max-w-2xl",
   children,
   footer,
 }: BottomSheetProps) {
@@ -114,7 +116,7 @@ export function BottomSheet({
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-2"
     >
       <div
         ref={sheetRef}
@@ -124,7 +126,7 @@ export function BottomSheet({
             ? "none"
             : "height 260ms cubic-bezier(0.32, 0.72, 0, 1)",
         }}
-        className="w-full rounded-t-3xl sm:rounded-2xl border-t border-x sm:border border-border/80 bg-surface-900 shadow-2xl flex flex-col overflow-hidden max-w-2xl sm:max-w-xl mx-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-200"
+        className={`w-full rounded-t-3xl sm:rounded-2xl border-t border-x sm:border border-border/80 bg-surface-900 shadow-2xl flex flex-col overflow-hidden ${maxWidthClass} mx-auto animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-0 duration-200`}
         role="dialog"
         aria-modal="true"
       >
@@ -134,14 +136,14 @@ export function BottomSheet({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="w-full py-3 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none bg-surface-900 border-b border-border/40 flex-shrink-0"
+          className="w-full py-2.5 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none bg-surface-900 border-b border-border/40 flex-shrink-0"
         >
           <div className="w-12 h-1.5 bg-text-muted/40 rounded-full hover:bg-primary transition-colors" />
         </div>
 
         {/* Header */}
         {title && (
-          <div className="px-5 py-3 border-b border-border/50 flex items-center justify-between flex-shrink-0 bg-surface-950/40">
+          <div className="px-4 sm:px-5 py-3 border-b border-border/50 flex items-center justify-between flex-shrink-0 bg-surface-950/40">
             <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider truncate">
               {title}
             </h3>
@@ -157,13 +159,13 @@ export function BottomSheet({
         )}
 
         {/* Content Container */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 min-h-0">
+        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 min-h-0">
           {children}
         </div>
 
         {/* Docked Pinned Footer */}
         {footer && (
-          <div className="p-4 sm:px-5 sm:py-4 border-t border-border/80 bg-surface-900 flex-shrink-0 z-10 shadow-2xl">
+          <div className="p-3.5 sm:px-5 sm:py-4 border-t border-border/80 bg-surface-900 flex-shrink-0 z-10 shadow-2xl">
             {footer}
           </div>
         )}
