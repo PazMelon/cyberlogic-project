@@ -361,6 +361,8 @@ class CyberboardController extends Controller
             'allowed_column_creator_roles.*' => 'string',
             'allowed_column_creator_users' => 'nullable|array',
             'allowed_column_creator_users.*' => 'integer|exists:users,id',
+            'methodology' => 'nullable|string|in:waterfall,agile,custom',
+            'phase_settings' => 'nullable|array',
         ]);
 
         if (isset($validated['category']) && $validated['category'] === 'system' && !$isAdmin) {
@@ -462,6 +464,8 @@ class CyberboardController extends Controller
             'column_id' => 'nullable|exists:cyberboard_columns,id',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
+            'assigned_user_ids' => 'nullable|array',
+            'assigned_user_ids.*' => 'integer|exists:users,id',
             'title' => 'required|string|max:200',
             'description' => 'nullable|string|max:2000',
             'activity_date' => 'nullable|date',
@@ -502,11 +506,17 @@ class CyberboardController extends Controller
 
         $maxPosition = CyberboardCard::where('column_id', $columnId)->max('position') ?? -1;
 
+        $assignedUserIds = isset($validated['assigned_user_ids'])
+            ? array_values(array_unique(array_filter($validated['assigned_user_ids'])))
+            : (isset($validated['assigned_user_id']) ? [$validated['assigned_user_id']] : []);
+        $primaryAssignedUserId = $assignedUserIds[0] ?? null;
+
         $card = CyberboardCard::create([
             'column_id' => $columnId,
             'parent_id' => $validated['parent_id'] ?? null,
             'user_id' => $user->id,
-            'assigned_user_id' => $validated['assigned_user_id'] ?? null,
+            'assigned_user_id' => $primaryAssignedUserId,
+            'assigned_user_ids' => $assignedUserIds,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'activity_date' => $validated['activity_date'] ?? null,
@@ -546,16 +556,18 @@ class CyberboardController extends Controller
         $cardArr['has_voted'] = false;
         $cardArr['activities'] = $card->activities;
 
-        if ($card->assigned_user_id && $card->assigned_user_id !== $user->id) {
-            NotificationService::notifyUser(
-                $card->assigned_user_id,
-                'cyberboard_assigned',
-                'Assigned to CyberBoard Task',
-                "You were assigned to task '{$card->title}' by {$user->first_name}",
-                ['board_id' => $boardId, 'card_id' => $card->id],
-                'user-check',
-                "/app/cyberboard/{$boardId}?card={$card->id}"
-            );
+        foreach ($assignedUserIds as $assigneeId) {
+            if ($assigneeId !== $user->id) {
+                NotificationService::notifyUser(
+                    $assigneeId,
+                    'cyberboard_assigned',
+                    'Assigned to CyberBoard Task',
+                    "You were assigned to task '{$card->title}' by {$user->first_name}",
+                    ['board_id' => $boardId, 'card_id' => $card->id],
+                    'user-check',
+                    "/app/cyberboard/{$boardId}?card={$card->id}"
+                );
+            }
         }
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
@@ -601,12 +613,22 @@ class CyberboardController extends Controller
             'description' => 'nullable|string|max:2000',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
+            'assigned_user_ids' => 'nullable|array',
+            'assigned_user_ids.*' => 'integer|exists:users,id',
             'activity_date' => 'nullable|date',
             'activity_end_date' => 'nullable|date|after_or_equal:activity_date',
             'color_tag' => 'nullable|string|max:30',
             'priority' => 'nullable|in:low,medium,high',
             'phase' => 'nullable|string|max:100',
         ]);
+
+        if (isset($validated['assigned_user_ids'])) {
+            $newAssignedUserIds = array_values(array_unique(array_filter($validated['assigned_user_ids'])));
+            $validated['assigned_user_ids'] = $newAssignedUserIds;
+            $validated['assigned_user_id'] = $newAssignedUserIds[0] ?? null;
+        } elseif (array_key_exists('assigned_user_id', $validated)) {
+            $validated['assigned_user_ids'] = $validated['assigned_user_id'] ? [$validated['assigned_user_id']] : [];
+        }
 
         $changeDescItems = [];
         if (isset($validated['title']) && $validated['title'] !== $card->title) {
@@ -615,21 +637,25 @@ class CyberboardController extends Controller
         if (array_key_exists('description', $validated) && $validated['description'] !== $card->description) {
             $changeDescItems[] = "description";
         }
-        if (array_key_exists('assigned_user_id', $validated) && $validated['assigned_user_id'] !== $card->assigned_user_id) {
-            $newAssignedUser = $validated['assigned_user_id'] ? User::find($validated['assigned_user_id']) : null;
-            $assigneeName = $newAssignedUser ? ($newAssignedUser->first_name . ' ' . $newAssignedUser->last_name) : 'Unassigned';
-            $changeDescItems[] = "assignee to {$assigneeName}";
-
-            if ($newAssignedUser && $newAssignedUser->id !== $user->id) {
-                NotificationService::notifyUser(
-                    $newAssignedUser->id,
-                    'cyberboard_assigned',
-                    'Assigned to CyberBoard Task',
-                    "You were assigned to task '{$card->title}' by {$user->first_name}",
-                    ['board_id' => $card->column->board_id, 'card_id' => $card->id],
-                    'user-check',
-                    "/app/cyberboard/{$card->column->board_id}?card={$card->id}"
-                );
+        if (isset($validated['assigned_user_ids'])) {
+            $oldIds = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+            $newIds = $validated['assigned_user_ids'];
+            if ($oldIds !== $newIds) {
+                $changeDescItems[] = "assigned members (" . count($newIds) . " assigned)";
+                $addedIds = array_diff($newIds, $oldIds);
+                foreach ($addedIds as $newId) {
+                    if ($newId !== $user->id) {
+                        NotificationService::notifyUser(
+                            $newId,
+                            'cyberboard_assigned',
+                            'Assigned to CyberBoard Task',
+                            "You were assigned to task '{$card->title}' by {$user->first_name}",
+                            ['board_id' => $card->column->board_id, 'card_id' => $card->id],
+                            'user-check',
+                            "/app/cyberboard/{$card->column->board_id}?card={$card->id}"
+                        );
+                    }
+                }
             }
         }
         if (isset($validated['priority']) && $validated['priority'] !== $card->priority) {

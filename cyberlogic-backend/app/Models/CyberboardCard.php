@@ -16,6 +16,7 @@ class CyberboardCard extends Model
         'parent_id',
         'user_id',
         'assigned_user_id',
+        'assigned_user_ids',
         'title',
         'description',
         'activity_date',
@@ -27,6 +28,8 @@ class CyberboardCard extends Model
         'is_archived',
     ];
 
+    protected $appends = ['assigned_users'];
+
     protected function casts(): array
     {
         return [
@@ -35,8 +38,21 @@ class CyberboardCard extends Model
             'is_archived' => 'boolean',
             'position' => 'integer',
             'assigned_user_id' => 'integer',
+            'assigned_user_ids' => 'array',
             'parent_id' => 'integer',
         ];
+    }
+
+    public function getAssignedUsersAttribute()
+    {
+        $ids = $this->assigned_user_ids;
+        if (empty($ids) && $this->assigned_user_id) {
+            $ids = [$this->assigned_user_id];
+        }
+        if (empty($ids)) {
+            return [];
+        }
+        return User::whereIn('id', $ids)->get(['id', 'first_name', 'last_name', 'username', 'avatar_path']);
     }
 
     public function column(): BelongsTo
