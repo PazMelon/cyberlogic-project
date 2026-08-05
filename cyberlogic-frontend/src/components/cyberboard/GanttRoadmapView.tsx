@@ -307,10 +307,19 @@ export default function GanttRoadmapView({
 
   const handleScaleChange = (mode: TimeScaleMode) => {
     setTimeScale(mode);
+    if (mode === "month" && zoomLevel < 125) {
+      setZoomLevel(125);
+    }
     setTimeout(() => {
       handleJumpToToday();
     }, 150);
   };
+
+  useEffect(() => {
+    if (timeScale === "month" && zoomLevel < 125) {
+      setZoomLevel(125);
+    }
+  }, [timeScale, zoomLevel]);
 
   // Group cards according to groupBy option
   const groupedData = useMemo(() => {
@@ -548,6 +557,24 @@ export default function GanttRoadmapView({
     }
   }, [timeScale, selectedYear, startDateStr, endDateStr]);
 
+  const minZoomLevel = timeScale === "month" ? 125 : 50;
+
+  const gridMinWidth = useMemo(() => {
+    let base = 1300;
+    if (timeScale === "day") {
+      base = Math.max(1300, timelineColumns.length * 55);
+    } else if (timeScale === "week") {
+      base = Math.max(1100, timelineColumns.length * 200);
+    } else {
+      base = Math.max(1300, timelineColumns.length * 110);
+    }
+    return Math.round(base * (zoomLevel / 100));
+  }, [timeScale, timelineColumns.length, zoomLevel]);
+
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(250, prev + 25));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(minZoomLevel, prev - 25));
+  const handleResetZoom = () => setZoomLevel(timeScale === "month" ? 125 : 100);
+
   const getCardTimelinePosition = (card: CyberboardCard) => {
     const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
     const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
@@ -606,22 +633,6 @@ export default function GanttRoadmapView({
       endDateStr: endDate.toISOString().split("T")[0],
     };
   };
-
-  const gridMinWidth = useMemo(() => {
-    let base = 1100;
-    if (timeScale === "day") {
-      base = Math.max(1200, timelineColumns.length * 55);
-    } else if (timeScale === "week") {
-      base = Math.max(1000, timelineColumns.length * 200);
-    } else {
-      base = Math.max(1100, timelineColumns.length * 95);
-    }
-    return Math.round(base * (zoomLevel / 100));
-  }, [timeScale, timelineColumns.length, zoomLevel]);
-
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(250, prev + 25));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 25));
-  const handleResetZoom = () => setZoomLevel(100);
 
   const formatDateRangeTooltip = (startStr?: string, endStr?: string) => {
     if (!startStr) return "No date set";
@@ -847,11 +858,11 @@ export default function GanttRoadmapView({
           });
         }
 
-        // 2. Subtask links (from subCard.predecessor_id or subCard.parent_id)
+        // 2. Subtask explicit predecessor links
         const isExpanded = !!expandedParents[card.id];
         if (isExpanded && card.sub_cards && card.sub_cards.length > 0) {
           card.sub_cards.forEach((subCard) => {
-            const sourceId = subCard.predecessor_id || subCard.parent_id;
+            const sourceId = subCard.predecessor_id;
             if (sourceId && layoutMap.has(sourceId) && layoutMap.has(subCard.id)) {
               const fromPos = layoutMap.get(sourceId)!;
               const toPos = layoutMap.get(subCard.id)!;
