@@ -137,8 +137,8 @@ export default function BoardHeader({
 
       {/* Action CTAs Toolbar (Single Line, Right-Aligned) */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-        {/* View Switcher: Board vs Gantt Roadmap */}
-        {onViewModeChange && (
+        {/* View Switcher: Board vs Gantt Roadmap (Exclusively for Project Roadmap Boards) */}
+        {onViewModeChange && board.type === "roadmap" && (
           <div className="flex items-center p-1 rounded-xl bg-surface-800 border border-border">
             <button
               type="button"

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router";
-import { ArrowLeft, Plus, AlertCircle, Lock } from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle, Lock, Kanban } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
@@ -884,8 +884,8 @@ export default function CyberBoardView() {
 
       {/* Workspace Flex Area (Board Columns + Active Collaborators Sidebar OR Gantt Roadmap View) */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {viewMode === "gantt" ? (
-          <div className="flex-1 p-3 sm:p-5 h-full overflow-hidden">
+        {viewMode === "gantt" && board.type === "roadmap" ? (
+          <div className="flex-1 h-full overflow-hidden">
             <GanttRoadmapView
               board={board}
               columns={columns}
@@ -910,44 +910,68 @@ export default function CyberBoardView() {
             onDragOver={handleBoardDragOver}
             className="flex-1 overflow-x-auto p-4 sm:p-6 flex items-start gap-4 h-full"
           >
-            {columns.map((column) => (
-              <BoardColumn
-                key={column.id}
-                column={column}
-                boardType={board.type}
-                currentUserId={user?.id}
-                userRole={user?.role}
-                boardHostId={board.created_by}
-                isAdmin={isAdmin}
-                onCardClick={(card) => setSelectedCard(card)}
-                onVoteToggle={(cardId) => handleVoteToggle(cardId)}
-                onDeleteCard={(cardId) => handleDeleteCard(cardId)}
-                onAddSuggestionClick={(colId) => {
-                  setTargetColumnId(colId);
-                  setShowNewSuggestionModal(true);
-                }}
-                onCardDrop={handleCardDrop}
-                onColumnDrop={handleColumnDrop}
-                onDeleteColumn={handleDeleteColumn}
-                onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
-                onShowToast={(msg) => showToast(msg, "error")}
-                onCardDragStart={handleCardDragStart}
-                onCardDragEnd={handleCardDragEnd}
-              />
-            ))}
-
-            {/* Add Column Button */}
-            {canCreateColumn && (
-              <div className="w-72 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowAddColumnModal(true)}
-                  className="w-full py-4 rounded-2xl border-2 border-dashed border-border/60 hover:border-primary/60 text-text-muted hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Column</span>
-                </button>
+            {columns.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-surface-900/30 rounded-2xl border border-dashed border-border/60 my-6 mx-auto max-w-lg">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4 text-primary">
+                  <Kanban className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-text-primary mb-1">No Columns Created Yet</h3>
+                <p className="text-xs text-text-muted max-w-md mb-5">
+                  This Project Roadmap board has 0 columns. Start building your custom roadmap workflow by adding your first column!
+                </p>
+                {canCreateColumn && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddColumnModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold shadow-md hover:bg-primary-hover transition-all flex items-center gap-2 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create First Column</span>
+                  </button>
+                )}
               </div>
+            ) : (
+              <>
+                {columns.map((column) => (
+                  <BoardColumn
+                    key={column.id}
+                    column={column}
+                    boardType={board.type}
+                    currentUserId={user?.id}
+                    userRole={user?.role}
+                    boardHostId={board.created_by}
+                    isAdmin={isAdmin}
+                    onCardClick={(card) => setSelectedCard(card)}
+                    onVoteToggle={(cardId) => handleVoteToggle(cardId)}
+                    onDeleteCard={(cardId) => handleDeleteCard(cardId)}
+                    onAddSuggestionClick={(colId) => {
+                      setTargetColumnId(colId);
+                      setShowNewSuggestionModal(true);
+                    }}
+                    onCardDrop={handleCardDrop}
+                    onColumnDrop={handleColumnDrop}
+                    onDeleteColumn={handleDeleteColumn}
+                    onConfigureColumnClick={(col) => setSelectedColumnToConfigure(col)}
+                    onShowToast={(msg) => showToast(msg, "error")}
+                    onCardDragStart={handleCardDragStart}
+                    onCardDragEnd={handleCardDragEnd}
+                  />
+                ))}
+
+                {/* Add Column Button */}
+                {canCreateColumn && (
+                  <div className="w-72 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddColumnModal(true)}
+                      className="w-full py-4 rounded-2xl border-2 border-dashed border-border/60 hover:border-primary/60 text-text-muted hover:text-primary hover:bg-primary/5 transition-all text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Column</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

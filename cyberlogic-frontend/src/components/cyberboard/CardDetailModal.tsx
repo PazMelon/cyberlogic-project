@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
+import { fetchMentionSuggestions } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 import MentionText from "./MentionText";
@@ -61,6 +62,8 @@ export default function CardDetailModal({
   const [editColorTag, setEditColorTag] = useState<string>("#06b6d4");
   const [editActivityDate, setEditActivityDate] = useState<string>("");
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
+  const [editAssignedUserId, setEditAssignedUserId] = useState<number | undefined>(undefined);
+  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
@@ -72,6 +75,14 @@ export default function CardDetailModal({
   }, []);
 
   useEffect(() => {
+    fetchMentionSuggestions().then((users) => {
+      if (Array.isArray(users)) {
+        setUserSuggestions(users);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (card) {
       setEditTitle(card.title || "");
       setEditDescription(card.description || "");
@@ -79,6 +90,7 @@ export default function CardDetailModal({
       setEditColorTag(card.color_tag || "#06b6d4");
       setEditActivityDate(card.activity_date ? card.activity_date.split("T")[0] : "");
       setEditActivityEndDate(card.activity_end_date ? card.activity_end_date.split("T")[0] : "");
+      setEditAssignedUserId(card.assigned_user_id || undefined);
     }
   }, [card]);
 
@@ -276,6 +288,23 @@ export default function CardDetailModal({
             />
           </div>
 
+          {/* Assignee Selector */}
+          <div>
+            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Assigned Member (Assignee)</label>
+            <select
+              value={editAssignedUserId || ""}
+              onChange={(e) => setEditAssignedUserId(e.target.value ? Number(e.target.value) : undefined)}
+              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
+            >
+              <option value="">Unassigned</option>
+              {userSuggestions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.first_name} {u.last_name} (@{u.username})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">Priority</label>
@@ -353,6 +382,34 @@ export default function CardDetailModal({
       ) : (
         /* View Mode */
         <>
+          {/* Metadata Bar (Assignee & Owner) */}
+          <div className="p-3.5 rounded-xl bg-surface-800/50 border border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs">
+            {/* Assignee */}
+            <div className="flex items-center gap-2">
+              <span className="text-text-muted font-medium">Assignee:</span>
+              {card.assigned_user ? (
+                <div className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-400">
+                  <img
+                    src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
+                    alt={card.assigned_user.first_name}
+                    className="w-4 h-4 rounded-full object-cover"
+                  />
+                  <span className="font-bold">{card.assigned_user.first_name} {card.assigned_user.last_name}</span>
+                </div>
+              ) : (
+                <span className="text-text-muted italic">Unassigned</span>
+              )}
+            </div>
+
+            {/* Created By */}
+            <div className="flex items-center gap-2 text-text-muted">
+              <span>Submitted by:</span>
+              <span className="font-semibold text-text-primary">
+                {card.user?.first_name ? `${card.user.first_name} ${card.user.last_name}` : "Member"}
+              </span>
+            </div>
+          </div>
+
           {/* Description */}
           <div className="space-y-2">
             <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">
@@ -362,6 +419,36 @@ export default function CardDetailModal({
               {card.description ? <MentionText content={card.description} /> : "No detailed description provided."}
             </div>
           </div>
+
+          {/* Sub-Cards / Sub-Tasks Breakdown Checklist */}
+          {card.sub_cards && card.sub_cards.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
+                  Sub-Tasks ({card.sub_cards.length})
+                </h4>
+              </div>
+              <div className="space-y-1.5 bg-surface-800/40 p-3 rounded-xl border border-border/50">
+                {card.sub_cards.map((subCard) => (
+                  <div
+                    key={subCard.id}
+                    className="flex items-center justify-between p-2 rounded-lg bg-surface-800 border border-border/40 text-xs hover:border-primary/40 transition-all"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0" />
+                      <span className="font-medium text-text-primary">{subCard.title}</span>
+                    </div>
+
+                    {subCard.assigned_user && (
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        @{subCard.assigned_user.username || subCard.assigned_user.first_name}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Target Dates */}
           {showDateSection && (

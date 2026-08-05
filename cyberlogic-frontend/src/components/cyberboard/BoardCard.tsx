@@ -117,16 +117,35 @@ export default function BoardCard({
         </p>
       )}
 
-      {/* Date Badge (Activity / Roadmap only) */}
-      {showDateBadge && formattedStartDate && (
-        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface-900/60 text-text-secondary text-[11px] font-medium border border-border/50">
-          <Calendar className="w-3 h-3 text-primary" />
-          <span>
-            {formattedStartDate}
-            {formattedEndDate ? ` – ${formattedEndDate}` : ""}
-          </span>
-        </div>
-      )}
+      {/* Badges Bar: Date & Sub-Tasks & Assignee */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+        {showDateBadge && formattedStartDate && (
+          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-900/60 text-text-secondary text-[10px] font-medium border border-border/50">
+            <Calendar className="w-3 h-3 text-primary" />
+            <span>
+              {formattedStartDate}
+              {formattedEndDate ? ` – ${formattedEndDate}` : ""}
+            </span>
+          </div>
+        )}
+
+        {card.sub_cards && card.sub_cards.length > 0 && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-900/60 text-primary text-[10px] font-medium border border-primary/20">
+            <span>{card.sub_cards.length} sub-tasks</span>
+          </div>
+        )}
+
+        {card.assigned_user && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20" title={`Assigned to ${card.assigned_user.first_name} ${card.assigned_user.last_name}`}>
+            <img
+              src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
+              alt={card.assigned_user.first_name}
+              className="w-3.5 h-3.5 rounded-full object-cover"
+            />
+            <span>@{card.assigned_user.username || card.assigned_user.first_name}</span>
+          </div>
+        )}
+      </div>
 
       {/* Footer: Owner info & Upvotes/Comments */}
       <div className="pt-2 border-t border-border/40 flex items-center justify-between gap-2 text-xs">

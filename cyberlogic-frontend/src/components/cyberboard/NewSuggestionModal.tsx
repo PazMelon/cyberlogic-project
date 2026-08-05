@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { X, Sparkles } from "lucide-react";
-import type { CyberboardColumn } from "../../utils/api";
+import { X, Sparkles, UserCheck, Layers } from "lucide-react";
+import type { CyberboardColumn, CyberboardCard } from "../../utils/api";
+import { fetchMentionSuggestions } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
 
 interface NewSuggestionModalProps {
   boardId: number;
   columns: CyberboardColumn[];
+  allCards?: CyberboardCard[];
+  defaultParentId?: number;
   boardType?: string;
   defaultColumnId?: number;
   currentUserId?: number;
@@ -16,6 +19,8 @@ interface NewSuggestionModalProps {
   onClose: () => void;
   onSubmit: (data: {
     column_id?: number;
+    parent_id?: number | null;
+    assigned_user_id?: number | null;
     title: string;
     description?: string;
     activity_date?: string;
@@ -36,6 +41,8 @@ const COLOR_PRESETS = [
 
 export default function NewSuggestionModal({
   columns,
+  allCards = [],
+  defaultParentId,
   boardType = "activity",
   defaultColumnId,
   currentUserId,
@@ -47,6 +54,17 @@ export default function NewSuggestionModal({
 }: NewSuggestionModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [assignedUserId, setAssignedUserId] = useState<number | undefined>(undefined);
+  const [parentId, setParentId] = useState<number | undefined>(defaultParentId);
+  const [userSuggestions, setUserSuggestions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchMentionSuggestions().then((users) => {
+      if (Array.isArray(users)) {
+        setUserSuggestions(users);
+      }
+    }).catch(() => {});
+  }, []);
 
   const isColumnAllowed = (col: CyberboardColumn) => {
     const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
@@ -84,6 +102,11 @@ export default function NewSuggestionModal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Filter possible parent cards
+  const availableParentCards = (allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || [])).filter(
+    (c) => !c.parent_id
+  );
+
   // Board Type labels helper
   const isDateVisible = boardType === "activity" || boardType === "roadmap";
 
@@ -101,34 +124,34 @@ export default function NewSuggestionModal({
         };
       case "brainstorming":
         return {
-          modalTitle: "Add Brainstorming Topic",
-          subtitle: "Propose a concept or topic for team discussion",
-          titleLabel: "Topic / Concept Title",
-          titlePlaceholder: "e.g. Gamification in coding workshops, AI Bot integration",
-          descLabel: "Notes & Discussion Points",
-          descPlaceholder: "Outline key questions, concepts, or discussion points...",
-          submitButton: "Add Topic",
+          modalTitle: "New Brainstorm Topic",
+          subtitle: "Start a collaborative topic for discussion and ideation",
+          titleLabel: "Topic Title",
+          titlePlaceholder: "e.g. Hackathon 2026 Theme Ideas, Club Workshop Schedule",
+          descLabel: "Topic Outline & Notes",
+          descPlaceholder: "Outline the key points, questions, or agenda for this topic...",
+          submitButton: "Post Topic",
         };
       case "roadmap":
         return {
-          modalTitle: "Add Roadmap Milestone",
-          subtitle: "Add a project milestone or feature target",
-          titleLabel: "Milestone / Feature Title",
-          titlePlaceholder: "e.g. v2.0 API Overhaul, Student Portal Beta",
-          descLabel: "Milestone Scope & Deliverables",
-          descPlaceholder: "Detail key deliverables, dependencies, and requirements...",
-          submitButton: "Add Milestone",
+          modalTitle: "Add Roadmap Initiative / Sub-Task",
+          subtitle: "Define a project milestone, feature deliverable, or sub-task",
+          titleLabel: "Initiative / Task Title",
+          titlePlaceholder: "e.g. Auth System Overhaul, Database Migration Sprint",
+          descLabel: "Deliverables & Scope",
+          descPlaceholder: "Outline key objectives, tech requirements, and deliverables...",
+          submitButton: "Add to Roadmap",
         };
       case "activity":
       default:
         return {
-          modalTitle: "Submit Activity Suggestion",
-          subtitle: "Propose an activity or event for the club schedule",
+          modalTitle: "Propose Event / Activity",
+          subtitle: "Create a task or scheduled club activity on the board",
           titleLabel: "Activity Title",
-          titlePlaceholder: "e.g. Annual Hackathon 2026, Cybersecurity Workshop",
-          descLabel: "Description & Details",
-          descPlaceholder: "Describe the objective, target audience, format, or preliminary requirements...",
-          submitButton: "Submit Activity",
+          titlePlaceholder: "e.g. Flutter Development Bootcamp, CS Gaming Night",
+          descLabel: "Activity Details",
+          descPlaceholder: "Add description, agenda, venue/link, or organizers...",
+          submitButton: "Create Task",
         };
     }
   };
@@ -138,34 +161,32 @@ export default function NewSuggestionModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setError("Title is required.");
+      setError("Please enter a title.");
       return;
     }
-
-    if (columnId) {
-      const selectedCol = columns.find((c) => c.id === columnId);
-      if (selectedCol && !isColumnAllowed(selectedCol)) {
-        setError("You do not have permission to submit to this stage/column.");
-        return;
-      }
+    if (!columnId) {
+      setError("Please select a column.");
+      return;
     }
 
     setIsSubmitting(true);
     setError(null);
-
     try {
       await onSubmit({
         column_id: columnId,
+        parent_id: parentId || null,
+        assigned_user_id: assignedUserId || null,
         title: title.trim(),
         description: description.trim() || undefined,
-        activity_date: isDateVisible ? activityDate || undefined : undefined,
-        activity_end_date: isDateVisible ? activityEndDate || undefined : undefined,
+        activity_date: activityDate || undefined,
+        activity_end_date: activityEndDate || undefined,
         priority,
         color_tag: colorTag,
       });
       onClose();
     } catch (err: any) {
-      setError(err.message || "Failed to submit card.");
+      console.error("Failed to create card:", err);
+      setError(err.message || "Failed to submit. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -174,7 +195,7 @@ export default function NewSuggestionModal({
   const formBody = (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-xs text-error font-medium">
+        <div className="p-3 rounded-xl bg-error/10 border border-error/20 text-error text-xs">
           {error}
         </div>
       )}
@@ -201,6 +222,48 @@ export default function NewSuggestionModal({
           </select>
         </div>
       )}
+
+      {/* Parent Task Selector */}
+      {availableParentCards.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5 text-primary" />
+            Parent Task (Optional Sub-Task)
+          </label>
+          <select
+            value={parentId || ""}
+            onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            <option value="">None (Top-Level Parent Task)</option>
+            {availableParentCards.map((pCard) => (
+              <option key={pCard.id} value={pCard.id}>
+                Sub-task of: {pCard.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Assignee Selector */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-semibold text-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+          <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+          Assign Task To (Assignee)
+        </label>
+        <select
+          value={assignedUserId || ""}
+          onChange={(e) => setAssignedUserId(e.target.value ? Number(e.target.value) : undefined)}
+          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+        >
+          <option value="">Unassigned</option>
+          {userSuggestions.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.first_name} {u.last_name} (@{u.username})
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Generalized Title */}
       <div className="space-y-1.5">
@@ -231,7 +294,7 @@ export default function NewSuggestionModal({
         />
       </div>
 
-      {/* Target Dates Grid (Shown ONLY if boardType supports dates) */}
+      {/* Target Dates Grid */}
       {isDateVisible && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">

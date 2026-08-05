@@ -2930,6 +2930,7 @@ export interface CyberboardUserSummary {
   id: number;
   first_name: string;
   last_name: string;
+  username?: string;
   name: string;
   avatar: string;
   role: "member" | "admin" | "superadmin";
@@ -2965,7 +2966,9 @@ export interface CyberboardCardActivity {
 export interface CyberboardCard {
   id: number;
   column_id: number;
+  parent_id?: number | null;
   user_id: number;
+  assigned_user_id?: number | null;
   title: string;
   description?: string | null;
   activity_date?: string | null;
@@ -2977,6 +2980,9 @@ export interface CyberboardCard {
   created_at: string;
   updated_at: string;
   user?: CyberboardUserSummary;
+  assigned_user?: CyberboardUserSummary;
+  parent?: { id: number; title: string };
+  sub_cards?: CyberboardCard[];
   votes_count?: number;
   comments_count?: number;
   has_voted?: boolean;
@@ -3111,6 +3117,8 @@ export async function createCyberboardCard(
   boardId: number,
   data: {
     column_id?: number;
+    parent_id?: number | null;
+    assigned_user_id?: number | null;
     title: string;
     description?: string;
     activity_date?: string;
