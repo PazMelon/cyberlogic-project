@@ -256,7 +256,7 @@ export default function NewSuggestionModal({
         />
       </div>
 
-      {/* Task Description */}
+      {/* Task Description / Deliverables & Scope */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
           {copy.descLabel}
@@ -266,6 +266,7 @@ export default function NewSuggestionModal({
           onValueChange={setDescription}
           placeholder={copy.descPlaceholder}
           rows={3}
+          className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium resize-y min-h-[90px] leading-relaxed shadow-xs"
         />
       </div>
 

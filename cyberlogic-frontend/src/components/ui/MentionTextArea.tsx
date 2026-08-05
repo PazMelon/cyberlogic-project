@@ -273,6 +273,10 @@ export default function MentionTextArea({
     }
   };
 
+  const defaultClassName =
+    "w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium resize-y min-h-[90px] leading-relaxed shadow-xs";
+  const finalClassName = className ? `${defaultClassName} ${className}` : defaultClassName;
+
   return (
     <div className={`relative flex-1 min-w-0 w-full ${containerClassName}`}>
       <textarea
@@ -282,7 +286,7 @@ export default function MentionTextArea({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={rows}
-        className={className}
+        className={finalClassName}
         {...props}
       />
 
