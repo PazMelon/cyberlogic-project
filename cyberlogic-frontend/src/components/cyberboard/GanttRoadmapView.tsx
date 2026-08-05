@@ -536,11 +536,66 @@ export default function GanttRoadmapView({
 
   return (
     <div ref={containerRef} className="flex flex-col w-full h-full bg-surface-950 text-text-primary overflow-hidden">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md">
-        {/* Left: Grouping buttons */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+      {/* 1. Responsive Header Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md">
+        {/* Left: Grouping, Scale & Zoom controls */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+          {/* Mobile & Tablet Dropdown Controls (< md screens) */}
+          <div className="flex md:hidden items-center gap-2 w-full justify-between sm:justify-start flex-wrap">
+            <div className="flex items-center gap-1.5 bg-surface-800/90 px-2 py-1 rounded-xl border border-border/80">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+              <select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as GroupByOption)}
+                className="bg-transparent text-text-primary text-xs font-semibold focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="phase" className="bg-surface-900 text-text-primary">SDLC Phase</option>
+                <option value="column" className="bg-surface-900 text-text-primary">Columns</option>
+                <option value="priority" className="bg-surface-900 text-text-primary">Priority</option>
+                <option value="assignee" className="bg-surface-900 text-text-primary">Assignee</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-surface-800/90 px-2 py-1 rounded-xl border border-border/80">
+              <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+              <select
+                value={timeScale}
+                onChange={(e) => handleScaleChange(e.target.value as TimeScaleMode)}
+                className="bg-transparent text-text-primary text-xs font-semibold focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="month" className="bg-surface-900 text-text-primary">Months</option>
+                <option value="week" className="bg-surface-900 text-text-primary">Weeks</option>
+                <option value="day" className="bg-surface-900 text-text-primary">Days</option>
+              </select>
+            </div>
+
+            {/* Mobile Zoom Control */}
+            <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-1.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+              <button
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 50}
+                className="p-0.5 rounded text-text-muted hover:text-text-primary disabled:opacity-30 cursor-pointer"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span
+                onClick={handleResetZoom}
+                className="px-1 text-[11px] font-bold text-text-primary font-mono cursor-pointer min-w-[36px] text-center"
+              >
+                {zoomLevel}%
+              </span>
+              <button
+                onClick={handleZoomIn}
+                disabled={zoomLevel >= 250}
+                className="p-0.5 rounded text-text-muted hover:text-text-primary disabled:opacity-30 cursor-pointer"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop Grouping Buttons (>= md screens) */}
+          <div className="hidden md:flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
               <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Group by:
             </span>
@@ -586,8 +641,8 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Time Scale Mode Selector (Month, Week, Day) */}
-          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+          {/* Desktop Scale Selector (>= md screens) */}
+          <div className="hidden md:flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
               <Calendar className="w-3.5 h-3.5 text-primary" /> Scale:
             </span>
@@ -623,8 +678,8 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Zoom Level Control */}
-          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+          {/* Desktop Zoom Control (>= md screens) */}
+          <div className="hidden md:flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
             <button
               onClick={handleZoomOut}
               disabled={zoomLevel <= 50}
@@ -667,52 +722,54 @@ export default function GanttRoadmapView({
         </div>
 
         {/* Right: Date Range Picker, Year Selector & Today Button */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
           {/* Interactive Date Range Picker */}
-          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-3 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-2.5 py-1 rounded-xl text-xs text-text-primary shadow-xs overflow-x-auto max-w-full">
             <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider">Range:</span>
+            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider hidden sm:inline">Range:</span>
             <input
               type="date"
               value={startDateStr}
               onChange={(e) => setStartDateStr(e.target.value)}
-              className="bg-surface-900 border border-border/80 text-text-primary px-2 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-[11px] sm:text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
             />
             <span className="text-text-muted font-bold text-xs">–</span>
             <input
               type="date"
               value={endDateStr}
               onChange={(e) => setEndDateStr(e.target.value)}
-              className="bg-surface-900 border border-border/80 text-text-primary px-2 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
+              className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-[11px] sm:text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
             />
           </div>
 
-          <button
-            onClick={handleJumpToToday}
-            className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Today</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleJumpToToday}
+              className="px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Today</span>
+            </button>
 
-          <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
-            <button
-              onClick={() => setSelectedYear((y) => y - 1)}
-              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-              title="Previous Year"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
-              {selectedYear}
-            </span>
-            <button
-              onClick={() => setSelectedYear((y) => y + 1)}
-              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-              title="Next Year"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
+              <button
+                onClick={() => setSelectedYear((y) => y - 1)}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+                title="Previous Year"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
+                {selectedYear}
+              </span>
+              <button
+                onClick={() => setSelectedYear((y) => y + 1)}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+                title="Next Year"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
