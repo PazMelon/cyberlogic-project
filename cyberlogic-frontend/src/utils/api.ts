@@ -2975,6 +2975,7 @@ export interface CyberboardCard {
   activity_end_date?: string | null;
   color_tag?: string | null;
   priority: "low" | "medium" | "high";
+  phase?: string | null;
   position: number;
   is_archived: boolean;
   created_at: string;
@@ -3021,6 +3022,8 @@ export interface CyberboardBoard {
   column_creation_policy?: "host_admin_only" | "specific_roles" | "specific_users" | "everyone";
   allowed_column_creator_roles?: string[] | null;
   allowed_column_creator_users?: number[] | null;
+  methodology?: "waterfall" | "agile" | "custom";
+  phase_settings?: Array<{ name: string; color: string }>;
   created_at: string;
   updated_at: string;
   creator?: CyberboardUserSummary;
@@ -3125,6 +3128,7 @@ export async function createCyberboardCard(
     activity_end_date?: string;
     color_tag?: string;
     priority?: "low" | "medium" | "high";
+    phase?: string;
   }
 ): Promise<CyberboardCard> {
   const res = await apiRequest(`/api/cyberboard/${boardId}/cards`, {

@@ -135,6 +135,12 @@ export default function BoardCard({
           </div>
         )}
 
+        {card.phase && (
+          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 text-[10px] font-semibold border border-cyan-500/20" title={`SDLC Phase: ${card.phase}`}>
+            <span>⚡ {card.phase}</span>
+          </div>
+        )}
+
         {card.assigned_user && (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20" title={`Assigned to ${card.assigned_user.first_name} ${card.assigned_user.last_name}`}>
             <img

@@ -29,6 +29,7 @@ interface NewSuggestionModalProps {
     activity_end_date?: string;
     priority?: "low" | "medium" | "high";
     color_tag?: string;
+    phase?: string;
   }) => Promise<void>;
 }
 
@@ -82,6 +83,7 @@ export default function NewSuggestionModal({
   };
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
+  const [phase, setPhase] = useState<string>("Requirements & Planning");
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -176,6 +178,7 @@ export default function NewSuggestionModal({
         activity_end_date: activityEndDate || undefined,
         priority,
         color_tag: colorTag,
+        phase: phase || undefined,
       });
       onClose();
     } catch (err: any) {
@@ -303,6 +306,33 @@ export default function NewSuggestionModal({
             <option value="high">🔴 High Priority</option>
           </select>
         </div>
+      </div>
+
+      {/* SDLC Phase Selector (Waterfall / Agile) */}
+      <div className="space-y-1.5">
+        <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+          ⚡ SDLC Project Phase / Sprint
+        </label>
+        <select
+          value={phase}
+          onChange={(e) => setPhase(e.target.value)}
+          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+        >
+          <optgroup label="Waterfall SDLC Phases">
+            <option value="Requirements & Planning">1. Requirements & Planning</option>
+            <option value="Architecture & Design">2. Architecture & Design</option>
+            <option value="Development & Implementation">3. Development & Implementation</option>
+            <option value="Testing & QA">4. Testing & QA</option>
+            <option value="Deployment & Release">5. Deployment & Release</option>
+          </optgroup>
+          <optgroup label="Agile / Scrum Sprints">
+            <option value="Sprint 1">Sprint 1</option>
+            <option value="Sprint 2">Sprint 2</option>
+            <option value="Sprint 3">Sprint 3</option>
+            <option value="Release v1.0">Release v1.0</option>
+            <option value="Backlog">Backlog</option>
+          </optgroup>
+        </select>
       </div>
 
       {/* Target Dates Grid */}

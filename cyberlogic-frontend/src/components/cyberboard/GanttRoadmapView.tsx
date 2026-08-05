@@ -21,7 +21,7 @@ interface GanttRoadmapViewProps {
   onAddNewCard?: (columnId?: number) => void;
 }
 
-type GroupByOption = "column" | "priority" | "assignee";
+type GroupByOption = "phase" | "column" | "priority" | "assignee";
 
 const MONTH_NAMES = [
   "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -38,7 +38,7 @@ const PRESET_COLORS = [
 ];
 
 export default function GanttRoadmapView({
-  board: _board,
+  board,
   columns,
   cards,
   canManageBoard,
@@ -48,7 +48,7 @@ export default function GanttRoadmapView({
 }: GanttRoadmapViewProps) {
   const currentYearNow = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
-  const [groupBy, setGroupBy] = useState<GroupByOption>("column");
+  const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
@@ -94,7 +94,55 @@ export default function GanttRoadmapView({
   const groupedData = useMemo(() => {
     const activeCards = cards.filter((c) => !c.is_archived);
 
-    if (groupBy === "column") {
+    if (groupBy === "phase") {
+      const phaseSettings = board.phase_settings || [
+        { name: "Requirements & Planning", color: "#3b82f6" },
+        { name: "Architecture & Design", color: "#8b5cf6" },
+        { name: "Development & Implementation", color: "#06b6d4" },
+        { name: "Testing & QA", color: "#f59e0b" },
+        { name: "Deployment & Release", color: "#10b981" },
+      ];
+
+      const phaseMap = new Map<string, { id: string; columnId?: number; title: string; color: string; cards: CyberboardCard[] }>();
+
+      phaseSettings.forEach((ps, idx) => {
+        phaseMap.set(ps.name.toLowerCase(), {
+          id: `phase-${idx}`,
+          columnId: undefined,
+          title: ps.name,
+          color: ps.color || PRESET_COLORS[idx % PRESET_COLORS.length],
+          cards: [],
+        });
+      });
+
+      phaseMap.set("unphased", {
+        id: "phase-unphased",
+        columnId: undefined,
+        title: "General / Unassigned Phase",
+        color: "#64748b",
+        cards: [],
+      });
+
+      activeCards.forEach((c) => {
+        if (c.phase) {
+          const key = c.phase.toLowerCase();
+          if (!phaseMap.has(key)) {
+            phaseMap.set(key, {
+              id: `phase-custom-${key}`,
+              columnId: undefined,
+              title: c.phase,
+              color: PRESET_COLORS[phaseMap.size % PRESET_COLORS.length],
+              cards: [],
+            });
+          }
+          phaseMap.get(key)?.cards.push(c);
+        } else {
+          phaseMap.get("unphased")?.cards.push(c);
+        }
+      });
+
+      return Array.from(phaseMap.values()).filter((g) => g.cards.length > 0 || g.id !== "phase-unphased");
+    } else if (groupBy === "column") {
       return columns.map((col, idx) => {
         const colCards = activeCards.filter((c) => c.column_id === col.id);
         return {
@@ -208,6 +256,16 @@ export default function GanttRoadmapView({
               <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Group by:
             </span>
             <button
+              onClick={() => setGroupBy("phase")}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                groupBy === "phase"
+                  ? "bg-primary text-surface-950 shadow-sm"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
+              }`}
+            >
+              SDLC Phase
+            </button>
+            <button
               onClick={() => setGroupBy("column")}
               className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 groupBy === "column"
@@ -294,7 +352,7 @@ export default function GanttRoadmapView({
           <div className="h-12 border-b border-border/80 px-4 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
             <span className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-primary" />
-              {groupBy === "column" ? "Stages" : groupBy === "priority" ? "Priority" : "Assignees"}
+              {groupBy === "phase" ? "SDLC Phases" : groupBy === "column" ? "Stages" : groupBy === "priority" ? "Priority" : "Assignees"}
             </span>
             <span className="text-[10px] text-text-muted font-normal">
               {groupedData.length} groups
@@ -309,7 +367,7 @@ export default function GanttRoadmapView({
               return (
                 <div key={group.id} className="bg-surface-900/40">
                   {/* Group Title Bar */}
-                  <div className="p-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
+                  <div className="h-[44px] px-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-xs"
@@ -339,7 +397,7 @@ export default function GanttRoadmapView({
                   {/* Group Items List (Tree Rows) */}
                   <div className="divide-y divide-border/20">
                     {parentCards.length === 0 ? (
-                      <div className="p-3 text-[11px] text-text-muted/60 italic">No tasks in group</div>
+                      <div className="h-[44px] px-3 flex items-center text-[11px] text-text-muted/60 italic border-b border-border/20">No tasks in group</div>
                     ) : (
                       parentCards.map((card) => {
                         const hasSubCards = card.sub_cards && card.sub_cards.length > 0;
@@ -348,7 +406,7 @@ export default function GanttRoadmapView({
                         return (
                           <React.Fragment key={`row-left-${card.id}`}>
                             {/* Parent Card Row */}
-                            <div className="min-h-[44px] px-3 py-2 flex items-center justify-between gap-2 hover:bg-surface-800/40 transition-colors">
+                            <div className="h-[44px] px-3 flex items-center justify-between gap-2 hover:bg-surface-800/40 transition-colors border-b border-border/20">
                               <div className="flex items-center gap-2 min-w-0">
                                 {hasSubCards ? (
                                   <button
@@ -386,7 +444,7 @@ export default function GanttRoadmapView({
                               card.sub_cards?.map((subCard) => (
                                 <div
                                   key={`row-left-sub-${subCard.id}`}
-                                  className="min-h-[38px] pl-8 pr-3 py-1.5 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30"
+                                  className="h-[38px] pl-8 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
                                 >
                                   <span
                                     onClick={() => onSelectCard(subCard)}
@@ -463,20 +521,25 @@ export default function GanttRoadmapView({
                 return (
                   <div key={`gantt-grid-group-${group.id}`} className="bg-transparent">
                     {/* Group Header Spacer */}
-                    <div className="h-[41px] border-b border-border/40 bg-surface-900/30" />
+                    <div className="h-[44px] border-b border-border/40 bg-surface-900/30" />
 
                     {/* Timeline Bars for Cards & Sub-Cards */}
                     <div className="divide-y divide-border/20">
-                      {parentCards.map((card) => {
-                        const { leftPercent, widthPercent } = getCardTimelinePosition(card);
-                        const cardColor = card.color_tag || group.color || "#06b6d4";
-                        const isHovered = hoveredCardId === card.id;
-                        const isExpanded = !!expandedParents[card.id];
+                      {parentCards.length === 0 ? (
+                        <div className="h-[44px] border-b border-border/20 flex items-center justify-center text-[11px] text-text-muted/40 italic pointer-events-none">
+                          No tasks in group
+                        </div>
+                      ) : (
+                        parentCards.map((card) => {
+                          const { leftPercent, widthPercent } = getCardTimelinePosition(card);
+                          const cardColor = card.color_tag || group.color || "#06b6d4";
+                          const isHovered = hoveredCardId === card.id;
+                          const isExpanded = !!expandedParents[card.id];
 
-                        return (
-                          <React.Fragment key={`gantt-row-parent-${card.id}`}>
-                            {/* Parent Bar Row */}
-                            <div className="min-h-[44px] px-2 py-1.5 flex items-center relative hover:bg-surface-900/10 transition-colors">
+                          return (
+                            <React.Fragment key={`gantt-row-parent-${card.id}`}>
+                              {/* Parent Bar Row */}
+                              <div className="h-[44px] px-2 flex items-center relative hover:bg-surface-900/10 transition-colors border-b border-border/20">
                               <div
                                 className="relative h-8 my-0.5 flex items-center group/bar"
                                 style={{
@@ -524,7 +587,7 @@ export default function GanttRoadmapView({
                                 return (
                                   <div
                                     key={`gantt-row-sub-${subCard.id}`}
-                                    className="min-h-[38px] px-2 py-1 flex items-center relative bg-surface-950/20 hover:bg-surface-900/10 transition-colors"
+                                    className="h-[38px] px-2 flex items-center relative bg-surface-950/20 hover:bg-surface-900/10 transition-colors border-b border-border/20"
                                   >
                                     <div
                                       className="relative h-6 my-0.5 flex items-center group/bar"
@@ -562,9 +625,10 @@ export default function GanttRoadmapView({
                                   </div>
                                 );
                               })}
-                          </React.Fragment>
-                        );
-                      })}
+                              </React.Fragment>
+                            );
+                          })
+                        )}
                     </div>
                   </div>
                 );

@@ -67,6 +67,7 @@ export default function CardDetailModal({
   const [editActivityDate, setEditActivityDate] = useState<string>("");
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
   const [editAssignedUserId, setEditAssignedUserId] = useState<number | undefined>(undefined);
+  const [editPhase, setEditPhase] = useState<string>("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
@@ -86,6 +87,7 @@ export default function CardDetailModal({
       setEditActivityDate(card.activity_date ? card.activity_date.split("T")[0] : "");
       setEditActivityEndDate(card.activity_end_date ? card.activity_end_date.split("T")[0] : "");
       setEditAssignedUserId(card.assigned_user_id || undefined);
+      setEditPhase(card.phase || "");
     }
   }, [card]);
 
@@ -134,6 +136,7 @@ export default function CardDetailModal({
         description: editDescription.trim(),
         assigned_user_id: editAssignedUserId || null,
         priority: editPriority,
+        phase: editPhase || null,
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
         activity_end_date: editActivityEndDate || null,
@@ -326,6 +329,31 @@ export default function CardDetailModal({
                 ))}
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1">⚡ SDLC Project Phase / Sprint</label>
+            <select
+              value={editPhase}
+              onChange={(e) => setEditPhase(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none cursor-pointer"
+            >
+              <option value="">No SDLC Phase Assigned</option>
+              <optgroup label="Waterfall SDLC Phases">
+                <option value="Requirements & Planning">1. Requirements & Planning</option>
+                <option value="Architecture & Design">2. Architecture & Design</option>
+                <option value="Development & Implementation">3. Development & Implementation</option>
+                <option value="Testing & QA">4. Testing & QA</option>
+                <option value="Deployment & Release">5. Deployment & Release</option>
+              </optgroup>
+              <optgroup label="Agile / Scrum Sprints">
+                <option value="Sprint 1">Sprint 1</option>
+                <option value="Sprint 2">Sprint 2</option>
+                <option value="Sprint 3">Sprint 3</option>
+                <option value="Release v1.0">Release v1.0</option>
+                <option value="Backlog">Backlog</option>
+              </optgroup>
+            </select>
           </div>
 
           {(boardType === "activity" || boardType === "roadmap") && (
