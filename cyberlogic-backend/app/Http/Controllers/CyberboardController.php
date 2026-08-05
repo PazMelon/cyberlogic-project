@@ -8,6 +8,7 @@ use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
 use App\Models\CyberboardColumn;
+use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
@@ -142,6 +143,13 @@ class CyberboardController extends Controller
                 $q->where('is_archived', false)->orderBy('position', 'asc');
             },
             'columns.cards.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'columns.cards.assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'columns.cards.parent:id,title',
+            'columns.cards.subCards' => function ($q) {
+                $q->where('is_archived', false)->orderBy('position', 'asc');
+            },
+            'columns.cards.subCards.user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'columns.cards.subCards.assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
             'columns.cards.votes',
             'columns.cards.comments' => function ($q) {
                 $q->orderBy('created_at', 'asc');
@@ -280,9 +288,11 @@ class CyberboardController extends Controller
             'is_archived' => false,
         ]);
 
-        // Auto-seed default 5 columns
-        foreach ($this->getDefaultColumns() as $col) {
-            $board->columns()->create($col);
+        // Auto-seed default 5 columns unless board type is roadmap
+        if (($validated['type'] ?? 'activity') !== 'roadmap') {
+            foreach ($this->getDefaultColumns() as $col) {
+                $board->columns()->create($col);
+            }
         }
 
         $board->load(['creator:id,first_name,middle_name,last_name,avatar_path,role,username', 'columns']);
@@ -423,6 +433,8 @@ class CyberboardController extends Controller
 
         $validated = $request->validate([
             'column_id' => 'nullable|exists:cyberboard_columns,id',
+            'parent_id' => 'nullable|exists:cyberboard_cards,id',
+            'assigned_user_id' => 'nullable|exists:users,id',
             'title' => 'required|string|max:200',
             'description' => 'nullable|string|max:2000',
             'activity_date' => 'nullable|date',
@@ -464,7 +476,9 @@ class CyberboardController extends Controller
 
         $card = CyberboardCard::create([
             'column_id' => $columnId,
+            'parent_id' => $validated['parent_id'] ?? null,
             'user_id' => $user->id,
+            'assigned_user_id' => $validated['assigned_user_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'activity_date' => $validated['activity_date'] ?? null,
@@ -486,6 +500,12 @@ class CyberboardController extends Controller
 
         $card->load([
             'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'parent:id,title',
+            'subCards' => function ($q) {
+                $q->where('is_archived', false)->orderBy('position', 'asc');
+            },
+            'subCards.assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
             'votes',
             'comments',
             'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',
@@ -496,6 +516,18 @@ class CyberboardController extends Controller
         $cardArr['comments_count'] = 0;
         $cardArr['has_voted'] = false;
         $cardArr['activities'] = $card->activities;
+
+        if ($card->assigned_user_id && $card->assigned_user_id !== $user->id) {
+            NotificationService::notifyUser(
+                $card->assigned_user_id,
+                'cyberboard_assigned',
+                'Assigned to CyberBoard Task',
+                "You were assigned to task '{$card->title}' by {$user->first_name}",
+                ['board_id' => $boardId, 'card_id' => $card->id],
+                'user-check',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'card' => $cardArr,
@@ -538,6 +570,8 @@ class CyberboardController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:200',
             'description' => 'nullable|string|max:2000',
+            'parent_id' => 'nullable|exists:cyberboard_cards,id',
+            'assigned_user_id' => 'nullable|exists:users,id',
             'activity_date' => 'nullable|date',
             'activity_end_date' => 'nullable|date|after_or_equal:activity_date',
             'color_tag' => 'nullable|string|max:30',
@@ -550,6 +584,23 @@ class CyberboardController extends Controller
         }
         if (array_key_exists('description', $validated) && $validated['description'] !== $card->description) {
             $changeDescItems[] = "description";
+        }
+        if (array_key_exists('assigned_user_id', $validated) && $validated['assigned_user_id'] !== $card->assigned_user_id) {
+            $newAssignedUser = $validated['assigned_user_id'] ? User::find($validated['assigned_user_id']) : null;
+            $assigneeName = $newAssignedUser ? ($newAssignedUser->first_name . ' ' . $newAssignedUser->last_name) : 'Unassigned';
+            $changeDescItems[] = "assignee to {$assigneeName}";
+
+            if ($newAssignedUser && $newAssignedUser->id !== $user->id) {
+                NotificationService::notifyUser(
+                    $newAssignedUser->id,
+                    'cyberboard_assigned',
+                    'Assigned to CyberBoard Task',
+                    "You were assigned to task '{$card->title}' by {$user->first_name}",
+                    ['board_id' => $card->column->board_id, 'card_id' => $card->id],
+                    'user-check',
+                    "/app/cyberboard/{$card->column->board_id}"
+                );
+            }
         }
         if (isset($validated['priority']) && $validated['priority'] !== $card->priority) {
             $changeDescItems[] = "priority to " . strtoupper($validated['priority']);
@@ -578,6 +629,12 @@ class CyberboardController extends Controller
 
         $card->load([
             'user:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
+            'parent:id,title',
+            'subCards' => function ($q) {
+                $q->where('is_archived', false)->orderBy('position', 'asc');
+            },
+            'subCards.assignedUser:id,first_name,middle_name,last_name,avatar_path,role,username',
             'votes',
             'comments',
             'activities.user:id,first_name,middle_name,last_name,avatar_path,role,username',

@@ -13,7 +13,9 @@ class CyberboardCard extends Model
 
     protected $fillable = [
         'column_id',
+        'parent_id',
         'user_id',
+        'assigned_user_id',
         'title',
         'description',
         'activity_date',
@@ -31,6 +33,8 @@ class CyberboardCard extends Model
             'activity_end_date' => 'date:Y-m-d',
             'is_archived' => 'boolean',
             'position' => 'integer',
+            'assigned_user_id' => 'integer',
+            'parent_id' => 'integer',
         ];
     }
 
@@ -42,6 +46,21 @@ class CyberboardCard extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(CyberboardCard::class, 'parent_id');
+    }
+
+    public function subCards(): HasMany
+    {
+        return $this->hasMany(CyberboardCard::class, 'parent_id')->orderBy('position', 'asc');
     }
 
     public function votes(): HasMany
