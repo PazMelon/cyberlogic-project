@@ -119,7 +119,7 @@ export default function CardDetailModal({
   const [editActivityEndDate, setEditActivityEndDate] = useState<string>("");
   const [editAssignedUserIds, setEditAssignedUserIds] = useState<number[]>([]);
   const [editPhase, setEditPhase] = useState<string>("");
-  const [editPredecessorId, setEditPredecessorId] = useState<number | null>(null);
+  const [editPredecessorIds, setEditPredecessorIds] = useState<number[]>([]);
   const [editParentId, setEditParentId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
@@ -170,7 +170,12 @@ export default function CardDetailModal({
         : [];
       setEditAssignedUserIds(initialIds);
       setEditPhase(card.phase || "");
-      setEditPredecessorId(card.predecessor_id || null);
+      const initialPredIds = card.predecessor_ids && card.predecessor_ids.length > 0
+        ? card.predecessor_ids
+        : card.predecessor_id
+        ? [card.predecessor_id]
+        : [];
+      setEditPredecessorIds(initialPredIds);
       setEditParentId(card.parent_id || null);
 
       let parsedCl: CyberboardChecklistItem[] = [];
@@ -548,7 +553,8 @@ export default function CardDetailModal({
         assigned_user_ids: editAssignedUserIds,
         priority: editPriority,
         phase: editPhase || null,
-        predecessor_id: editPredecessorId || null,
+        predecessor_id: editPredecessorIds[0] || null,
+        predecessor_ids: editPredecessorIds,
         parent_id: editParentId || null,
         color_tag: editColorTag,
         activity_date: editActivityDate || null,
@@ -820,14 +826,15 @@ export default function CardDetailModal({
               <div>
                 <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span>Predecessor Task (Dependency Link)</span>
+                  <span>Predecessor Tasks (Dependency Links)</span>
                 </label>
                 <SearchableTaskPicker
-                  value={editPredecessorId}
-                  onChange={(id) => setEditPredecessorId(id)}
+                  value={editPredecessorIds}
+                  onChange={(ids) => setEditPredecessorIds(ids)}
                   cards={allBoardCards}
                   excludeCardId={card.id}
-                  emptyLabel="No Predecessor (Independent Task)"
+                  emptyLabel="No Predecessors (Independent Task)"
+                  isMulti={true}
                 />
               </div>
 

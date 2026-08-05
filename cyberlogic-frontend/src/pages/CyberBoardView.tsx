@@ -587,29 +587,45 @@ export default function CyberBoardView() {
     }
 
     // Check Predecessor Task Completion Restriction
-    if (targetCard.predecessor_id) {
+    const predecessorIds = (targetCard.predecessor_ids && targetCard.predecessor_ids.length > 0)
+      ? targetCard.predecessor_ids
+      : (targetCard.predecessor_id ? [targetCard.predecessor_id] : []);
+
+    if (predecessorIds.length > 0) {
       const allBoardCards = board.columns.flatMap((col) => col.cards || []);
-      const predecessorCard = allBoardCards.find((c) => c.id === targetCard.predecessor_id);
-      if (predecessorCard) {
-        const predecessorColumn = board.columns.find((c) => c.id === predecessorCard.column_id);
-        const isPredecessorDone =
-          predecessorColumn?.status_type === "completed" ||
-          predecessorColumn?.title.toLowerCase().includes("done") ||
-          predecessorColumn?.title.toLowerCase().includes("complete");
+      const lastColPosition = board.columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
 
-        const isTargetDoneOrProgress =
-          targetColumn?.status_type === "completed" ||
-          targetColumn?.status_type === "in_progress" ||
-          targetColumn?.title.toLowerCase().includes("done") ||
-          targetColumn?.title.toLowerCase().includes("progress");
-
-        if (isTargetDoneOrProgress && !isPredecessorDone) {
-          showToast(
-            `Cannot move '${targetCard.title}': Predecessor task '${predecessorCard.title}' is not completed yet!`,
-            "error"
+      const incompletePredecessors: CyberboardCard[] = [];
+      for (const predId of predecessorIds) {
+        const predCard = allBoardCards.find((c) => c.id === predId);
+        if (predCard) {
+          const predColumn = board.columns.find((c) => c.id === predCard.column_id);
+          const isPredDone = predColumn && (
+            predColumn.status_type === "completed" ||
+            predColumn.title.toLowerCase().includes("done") ||
+            predColumn.title.toLowerCase().includes("complete") ||
+            (predColumn.position !== undefined && predColumn.position === lastColPosition && lastColPosition > 0)
           );
-          return;
+          if (!isPredDone) {
+            incompletePredecessors.push(predCard);
+          }
         }
+      }
+
+      const isTargetDoneOrProgress =
+        targetColumn?.status_type === "completed" ||
+        targetColumn?.status_type === "in_progress" ||
+        targetColumn?.title.toLowerCase().includes("done") ||
+        targetColumn?.title.toLowerCase().includes("progress") ||
+        (targetColumn?.position !== undefined && targetColumn.position === lastColPosition && lastColPosition > 0);
+
+      if (isTargetDoneOrProgress && incompletePredecessors.length > 0) {
+        const predTitles = incompletePredecessors.map((c) => `'${c.title}'`).join(", ");
+        showToast(
+          `Cannot move '${targetCard.title}': Predecessor task${incompletePredecessors.length > 1 ? "s" : ""} ${predTitles} ${incompletePredecessors.length > 1 ? "are" : "is"} not completed yet!`,
+          "error"
+        );
+        return;
       }
     }
 

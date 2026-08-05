@@ -2986,6 +2986,7 @@ export interface CyberboardCard {
   column_id: number;
   parent_id?: number | null;
   predecessor_id?: number | null;
+  predecessor_ids?: number[] | null;
   user_id: number;
   assigned_user_id?: number | null;
   assigned_user_ids?: number[] | null;

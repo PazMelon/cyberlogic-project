@@ -466,6 +466,8 @@ class CyberboardController extends Controller
             'column_id' => 'nullable|exists:cyberboard_columns,id',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
             'predecessor_id' => 'nullable|exists:cyberboard_cards,id',
+            'predecessor_ids' => 'nullable|array',
+            'predecessor_ids.*' => 'integer|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
             'assigned_user_ids' => 'nullable|array',
             'assigned_user_ids.*' => 'integer|exists:users,id',
@@ -517,10 +519,16 @@ class CyberboardController extends Controller
             : (isset($validated['assigned_user_id']) ? [$validated['assigned_user_id']] : []);
         $primaryAssignedUserId = $assignedUserIds[0] ?? null;
 
+        $predecessorIds = isset($validated['predecessor_ids'])
+            ? array_values(array_unique(array_filter($validated['predecessor_ids'])))
+            : (isset($validated['predecessor_id']) && $validated['predecessor_id'] ? [$validated['predecessor_id']] : []);
+        $primaryPredecessorId = $predecessorIds[0] ?? ($validated['predecessor_id'] ?? null);
+
         $card = CyberboardCard::create([
             'column_id' => $columnId,
             'parent_id' => $validated['parent_id'] ?? null,
-            'predecessor_id' => $validated['predecessor_id'] ?? null,
+            'predecessor_id' => $primaryPredecessorId,
+            'predecessor_ids' => $predecessorIds,
             'user_id' => $user->id,
             'assigned_user_id' => $primaryAssignedUserId,
             'assigned_user_ids' => $assignedUserIds,
@@ -623,6 +631,8 @@ class CyberboardController extends Controller
             'description' => 'nullable|string|max:2000',
             'parent_id' => 'nullable|exists:cyberboard_cards,id',
             'predecessor_id' => 'nullable|exists:cyberboard_cards,id',
+            'predecessor_ids' => 'nullable|array',
+            'predecessor_ids.*' => 'integer|exists:cyberboard_cards,id',
             'assigned_user_id' => 'nullable|exists:users,id',
             'assigned_user_ids' => 'nullable|array',
             'assigned_user_ids.*' => 'integer|exists:users,id',
@@ -644,6 +654,14 @@ class CyberboardController extends Controller
             $validated['assigned_user_id'] = $newAssignedUserIds[0] ?? null;
         } elseif (array_key_exists('assigned_user_id', $validated)) {
             $validated['assigned_user_ids'] = $validated['assigned_user_id'] ? [$validated['assigned_user_id']] : [];
+        }
+
+        if (isset($validated['predecessor_ids'])) {
+            $newPredecessorIds = array_values(array_unique(array_filter($validated['predecessor_ids'])));
+            $validated['predecessor_ids'] = $newPredecessorIds;
+            $validated['predecessor_id'] = $newPredecessorIds[0] ?? null;
+        } elseif (array_key_exists('predecessor_id', $validated)) {
+            $validated['predecessor_ids'] = $validated['predecessor_id'] ? [$validated['predecessor_id']] : [];
         }
 
         $changeDescItems = [];

@@ -25,6 +25,7 @@ interface NewSuggestionModalProps {
     column_id?: number;
     parent_id?: number | null;
     predecessor_id?: number | null;
+    predecessor_ids?: number[] | null;
     assigned_user_id?: number | null;
     assigned_user_ids?: number[] | null;
     title: string;
@@ -95,7 +96,7 @@ export default function NewSuggestionModal({
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
   const [phase, setPhase] = useState<string>(() => safeBoardPhases[0]?.name || "");
-  const [predecessorId, setPredecessorId] = useState<number | undefined>(undefined);
+  const [predecessorIds, setPredecessorIds] = useState<number[]>([]);
   const [activityDate, setActivityDate] = useState("");
   const [activityEndDate, setActivityEndDate] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
@@ -208,7 +209,8 @@ export default function NewSuggestionModal({
       await onSubmit({
         column_id: columnId,
         parent_id: parentId || null,
-        predecessor_id: predecessorId || null,
+        predecessor_id: predecessorIds[0] || null,
+        predecessor_ids: predecessorIds,
         assigned_user_id: assignedUserIds[0] || null,
         assigned_user_ids: assignedUserIds,
         title: title.trim(),
@@ -457,13 +459,14 @@ export default function NewSuggestionModal({
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-primary" />
-            Predecessor Task (Dependency Link)
+            Predecessor Tasks (Dependency Links)
           </label>
           <SearchableTaskPicker
-            value={predecessorId || null}
-            onChange={(id) => setPredecessorId(id || undefined)}
+            value={predecessorIds}
+            onChange={(ids) => setPredecessorIds(ids)}
             cards={availablePredecessorCards}
-            emptyLabel="No Predecessor (Independent Task)"
+            emptyLabel="No Predecessors (Independent Task)"
+            isMulti={true}
           />
         </div>
       )}

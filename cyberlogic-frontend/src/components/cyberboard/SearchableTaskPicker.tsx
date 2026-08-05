@@ -3,13 +3,14 @@ import { Search, X, Check, Clock } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 
 interface SearchableTaskPickerProps {
-  value?: number | null;
-  onChange: (taskId: number | null) => void;
+  value?: number | number[] | null;
+  onChange: (val: any) => void;
   cards: CyberboardCard[];
   excludeCardId?: number;
   placeholder?: string;
   emptyLabel?: string;
   disabled?: boolean;
+  isMulti?: boolean;
 }
 
 export default function SearchableTaskPicker({
@@ -18,12 +19,19 @@ export default function SearchableTaskPicker({
   cards = [],
   excludeCardId,
   placeholder = "Search by title or phase...",
-  emptyLabel = "No Task Selected",
+  emptyLabel = "No Predecessors Selected",
   disabled = false,
+  isMulti = false,
 }: SearchableTaskPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedIds: number[] = Array.isArray(value)
+    ? value
+    : typeof value === "number"
+    ? [value]
+    : [];
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -51,7 +59,30 @@ export default function SearchableTaskPicker({
     return titleMatch || phaseMatch;
   });
 
-  const selectedCard = candidateCards.find((c) => c.id === value);
+  const selectedCards = candidateCards.filter((c) => selectedIds.includes(c.id));
+
+  const handleToggleCard = (cardId: number) => {
+    if (isMulti) {
+      if (selectedIds.includes(cardId)) {
+        const next = selectedIds.filter((id) => id !== cardId);
+        onChange(next);
+      } else {
+        const next = [...selectedIds, cardId];
+        onChange(next);
+      }
+    } else {
+      onChange(cardId);
+      setIsOpen(false);
+    }
+  };
+
+  const handleClear = () => {
+    if (isMulti) {
+      onChange([]);
+    } else {
+      onChange(null);
+    }
+  };
 
   return (
     <div ref={dropdownRef} className="relative w-full">
@@ -62,27 +93,41 @@ export default function SearchableTaskPicker({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary flex items-center justify-between gap-2 hover:bg-surface-750 focus:border-primary focus:outline-none transition-all cursor-pointer disabled:opacity-50"
       >
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto scrollbar-none py-0.5">
           <Clock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-          {selectedCard ? (
-            <div className="flex items-center gap-2 min-w-0 truncate">
-              <span className="font-bold text-text-primary truncate">{selectedCard.title}</span>
-              {selectedCard.phase && (
-                <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 text-[9px] font-bold border border-cyan-500/30 flex-shrink-0">
-                  {selectedCard.phase}
+          {selectedCards.length > 0 ? (
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              {selectedCards.map((sc) => (
+                <span
+                  key={`sel-pred-${sc.id}`}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-700 border border-border/60 text-xs font-semibold text-text-primary flex-shrink-0"
+                >
+                  <span className="truncate max-w-[120px]">{sc.title}</span>
+                  {isMulti && (
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleCard(sc.id);
+                      }}
+                      className="text-text-muted hover:text-error rounded transition-colors cursor-pointer"
+                      title="Remove"
+                    >
+                      <X className="w-3 h-3" />
+                    </span>
+                  )}
                 </span>
-              )}
+              ))}
             </div>
           ) : (
             <span className="text-text-muted italic">{emptyLabel}</span>
           )}
         </div>
 
-        {selectedCard ? (
+        {selectedCards.length > 0 ? (
           <div
             onClick={(e) => {
               e.stopPropagation();
-              onChange(null);
+              handleClear();
             }}
             className="p-1 text-text-muted hover:text-error rounded-md transition-colors flex-shrink-0 cursor-pointer"
             title="Clear selection"
@@ -118,15 +163,15 @@ export default function SearchableTaskPicker({
             <button
               type="button"
               onClick={() => {
-                onChange(null);
-                setIsOpen(false);
+                handleClear();
+                if (!isMulti) setIsOpen(false);
               }}
               className={`w-full px-3 py-2 text-left flex items-center justify-between text-xs transition-all cursor-pointer ${
-                !value ? "bg-primary/20 text-primary font-bold" : "hover:bg-surface-800 text-text-muted"
+                selectedIds.length === 0 ? "bg-primary/20 text-primary font-bold" : "hover:bg-surface-800 text-text-muted"
               }`}
             >
               <span>{emptyLabel}</span>
-              {!value && <Check className="w-3.5 h-3.5 text-primary" />}
+              {selectedIds.length === 0 && <Check className="w-3.5 h-3.5 text-primary" />}
             </button>
 
             {filteredCards.length === 0 ? (
@@ -135,15 +180,12 @@ export default function SearchableTaskPicker({
               </div>
             ) : (
               filteredCards.map((cardItem) => {
-                const isSelected = cardItem.id === value;
+                const isSelected = selectedIds.includes(cardItem.id);
                 return (
                   <button
                     key={`picker-card-${cardItem.id}`}
                     type="button"
-                    onClick={() => {
-                      onChange(cardItem.id);
-                      setIsOpen(false);
-                    }}
+                    onClick={() => handleToggleCard(cardItem.id)}
                     className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-all cursor-pointer ${
                       isSelected
                         ? "bg-primary/20 text-primary font-bold"

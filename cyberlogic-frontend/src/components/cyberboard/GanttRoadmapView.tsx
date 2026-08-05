@@ -192,10 +192,34 @@ export default function GanttRoadmapView({
     }));
   };
 
+  const isColumnCompleted = useCallback((colId?: number | null) => {
+    if (!colId || !columns || columns.length === 0) return false;
+    const col = columns.find((c) => c.id === colId);
+    if (!col) return false;
+    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
+    return (
+      col.status_type === "completed" ||
+      col.title.toLowerCase().includes("done") ||
+      col.title.toLowerCase().includes("completed") ||
+      (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
+    );
+  }, [columns]);
+
   // Resolve status category & styling from column.status_type or title fallback (Darker theme-compatible badges)
   const getCardStatusInfo = useCallback(
     (card: CyberboardCard) => {
       const col = columns.find((c) => c.id === card.column_id);
+      const isDone = isColumnCompleted(card.column_id);
+
+      if (!isDone && card.activity_end_date) {
+        const endDate = new Date(card.activity_end_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (endDate < today) {
+          return { label: "Overdue", bg: "bg-rose-950/90 text-rose-300 border-rose-600/60 font-bold" };
+        }
+      }
+
       if (col?.status_type) {
         switch (col.status_type) {
           case "completed":
@@ -219,7 +243,7 @@ export default function GanttRoadmapView({
       }
       return { label: colName || "To Do", bg: "bg-slate-900/90 text-slate-200 border-slate-700/70 font-bold" };
     },
-    [columns]
+    [columns, isColumnCompleted]
   );
 
   // Drag-and-Drop Reordering within Gantt View & Swimlanes
@@ -798,19 +822,6 @@ export default function GanttRoadmapView({
     [timelinePositionMap, selectedYear]
   );
 
-  const isColumnCompleted = useCallback((colId?: number | null) => {
-    if (!colId || !columns || columns.length === 0) return false;
-    const col = columns.find((c) => c.id === colId);
-    if (!col) return false;
-    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
-    return (
-      col.status_type === "completed" ||
-      col.title.toLowerCase().includes("done") ||
-      col.title.toLowerCase().includes("completed") ||
-      (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
-    );
-  }, [columns]);
-
   const getCardCompletionRate = useCallback((card: CyberboardCard): number => {
     if (isColumnCompleted(card.column_id)) {
       return 100;
@@ -1078,29 +1089,39 @@ export default function GanttRoadmapView({
 
       parentCards.forEach((card) => {
         // 1. Explicit predecessor dependency
-        const predecessorId = card.predecessor_id;
-        if (predecessorId && layoutMap.has(predecessorId) && layoutMap.has(card.id)) {
-          rawLinks.push({
-            id: `dep-${predecessorId}-${card.id}`,
-            fromCardId: predecessorId,
-            toCardId: card.id,
-            isDateless: !card.activity_date && !card.activity_end_date,
-          });
-        }
+        const predIds = (card.predecessor_ids && card.predecessor_ids.length > 0)
+          ? card.predecessor_ids
+          : (card.predecessor_id ? [card.predecessor_id] : []);
+
+        predIds.forEach((predecessorId) => {
+          if (predecessorId && layoutMap.has(predecessorId) && layoutMap.has(card.id)) {
+            rawLinks.push({
+              id: `dep-${predecessorId}-${card.id}`,
+              fromCardId: predecessorId,
+              toCardId: card.id,
+              isDateless: !card.activity_date && !card.activity_end_date,
+            });
+          }
+        });
 
         // 2. Subtask explicit predecessor links
         const isExpanded = !!expandedParents[card.id];
         if (isExpanded && card.sub_cards && card.sub_cards.length > 0) {
           card.sub_cards.forEach((subCard) => {
-            const sourceId = subCard.predecessor_id;
-            if (sourceId && layoutMap.has(sourceId) && layoutMap.has(subCard.id)) {
-              rawLinks.push({
-                id: `dep-${sourceId}-${subCard.id}`,
-                fromCardId: sourceId,
-                toCardId: subCard.id,
-                isDateless: !subCard.activity_date && !subCard.activity_end_date,
-              });
-            }
+            const subPredIds = (subCard.predecessor_ids && subCard.predecessor_ids.length > 0)
+              ? subCard.predecessor_ids
+              : (subCard.predecessor_id ? [subCard.predecessor_id] : []);
+
+            subPredIds.forEach((sourceId) => {
+              if (sourceId && layoutMap.has(sourceId) && layoutMap.has(subCard.id)) {
+                rawLinks.push({
+                  id: `dep-${sourceId}-${subCard.id}`,
+                  fromCardId: sourceId,
+                  toCardId: subCard.id,
+                  isDateless: !subCard.activity_date && !subCard.activity_end_date,
+                });
+              }
+            });
           });
         }
       });
