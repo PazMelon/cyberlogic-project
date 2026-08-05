@@ -4,7 +4,7 @@ import {
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
   Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare
 } from "lucide-react";
-import type { CyberboardCard, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
+import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment } from "../../utils/api";
 import { optimizeAndConvertToWebP } from "../../utils/imageOptimizer";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -33,6 +33,7 @@ interface CardDetailModalProps {
   onAddComment: (cardId: number, content: string) => Promise<void>;
   onDeleteComment: (commentId: number) => Promise<void>;
   onDeleteCard: (cardId: number) => void;
+  columns?: CyberboardColumn[];
   onUpdateCard?: (cardId: number, data: Partial<CyberboardCard>) => Promise<void>;
 }
 
@@ -99,6 +100,7 @@ export default function CardDetailModal({
   onAddComment,
   onDeleteComment,
   onDeleteCard,
+  columns = [],
   onUpdateCard,
 }: CardDetailModalProps) {
   const safeBoardPhases = boardPhases || [];
@@ -876,6 +878,9 @@ export default function CardDetailModal({
           <TaskChecklistSection
             checklist={checklist}
             completionPercentage={manualCompletionPercentage}
+            subCards={card.sub_cards}
+            columns={columns}
+            cardColumnId={card.column_id}
             onToggleItem={handleToggleChecklistItem}
             onAddItem={handleAddChecklistItem}
             onDeleteItem={handleDeleteChecklistItem}
@@ -1749,6 +1754,9 @@ export default function CardDetailModal({
 function TaskChecklistSection({
   checklist = [],
   completionPercentage = 0,
+  subCards = [],
+  columns = [],
+  cardColumnId,
   onToggleItem,
   onAddItem,
   onDeleteItem,
@@ -1757,6 +1765,9 @@ function TaskChecklistSection({
 }: {
   checklist: CyberboardChecklistItem[];
   completionPercentage: number;
+  subCards?: CyberboardCard[];
+  columns?: CyberboardColumn[];
+  cardColumnId?: number;
   onToggleItem: (id: string) => void;
   onAddItem: (text: string) => void;
   onDeleteItem: (id: string) => void;
@@ -1780,7 +1791,52 @@ function TaskChecklistSection({
 
   const totalItems = safeChecklist.length;
   const completedCount = safeChecklist.filter((i) => i.completed).length;
-  const calculatedRate = totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : completionPercentage;
+
+  const safeSubcards = subCards || [];
+  const totalSubcards = safeSubcards.length;
+  const completedSubcardsCount = useMemo(() => {
+    if (totalSubcards === 0 || !columns || columns.length === 0) return 0;
+    return safeSubcards.filter((sc) => {
+      const col = columns.find((c) => c.id === sc.column_id);
+      if (!col) return false;
+      return (
+        col.status_type === "completed" ||
+        col.title.toLowerCase().includes("done") ||
+        col.title.toLowerCase().includes("completed")
+      );
+    }).length;
+  }, [safeSubcards, totalSubcards, columns]);
+
+  const isCardCompleted = useMemo(() => {
+    if (!cardColumnId || !columns || columns.length === 0) return false;
+    const col = columns.find((c) => c.id === cardColumnId);
+    if (!col) return false;
+    return (
+      col.status_type === "completed" ||
+      col.title.toLowerCase().includes("done") ||
+      col.title.toLowerCase().includes("completed")
+    );
+  }, [cardColumnId, columns]);
+
+  const hasChecklist = totalItems > 0;
+  const hasSubcards = totalSubcards > 0;
+
+  const checklistRate = hasChecklist ? (completedCount / totalItems) * 100 : 0;
+  const subcardsRate = hasSubcards ? (completedSubcardsCount / totalSubcards) * 100 : 0;
+
+  const calculatedRate = useMemo(() => {
+    if (isCardCompleted) return 100;
+    if (hasChecklist && hasSubcards) {
+      return Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
+    }
+    if (hasChecklist) {
+      return Math.round(checklistRate);
+    }
+    if (hasSubcards) {
+      return Math.round(subcardsRate);
+    }
+    return completionPercentage;
+  }, [isCardCompleted, hasChecklist, hasSubcards, checklistRate, subcardsRate, completionPercentage]);
 
   const handleSubmitNewItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1799,7 +1855,13 @@ function TaskChecklistSection({
             <span>Task Checklist & Completion Rate</span>
           </div>
           <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-extrabold">
-            {totalItems > 0 ? `${completedCount}/${totalItems} (${calculatedRate}%)` : `${calculatedRate}% Done`}
+            {hasChecklist && hasSubcards
+              ? `Subcards: ${completedSubcardsCount}/${totalSubcards} · Checklist: ${completedCount}/${totalItems} (${calculatedRate}%)`
+              : hasSubcards
+              ? `Subcards: ${completedSubcardsCount}/${totalSubcards} (${calculatedRate}%)`
+              : hasChecklist
+              ? `Checklist: ${completedCount}/${totalItems} (${calculatedRate}%)`
+              : `${calculatedRate}% Done`}
           </span>
         </div>
 
@@ -1872,8 +1934,8 @@ function TaskChecklistSection({
         </form>
       )}
 
-      {/* Manual Completion Percentage Slider (Shown when NO checklist items exist) */}
-      {totalItems === 0 && (
+      {/* Manual Completion Percentage Slider (Shown when NO checklist items, NO subcards, AND card NOT in completed column exist) */}
+      {!hasChecklist && !hasSubcards && !isCardCompleted && (
         <div className="pt-2 border-t border-border/40 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-text-muted font-semibold">Manual Completion Percentage:</span>

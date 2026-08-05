@@ -796,7 +796,22 @@ export default function GanttRoadmapView({
     [timelinePositionMap, selectedYear]
   );
 
+  const isColumnCompleted = useCallback((colId?: number | null) => {
+    if (!colId) return false;
+    const col = columns.find((c) => c.id === colId);
+    if (!col) return false;
+    return (
+      col.status_type === "completed" ||
+      col.title.toLowerCase().includes("done") ||
+      col.title.toLowerCase().includes("completed")
+    );
+  }, [columns]);
+
   const getCardCompletionRate = useCallback((card: CyberboardCard): number => {
+    if (isColumnCompleted(card.column_id)) {
+      return 100;
+    }
+
     let cl: CyberboardChecklistItem[] = [];
     if (card.checklist) {
       if (typeof card.checklist === "string") {
@@ -810,12 +825,34 @@ export default function GanttRoadmapView({
         cl = card.checklist;
       }
     }
-    if (cl.length > 0) {
+
+    const hasChecklist = cl.length > 0;
+    const hasSubcards = !!(card.sub_cards && card.sub_cards.length > 0);
+
+    let checklistRate = 0;
+    if (hasChecklist) {
       const completedCount = cl.filter((item) => item.completed).length;
-      return Math.round((completedCount / cl.length) * 100);
+      checklistRate = (completedCount / cl.length) * 100;
     }
+
+    let subcardsRate = 0;
+    if (hasSubcards) {
+      const completedSubcardsCount = card.sub_cards!.filter((sc) => isColumnCompleted(sc.column_id)).length;
+      subcardsRate = (completedSubcardsCount / card.sub_cards!.length) * 100;
+    }
+
+    if (hasChecklist && hasSubcards) {
+      return Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
+    }
+    if (hasChecklist) {
+      return Math.round(checklistRate);
+    }
+    if (hasSubcards) {
+      return Math.round(subcardsRate);
+    }
+
     return card.completion_percentage ?? 0;
-  }, []);
+  }, [isColumnCompleted]);
 
   const formatDateRangeTooltip = (startStr?: string, endStr?: string) => {
     if (!startStr) return "No date set";

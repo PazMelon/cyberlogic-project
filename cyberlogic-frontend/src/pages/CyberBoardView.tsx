@@ -1167,6 +1167,7 @@ export default function CyberBoardView() {
           onAddComment={handleAddComment}
           onDeleteComment={(commentId) => handleDeleteComment(selectedCard.id, commentId)}
           onDeleteCard={handleDeleteCard}
+          columns={columns}
           onUpdateCard={handleUpdateCard}
         />
       )}
