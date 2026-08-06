@@ -7,6 +7,7 @@ use App\Models\CyberboardCard;
 use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
+use App\Models\CyberboardChatMessage;
 use App\Models\CyberboardColumn;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -1453,5 +1454,231 @@ class CyberboardController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/chat/messages
+     * Fetch recent board chat messages and pinned messages.
+     */
+    public function getBoardChatMessages(Request $request, int $boardId): JsonResponse
+    {
+        $board = CyberboardBoard::find($boardId);
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $user = $request->user();
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $messages = CyberboardChatMessage::with([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'replyTo.user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ])
+            ->where('board_id', $boardId)
+            ->orderBy('id', 'asc')
+            ->take(150)
+            ->get();
+
+        $pinnedMessages = CyberboardChatMessage::with([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ])
+            ->where('board_id', $boardId)
+            ->where('is_pinned', true)
+            ->orderBy('pinned_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'messages' => $messages,
+            'pinned_messages' => $pinnedMessages,
+        ]);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/chat/messages
+     * Post a new board chat message.
+     */
+    public function storeBoardChatMessage(Request $request, int $boardId): JsonResponse
+    {
+        $board = CyberboardBoard::find($boardId);
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $user = $request->user();
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $validated = $request->validate([
+            'content' => 'required|string|max:3000',
+            'reply_to_id' => 'nullable|exists:cyberboard_chat_messages,id',
+        ]);
+
+        $chatMsg = CyberboardChatMessage::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'content' => $validated['content'],
+            'reply_to_id' => $validated['reply_to_id'] ?? null,
+            'reactions' => [],
+        ]);
+
+        $chatMsg->load([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'replyTo.user:id,first_name,last_name,avatar_path,role,username',
+        ]);
+
+        $msgArr = $chatMsg->toArray();
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'message' => $msgArr,
+        ], 'chat:message_sent');
+
+        if (str_contains($validated['content'], '@')) {
+            NotificationService::notifyMentions(
+                $validated['content'],
+                $user,
+                'cyberboard_chat_mention',
+                "Mentioned in Board Chat",
+                "{$user->first_name} mentioned you in the chat for '{$board->title}'",
+                ['board_id' => $boardId],
+                'message-square',
+                "/app/cyberboard/{$boardId}?chat=true"
+            );
+        }
+
+        return response()->json($msgArr, 201);
+    }
+
+    /**
+     * POST /api/cyberboard/chat/messages/{id}/pin
+     * Toggle pin status on a board chat message.
+     */
+    public function togglePinBoardChatMessage(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $board = $chatMsg->board;
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $newPinnedState = !$chatMsg->is_pinned;
+        $chatMsg->is_pinned = $newPinnedState;
+        $chatMsg->pinned_at = $newPinnedState ? now() : null;
+        $chatMsg->pinned_by = $newPinnedState ? $user->id : null;
+        $chatMsg->save();
+
+        $chatMsg->load([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$chatMsg->board_id}", [
+            'message_id' => $chatMsg->id,
+            'is_pinned' => $chatMsg->is_pinned,
+            'message' => $chatMsg,
+        ], 'chat:message_pinned');
+
+        return response()->json($chatMsg);
+    }
+
+    /**
+     * DELETE /api/cyberboard/chat/messages/{id}
+     * Delete a board chat message.
+     */
+    public function deleteBoardChatMessage(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $board = $chatMsg->board;
+        $isHost = $board && $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if ($chatMsg->user_id !== $user->id && !$isHost && !$isAdmin) {
+            return response()->json(['message' => 'You do not have permission to delete this message'], 403);
+        }
+
+        $boardId = $chatMsg->board_id;
+        $chatMsg->delete();
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'message_id' => $messageId,
+        ], 'chat:message_deleted');
+
+        return response()->json(['message' => 'Message deleted successfully']);
+    }
+
+    /**
+     * POST /api/cyberboard/chat/messages/{id}/reactions
+     * Toggle emoji reaction on a board chat message.
+     */
+    public function toggleBoardChatMessageReaction(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'emoji' => 'required|string',
+        ]);
+        $emoji = $validated['emoji'];
+
+        $reactions = $chatMsg->reactions ?? [];
+        $existingIdx = -1;
+
+        foreach ($reactions as $idx => $r) {
+            if ($r['emoji'] === $emoji) {
+                $existingIdx = $idx;
+                break;
+            }
+        }
+
+        if ($existingIdx >= 0) {
+            $userIds = $reactions[$existingIdx]['userIds'] ?? [];
+            if (in_array($user->id, $userIds)) {
+                $userIds = array_values(array_filter($userIds, fn($uid) => $uid !== $user->id));
+            } else {
+                $userIds[] = $user->id;
+            }
+            if (empty($userIds)) {
+                array_splice($reactions, $existingIdx, 1);
+            } else {
+                $reactions[$existingIdx]['userIds'] = $userIds;
+                $reactions[$existingIdx]['count'] = count($userIds);
+            }
+        } else {
+            $reactions[] = [
+                'emoji' => $emoji,
+                'count' => 1,
+                'userIds' => [$user->id],
+            ];
+        }
+
+        $chatMsg->reactions = $reactions;
+        $chatMsg->save();
+
+        RealtimeService::broadcast("cyberboard:{$chatMsg->board_id}", [
+            'message_id' => $chatMsg->id,
+            'reactions' => $reactions,
+        ], 'chat:reaction_updated');
+
+        return response()->json([
+            'message_id' => $chatMsg->id,
+            'reactions' => $reactions,
+        ]);
     }
 }
