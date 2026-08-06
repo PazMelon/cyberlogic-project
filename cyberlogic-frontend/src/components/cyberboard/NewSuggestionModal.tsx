@@ -119,8 +119,6 @@ export default function NewSuggestionModal({
 
   const availablePredecessorCards = allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || []);
 
-  const isDateVisible = boardType === "activity" || boardType === "roadmap";
-
   const getFormCopy = () => {
     switch (boardType) {
       case "ideas":
@@ -232,6 +230,13 @@ export default function NewSuggestionModal({
     }
   };
 
+  const showChecklist = boardType === "roadmap" || boardType === "activity";
+  const showPhase = boardType === "roadmap";
+  const showParentTask = boardType === "roadmap";
+  const showPredecessors = boardType === "roadmap";
+  const showDates = boardType === "roadmap" || boardType === "activity";
+  const showAssignees = boardType === "roadmap" || boardType === "activity" || boardType === "brainstorming";
+
   const formBody = (
     <form id="new-suggestion-form" onSubmit={handleSubmit} className="space-y-5">
       {error && (
@@ -270,96 +275,98 @@ export default function NewSuggestionModal({
         />
       </div>
 
-      {/* Task Checklist & Completion Monitoring Section */}
-      <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-xs">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-text-primary uppercase tracking-wider">
-            <CheckSquare className="w-4 h-4 text-emerald-400" />
-            <span>Task Checklist & Initial Completion</span>
+      {/* Task Checklist & Completion Monitoring Section (Roadmap & Activity Boards) */}
+      {showChecklist && (
+        <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-text-primary uppercase tracking-wider">
+              <CheckSquare className="w-4 h-4 text-emerald-400" />
+              <span>{boardType === "activity" ? "Event Checklist" : "Task Checklist & Initial Completion"}</span>
+            </div>
+            {checklist.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-extrabold border border-emerald-500/20">
+                {checklist.length} items
+              </span>
+            )}
           </div>
+
+          {/* Existing Checklist Items List */}
           {checklist.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-extrabold border border-emerald-500/20">
-              {checklist.length} items
-            </span>
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+              {checklist.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-800/80 border border-border/60 text-xs">
+                  <span className="font-medium text-text-primary truncate">{item.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteChecklistItem(item.id)}
+                    className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add Checklist Item Row */}
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newChecklistText}
+              onChange={(e) => setNewChecklistText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddChecklistItem();
+                }
+              }}
+              placeholder={boardType === "activity" ? "Add event item (e.g. Reserve hall, Set up projector)..." : "Add a checklist item (e.g. Write unit tests)..."}
+              className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleAddChecklistItem}
+              disabled={!newChecklistText.trim()}
+              className="px-3 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Item</span>
+            </button>
+          </div>
+
+          {/* Manual Completion Percentage (Shown when no checklist items added in Roadmap boards) */}
+          {checklist.length === 0 && boardType === "roadmap" && (
+            <div className="pt-2 border-t border-border/40 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-text-muted font-semibold">Initial Manual Completion Rate:</span>
+                <span className="font-bold text-primary">{completionPercentage}%</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={completionPercentage}
+                  onChange={(e) => setCompletionPercentage(Number(e.target.value))}
+                  className="flex-1 accent-emerald-500 h-2 rounded-lg bg-surface-800 cursor-pointer"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={completionPercentage}
+                  onChange={(e) => setCompletionPercentage(Math.max(0, Math.min(100, Number(e.target.value))))}
+                  className="w-16 px-2 py-1 rounded-lg bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
           )}
         </div>
-
-        {/* Existing Checklist Items List */}
-        {checklist.length > 0 && (
-          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
-            {checklist.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-800/80 border border-border/60 text-xs">
-                <span className="font-medium text-text-primary truncate">{item.text}</span>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteChecklistItem(item.id)}
-                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Add Checklist Item Row */}
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={newChecklistText}
-            onChange={(e) => setNewChecklistText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleAddChecklistItem();
-              }
-            }}
-            placeholder="Add a checklist item (e.g. Write unit tests)..."
-            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleAddChecklistItem}
-            disabled={!newChecklistText.trim()}
-            className="px-3 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer shadow-xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Item</span>
-          </button>
-        </div>
-
-        {/* Manual Completion Percentage (Shown when no checklist items added) */}
-        {checklist.length === 0 && (
-          <div className="pt-2 border-t border-border/40 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-text-muted font-semibold">Initial Manual Completion Rate:</span>
-              <span className="font-bold text-primary">{completionPercentage}%</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="5"
-                value={completionPercentage}
-                onChange={(e) => setCompletionPercentage(Number(e.target.value))}
-                className="flex-1 accent-emerald-500 h-2 rounded-lg bg-surface-800 cursor-pointer"
-              />
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={completionPercentage}
-                onChange={(e) => setCompletionPercentage(Math.max(0, Math.min(100, Number(e.target.value))))}
-                className="w-16 px-2 py-1 rounded-lg bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Grid Controls Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+      <div className={`grid grid-cols-1 ${showAssignees ? "sm:grid-cols-2" : "grid-cols-1"} gap-4 pt-1`}>
         {/* Target Stage / Column */}
         {columns.length > 0 && (
           <div className="space-y-1.5">
@@ -384,24 +391,26 @@ export default function NewSuggestionModal({
         )}
 
         {/* Searchable Assignee Picker (Permission-Scoped) */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
-            Assigned Members
-          </label>
-          <SearchableAssigneePicker
-            value={assignedUserIds}
-            onChange={(uIds) => setAssignedUserIds(uIds)}
-            boardVisibility={boardVisibility}
-            allowedMembers={allowedMembers}
-            boardHostId={boardHostId}
-          />
-        </div>
+        {showAssignees && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+              {boardType === "activity" ? "Assigned Organizers / Hosts" : "Assigned Members"}
+            </label>
+            <SearchableAssigneePicker
+              value={assignedUserIds}
+              onChange={(uIds) => setAssignedUserIds(uIds)}
+              boardVisibility={boardVisibility}
+              allowedMembers={allowedMembers}
+              boardHostId={boardHostId}
+            />
+          </div>
+        )}
       </div>
 
       {/* Sub-Task & Priority Controls Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Parent Task Selector (Optional Sub-card) */}
-        {availableParentCards.length > 0 && (
+      <div className={`grid grid-cols-1 ${showParentTask ? "sm:grid-cols-2" : "grid-cols-1"} gap-4`}>
+        {/* Parent Task Selector (Optional Sub-card - Roadmap only) */}
+        {showParentTask && availableParentCards.length > 0 && (
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-primary" />
@@ -433,30 +442,32 @@ export default function NewSuggestionModal({
         </div>
       </div>
 
-      {/* SDLC Phase Selector (Waterfall / Agile / Custom) */}
-      <div className="space-y-1.5">
-        <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-          ⚡ Project Phase / Sprint
-        </label>
-        <select
-          value={phase}
-          onChange={(e) => setPhase(e.target.value)}
-          className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-        >
-          {safeBoardPhases.length > 0 ? (
-            safeBoardPhases.map((p, idx) => (
-              <option key={`b-phase-${idx}`} value={p.name}>
-                {p.name}
-              </option>
-            ))
-          ) : (
-            <option value="">No SDLC Phase Assigned</option>
-          )}
-        </select>
-      </div>
+      {/* SDLC Phase Selector (Roadmap only) */}
+      {showPhase && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+            ⚡ Project Phase / Sprint
+          </label>
+          <select
+            value={phase}
+            onChange={(e) => setPhase(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            {safeBoardPhases.length > 0 ? (
+              safeBoardPhases.map((p, idx) => (
+                <option key={`b-phase-${idx}`} value={p.name}>
+                  {p.name}
+                </option>
+              ))
+            ) : (
+              <option value="">No SDLC Phase Assigned</option>
+            )}
+          </select>
+        </div>
+      )}
 
-      {/* Predecessor Task Selector (Dependency Link) */}
-      {availablePredecessorCards.length > 0 && (
+      {/* Predecessor Task Selector (Roadmap only) */}
+      {showPredecessors && availablePredecessorCards.length > 0 && (
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5 text-primary" />
@@ -472,8 +483,8 @@ export default function NewSuggestionModal({
         </div>
       )}
 
-      {/* Target Dates Grid */}
-      {isDateVisible && (
+      {/* Target Dates Grid (Roadmap & Activity boards) */}
+      {showDates && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
