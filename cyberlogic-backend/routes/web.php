@@ -267,6 +267,26 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/cyberboard/columns/{id}', [CyberboardController::class, 'updateColumn']);
     Route::delete('/api/cyberboard/columns/{id}', [CyberboardController::class, 'destroyColumn']);
 
+    // CyberBoard Realtime Board Sidebar Chat Endpoints
+    Route::get('/api/cyberboard/{boardId}/chat/messages', [CyberboardController::class, 'getBoardChatMessages']);
+    Route::post('/api/cyberboard/{boardId}/chat/messages', [CyberboardController::class, 'storeBoardChatMessage']);
+    Route::post('/api/cyberboard/chat/messages/{id}/pin', [CyberboardController::class, 'togglePinBoardChatMessage']);
+    Route::delete('/api/cyberboard/chat/messages/{id}', [CyberboardController::class, 'deleteBoardChatMessage']);
+    Route::post('/api/cyberboard/chat/messages/{id}/reactions', [CyberboardController::class, 'toggleBoardChatMessageReaction']);
+
+    // CyberBoard Media & Links Vault Endpoints
+    Route::get('/api/cyberboard/{boardId}/assets', [CyberboardController::class, 'getBoardAssets']);
+    Route::post('/api/cyberboard/{boardId}/assets/link', [CyberboardController::class, 'storeBoardLinkAsset']);
+    Route::post('/api/cyberboard/{boardId}/assets/upload', [CyberboardController::class, 'storeBoardFileAsset']);
+    Route::delete('/api/cyberboard/{boardId}/assets/{assetId}', [CyberboardController::class, 'deleteBoardAsset']);
+
+    // CyberBoard Access Requests & Single-Use 6h Invite Endpoints
+    Route::post('/api/cyberboard/{boardId}/request-access', [CyberboardController::class, 'requestAccess']);
+    Route::get('/api/cyberboard/{boardId}/join-requests', [CyberboardController::class, 'getJoinRequests']);
+    Route::post('/api/cyberboard/{boardId}/join-requests/{requestId}/respond', [CyberboardController::class, 'respondJoinRequest']);
+    Route::post('/api/cyberboard/{boardId}/invite-link', [CyberboardController::class, 'generateInviteLink']);
+    Route::post('/api/cyberboard/{boardId}/redeem-invite', [CyberboardController::class, 'redeemInvite']);
+
     // Realtime Chess Game endpoints
     Route::get('/api/chess/games', [ChessController::class, 'index']);
     Route::post('/api/chess/games', [ChessController::class, 'store']);

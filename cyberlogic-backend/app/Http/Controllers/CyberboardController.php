@@ -7,7 +7,11 @@ use App\Models\CyberboardCard;
 use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
+use App\Models\CyberboardBoardAsset;
+use App\Models\CyberboardBoardInvite;
+use App\Models\CyberboardChatMessage;
 use App\Models\CyberboardColumn;
+use App\Models\CyberboardJoinRequest;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ImageOptimizer;
@@ -29,7 +33,7 @@ class CyberboardController extends Controller
         }
         if (!$user) return false;
         if ($board->created_by === $user->id) return true;
-        if (in_array($user->role, ['admin', 'superadmin'])) return true;
+        // Strictly private: admins & superadmins MUST be in allowed_members unless creator
         $allowedMembers = $board->allowed_members ?? [];
         return in_array($user->id, $allowedMembers);
     }
@@ -83,17 +87,33 @@ class CyberboardController extends Controller
         return $roleAllowed || $userAllowed;
     }
 
-    /**
-     * Get default columns setup for a new board.
-     */
-    private function getDefaultColumns(): array
+    private function getDefaultColumns(string $visibility = 'public', string $type = 'activity'): array
     {
+        if ($visibility === 'private') {
+            return [
+                ['title' => 'Private Backlog', 'icon' => '🔒', 'color' => '#8b5cf6', 'position' => 0, 'status_type' => 'not_started'],
+                ['title' => 'In Progress (Exclusive)', 'icon' => '⚡', 'color' => '#06b6d4', 'position' => 1, 'status_type' => 'in_progress'],
+                ['title' => 'Host Verification', 'icon' => '🛡️', 'color' => '#f59e0b', 'position' => 2, 'status_type' => 'in_progress'],
+                ['title' => 'Completed & Secured', 'icon' => '🏆', 'color' => '#10b981', 'position' => 3, 'status_type' => 'completed'],
+            ];
+        }
+
+        if ($type === 'ideas' || $type === 'brainstorming') {
+            return [
+                ['title' => 'Submitted Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0, 'status_type' => 'not_started'],
+                ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1, 'status_type' => 'in_progress'],
+                ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2, 'status_type' => 'in_progress'],
+                ['title' => 'Implementation', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3, 'status_type' => 'in_progress'],
+                ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4, 'status_type' => 'completed'],
+            ];
+        }
+
         return [
-            ['title' => 'Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0],
-            ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1],
-            ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2],
-            ['title' => 'In Progress', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3],
-            ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4],
+            ['title' => 'Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0, 'status_type' => 'not_started'],
+            ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1, 'status_type' => 'in_progress'],
+            ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2, 'status_type' => 'in_progress'],
+            ['title' => 'In Progress', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3, 'status_type' => 'in_progress'],
+            ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4, 'status_type' => 'completed'],
         ];
     }
 
@@ -168,8 +188,46 @@ class CyberboardController extends Controller
         }
 
         if (!$this->canUserViewBoard($board, $user)) {
+            $inviteToken = $request->query('invite_token');
+            if ($inviteToken && $user) {
+                $invite = CyberboardBoardInvite::where('board_id', $id)
+                    ->where('token', $inviteToken)
+                    ->first();
+
+                if ($invite && $invite->isValid()) {
+                    $invite->used_by = $user->id;
+                    $invite->used_at = now();
+                    $invite->save();
+
+                    $allowedMembers = $board->allowed_members ?? [];
+                    if (!in_array($user->id, $allowedMembers)) {
+                        $allowedMembers[] = $user->id;
+                        $board->allowed_members = array_values(array_unique($allowedMembers));
+                        $board->save();
+                    }
+
+                    CyberboardCardActivity::create([
+                        'board_id' => $id,
+                        'user_id' => $user->id,
+                        'action' => 'created',
+                        'description' => "Joined private board using single-use invite link",
+                    ]);
+                }
+            }
+        }
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            $host = $board->creator;
+            $hostName = $host ? trim(($host->first_name ?? '').' '.($host->last_name ?? '')) ?: $host->username : 'Board Host';
+            $hasPending = $user ? CyberboardJoinRequest::where('board_id', $board->id)->where('user_id', $user->id)->where('status', 'pending')->exists() : false;
+
             return response()->json([
-                'message' => 'This board is private. You need an invitation from the host to view it.',
+                'is_private_board' => true,
+                'board_id' => $board->id,
+                'board_title' => $board->title,
+                'host_name' => $hostName,
+                'has_pending_request' => $hasPending,
+                'message' => 'This board is private. You need access approval from the host or an invite link to view it.',
             ], 403);
         }
 
@@ -325,9 +383,9 @@ class CyberboardController extends Controller
             'is_archived' => false,
         ]);
 
-        // Auto-seed default 5 columns unless board type is roadmap
+        // Auto-seed default 4-5 columns tailored to board type & visibility unless board type is roadmap
         if (($validated['type'] ?? 'activity') !== 'roadmap') {
-            foreach ($this->getDefaultColumns() as $col) {
+            foreach ($this->getDefaultColumns($board->visibility, $board->type) as $col) {
                 $board->columns()->create($col);
             }
         }
@@ -615,7 +673,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -776,6 +834,24 @@ class CyberboardController extends Controller
             'card' => $cardArr,
         ], 'card:updated');
 
+        if (!empty($changeDescItems)) {
+            $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+            $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+            foreach ($notifyUserIds as $notifyId) {
+                if ($notifyId && $notifyId !== $user->id) {
+                    NotificationService::notifyUser(
+                        $notifyId,
+                        'cyberboard_card_updated',
+                        "CyberBoard Task Updated",
+                        "{$user->first_name} updated task '{$card->title}': " . implode(', ', $changeDescItems),
+                        ['board_id' => $boardId, 'card_id' => $card->id],
+                        'edit-3',
+                        "/app/cyberboard/{$boardId}?card={$card->id}"
+                    );
+                }
+            }
+        }
+
         $fullText = ($card->title ?? '') . ' ' . ($card->description ?? '');
         if (str_contains($fullText, '@')) {
             NotificationService::notifyMentions(
@@ -786,7 +862,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -807,7 +883,8 @@ class CyberboardController extends Controller
         }
 
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
-        if ($card->user_id !== $user->id && !$isAdmin) {
+        $isHost = $card->column && $card->column->board && $card->column->board->created_by === $user->id;
+        if ($card->user_id !== $user->id && !$isAdmin && !$isHost) {
             return response()->json(['message' => 'Unauthorized action'], 403);
         }
 
@@ -881,6 +958,12 @@ class CyberboardController extends Controller
         }
 
         $board = $targetColumn->board;
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json([
+                'message' => 'Unauthorized to move cards on this private board.'
+            ], 403);
+        }
+
         $isHost = $board && $board->created_by === $user->id;
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
 
@@ -922,6 +1005,49 @@ class CyberboardController extends Controller
                 return response()->json([
                     'message' => 'You do not have permission to move cards into this column.'
                 ], 403);
+            }
+        }
+
+        // Check Predecessor Task Completion Restriction
+        $predecessorIds = $card->predecessor_ids && count($card->predecessor_ids) > 0
+            ? $card->predecessor_ids
+            : ($card->predecessor_id ? [$card->predecessor_id] : []);
+
+        if (!empty($predecessorIds)) {
+            $lastColPosition = CyberboardColumn::where('board_id', $targetColumn->board_id)->max('position') ?? 0;
+            $isTargetDoneOrProgress = $targetColumn->status_type === 'completed' ||
+                $targetColumn->status_type === 'in_progress' ||
+                str_contains(strtolower($targetColumn->title), 'done') ||
+                str_contains(strtolower($targetColumn->title), 'complete') ||
+                str_contains(strtolower($targetColumn->title), 'progress') ||
+                ($targetColumn->position === $lastColPosition && $lastColPosition > 0);
+
+            if ($isTargetDoneOrProgress) {
+                $allBoardCards = CyberboardCard::whereIn('column_id', CyberboardColumn::where('board_id', $targetColumn->board_id)->pluck('id'))->get();
+                $incompletePredecessors = [];
+
+                foreach ($predecessorIds as $predId) {
+                    $predCard = $allBoardCards->firstWhere('id', $predId);
+                    if ($predCard) {
+                        $predColumn = CyberboardColumn::find($predCard->column_id);
+                        $isPredDone = $predColumn && (
+                            $predColumn.status_type === 'completed' ||
+                            str_contains(strtolower($predColumn->title), 'done') ||
+                            str_contains(strtolower($predColumn->title), 'complete') ||
+                            ($predColumn->position === $lastColPosition && $lastColPosition > 0)
+                        );
+                        if (!$isPredDone) {
+                            $incompletePredecessors[] = $predCard->title;
+                        }
+                    }
+                }
+
+                if (!empty($incompletePredecessors)) {
+                    $predTitles = implode("', '", $incompletePredecessors);
+                    return response()->json([
+                        'message' => "Cannot move '{$card->title}': Predecessor task(s) '{$predTitles}' must be completed first."
+                    ], 422);
+                }
             }
         }
 
@@ -970,21 +1096,27 @@ class CyberboardController extends Controller
             'activities' => $activities,
         ], 'card:moved');
 
-        if ($fromColumnId !== $toColumnId && $card->user_id !== $user->id) {
-            NotificationService::notifyUser(
-                $card->user_id,
-                'cyberboard_card_moved',
-                "Your idea was moved",
-                "Your suggestion '{$card->title}' was moved to the '{$targetColumn->title}' stage.",
-                [
-                    'board_id' => $boardId,
-                    'card_id' => $card->id,
-                    'column_id' => $toColumnId,
-                    'column_title' => $targetColumn->title,
-                ],
-                'arrow-right-circle',
-                "/app/cyberboard/{$boardId}"
-            );
+        if ($fromColumnId !== $toColumnId) {
+            $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+            $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+            foreach ($notifyUserIds as $notifyId) {
+                if ($notifyId && $notifyId !== $user->id) {
+                    NotificationService::notifyUser(
+                        $notifyId,
+                        'cyberboard_card_moved',
+                        "Task moved stage",
+                        "Task '{$card->title}' was moved to the '{$targetColumn->title}' stage.",
+                        [
+                            'board_id' => $boardId,
+                            'card_id' => $card->id,
+                            'column_id' => $toColumnId,
+                            'column_title' => $targetColumn->title,
+                        ],
+                        'arrow-right-circle',
+                        "/app/cyberboard/{$boardId}?card={$card->id}"
+                    );
+                }
+            }
         }
 
         return response()->json([
@@ -1007,6 +1139,11 @@ class CyberboardController extends Controller
 
         if (!$card) {
             return response()->json(['message' => 'Card not found'], 404);
+        }
+
+        $board = CyberboardBoard::find($card->column->board_id);
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to upvote cards on this private board.'], 403);
         }
 
         $existingVote = CyberboardCardVote::where('card_id', $id)
@@ -1060,7 +1197,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} liked your suggestion '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'thumbs-up',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -1085,6 +1222,11 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Card not found'], 404);
         }
 
+        $board = CyberboardBoard::find($card->column->board_id);
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to comment on cards on this private board.'], 403);
+        }
+
         $validated = $request->validate([
             'content' => 'required|string|max:1000',
         ]);
@@ -1103,16 +1245,20 @@ class CyberboardController extends Controller
             'comment' => $comment,
         ], 'card:commented');
 
-        if ($card->user_id !== $user->id) {
-            NotificationService::notifyUser(
-                $card->user_id,
-                'cyberboard_comment',
-                "New comment on your idea",
-                "{$user->first_name} commented on '{$card->title}'",
-                ['board_id' => $boardId, 'card_id' => $card->id],
-                'message-square',
-                "/app/cyberboard/{$boardId}"
-            );
+        $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+        $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+        foreach ($notifyUserIds as $notifyId) {
+            if ($notifyId && $notifyId !== $user->id) {
+                NotificationService::notifyUser(
+                    $notifyId,
+                    'cyberboard_comment',
+                    "New comment on task",
+                    "{$user->first_name} commented on '{$card->title}'",
+                    ['board_id' => $boardId, 'card_id' => $card->id],
+                    'message-square',
+                    "/app/cyberboard/{$boardId}?card={$card->id}"
+                );
+            }
         }
 
         if (str_contains($validated['content'], '@')) {
@@ -1124,20 +1270,9 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in a comment on '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
-
-        NotificationService::notifyMentions(
-            $validated['content'],
-            $user,
-            'cyberboard_mention',
-            "Mentioned in CyberBoard",
-            "{$user->first_name} mentioned you in a comment on '{$card->title}'",
-            ['board_id' => $boardId, 'card_id' => $card->id],
-            'at-sign',
-            "/app/cyberboard/{$boardId}"
-        );
 
         return response()->json($comment, 201);
     }
@@ -1436,5 +1571,715 @@ class CyberboardController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/chat/messages
+     * Fetch recent board chat messages and pinned messages.
+     */
+    public function getBoardChatMessages(Request $request, int $boardId): JsonResponse
+    {
+        $board = CyberboardBoard::find($boardId);
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $user = $request->user();
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $messages = CyberboardChatMessage::with([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'replyTo.user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ])
+            ->where('board_id', $boardId)
+            ->orderBy('id', 'asc')
+            ->take(150)
+            ->get();
+
+        $pinnedMessages = CyberboardChatMessage::with([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ])
+            ->where('board_id', $boardId)
+            ->where('is_pinned', true)
+            ->orderBy('pinned_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'messages' => $messages,
+            'pinned_messages' => $pinnedMessages,
+        ]);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/chat/messages
+     * Post a new board chat message.
+     */
+    public function storeBoardChatMessage(Request $request, int $boardId): JsonResponse
+    {
+        $board = CyberboardBoard::find($boardId);
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $user = $request->user();
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $validated = $request->validate([
+            'content' => 'required|string|max:3000',
+            'reply_to_id' => 'nullable|exists:cyberboard_chat_messages,id',
+        ]);
+
+        $chatMsg = CyberboardChatMessage::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'content' => $validated['content'],
+            'reply_to_id' => $validated['reply_to_id'] ?? null,
+            'reactions' => [],
+        ]);
+
+        $chatMsg->load([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'replyTo.user:id,first_name,last_name,avatar_path,role,username',
+        ]);
+
+        $msgArr = $chatMsg->toArray();
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'message' => $msgArr,
+        ], 'chat:message_sent');
+
+        if (str_contains($validated['content'], '@')) {
+            NotificationService::notifyMentions(
+                $validated['content'],
+                $user,
+                'cyberboard_chat_mention',
+                "Mentioned in Board Chat",
+                "{$user->first_name} mentioned you in the chat for '{$board->title}'",
+                ['board_id' => $boardId],
+                'message-square',
+                "/app/cyberboard/{$boardId}?chat=true"
+            );
+        }
+
+        return response()->json($msgArr, 201);
+    }
+
+    /**
+     * POST /api/cyberboard/chat/messages/{id}/pin
+     * Toggle pin status on a board chat message.
+     */
+    public function togglePinBoardChatMessage(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $board = $chatMsg->board;
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Access Denied'], 403);
+        }
+
+        $isHost = $board && $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Only the board host or an admin can pin messages.'], 403);
+        }
+
+        $newPinnedState = !$chatMsg->is_pinned;
+        $chatMsg->is_pinned = $newPinnedState;
+        $chatMsg->pinned_at = $newPinnedState ? now() : null;
+        $chatMsg->pinned_by = $newPinnedState ? $user->id : null;
+        $chatMsg->save();
+
+        $chatMsg->load([
+            'user:id,first_name,last_name,avatar_path,role,username',
+            'pinnedByUser:id,first_name,last_name,username',
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$chatMsg->board_id}", [
+            'message_id' => $chatMsg->id,
+            'is_pinned' => $chatMsg->is_pinned,
+            'message' => $chatMsg,
+        ], 'chat:message_pinned');
+
+        return response()->json($chatMsg);
+    }
+
+    /**
+     * DELETE /api/cyberboard/chat/messages/{id}
+     * Delete a board chat message.
+     */
+    public function deleteBoardChatMessage(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $board = $chatMsg->board;
+        $isHost = $board && $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if ($chatMsg->user_id !== $user->id && !$isHost && !$isAdmin) {
+            return response()->json(['message' => 'You do not have permission to delete this message'], 403);
+        }
+
+        $boardId = $chatMsg->board_id;
+        $chatMsg->delete();
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'message_id' => $messageId,
+        ], 'chat:message_deleted');
+
+        return response()->json(['message' => 'Message deleted successfully']);
+    }
+
+    /**
+     * POST /api/cyberboard/chat/messages/{id}/reactions
+     * Toggle emoji reaction on a board chat message.
+     */
+    public function toggleBoardChatMessageReaction(Request $request, int $messageId): JsonResponse
+    {
+        $user = $request->user();
+        $chatMsg = CyberboardChatMessage::with('board')->find($messageId);
+        if (!$chatMsg) {
+            return response()->json(['message' => 'Message not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'emoji' => 'required|string',
+        ]);
+        $emoji = $validated['emoji'];
+
+        $reactions = $chatMsg->reactions ?? [];
+
+        // Remove user's ID from ALL existing reaction arrays first (Limit 1 reaction per user)
+        $alreadyHadThisEmoji = false;
+        foreach ($reactions as $idx => &$r) {
+            $userIds = $r['userIds'] ?? [];
+            if (in_array($user->id, $userIds)) {
+                if ($r['emoji'] === $emoji) {
+                    $alreadyHadThisEmoji = true;
+                }
+                $userIds = array_values(array_filter($userIds, fn($uid) => $uid !== $user->id));
+                $r['userIds'] = $userIds;
+                $r['count'] = count($userIds);
+            }
+        }
+        unset($r);
+
+        // Filter out empty reaction items (where count is 0)
+        $reactions = array_values(array_filter($reactions, fn($r) => ($r['count'] ?? 0) > 0));
+
+        // If user didn't already have this exact emoji, add user's ID to the target emoji reaction
+        if (!$alreadyHadThisEmoji) {
+            $targetIdx = -1;
+            foreach ($reactions as $idx => $r) {
+                if ($r['emoji'] === $emoji) {
+                    $targetIdx = $idx;
+                    break;
+                }
+            }
+
+            if ($targetIdx >= 0) {
+                $reactions[$targetIdx]['userIds'][] = $user->id;
+                $reactions[$targetIdx]['count'] = count($reactions[$targetIdx]['userIds']);
+            } else {
+                $reactions[] = [
+                    'emoji' => $emoji,
+                    'count' => 1,
+                    'userIds' => [$user->id],
+                ];
+            }
+        }
+
+        $chatMsg->reactions = $reactions;
+        $chatMsg->save();
+
+        RealtimeService::broadcast("cyberboard:{$chatMsg->board_id}", [
+            'message_id' => $chatMsg->id,
+            'reactions' => $reactions,
+        ], 'chat:reaction_updated');
+
+        return response()->json([
+            'message_id' => $chatMsg->id,
+            'reactions' => $reactions,
+        ]);
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/assets
+     * Retrieve general board assets + harvest card attachments & links across all cards.
+     */
+    public function getBoardAssets($boardId)
+    {
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        // 1. Fetch general board assets
+        $generalAssets = CyberboardBoardAsset::where('board_id', $boardId)
+            ->with(['user:id,first_name,last_name,avatar_path,role,username'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 2. Harvest card attachments and extracted links across all board cards
+        $cards = CyberboardCard::whereIn('column_id', $board->columns->pluck('id'))
+            ->with(['user:id,first_name,last_name,avatar_path,username', 'comments.user:id,first_name,last_name,avatar_path,username'])
+            ->get();
+
+        $cardAssets = [];
+
+        foreach ($cards as $card) {
+            $authorName = $card->user ? trim(($card->user->first_name ?? '').' '.($card->user->last_name ?? '')) ?: $card->user->username : 'Member';
+
+            // Harvest attachments
+            if (!empty($card->attachments) && is_array($card->attachments)) {
+                foreach ($card->attachments as $idx => $att) {
+                    $url = is_array($att) ? ($att['url'] ?? $att['path'] ?? '') : (is_string($att) ? $att : '');
+                    $name = is_array($att) ? ($att['name'] ?? 'Attachment') : 'Attachment';
+                    if ($url) {
+                        $cardAssets[] = [
+                            'id' => "card-att-{$card->id}-{$idx}",
+                            'type' => 'card_attachment',
+                            'title' => $name,
+                            'url' => $url,
+                            'card_id' => $card->id,
+                            'card_title' => $card->title,
+                            'user_name' => $authorName,
+                            'user' => $card->user,
+                            'user_avatar' => $card->user ? ($card->user->avatar ?? $card->user->avatar_path) : null,
+                            'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
+                        ];
+                    }
+                }
+            }
+
+            // Harvest URLs from description & comments
+            $textToScan = ($card->description ?? '');
+            if ($card->comments) {
+                foreach ($card->comments as $cm) {
+                    $textToScan .= ' ' . ($cm->content ?? '');
+                }
+            }
+
+            preg_match_all('/https?:\/\/[^\s<"]+/', $textToScan, $matches);
+            if (!empty($matches[0])) {
+                $uniqueUrls = array_unique($matches[0]);
+                foreach ($uniqueUrls as $linkIdx => $foundUrl) {
+                    $cardAssets[] = [
+                        'id' => "card-link-{$card->id}-{$linkIdx}",
+                        'type' => 'card_link',
+                        'title' => $card->title,
+                        'url' => $foundUrl,
+                        'card_id' => $card->id,
+                        'card_title' => $card->title,
+                        'user_name' => $authorName,
+                        'user' => $card->user,
+                        'user_avatar' => $card->user ? ($card->user->avatar ?? $card->user->avatar_path) : null,
+                        'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'general_assets' => $generalAssets,
+            'card_assets' => $cardAssets,
+        ]);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/assets/link
+     * Add general board link asset.
+     */
+    public function storeBoardLinkAsset(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to add link assets to this board.'], 403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'url' => 'required|url|max:2000',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $asset = CyberboardBoardAsset::create([
+            'board_id' => $board->id,
+            'user_id' => $user->id,
+            'type' => 'link',
+            'title' => $validated['title'],
+            'url' => $validated['url'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Added link '{$asset->title}' to Board Vault",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset' => $asset,
+        ], 'asset:created');
+
+        return response()->json($asset, 201);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/assets/upload
+     * Upload general board image or file asset.
+     */
+    public function storeBoardFileAsset(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to upload assets to this board.'], 403);
+        }
+
+        $request->validate([
+            'file' => 'required|file|max:20480',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $file = $request->file('file');
+        $mime = $file->getMimeType();
+        $isImage = str_contains($mime, 'image');
+
+        if ($isImage) {
+            $path = ImageOptimizer::optimize($file, 'board_assets');
+            $type = 'image';
+        } else {
+            $path = $file->store('board_assets', 'public');
+            $type = 'file';
+        }
+
+        $url = asset('storage/' . $path);
+        $title = $request->input('title') ?: $file->getClientOriginalName();
+
+        $asset = CyberboardBoardAsset::create([
+            'board_id' => $board->id,
+            'user_id' => $user->id,
+            'type' => $type,
+            'title' => $title,
+            'url' => $url,
+            'description' => $request->input('description'),
+        ]);
+
+        $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Uploaded {$type} '{$asset->title}' to Board Vault",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset' => $asset,
+        ], 'asset:created');
+
+        return response()->json($asset, 201);
+    }
+
+    /**
+     * DELETE /api/cyberboard/{boardId}/assets/{assetId}
+     * Delete general board asset.
+     */
+    public function deleteBoardAsset(Request $request, $boardId, $assetId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $asset = CyberboardBoardAsset::where('id', $assetId)->where('board_id', $boardId)->firstOrFail();
+
+        $board = CyberboardBoard::findOrFail($boardId);
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if ($asset->user_id !== $user->id && !$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to delete this board asset'], 403);
+        }
+
+        $assetTitle = $asset->title;
+        $asset->delete();
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'deleted',
+            'description' => "Deleted board vault asset '{$assetTitle}'",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset_id' => $assetId,
+        ], 'asset:deleted');
+
+        return response()->json(['message' => 'Asset deleted successfully']);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/request-access
+     * Submit a join access request for a private board.
+     */
+    public function requestAccess(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if ($this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'You already have access to this board.'], 400);
+        }
+
+        $validated = $request->validate([
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $joinReq = CyberboardJoinRequest::updateOrCreate(
+            ['board_id' => $boardId, 'user_id' => $user->id],
+            ['message' => $validated['message'] ?? null, 'status' => 'pending']
+        );
+
+        $joinReq->load('user:id,first_name,last_name,avatar_path,role,username');
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Requested access to join private board",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'request' => $joinReq,
+        ], 'join_request:created');
+
+        $applicantName = trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: $user->username;
+
+        // Send in-app notification to Board Host
+        if ($board->created_by && $board->created_by !== $user->id) {
+            NotificationService::notifyUser(
+                $board->created_by,
+                'cyberboard_join_request',
+                "Pending Board Access Request",
+                "{$applicantName} requested access to join private board '{$board->title}'.",
+                ['board_id' => $boardId, 'request_id' => $joinReq->id],
+                'user-plus',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
+        return response()->json([
+            'message' => 'Join request submitted successfully. Awaiting host approval.',
+            'request' => $joinReq,
+        ], 201);
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/join-requests
+     * Fetch pending join requests (Board Host or Admins only).
+     */
+    public function getJoinRequests(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to view join requests.'], 403);
+        }
+
+        $requests = CyberboardJoinRequest::where('board_id', $boardId)
+            ->where('status', 'pending')
+            ->with('user:id,first_name,last_name,avatar_path,role,username')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($requests);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/join-requests/{requestId}/respond
+     * Approve or reject a join request (Board Host or Admins only).
+     */
+    public function respondJoinRequest(Request $request, $boardId, $requestId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to respond to join requests.'], 403);
+        }
+
+        $validated = $request->validate([
+            'action' => 'required|in:approve,reject',
+        ]);
+
+        $joinReq = CyberboardJoinRequest::where('id', $requestId)->where('board_id', $boardId)->firstOrFail();
+
+        if ($validated['action'] === 'approve') {
+            $joinReq->status = 'approved';
+            $joinReq->save();
+
+            // Add user ID to allowed_members array
+            $allowedMembers = $board->allowed_members ?? [];
+            if (!in_array($joinReq->user_id, $allowedMembers)) {
+                $allowedMembers[] = $joinReq->user_id;
+                $board->allowed_members = array_values(array_unique($allowedMembers));
+                $board->save();
+            }
+
+            CyberboardCardActivity::create([
+                'board_id' => $boardId,
+                'user_id' => $user->id,
+                'action' => 'updated',
+                'description' => "Approved access request for member ID #{$joinReq->user_id}",
+            ]);
+
+            RealtimeService::broadcast("cyberboard:{$boardId}", [
+                'user_id' => $joinReq->user_id,
+                'status' => 'approved',
+            ], 'join_request:approved');
+
+            // Send in-app notification to applicant user
+            NotificationService::notifyUser(
+                $joinReq->user_id,
+                'cyberboard_join_approved',
+                "Board Access Approved!",
+                "Your request to join private board '{$board->title}' was approved by the host.",
+                ['board_id' => $boardId],
+                'check-circle',
+                "/app/cyberboard/{$boardId}"
+            );
+
+            return response()->json(['message' => 'Join request approved. User added to board.']);
+        } else {
+            $joinReq->status = 'rejected';
+            $joinReq->save();
+
+            RealtimeService::broadcast("cyberboard:{$boardId}", [
+                'user_id' => $joinReq->user_id,
+                'status' => 'rejected',
+            ], 'join_request:rejected');
+
+            // Send in-app notification to applicant user
+            NotificationService::notifyUser(
+                $joinReq->user_id,
+                'cyberboard_join_rejected',
+                "Board Access Declined",
+                "Your request to join private board '{$board->title}' was declined.",
+                ['board_id' => $boardId],
+                'x-circle',
+                "/app/cyberboard/{$boardId}"
+            );
+
+            return response()->json(['message' => 'Join request declined.']);
+        }
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/invite-link
+     * Generate a secure 6-hour single-use invite token link.
+     */
+    public function generateInviteLink(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to create invite link.'], 403);
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $invite = CyberboardBoardInvite::create([
+            'board_id' => $boardId,
+            'created_by' => $user->id,
+            'token' => $token,
+            'expires_at' => now()->addHours(6),
+        ]);
+
+        $origin = $request->header('Origin');
+        $baseUrl = $origin ? rtrim($origin, '/') : $request->getSchemeAndHttpHost();
+        $inviteUrl = "{$baseUrl}/app/cyberboard/{$boardId}?invite_token={$token}";
+
+        return response()->json([
+            'invite_url' => $inviteUrl,
+            'token' => $token,
+            'expires_at' => $invite->expires_at->toIso8601String(),
+        ], 201);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/redeem-invite
+     * Redeem a single-use invite token (expires in 6h & invalid after 1 use).
+     */
+    public function redeemInvite(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $validated = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        $invite = CyberboardBoardInvite::where('board_id', $boardId)
+            ->where('token', $validated['token'])
+            ->first();
+
+        if (!$invite) {
+            return response()->json(['message' => 'Invalid invite link token.'], 400);
+        }
+
+        if (!$invite->isValid()) {
+            return response()->json(['message' => 'This invite link has expired or has already been used.'], 400);
+        }
+
+        // Mark invite token as used (single use)
+        $invite->used_by = $user->id;
+        $invite->used_at = now();
+        $invite->save();
+
+        // Add user to board allowed_members array
+        $allowedMembers = $board->allowed_members ?? [];
+        if (!in_array($user->id, $allowedMembers)) {
+            $allowedMembers[] = $user->id;
+            $board->allowed_members = array_values(array_unique($allowedMembers));
+            $board->save();
+        }
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Joined private board using single-use invite link",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'user_id' => $user->id,
+        ], 'invite:redeemed');
+
+        return response()->json(['message' => 'Successfully joined private board!']);
     }
 }

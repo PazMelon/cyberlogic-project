@@ -27,6 +27,7 @@ export interface MessageStreamProps {
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
   onEdit?: (messageId: number, newContent: string) => void;
+  onPin?: (msg: ChatMessage) => void;
   readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
   onToast?: (msg: string) => void;
   onJumpToMessage?: (parentId: number) => void;
@@ -54,6 +55,7 @@ export default function MessageStream({
   onReply,
   onDelete,
   onEdit,
+  onPin,
   readReceipts = [],
   onToast,
   onJumpToMessage,
@@ -216,6 +218,7 @@ export default function MessageStream({
               onReply={onReply}
               onDelete={onDelete}
               onEdit={onEdit}
+              onPin={onPin}
               readReceipts={readReceipts}
               onToast={onToast}
               onJumpToMessage={onJumpToMessage}

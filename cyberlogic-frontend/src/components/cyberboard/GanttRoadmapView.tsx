@@ -89,7 +89,7 @@ export default function GanttRoadmapView({
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
   const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
-  const [timeScale, setTimeScale] = useState<TimeScaleMode>("month");
+  const [timeScale, setTimeScale] = useState<TimeScaleMode>("week");
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
@@ -101,6 +101,7 @@ export default function GanttRoadmapView({
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
 
   const handleRemoveDependency = async (targetCardId: number, fromCardId: number) => {
+    if (!canEditGantt) return;
     const allCards = columns.flatMap((col) => col.cards || []);
     const targetCard = allCards.find((c) => c.id === targetCardId);
     if (!targetCard) return;
@@ -519,6 +520,14 @@ export default function GanttRoadmapView({
       setZoomLevel(125);
     }
   }, [timeScale, zoomLevel]);
+
+  // Auto-center timeline container to Today on mount and year change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleJumpToToday();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [selectedYear]);
 
   // Dynamically normalize card parent-child trees for real-time Gantt sync
   const normalizedCards = useMemo(() => {
@@ -1590,24 +1599,35 @@ export default function GanttRoadmapView({
             />
           </div>
 
-          {/* Year Selector */}
-          <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
+          {/* Year Selector & Today Button */}
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center bg-surface-800 rounded-xl border border-border p-0.5">
+              <button
+                onClick={() => setSelectedYear((y) => y - 1)}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+                title="Previous Year"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
+                {selectedYear}
+              </span>
+              <button
+                onClick={() => setSelectedYear((y) => y + 1)}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
+                title="Next Year"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
             <button
-              onClick={() => setSelectedYear((y) => y - 1)}
-              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-              title="Previous Year"
+              onClick={handleJumpToToday}
+              className="px-2.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Center Timeline on Today"
             >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
-              {selectedYear}
-            </span>
-            <button
-              onClick={() => setSelectedYear((y) => y + 1)}
-              className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
-              title="Next Year"
-            >
-              <ChevronRight className="w-4 h-4" />
+              <Clock className="w-3.5 h-3.5" />
+              <span>Today</span>
             </button>
           </div>
 
@@ -2146,16 +2166,18 @@ export default function GanttRoadmapView({
                                       </div>
                                     )}
 
-                                    {/* Interactive Dependency Connector Handle Dot (Restored) */}
-                                    <div
-                                      draggable={false}
-                                      onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                      onMouseDown={(e) => handleLinkDragStart(e, card.id)}
-                                      className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
-                                      title="Click & drag to link predecessor dependency"
-                                    >
-                                      <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
-                                    </div>
+                                    {/* Interactive Dependency Connector Handle Dot */}
+                                    {canEditGantt && (
+                                      <div
+                                        draggable={false}
+                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onMouseDown={(e) => handleLinkDragStart(e, card.id)}
+                                        className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                        title="Click & drag to link predecessor dependency"
+                                      >
+                                        <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
+                                      </div>
+                                    )}
                                   </div>
                               )}
                             </div>
@@ -2270,16 +2292,18 @@ export default function GanttRoadmapView({
                                             </div>
                                           )}
 
-                                           {/* Subcard Interactive Dependency Connector Handle Dot (Restored) */}
-                                           <div
-                                             draggable={false}
-                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                             onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
-                                             className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
-                                             title="Click & drag to link predecessor dependency"
-                                           >
-                                             <div className="w-1 h-1 rounded-full bg-surface-950" />
-                                           </div>
+                                           {/* Subcard Interactive Dependency Connector Handle Dot */}
+                                            {canEditGantt && (
+                                              <div
+                                                draggable={false}
+                                                onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
+                                                className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                                title="Click & drag to link predecessor dependency"
+                                              >
+                                                <div className="w-1 h-1 rounded-full bg-surface-950" />
+                                              </div>
+                                            )}
                                         </div>
                                     )}
                                   </div>

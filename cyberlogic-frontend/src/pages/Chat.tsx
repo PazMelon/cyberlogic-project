@@ -7,6 +7,7 @@ import ChatHeader from "../components/chat/ChatHeader";
 import MessageStream from "../components/chat/MessageStream";
 import MessageInput from "../components/chat/MessageInput";
 import EmojiSearchPicker from "../components/chat/EmojiSearchPicker";
+import ReactionPicker from "../components/chat/ReactionPicker";
 import DeleteMessageModal from "../components/chat/DeleteMessageModal";
 import MembersList from "../components/chat/MembersList";
 import { useSEO } from "../utils/useSEO";
@@ -288,6 +289,28 @@ export default function Chat() {
               onClose={() => setShowChatEditorEmojiPicker(false)}
             />
           )}
+
+          {/* Message reaction picker overlay */}
+          {activeReactionPickerMessageId !== null && (() => {
+            const targetMsg = messages.find((m) => m.id === activeReactionPickerMessageId);
+            return (
+              <ReactionPicker
+                targetMessageId={activeReactionPickerMessageId}
+                reactions={targetMsg?.reactions}
+                onReact={(emoji) => {
+                  handleToggleEmoji(activeReactionPickerMessageId, emoji);
+                  setActiveReactionPickerMessageId(null);
+                }}
+                onOpenFullPicker={() => {
+                  const id = activeReactionPickerMessageId;
+                  setActiveReactionPickerMessageId(null);
+                  setActiveFullPickerMessageId(id);
+                }}
+                onClose={() => setActiveReactionPickerMessageId(null)}
+                isSidebar={false}
+              />
+            );
+          })()}
 
           {isJumpingToMessage && (
             <div className="absolute inset-0 bg-surface-950/45 backdrop-blur-xs flex items-center justify-center z-40 animate-fadeIn">

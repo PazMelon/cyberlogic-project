@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   Search,
   Plus,
@@ -33,11 +33,25 @@ export default function CyberBoard() {
   });
 
   const { user, isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab");
+  const activeTab: "all" | "my" | "shared" =
+    rawTab === "my" || rawTab === "shared" ? rawTab : "all";
+
+  const handleTabChange = (newTab: "all" | "my" | "shared") => {
+    if (newTab === "all") {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("tab");
+      setSearchParams(newParams);
+    } else {
+      setSearchParams({ ...Object.fromEntries(searchParams.entries()), tab: newTab });
+    }
+  };
+
   const [boards, setBoards] = useState<CyberboardBoard[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [activeTab, setActiveTab] = useState<"all" | "my" | "shared">("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -221,7 +235,7 @@ export default function CyberBoard() {
       <div className="flex border-b border-border/50 mb-6 p-0.5 bg-surface-950/40 rounded-xl max-w-xs sm:max-w-md">
         <button
           type="button"
-          onClick={() => setActiveTab("all")}
+          onClick={() => handleTabChange("all")}
           className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
             activeTab === "all"
               ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
@@ -232,7 +246,7 @@ export default function CyberBoard() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("my")}
+          onClick={() => handleTabChange("my")}
           className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
             activeTab === "my"
               ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
@@ -243,7 +257,7 @@ export default function CyberBoard() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab("shared")}
+          onClick={() => handleTabChange("shared")}
           className={`flex-1 text-center py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
             activeTab === "shared"
               ? "bg-primary/20 text-primary border border-primary/20 shadow-sm"
@@ -339,7 +353,7 @@ export default function CyberBoard() {
             return (
               <Link
                 key={board.id}
-                to={`/app/cyberboard/${board.id}`}
+                to={`/app/cyberboard/${board.id}${activeTab !== "all" ? `?fromTab=${activeTab}` : ""}`}
                 className="group relative bg-surface-900 border border-border/60 hover:border-primary/50 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 flex flex-col justify-between space-y-4 overflow-hidden"
               >
                 {/* Board Accent Color Bar */}

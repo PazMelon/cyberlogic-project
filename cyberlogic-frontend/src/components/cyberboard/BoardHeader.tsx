@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   Radio,
@@ -15,6 +15,7 @@ import {
   MoreVertical,
   SlidersHorizontal,
   FileSpreadsheet,
+  MessageSquare,
 } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
@@ -22,8 +23,13 @@ interface BoardHeaderProps {
   board: CyberboardBoard;
   totalCardsCount: number;
   isConnected: boolean;
+  fromTab?: string;
   activeCollaboratorsCount: number;
   showCollaborators: boolean;
+  showChatSidebar?: boolean;
+  onToggleChatSidebar?: () => void;
+  hasUnreadChat?: boolean;
+  unreadChatCount?: number;
   copiedLink: boolean;
   canManageBoard?: boolean;
   viewMode?: "board" | "gantt";
@@ -42,8 +48,13 @@ export default function BoardHeader({
   board,
   totalCardsCount,
   isConnected,
+  fromTab,
   activeCollaboratorsCount,
   showCollaborators,
+  showChatSidebar,
+  onToggleChatSidebar,
+  hasUnreadChat,
+  unreadChatCount,
   copiedLink,
   canManageBoard,
   viewMode = "board",
@@ -57,7 +68,19 @@ export default function BoardHeader({
   onOpenBoardAuditLog,
   onExportToExcel,
 }: BoardHeaderProps) {
+  const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+
+  const handleBackClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (fromTab) {
+      navigate(`/app/cyberboard?tab=${fromTab}`);
+    } else if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      navigate("/app/cyberboard");
+    }
+  };
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,13 +145,20 @@ export default function BoardHeader({
     <div className="bg-surface-900/95 backdrop-blur-md border-b border-border/80 px-3 py-2.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 flex-shrink-0 sticky top-0 z-30 shadow-xs h-14 sm:h-16">
       {/* Title & Metadata (Single Line) */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        <Link
-          to="/app/cyberboard"
-          className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all flex-shrink-0"
-          title="Back to All Boards"
+        <button
+          type="button"
+          onClick={handleBackClick}
+          className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all flex-shrink-0 cursor-pointer"
+          title={
+            fromTab === "my"
+              ? "Back to My Boards"
+              : fromTab === "shared"
+              ? "Back to Shared With Me"
+              : "Back to All Boards"
+          }
         >
           <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Link>
+        </button>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
           <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[160px] sm:max-w-xs md:max-w-sm lg:max-w-md">
@@ -204,89 +234,44 @@ export default function BoardHeader({
           </div>
         )}
 
-        {/* Desktop Buttons (Visible on 2xl screens >= 1440px and larger) */}
-        <div className="hidden 2xl:flex items-center gap-1.5 sm:gap-2">
-          {/* Activity Audit Log Button */}
+        {/* Board Chat Button */}
+        {onToggleChatSidebar && (
           <button
             type="button"
-            onClick={onOpenBoardAuditLog}
-            className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-            title="Board Activity Audit Logs"
-          >
-            <History className="w-4 h-4 flex-shrink-0 text-primary" />
-            <span>Activity Logs</span>
-          </button>
-
-          {/* Collaborators Button */}
-          <button
-            type="button"
-            onClick={onToggleCollaborators}
+            onClick={onToggleChatSidebar}
             className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              showCollaborators
+              showChatSidebar
                 ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
                 : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
             }`}
-            title="Toggle Active Collaborators Panel"
+            title="Toggle Realtime Board Chat Sidebar"
           >
-            <Users className="w-4 h-4 flex-shrink-0" />
-            <span>Collaborators</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">
-              {activeCollaboratorsCount}
-            </span>
+            <MessageSquare className="w-4 h-4 flex-shrink-0 text-primary" />
+            <span className="hidden xs:inline">Chat</span>
+            {!!unreadChatCount && unreadChatCount > 0 ? (
+              <span className="px-1.5 py-0.2 rounded-full bg-primary text-surface-950 text-[10px] font-extrabold flex-shrink-0 animate-pulse">
+                {unreadChatCount}
+              </span>
+            ) : hasUnreadChat ? (
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
+            ) : null}
           </button>
+        )}
 
-          {/* Share Link Button */}
-          <button
-            type="button"
-            onClick={onCopyShareLink}
-            className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-            title="Share Board Link"
-          >
-            <Share2 className="w-4 h-4 flex-shrink-0" />
-            <span>{copiedLink ? "Copied!" : "Share"}</span>
-          </button>
-
-          {/* Export Excel Button (Visible for Project Roadmap boards only) */}
-          {board.type === "roadmap" && onExportToExcel && (
-            <button
-              type="button"
-              onClick={onExportToExcel}
-              className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-              title="Export Board to Excel Spreadsheet (.xlsx)"
-            >
-              <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-              <span>Export Excel</span>
-            </button>
-          )}
-
-          {/* Settings Button */}
-          {canManageBoard && onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-              title="Board Settings"
-            >
-              <Settings className="w-4 h-4 flex-shrink-0" />
-              <span>Settings</span>
-            </button>
-          )}
-        </div>
-
-        {/* Board Controls Sidebar Toggle Button (Visible on screens < 2xl) */}
+        {/* Board Controls & Extended Options Hamburger Sidebar Toggle Button */}
         {onToggleControlsSidebar && (
           <button
             type="button"
             onClick={onToggleControlsSidebar}
-            className={`2xl:hidden px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               showControlsSidebar
                 ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
                 : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
             }`}
-            title="Board Controls & Options"
+            title="Toggle Board Controls, Media Vault & Extended Options"
           >
             <SlidersHorizontal className="w-4 h-4 flex-shrink-0 text-primary" />
-            <span>Controls</span>
+            <span className="hidden sm:inline">Options</span>
           </button>
         )}
 

@@ -8,6 +8,7 @@ interface BoardCardProps {
   card: CyberboardCard;
   boardType?: string;
   currentUserId?: number;
+  boardHostId?: number;
   isAdmin?: boolean;
   isHighlighted?: boolean;
   isDraggable?: boolean;
@@ -22,6 +23,7 @@ export default function BoardCard({
   card,
   boardType = "activity",
   currentUserId,
+  boardHostId,
   isAdmin,
   isHighlighted = false,
   isDraggable = true,
@@ -32,7 +34,8 @@ export default function BoardCard({
   onDragEnd,
 }: BoardCardProps) {
   const isOwner = card.user_id === currentUserId;
-  const canDelete = isOwner || isAdmin;
+  const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
+  const canDelete = isOwner || isHost || isAdmin;
 
   // Priority color badge mapping
   const priorityStyles = {

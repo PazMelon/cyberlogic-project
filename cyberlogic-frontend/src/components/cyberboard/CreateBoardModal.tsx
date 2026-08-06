@@ -311,6 +311,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              maxLength={150}
               required
               placeholder={
                 boardType === "ideas"
@@ -332,6 +333,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              maxLength={1000}
               rows={3}
               placeholder="Describe the purpose, scope, or target goals of this board..."
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none"

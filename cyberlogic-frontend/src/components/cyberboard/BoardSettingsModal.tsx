@@ -259,6 +259,7 @@ export default function BoardSettingsModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              maxLength={150}
               required
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all"
               placeholder="e.g. Q3 Hackathon Planning"
@@ -272,6 +273,7 @@ export default function BoardSettingsModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              maxLength={1000}
               rows={3}
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none"
               placeholder="Describe the purpose of this board..."
@@ -979,6 +981,7 @@ export default function BoardSettingsModal({
         onClose={onClose}
         title="Board Settings"
         initialSnap="3/4"
+        contentPaddingClass="p-0"
         footer={
           <div className="flex items-center justify-between gap-2">
             {onDeleteBoard ? (
@@ -1021,9 +1024,9 @@ export default function BoardSettingsModal({
           </div>
         }
       >
-        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="space-y-4">
-          {/* Mobile Tab Navigation Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/60">
+        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="flex flex-col h-full">
+          {/* Edge-to-Edge Mobile Tab Navigation Pills */}
+          <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none border-b border-border/60 bg-surface-950/30 flex-shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
@@ -1080,7 +1083,7 @@ export default function BoardSettingsModal({
           </div>
 
           {/* Tab Content Fields */}
-          <div className="py-1">
+          <div className="p-4 space-y-4 overflow-y-auto flex-1">
             {formContent}
           </div>
         </form>

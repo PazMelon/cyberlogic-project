@@ -308,7 +308,7 @@ export default function BoardAuditLogDrawer({
 
   if (isMobile) {
     return (
-      <BottomSheet isOpen={true} onClose={onClose} title="Board Audit Logs">
+      <BottomSheet isOpen={true} onClose={onClose} contentPaddingClass="p-0">
         <div className="h-[75vh]">{renderContent()}</div>
       </BottomSheet>
     );

@@ -273,6 +273,7 @@ export default function MessageInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
+          maxLength={3000}
           className="flex-1 bg-transparent border-0 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-0 py-1 disabled:text-text-muted disabled:cursor-not-allowed resize-none max-h-[120px] overflow-y-auto no-scrollbar"
         />
 

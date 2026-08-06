@@ -12,6 +12,7 @@ interface CollaboratorOption {
 interface ConfigureColumnModalProps {
   column: CyberboardColumn;
   collaboratorsList: CollaboratorOption[];
+  boardVisibility?: string;
   onClose: () => void;
   onSubmit: (columnId: number, data: {
     title?: string;
@@ -25,6 +26,7 @@ interface ConfigureColumnModalProps {
 export default function ConfigureColumnModal({
   column,
   collaboratorsList,
+  boardVisibility = "public",
   onClose,
   onSubmit,
 }: ConfigureColumnModalProps) {
@@ -135,7 +137,15 @@ export default function ConfigureColumnModal({
 
   const formBody = (
     <form id="configure-column-form" onSubmit={handleSubmit} className="space-y-5">
-      {/* Column Title & Color */}
+      {/* Exclusive Private Board Column Disclaimer */}
+      {boardVisibility === "private" && (
+        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
+          <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <span>Exclusive Private Board Column Settings — Permissions apply to invited members only.</span>
+        </div>
+      )}
+
+      {/* Title & Accent Color */}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1.5">
           <label className="text-xs font-semibold text-text-muted">
@@ -204,7 +214,7 @@ export default function ConfigureColumnModal({
         </label>
 
         <div className="space-y-2">
-          {/* Option 1: Everyone */}
+          {/* Option 1: All Private Board Members or Everyone */}
           <button
             type="button"
             onClick={() => setPermissionMode("everyone")}
@@ -218,19 +228,21 @@ export default function ConfigureColumnModal({
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-text-primary">
-                  Everyone (All Club Members)
+                  {boardVisibility === "private" ? "All Private Board Members" : "Everyone (All Club Members)"}
                 </span>
                 {permissionMode === "everyone" && (
                   <Check className="w-4 h-4 text-primary" />
                 )}
               </div>
               <p className="text-[11px] text-text-muted">
-                Any member can freely suggest or move cards into this column.
+                {boardVisibility === "private"
+                  ? "Any approved member of this private board can move cards into this column."
+                  : "Any member can freely suggest or move cards into this column."}
               </p>
             </div>
           </button>
 
-          {/* Option 2: Board Host & Admins Only */}
+          {/* Option 2: Board Host Only */}
           <button
             type="button"
             onClick={() => setPermissionMode("host_admin")}
@@ -244,45 +256,49 @@ export default function ConfigureColumnModal({
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-text-primary">
-                  Board Host & Admins Only
+                  {boardVisibility === "private" ? "Private Board Host Only (Strict Lock)" : "Board Host & Admins Only"}
                 </span>
                 {permissionMode === "host_admin" && (
                   <Check className="w-4 h-4 text-primary" />
                 )}
               </div>
               <p className="text-[11px] text-text-muted">
-                Ideal for "Under Review" or "Approved" columns. Standard members cannot drop cards here.
+                {boardVisibility === "private"
+                  ? "Only the creator of this private board can move cards into this stage (ideal for host review & verification)."
+                  : "Ideal for 'Under Review' or 'Approved' columns. Standard members cannot drop cards here."}
               </p>
             </div>
           </button>
 
-          {/* Option 3: Officers & Admins Only */}
-          <button
-            type="button"
-            onClick={() => setPermissionMode("officer_admin")}
-            className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-              permissionMode === "officer_admin"
-                ? "bg-primary/10 border-primary/40 text-text-primary"
-                : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-            <div className="flex-1 space-y-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-text-primary">
-                  Officers & Admins Only
-                </span>
-                {permissionMode === "officer_admin" && (
-                  <Check className="w-4 h-4 text-primary" />
-                )}
+          {/* Option 3: Officers & Admins Only (Public Boards Only) */}
+          {boardVisibility !== "private" && (
+            <button
+              type="button"
+              onClick={() => setPermissionMode("officer_admin")}
+              className={`w-full p-3 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
+                permissionMode === "officer_admin"
+                  ? "bg-primary/10 border-primary/40 text-text-primary"
+                  : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-text-primary">
+                    Officers & Admins Only
+                  </span>
+                  {permissionMode === "officer_admin" && (
+                    <Check className="w-4 h-4 text-primary" />
+                  )}
+                </div>
+                <p className="text-[11px] text-text-muted">
+                  Restricts drop access to club officers, board host, and administrators.
+                </p>
               </div>
-              <p className="text-[11px] text-text-muted">
-                Restricts drop access to club officers, board host, and administrators.
-              </p>
-            </div>
-          </button>
+            </button>
+          )}
 
-          {/* Option 4: Custom / Individual Members */}
+          {/* Option 4: Specific Private Board Members / Custom Members */}
           <button
             type="button"
             onClick={() => setPermissionMode("custom")}
@@ -296,14 +312,16 @@ export default function ConfigureColumnModal({
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-text-primary">
-                  Specific Individual Members
+                  {boardVisibility === "private" ? "Specific Private Board Members" : "Specific Individual Members"}
                 </span>
                 {permissionMode === "custom" && (
                   <Check className="w-4 h-4 text-primary" />
                 )}
               </div>
               <p className="text-[11px] text-text-muted">
-                Pick specific individual members who are granted permission to drag into this column.
+                {boardVisibility === "private"
+                  ? "Pick specific members from the private board allowed to move cards into this column."
+                  : "Pick specific individual members who are granted permission to drag into this column."}
               </p>
             </div>
           </button>

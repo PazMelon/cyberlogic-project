@@ -3068,11 +3068,18 @@ export async function fetchCyberboardBoards(): Promise<CyberboardBoard[]> {
   return res.json();
 }
 
-export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard> {
-  const res = await apiRequest(`/api/cyberboard/${id}`);
+export async function fetchCyberboardBoard(id: number, inviteToken?: string | null): Promise<CyberboardBoard> {
+  const url = inviteToken ? `/api/cyberboard/${id}?invite_token=${encodeURIComponent(inviteToken)}` : `/api/cyberboard/${id}`;
+  const res = await apiRequest(url);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || "Failed to fetch board details.");
+    const err: any = new Error(errorData.message || "Failed to fetch board details.");
+    err.status = res.status;
+    err.is_private_board = errorData.is_private_board || false;
+    err.board_title = errorData.board_title;
+    err.host_name = errorData.host_name;
+    err.has_pending_request = errorData.has_pending_request;
+    throw err;
   }
   return res.json();
 }
@@ -3335,5 +3342,294 @@ export async function reorderCyberboardColumns(
   }
   return res.json();
 }
+
+export function getAvatarUrl(avatarPathOrUrl?: string | null, fallbackSeed: string = "User"): string {
+  if (!avatarPathOrUrl) {
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(fallbackSeed)}`;
+  }
+  if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://") || avatarPathOrUrl.startsWith("data:")) {
+    return avatarPathOrUrl;
+  }
+  if (avatarPathOrUrl.startsWith("/storage/")) {
+    return avatarPathOrUrl;
+  }
+  if (avatarPathOrUrl.startsWith("storage/")) {
+    return `/${avatarPathOrUrl}`;
+  }
+  return `/storage/${avatarPathOrUrl}`;
+}
+
+export interface CyberboardChatMessage {
+  id: number;
+  board_id: number;
+  user_id: number;
+  content: string;
+  reply_to_id?: number | null;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  pinned_by?: number | null;
+  reactions?: { emoji: string; count: number; userIds?: number[] }[] | null;
+  created_at: string;
+  updated_at?: string;
+  user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    avatar?: string | null;
+    avatar_path?: string | null;
+    role?: string;
+    username?: string;
+  };
+  reply_to?: {
+    id: number;
+    user?: { first_name?: string; last_name?: string };
+    content?: string;
+  } | null;
+  pinned_by_user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  } | null;
+}
+
+export async function fetchCyberboardChatMessages(
+  boardId: number
+): Promise<{ messages: CyberboardChatMessage[]; pinned_messages: CyberboardChatMessage[] }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/chat/messages`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch board chat messages.");
+  }
+  return res.json();
+}
+
+export async function sendCyberboardChatMessage(
+  boardId: number,
+  content: string,
+  replyToId?: number
+): Promise<CyberboardChatMessage> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/chat/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content, reply_to_id: replyToId }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to send chat message.");
+  }
+  return res.json();
+}
+
+export async function togglePinCyberboardChatMessage(
+  messageId: number
+): Promise<CyberboardChatMessage> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}/pin`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to toggle pin state.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardChatMessage(
+  messageId: number
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete chat message.");
+  }
+  return res.json();
+}
+
+export async function toggleCyberboardChatMessageReaction(
+  messageId: number,
+  emoji: string
+): Promise<{ message_id: number; reactions: any[] }> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to toggle emoji reaction.");
+  }
+  return res.json();
+}
+
+// CYBERBOARD MEDIA & LINKS VAULT API
+export interface CyberboardBoardAsset {
+  id: number | string;
+  board_id?: number;
+  user_id?: number;
+  type: "link" | "image" | "file" | "card_attachment" | "card_link";
+  title: string;
+  url: string;
+  description?: string | null;
+  card_id?: number;
+  card_title?: string;
+  user_name?: string;
+  created_at: string;
+  user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    avatar_path?: string | null;
+    avatar?: string | null;
+    role?: string;
+    username?: string;
+  };
+}
+
+export async function fetchCyberboardBoardAssets(
+  boardId: number
+): Promise<{ general_assets: CyberboardBoardAsset[]; card_assets: CyberboardBoardAsset[] }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets`);
+  if (!res.ok) {
+    throw new Error("Failed to load board media & links.");
+  }
+  return res.json();
+}
+
+export async function addCyberboardBoardLinkAsset(
+  boardId: number,
+  title: string,
+  url: string,
+  description?: string
+): Promise<CyberboardBoardAsset> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/link`, {
+    method: "POST",
+    body: JSON.stringify({ title, url, description }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to add board link.");
+  }
+  return res.json();
+}
+
+export async function uploadCyberboardBoardFileAsset(
+  boardId: number,
+  file: File,
+  title?: string,
+  description?: string
+): Promise<CyberboardBoardAsset> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (title) formData.append("title", title);
+  if (description) formData.append("description", description);
+
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to upload file to board vault.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardBoardAsset(
+  boardId: number,
+  assetId: number | string
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/${assetId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete board asset.");
+  }
+  return res.json();
+}
+
+// CYBERBOARD PRIVATE BOARD JOIN REQUESTS & SINGLE-USE INVITES API
+export interface CyberboardJoinRequest {
+  id: number;
+  board_id: number;
+  user_id: number;
+  message?: string | null;
+  status: "pending" | "approved" | "rejected";
+  created_at: string;
+  user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    avatar_path?: string | null;
+    avatar?: string | null;
+    role?: string;
+    username?: string;
+  };
+}
+
+export async function requestCyberboardAccess(
+  boardId: number,
+  message?: string
+): Promise<{ message: string; request: CyberboardJoinRequest }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/request-access`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to submit join request.");
+  }
+  return res.json();
+}
+
+export async function fetchCyberboardJoinRequests(
+  boardId: number
+): Promise<CyberboardJoinRequest[]> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/join-requests`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch pending join requests.");
+  }
+  return res.json();
+}
+
+export async function respondCyberboardJoinRequest(
+  boardId: number,
+  requestId: number,
+  action: "approve" | "reject"
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/join-requests/${requestId}/respond`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to respond to join request.");
+  }
+  return res.json();
+}
+
+export async function generateCyberboardInviteLink(
+  boardId: number
+): Promise<{ invite_url: string; token: string; expires_at: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/invite-link`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to generate single-use invite link.");
+  }
+  return res.json();
+}
+
+export async function redeemCyberboardInviteToken(
+  boardId: number,
+  token: string
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/redeem-invite`, {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to redeem invite link.");
+  }
+  return res.json();
+}
+
 
 
