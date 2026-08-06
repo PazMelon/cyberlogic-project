@@ -438,6 +438,7 @@ export default function CyberboardChatSidebar({
           const targetMsg = chatMessages.find((m) => m.id === activeReactionPickerMessageId);
           return (
             <ReactionPicker
+              targetMessageId={activeReactionPickerMessageId}
               reactions={targetMsg?.reactions}
               onReact={(emoji) => {
                 handleToggleReaction(activeReactionPickerMessageId, emoji);

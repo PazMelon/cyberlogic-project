@@ -483,6 +483,7 @@ export default function MessageBubble({
 
   const contentContainer = (
     <div
+      id={`msg-bubble-${message.id}`}
       ref={bubbleRef}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
