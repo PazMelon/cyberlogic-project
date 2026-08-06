@@ -8,8 +8,10 @@ use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
 use App\Models\CyberboardBoardAsset;
+use App\Models\CyberboardBoardInvite;
 use App\Models\CyberboardChatMessage;
 use App\Models\CyberboardColumn;
+use App\Models\CyberboardJoinRequest;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ImageOptimizer;
@@ -31,7 +33,7 @@ class CyberboardController extends Controller
         }
         if (!$user) return false;
         if ($board->created_by === $user->id) return true;
-        if (in_array($user->role, ['admin', 'superadmin'])) return true;
+        // Strictly private: admins & superadmins MUST be in allowed_members unless creator
         $allowedMembers = $board->allowed_members ?? [];
         return in_array($user->id, $allowedMembers);
     }
@@ -170,8 +172,17 @@ class CyberboardController extends Controller
         }
 
         if (!$this->canUserViewBoard($board, $user)) {
+            $host = $board->creator;
+            $hostName = $host ? trim(($host->first_name ?? '').' '.($host->last_name ?? '')) ?: $host->username : 'Board Host';
+            $hasPending = $user ? CyberboardJoinRequest::where('board_id', $board->id)->where('user_id', $user->id)->where('status', 'pending')->exists() : false;
+
             return response()->json([
-                'message' => 'This board is private. You need an invitation from the host to view it.',
+                'is_private_board' => true,
+                'board_id' => $board->id,
+                'board_title' => $board->title,
+                'host_name' => $hostName,
+                'has_pending_request' => $hasPending,
+                'message' => 'This board is private. You need access approval from the host or an invite link to view it.',
             ], 403);
         }
 
@@ -1035,6 +1046,11 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Card not found'], 404);
         }
 
+        $board = CyberboardBoard::find($card->column->board_id);
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to upvote cards on this private board.'], 403);
+        }
+
         $existingVote = CyberboardCardVote::where('card_id', $id)
             ->where('user_id', $user->id)
             ->first();
@@ -1109,6 +1125,11 @@ class CyberboardController extends Controller
 
         if (!$card) {
             return response()->json(['message' => 'Card not found'], 404);
+        }
+
+        $board = CyberboardBoard::find($card->column->board_id);
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to comment on cards on this private board.'], 403);
         }
 
         $validated = $request->validate([
@@ -1900,5 +1921,213 @@ class CyberboardController extends Controller
         ], 'asset:deleted');
 
         return response()->json(['message' => 'Asset deleted successfully']);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/request-access
+     * Submit a join access request for a private board.
+     */
+    public function requestAccess(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if ($this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'You already have access to this board.'], 400);
+        }
+
+        $validated = $request->validate([
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $joinReq = CyberboardJoinRequest::updateOrCreate(
+            ['board_id' => $boardId, 'user_id' => $user->id],
+            ['message' => $validated['message'] ?? null, 'status' => 'pending']
+        );
+
+        $joinReq->load('user:id,first_name,last_name,avatar_path,role,username');
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Requested access to join private board",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'request' => $joinReq,
+        ], 'join_request:created');
+
+        return response()->json([
+            'message' => 'Join request submitted successfully. Awaiting host approval.',
+            'request' => $joinReq,
+        ], 201);
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/join-requests
+     * Fetch pending join requests (Board Host or Admins only).
+     */
+    public function getJoinRequests(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to view join requests.'], 403);
+        }
+
+        $requests = CyberboardJoinRequest::where('board_id', $boardId)
+            ->where('status', 'pending')
+            ->with('user:id,first_name,last_name,avatar_path,role,username')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($requests);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/join-requests/{requestId}/respond
+     * Approve or reject a join request (Board Host or Admins only).
+     */
+    public function respondJoinRequest(Request $request, $boardId, $requestId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to respond to join requests.'], 403);
+        }
+
+        $validated = $request->validate([
+            'action' => 'required|in:approve,reject',
+        ]);
+
+        $joinReq = CyberboardJoinRequest::where('id', $requestId)->where('board_id', $boardId)->firstOrFail();
+
+        if ($validated['action'] === 'approve') {
+            $joinReq->status = 'approved';
+            $joinReq->save();
+
+            // Add user ID to allowed_members array
+            $allowedMembers = $board->allowed_members ?? [];
+            if (!in_array($joinReq->user_id, $allowedMembers)) {
+                $allowedMembers[] = $joinReq->user_id;
+                $board->allowed_members = array_values(array_unique($allowedMembers));
+                $board->save();
+            }
+
+            CyberboardCardActivity::create([
+                'board_id' => $boardId,
+                'user_id' => $user->id,
+                'action' => 'updated',
+                'description' => "Approved access request for member ID #{$joinReq->user_id}",
+            ]);
+
+            RealtimeService::broadcast("cyberboard:{$boardId}", [
+                'user_id' => $joinReq->user_id,
+                'status' => 'approved',
+            ], 'join_request:approved');
+
+            return response()->json(['message' => 'Join request approved. User added to board.']);
+        } else {
+            $joinReq->status = 'rejected';
+            $joinReq->save();
+
+            RealtimeService::broadcast("cyberboard:{$boardId}", [
+                'user_id' => $joinReq->user_id,
+                'status' => 'rejected',
+            ], 'join_request:rejected');
+
+            return response()->json(['message' => 'Join request declined.']);
+        }
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/invite-link
+     * Generate a secure 6-hour single-use invite token link.
+     */
+    public function generateInviteLink(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to create invite link.'], 403);
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $invite = CyberboardBoardInvite::create([
+            'board_id' => $boardId,
+            'created_by' => $user->id,
+            'token' => $token,
+            'expires_at' => now()->addHours(6),
+        ]);
+
+        $inviteUrl = url("/app/cyberboard/{$boardId}?invite_token={$token}");
+
+        return response()->json([
+            'invite_url' => $inviteUrl,
+            'token' => $token,
+            'expires_at' => $invite->expires_at->toIso8601String(),
+        ], 201);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/redeem-invite
+     * Redeem a single-use invite token (expires in 6h & invalid after 1 use).
+     */
+    public function redeemInvite(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $validated = $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        $invite = CyberboardBoardInvite::where('board_id', $boardId)
+            ->where('token', $validated['token'])
+            ->first();
+
+        if (!$invite) {
+            return response()->json(['message' => 'Invalid invite link token.'], 400);
+        }
+
+        if (!$invite->isValid()) {
+            return response()->json(['message' => 'This invite link has expired or has already been used.'], 400);
+        }
+
+        // Mark invite token as used (single use)
+        $invite->used_by = $user->id;
+        $invite->used_at = now();
+        $invite->save();
+
+        // Add user to board allowed_members array
+        $allowedMembers = $board->allowed_members ?? [];
+        if (!in_array($user->id, $allowedMembers)) {
+            $allowedMembers[] = $user->id;
+            $board->allowed_members = array_values(array_unique($allowedMembers));
+            $board->save();
+        }
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Joined private board using single-use invite link",
+        ]);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'user_id' => $user->id,
+        ], 'invite:redeemed');
+
+        return response()->json(['message' => 'Successfully joined private board!']);
     }
 }
