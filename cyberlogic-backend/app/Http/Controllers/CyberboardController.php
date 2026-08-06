@@ -714,6 +714,11 @@ class CyberboardController extends Controller
         if (array_key_exists('activity_end_date', $validated) && $validated['activity_end_date'] !== $card->activity_end_date) {
             $changeDescItems[] = "schedule end date";
         }
+        if (array_key_exists('phase', $validated) && $validated['phase'] !== $card->phase) {
+            $oldP = $card->phase ? "'{$card->phase}'" : 'Unassigned';
+            $newP = $validated['phase'] ? "'{$validated['phase']}'" : 'Unassigned';
+            $changeDescItems[] = "phase from {$oldP} to {$newP}";
+        }
         if (array_key_exists('color_tag', $validated) && $validated['color_tag'] !== $card->color_tag) {
             $changeDescItems[] = "accent color";
         }
