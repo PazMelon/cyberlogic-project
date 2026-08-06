@@ -258,89 +258,20 @@ export default function BoardHeader({
           </button>
         )}
 
-        {/* Desktop Buttons (Visible on 2xl screens >= 1440px and larger) */}
-        <div className="hidden 2xl:flex items-center gap-1.5 sm:gap-2">
-          {/* Activity Audit Log Button */}
-          <button
-            type="button"
-            onClick={onOpenBoardAuditLog}
-            className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-            title="Board Activity Audit Logs"
-          >
-            <History className="w-4 h-4 flex-shrink-0 text-primary" />
-            <span>Activity Logs</span>
-          </button>
-
-          {/* Collaborators Button */}
-          <button
-            type="button"
-            onClick={onToggleCollaborators}
-            className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-              showCollaborators
-                ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
-                : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
-            }`}
-            title="Toggle Active Collaborators Panel"
-          >
-            <Users className="w-4 h-4 flex-shrink-0" />
-            <span>Collaborators</span>
-            <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">
-              {activeCollaboratorsCount}
-            </span>
-          </button>
-
-          {/* Share Link Button */}
-          <button
-            type="button"
-            onClick={onCopyShareLink}
-            className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-            title="Share Board Link"
-          >
-            <Share2 className="w-4 h-4 flex-shrink-0" />
-            <span>{copiedLink ? "Copied!" : "Share"}</span>
-          </button>
-
-          {/* Export Excel Button (Visible for Project Roadmap boards only) */}
-          {board.type === "roadmap" && onExportToExcel && (
-            <button
-              type="button"
-              onClick={onExportToExcel}
-              className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-              title="Export Board to Excel Spreadsheet (.xlsx)"
-            >
-              <FileSpreadsheet className="w-4 h-4 flex-shrink-0 text-emerald-400" />
-              <span>Export Excel</span>
-            </button>
-          )}
-
-          {/* Settings Button */}
-          {canManageBoard && onOpenSettings && (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="p-1.5 sm:px-3 sm:py-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-              title="Board Settings"
-            >
-              <Settings className="w-4 h-4 flex-shrink-0" />
-              <span>Settings</span>
-            </button>
-          )}
-        </div>
-
-        {/* Board Controls Sidebar Toggle Button (Visible on screens < 2xl) */}
+        {/* Board Controls & Extended Options Hamburger Sidebar Toggle Button */}
         {onToggleControlsSidebar && (
           <button
             type="button"
             onClick={onToggleControlsSidebar}
-            className={`2xl:hidden px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
               showControlsSidebar
                 ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
                 : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
             }`}
-            title="Board Controls & Options"
+            title="Toggle Board Controls, Media Vault & Extended Options"
           >
             <SlidersHorizontal className="w-4 h-4 flex-shrink-0 text-primary" />
-            <span>Controls</span>
+            <span className="hidden sm:inline">Options</span>
           </button>
         )}
 

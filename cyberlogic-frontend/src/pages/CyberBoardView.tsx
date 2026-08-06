@@ -36,6 +36,7 @@ import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal"
 import BoardSettingsModal from "../components/cyberboard/BoardSettingsModal";
 import BoardAuditLogDrawer from "../components/cyberboard/BoardAuditLogDrawer";
 import BoardControlsSidebar from "../components/cyberboard/BoardControlsSidebar";
+import BoardMediaVaultModal from "../components/cyberboard/BoardMediaVaultModal";
 import CyberboardChatSidebar from "../components/cyberboard/CyberboardChatSidebar";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
 import { exportBoardToExcel } from "../utils/exportBoardToExcel";
@@ -79,6 +80,7 @@ export default function CyberBoardView() {
   const [showAddColumnModal, setShowAddColumnModal] = useState(false);
   const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
   const [showBoardAuditLog, setShowBoardAuditLog] = useState(false);
+  const [showMediaVaultModal, setShowMediaVaultModal] = useState(false);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
@@ -1622,9 +1624,12 @@ export default function CyberBoardView() {
           boardPresenceUsers={boardPresenceUsers}
           copiedLink={copiedLink}
           canManageBoard={canManageBoard}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           onCopyShareLink={handleCopyShareLink}
           onOpenSettings={() => setShowBoardSettingsModal(true)}
           onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
+          onOpenMediaVault={() => setShowMediaVaultModal(true)}
           onExportToExcel={() => {
             if (board) {
               const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
@@ -1632,6 +1637,21 @@ export default function CyberBoardView() {
               showToast("Excel spreadsheet exported successfully!", "success");
             }
           }}
+        />
+      )}
+
+      {/* Board Media & Links Vault Modal */}
+      {board && (
+        <BoardMediaVaultModal
+          boardId={board.id}
+          isOpen={showMediaVaultModal}
+          onClose={() => setShowMediaVaultModal(false)}
+          onSelectCard={(cardId) => {
+            const allCards = (board.columns || []).flatMap((c) => c.cards || []);
+            const foundCard = allCards.find((c) => c.id === cardId);
+            if (foundCard) setSelectedCard(foundCard);
+          }}
+          onToast={showToast}
         />
       )}
 

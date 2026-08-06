@@ -274,6 +274,12 @@ Route::middleware('auth')->group(function () {
     Route::delete('/api/cyberboard/chat/messages/{id}', [CyberboardController::class, 'deleteBoardChatMessage']);
     Route::post('/api/cyberboard/chat/messages/{id}/reactions', [CyberboardController::class, 'toggleBoardChatMessageReaction']);
 
+    // CyberBoard Media & Links Vault Endpoints
+    Route::get('/api/cyberboard/{boardId}/assets', [CyberboardController::class, 'getBoardAssets']);
+    Route::post('/api/cyberboard/{boardId}/assets/link', [CyberboardController::class, 'storeBoardLinkAsset']);
+    Route::post('/api/cyberboard/{boardId}/assets/upload', [CyberboardController::class, 'storeBoardFileAsset']);
+    Route::delete('/api/cyberboard/{boardId}/assets/{assetId}', [CyberboardController::class, 'deleteBoardAsset']);
+
     // Realtime Chess Game endpoints
     Route::get('/api/chess/games', [ChessController::class, 'index']);
     Route::post('/api/chess/games', [ChessController::class, 'store']);

@@ -7,6 +7,7 @@ use App\Models\CyberboardCard;
 use App\Models\CyberboardCardActivity;
 use App\Models\CyberboardCardComment;
 use App\Models\CyberboardCardVote;
+use App\Models\CyberboardBoardAsset;
 use App\Models\CyberboardChatMessage;
 use App\Models\CyberboardColumn;
 use App\Models\User;
@@ -1691,5 +1692,188 @@ class CyberboardController extends Controller
             'message_id' => $chatMsg->id,
             'reactions' => $reactions,
         ]);
+    }
+
+    /**
+     * GET /api/cyberboard/{boardId}/assets
+     * Retrieve general board assets + harvest card attachments & links across all cards.
+     */
+    public function getBoardAssets($boardId)
+    {
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        // 1. Fetch general board assets
+        $generalAssets = CyberboardBoardAsset::where('board_id', $boardId)
+            ->with(['user:id,first_name,last_name,avatar_path,role,username'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        // 2. Harvest card attachments and extracted links across all board cards
+        $cards = CyberboardCard::whereIn('column_id', $board->columns->pluck('id'))
+            ->with(['user:id,first_name,last_name,avatar_path,username', 'comments.user:id,first_name,last_name,avatar_path,username'])
+            ->get();
+
+        $cardAssets = [];
+
+        foreach ($cards as $card) {
+            $authorName = $card->user ? trim(($card->user->first_name ?? '').' '.($card->user->last_name ?? '')) ?: $card->user->username : 'Member';
+
+            // Harvest attachments
+            if (!empty($card->attachments) && is_array($card->attachments)) {
+                foreach ($card->attachments as $idx => $att) {
+                    $url = is_array($att) ? ($att['url'] ?? $att['path'] ?? '') : (is_string($att) ? $att : '');
+                    $name = is_array($att) ? ($att['name'] ?? 'Attachment') : 'Attachment';
+                    if ($url) {
+                        $cardAssets[] = [
+                            'id' => "card-att-{$card->id}-{$idx}",
+                            'type' => 'card_attachment',
+                            'title' => $name,
+                            'url' => $url,
+                            'card_id' => $card->id,
+                            'card_title' => $card->title,
+                            'user_name' => $authorName,
+                            'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
+                        ];
+                    }
+                }
+            }
+
+            // Harvest URLs from description & comments
+            $textToScan = ($card->description ?? '');
+            if ($card->comments) {
+                foreach ($card->comments as $cm) {
+                    $textToScan .= ' ' . ($cm->content ?? '');
+                }
+            }
+
+            preg_match_all('/https?:\/\/[^\s<"]+/', $textToScan, $matches);
+            if (!empty($matches[0])) {
+                $uniqueUrls = array_unique($matches[0]);
+                foreach ($uniqueUrls as $linkIdx => $foundUrl) {
+                    $cardAssets[] = [
+                        'id' => "card-link-{$card->id}-{$linkIdx}",
+                        'type' => 'card_link',
+                        'title' => $card->title,
+                        'url' => $foundUrl,
+                        'card_id' => $card->id,
+                        'card_title' => $card->title,
+                        'user_name' => $authorName,
+                        'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'general_assets' => $generalAssets,
+            'card_assets' => $cardAssets,
+        ]);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/assets/link
+     * Add general board link asset.
+     */
+    public function storeBoardLinkAsset(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'url' => 'required|url|max:2000',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $asset = CyberboardBoardAsset::create([
+            'board_id' => $board->id,
+            'user_id' => $user->id,
+            'type' => 'link',
+            'title' => $validated['title'],
+            'url' => $validated['url'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset' => $asset,
+        ], 'asset:created');
+
+        return response()->json($asset, 201);
+    }
+
+    /**
+     * POST /api/cyberboard/{boardId}/assets/upload
+     * Upload general board image or file asset.
+     */
+    public function storeBoardFileAsset(Request $request, $boardId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $board = CyberboardBoard::findOrFail($boardId);
+
+        $request->validate([
+            'file' => 'required|file|max:20480',
+            'title' => 'nullable|string|max:255',
+            'description' => 'nullable|string|max:1000',
+        ]);
+
+        $file = $request->file('file');
+        $mime = $file->getMimeType();
+        $isImage = str_contains($mime, 'image');
+
+        if ($isImage) {
+            $path = ImageOptimizer::optimize($file, 'board_assets');
+            $type = 'image';
+        } else {
+            $path = $file->store('board_assets', 'public');
+            $type = 'file';
+        }
+
+        $url = asset('storage/' . $path);
+        $title = $request->input('title') ?: $file->getClientOriginalName();
+
+        $asset = CyberboardBoardAsset::create([
+            'board_id' => $board->id,
+            'user_id' => $user->id,
+            'type' => $type,
+            'title' => $title,
+            'url' => $url,
+            'description' => $request->input('description'),
+        ]);
+
+        $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset' => $asset,
+        ], 'asset:created');
+
+        return response()->json($asset, 201);
+    }
+
+    /**
+     * DELETE /api/cyberboard/{boardId}/assets/{assetId}
+     * Delete general board asset.
+     */
+    public function deleteBoardAsset(Request $request, $boardId, $assetId)
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        $asset = CyberboardBoardAsset::where('id', $assetId)->where('board_id', $boardId)->firstOrFail();
+
+        $board = CyberboardBoard::findOrFail($boardId);
+        $isHost = $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        if ($asset->user_id !== $user->id && !$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Unauthorized to delete this board asset'], 403);
+        }
+
+        $asset->delete();
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'asset_id' => $assetId,
+        ], 'asset:deleted');
+
+        return response()->json(['message' => 'Asset deleted successfully']);
     }
 }

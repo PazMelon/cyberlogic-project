@@ -3450,5 +3450,91 @@ export async function toggleCyberboardChatMessageReaction(
   return res.json();
 }
 
+// CYBERBOARD MEDIA & LINKS VAULT API
+export interface CyberboardBoardAsset {
+  id: number | string;
+  board_id?: number;
+  user_id?: number;
+  type: "link" | "image" | "file" | "card_attachment" | "card_link";
+  title: string;
+  url: string;
+  description?: string | null;
+  card_id?: number;
+  card_title?: string;
+  user_name?: string;
+  created_at: string;
+  user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    avatar_path?: string | null;
+    avatar?: string | null;
+    role?: string;
+    username?: string;
+  };
+}
+
+export async function fetchCyberboardBoardAssets(
+  boardId: number
+): Promise<{ general_assets: CyberboardBoardAsset[]; card_assets: CyberboardBoardAsset[] }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets`);
+  if (!res.ok) {
+    throw new Error("Failed to load board media & links.");
+  }
+  return res.json();
+}
+
+export async function addCyberboardBoardLinkAsset(
+  boardId: number,
+  title: string,
+  url: string,
+  description?: string
+): Promise<CyberboardBoardAsset> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/link`, {
+    method: "POST",
+    body: JSON.stringify({ title, url, description }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to add board link.");
+  }
+  return res.json();
+}
+
+export async function uploadCyberboardBoardFileAsset(
+  boardId: number,
+  file: File,
+  title?: string,
+  description?: string
+): Promise<CyberboardBoardAsset> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (title) formData.append("title", title);
+  if (description) formData.append("description", description);
+
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to upload file to board vault.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardBoardAsset(
+  boardId: number,
+  assetId: number | string
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/assets/${assetId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete board asset.");
+  }
+  return res.json();
+}
+
 
 
