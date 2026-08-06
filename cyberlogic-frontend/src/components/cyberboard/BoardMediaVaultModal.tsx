@@ -361,7 +361,7 @@ export default function BoardMediaVaultModal({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {filteredAssets.map((asset) => {
             const rawAvatar = asset.user?.avatar || asset.user?.avatar_path || (asset as any).user_avatar;
-            const authorSeed = asset.user?.first_name || asset.user?.name || asset.user_name || "User";
+            const authorSeed = asset.user?.first_name || asset.user?.username || asset.user_name || "User";
             const authorAvatar = getAvatarUrl(rawAvatar, authorSeed);
             const displayName = asset.user ? `${asset.user.first_name || ""} ${asset.user.last_name || ""}`.trim() || asset.user.username : asset.user_name || "General";
 
@@ -451,7 +451,7 @@ export default function BoardMediaVaultModal({
           const domainFavicon = isLink ? getDomainFavicon(asset.url) : null;
           const domainHost = isLink ? getDomainHost(asset.url) : null;
           const rawAvatar = asset.user?.avatar || asset.user?.avatar_path || (asset as any).user_avatar;
-          const authorSeed = asset.user?.first_name || asset.user?.name || asset.user_name || "User";
+          const authorSeed = asset.user?.first_name || asset.user?.username || asset.user_name || "User";
           const authorAvatar = getAvatarUrl(rawAvatar, authorSeed);
 
           return (
