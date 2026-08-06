@@ -1219,6 +1219,48 @@ class CyberboardController extends Controller
     }
 
     /**
+     * PUT /api/cyberboard/{boardId}/cards/batch-reorder
+     * Batch reorder/update positions and optional phases for cards in 1 request.
+     */
+    public function batchReorderCards(Request $request, int $boardId): JsonResponse
+    {
+        $user = $request->user();
+        $board = CyberboardBoard::find($boardId);
+
+        if (!$board) {
+            return response()->json(['message' => 'Board not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'items' => 'required|array',
+            'items.*.id' => 'required|integer|exists:cyberboard_cards,id',
+            'items.*.position' => 'required|integer|min:0',
+            'items.*.phase' => 'nullable|string|max:100',
+        ]);
+
+        DB::transaction(function () use ($validated, $boardId) {
+            foreach ($validated['items'] as $item) {
+                $updateData = ['position' => $item['position']];
+                if (array_key_exists('phase', $item)) {
+                    $updateData['phase'] = $item['phase'];
+                }
+                CyberboardCard::where('id', $item['id'])
+                    ->whereHas('column', function ($q) use ($boardId) {
+                        $q->where('board_id', $boardId);
+                    })
+                    ->update($updateData);
+            }
+        });
+
+        RealtimeService::broadcast("cyberboard:{$boardId}", [
+            'items' => $validated['items'],
+            'reordered_by_user_id' => $user->id,
+        ], 'cards:batch_reordered');
+
+        return response()->json(['message' => 'Cards reordered successfully']);
+    }
+
+    /**
      * PUT /api/cyberboard/columns/{id}
      * Update column details.
      */

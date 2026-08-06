@@ -15,7 +15,7 @@ import {
   Lock,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
-import { updateCyberboardCard } from "../../utils/api";
+import { updateCyberboardCard, batchReorderCyberboardCards } from "../../utils/api";
 
 interface GanttRoadmapViewProps {
   board: CyberboardBoard;
@@ -319,11 +319,15 @@ export default function GanttRoadmapView({
     } catch (e) {
       console.error("Failed to save card positions to localStorage:", e);
     }
-    Object.entries(updatedPositions).forEach(([cardId, position]) => {
-      updateCyberboardCard(Number(cardId), { position }).catch((err) => {
-        console.error("Failed to persist card position to backend:", err);
+    const items = Object.entries(updatedPositions).map(([cardId, position]) => ({
+      id: Number(cardId),
+      position: Number(position),
+    }));
+    if (items.length > 0) {
+      batchReorderCyberboardCards(board.id, items).catch((err) => {
+        console.error("Failed to persist card positions to backend:", err);
       });
-    });
+    }
   }, [board.id]);
 
   const handleGanttCardDragStart = (e: React.DragEvent, cardId: number) => {

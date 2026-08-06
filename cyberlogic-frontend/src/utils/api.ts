@@ -3220,6 +3220,20 @@ export async function moveCyberboardCard(
   return res.json();
 }
 
+export async function batchReorderCyberboardCards(
+  boardId: number,
+  items: Array<{ id: number; position: number; phase?: string }>
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/cards/batch-reorder`, {
+    method: "PUT",
+    body: JSON.stringify({ items }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to batch reorder cards.");
+  }
+  return res.json();
+}
+
 export async function toggleCyberboardCardVote(
   id: number
 ): Promise<{ card_id: number; votes_count: number; has_voted: boolean }> {

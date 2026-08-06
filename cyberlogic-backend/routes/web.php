@@ -256,6 +256,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/cyberboard/cards/{id}', [CyberboardController::class, 'updateCard']);
     Route::delete('/api/cyberboard/cards/{id}', [CyberboardController::class, 'destroyCard']);
     Route::put('/api/cyberboard/cards/{id}/move', [CyberboardController::class, 'moveCard']);
+    Route::put('/api/cyberboard/{boardId}/cards/batch-reorder', [CyberboardController::class, 'batchReorderCards']);
 
     Route::post('/api/cyberboard/cards/{id}/vote', [CyberboardController::class, 'toggleVote']);
     Route::post('/api/cyberboard/cards/{id}/comments', [CyberboardController::class, 'storeComment']);
