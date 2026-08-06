@@ -172,6 +172,35 @@ class CyberboardController extends Controller
         }
 
         if (!$this->canUserViewBoard($board, $user)) {
+            $inviteToken = $request->query('invite_token');
+            if ($inviteToken && $user) {
+                $invite = CyberboardBoardInvite::where('board_id', $id)
+                    ->where('token', $inviteToken)
+                    ->first();
+
+                if ($invite && $invite->isValid()) {
+                    $invite->used_by = $user->id;
+                    $invite->used_at = now();
+                    $invite->save();
+
+                    $allowedMembers = $board->allowed_members ?? [];
+                    if (!in_array($user->id, $allowedMembers)) {
+                        $allowedMembers[] = $user->id;
+                        $board->allowed_members = array_values(array_unique($allowedMembers));
+                        $board->save();
+                    }
+
+                    CyberboardCardActivity::create([
+                        'board_id' => $id,
+                        'user_id' => $user->id,
+                        'action' => 'created',
+                        'description' => "Joined private board using single-use invite link",
+                    ]);
+                }
+            }
+        }
+
+        if (!$this->canUserViewBoard($board, $user)) {
             $host = $board->creator;
             $hostName = $host ? trim(($host->first_name ?? '').' '.($host->last_name ?? '')) ?: $host->username : 'Board Host';
             $hasPending = $user ? CyberboardJoinRequest::where('board_id', $board->id)->where('user_id', $user->id)->where('status', 'pending')->exists() : false;
@@ -2070,7 +2099,9 @@ class CyberboardController extends Controller
             'expires_at' => now()->addHours(6),
         ]);
 
-        $inviteUrl = url("/app/cyberboard/{$boardId}?invite_token={$token}");
+        $origin = $request->header('Origin');
+        $baseUrl = $origin ? rtrim($origin, '/') : $request->getSchemeAndHttpHost();
+        $inviteUrl = "{$baseUrl}/app/cyberboard/{$boardId}?invite_token={$token}";
 
         return response()->json([
             'invite_url' => $inviteUrl,

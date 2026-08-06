@@ -19,8 +19,13 @@ class WebSocketClient {
 
   constructor() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Using relative WS URL to leverage Vite proxy in development & Apache proxy in production
-    this.url = `${protocol}//${window.location.host}/ws`;
+    // If running directly on port 8000 (Laravel artisan serve / Laragon), connect directly to Node WS server on port 3001
+    if (typeof window !== 'undefined' && window.location.port === '8000') {
+      this.url = `${protocol}//${window.location.hostname}:3001/ws`;
+    } else {
+      // Relative WS URL leveraging Vite proxy in dev & Apache/Nginx proxy in production
+      this.url = `${protocol}//${window.location.host}/ws`;
+    }
   }
 
   /**

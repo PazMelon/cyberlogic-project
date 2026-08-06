@@ -155,7 +155,7 @@ export default function CyberBoardView() {
     if (!silent) setIsLoading(true);
     setError(null);
     try {
-      const data = await fetchCyberboardBoard(numericBoardId);
+      const data = await fetchCyberboardBoard(numericBoardId, inviteTokenParam);
       setBoard(data);
       setPrivateBoardError(null);
 
@@ -1669,7 +1669,8 @@ export default function CyberBoardView() {
           onGenerateInviteLink={board.visibility === "private" ? async () => {
             try {
               const res = await generateCyberboardInviteLink(board.id);
-              navigator.clipboard.writeText(res.invite_url);
+              const inviteUrl = `${window.location.origin}/app/cyberboard/${board.id}?invite_token=${res.token}`;
+              await navigator.clipboard.writeText(inviteUrl);
               showToast("Single-use 6h invite link copied to clipboard!", "success");
             } catch (err: any) {
               showToast(err.message || "Failed to generate invite link.", "error");

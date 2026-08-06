@@ -3068,8 +3068,9 @@ export async function fetchCyberboardBoards(): Promise<CyberboardBoard[]> {
   return res.json();
 }
 
-export async function fetchCyberboardBoard(id: number): Promise<CyberboardBoard> {
-  const res = await apiRequest(`/api/cyberboard/${id}`);
+export async function fetchCyberboardBoard(id: number, inviteToken?: string | null): Promise<CyberboardBoard> {
+  const url = inviteToken ? `/api/cyberboard/${id}?invite_token=${encodeURIComponent(inviteToken)}` : `/api/cyberboard/${id}`;
+  const res = await apiRequest(url);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     const err: any = new Error(errorData.message || "Failed to fetch board details.");
