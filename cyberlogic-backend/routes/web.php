@@ -267,6 +267,13 @@ Route::middleware('auth')->group(function () {
     Route::put('/api/cyberboard/columns/{id}', [CyberboardController::class, 'updateColumn']);
     Route::delete('/api/cyberboard/columns/{id}', [CyberboardController::class, 'destroyColumn']);
 
+    // CyberBoard Realtime Board Sidebar Chat Endpoints
+    Route::get('/api/cyberboard/{boardId}/chat/messages', [CyberboardController::class, 'getBoardChatMessages']);
+    Route::post('/api/cyberboard/{boardId}/chat/messages', [CyberboardController::class, 'storeBoardChatMessage']);
+    Route::post('/api/cyberboard/chat/messages/{id}/pin', [CyberboardController::class, 'togglePinBoardChatMessage']);
+    Route::delete('/api/cyberboard/chat/messages/{id}', [CyberboardController::class, 'deleteBoardChatMessage']);
+    Route::post('/api/cyberboard/chat/messages/{id}/reactions', [CyberboardController::class, 'toggleBoardChatMessageReaction']);
+
     // Realtime Chess Game endpoints
     Route::get('/api/chess/games', [ChessController::class, 'index']);
     Route::post('/api/chess/games', [ChessController::class, 'store']);
