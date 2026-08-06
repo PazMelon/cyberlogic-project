@@ -1854,6 +1854,8 @@ class CyberboardController extends Controller
                             'card_id' => $card->id,
                             'card_title' => $card->title,
                             'user_name' => $authorName,
+                            'user' => $card->user,
+                            'user_avatar' => $card->user ? ($card->user->avatar ?? $card->user->avatar_path) : null,
                             'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
                         ];
                     }
@@ -1880,6 +1882,8 @@ class CyberboardController extends Controller
                         'card_id' => $card->id,
                         'card_title' => $card->title,
                         'user_name' => $authorName,
+                        'user' => $card->user,
+                        'user_avatar' => $card->user ? ($card->user->avatar ?? $card->user->avatar_path) : null,
                         'created_at' => $card->created_at ? $card->created_at->toIso8601String() : now()->toIso8601String(),
                     ];
                 }

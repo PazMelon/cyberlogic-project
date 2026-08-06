@@ -360,7 +360,11 @@ export default function BoardMediaVaultModal({
       return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {filteredAssets.map((asset) => {
-            const authorAvatar = getAvatarUrl(asset.user?.avatar || asset.user?.avatar_path, asset.user?.first_name || "User");
+            const rawAvatar = asset.user?.avatar || asset.user?.avatar_path || (asset as any).user_avatar;
+            const authorSeed = asset.user?.first_name || asset.user?.name || asset.user_name || "User";
+            const authorAvatar = getAvatarUrl(rawAvatar, authorSeed);
+            const displayName = asset.user ? `${asset.user.first_name || ""} ${asset.user.last_name || ""}`.trim() || asset.user.username : asset.user_name || "General";
+
             return (
               <div
                 key={asset.id}
@@ -393,33 +397,43 @@ export default function BoardMediaVaultModal({
                   <p className="text-xs font-bold text-text-primary truncate" title={asset.title}>
                     {asset.title}
                   </p>
-                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/40 text-[10px] text-text-muted">
-                    {asset.card_id && onSelectCard ? (
-                      <button
-                        type="button"
-                        onClick={() => onSelectCard(asset.card_id!)}
-                        className="text-primary hover:underline font-semibold truncate"
-                        title="Jump to card"
-                      >
-                        Card: {asset.card_title}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1 min-w-0">
-                        <img src={authorAvatar} alt="User" className="w-3.5 h-3.5 rounded-full object-cover" />
-                        <span className="truncate">{asset.user_name || "General"}</span>
-                      </div>
-                    )}
 
-                    {asset.user_id && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAsset(asset.id)}
-                        className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
-                        title="Delete image"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    )}
+                  <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/40 text-[10px] text-text-muted">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <img
+                        src={authorAvatar}
+                        alt={displayName}
+                        className="w-3.5 h-3.5 rounded-full object-cover border border-border/40 flex-shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(authorSeed)}`;
+                        }}
+                      />
+                      <span className="truncate">{displayName}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {asset.card_id && onSelectCard && (
+                        <button
+                          type="button"
+                          onClick={() => onSelectCard(asset.card_id!)}
+                          className="text-primary hover:underline font-semibold text-[9px] px-1 py-0.5 rounded bg-primary/10 border border-primary/20 truncate"
+                          title={`Jump to card: ${asset.card_title}`}
+                        >
+                          Card View
+                        </button>
+                      )}
+
+                      {asset.user_id && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAsset(asset.id)}
+                          className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
+                          title="Delete image"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -436,7 +450,9 @@ export default function BoardMediaVaultModal({
           const isLink = asset.type === "link" || asset.type === "card_link";
           const domainFavicon = isLink ? getDomainFavicon(asset.url) : null;
           const domainHost = isLink ? getDomainHost(asset.url) : null;
-          const authorAvatar = getAvatarUrl(asset.user?.avatar || asset.user?.avatar_path, asset.user?.first_name || asset.user_name || "User");
+          const rawAvatar = asset.user?.avatar || asset.user?.avatar_path || (asset as any).user_avatar;
+          const authorSeed = asset.user?.first_name || asset.user?.name || asset.user_name || "User";
+          const authorAvatar = getAvatarUrl(rawAvatar, authorSeed);
 
           return (
             <div
@@ -490,7 +506,14 @@ export default function BoardMediaVaultModal({
 
               <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <img src={authorAvatar} alt="User" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                  <img
+                    src={authorAvatar}
+                    alt="User"
+                    className="w-4 h-4 rounded-full object-cover flex-shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(authorSeed)}`;
+                    }}
+                  />
                   <span className="text-[10px] text-text-muted truncate">
                     {asset.user ? `${asset.user.first_name || ""} ${asset.user.last_name || ""}`.trim() || asset.user.username : asset.user_name || "Member"}
                   </span>
