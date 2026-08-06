@@ -2118,15 +2118,15 @@ function TaskChecklistSection({
                   : "bg-surface-800/80 border-border/60 text-text-primary"
               }`}
             >
-              <label className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 min-w-0 flex-1 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={item.completed}
                   onChange={() => canEdit && onToggleItem(item.id)}
                   disabled={!canEdit}
-                  className="w-4 h-4 rounded border-border text-emerald-500 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer"
+                  className="w-4 h-4 rounded border-border text-emerald-500 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer mt-0.5"
                 />
-                <span className={`text-xs font-medium truncate ${item.completed ? "line-through opacity-70" : ""}`}>
+                <span className={`text-xs font-medium whitespace-pre-wrap break-words leading-relaxed ${item.completed ? "line-through opacity-70" : ""}`}>
                   {item.text}
                 </span>
               </label>
@@ -2134,7 +2134,7 @@ function TaskChecklistSection({
                 <button
                   type="button"
                   onClick={() => onDeleteItem(item.id)}
-                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors"
+                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors flex-shrink-0"
                   title="Remove checklist item"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -2147,13 +2147,19 @@ function TaskChecklistSection({
 
       {/* Add New Item Form */}
       {canEdit && (
-        <form onSubmit={handleSubmitNewItem} className="flex items-center gap-2 pt-1">
-          <input
-            type="text"
+        <form onSubmit={handleSubmitNewItem} className="flex items-start gap-2 pt-1">
+          <textarea
+            rows={2}
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
-            placeholder="Add a sub-task / checklist item..."
-            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmitNewItem(e);
+              }
+            }}
+            placeholder="Add a sub-task / checklist item (supports multiline, Press Enter to add, Shift+Enter for new line)..."
+            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none resize-y min-h-[42px]"
           />
           <button
             type="submit"

@@ -10,6 +10,8 @@ import {
   FolderKanban,
   LayoutGrid,
   GanttChart,
+  UserCheck,
+  KeyRound,
 } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 import type { BoardPresenceUser } from "../../hooks/useCyberboardRealtime";
@@ -28,6 +30,9 @@ interface BoardControlsSidebarProps {
   onOpenSettings?: () => void;
   onOpenBoardAuditLog: () => void;
   onOpenMediaVault: () => void;
+  onOpenJoinRequests?: () => void;
+  onGenerateInviteLink?: () => void;
+  pendingRequestsCount?: number;
   onExportToExcel?: () => void;
 }
 
@@ -45,6 +50,9 @@ export default function BoardControlsSidebar({
   onOpenSettings,
   onOpenBoardAuditLog,
   onOpenMediaVault,
+  onOpenJoinRequests,
+  onGenerateInviteLink,
+  pendingRequestsCount = 0,
   onExportToExcel,
 }: BoardControlsSidebarProps) {
   if (!isOpen) return null;
@@ -153,24 +161,64 @@ export default function BoardControlsSidebar({
             Quick Actions
           </label>
 
-          <button
-            type="button"
-            onClick={() => {
-              onCopyShareLink();
-              onClose();
-            }}
-            className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center justify-between transition-all cursor-pointer group"
-          >
-            <div className="flex items-center gap-2.5">
-              <Share2 className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span>Share Board Link</span>
-            </div>
-            {copiedLink ? (
-              <span className="text-[10px] font-bold text-emerald-400">Copied!</span>
-            ) : (
-              <span className="text-[10px] text-text-muted font-medium">Copy</span>
-            )}
-          </button>
+          {onOpenJoinRequests && (
+            <button
+              type="button"
+              onClick={() => {
+                onOpenJoinRequests();
+                onClose();
+              }}
+              className="w-full px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-300 flex items-center justify-between transition-all cursor-pointer group shadow-xs"
+            >
+              <div className="flex items-center gap-2.5">
+                <UserCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>Pending Join Requests</span>
+              </div>
+              {pendingRequestsCount > 0 ? (
+                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-surface-950 animate-pulse">
+                  {pendingRequestsCount} New
+                </span>
+              ) : (
+                <span className="text-[10px] text-text-muted font-medium">View</span>
+              )}
+            </button>
+          )}
+
+          {board.visibility === "private" && onGenerateInviteLink ? (
+            <button
+              type="button"
+              onClick={() => {
+                onGenerateInviteLink();
+                onClose();
+              }}
+              className="w-full px-4 py-3 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary/20 text-xs font-bold text-primary flex items-center justify-between transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <KeyRound className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" />
+                <span>Create 6-Hour Single-Use Invite</span>
+              </div>
+              <span className="text-[10px] text-primary font-bold px-1.5 py-0.5 rounded-full bg-primary/20">6h Single-Use</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                onCopyShareLink();
+                onClose();
+              }}
+              className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center justify-between transition-all cursor-pointer group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Share2 className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span>Share Board Link</span>
+              </div>
+              {copiedLink ? (
+                <span className="text-[10px] font-bold text-emerald-400">Copied!</span>
+              ) : (
+                <span className="text-[10px] text-text-muted font-medium">Copy</span>
+              )}
+            </button>
+          )}
 
           {board.type === "roadmap" && onExportToExcel && (
             <button

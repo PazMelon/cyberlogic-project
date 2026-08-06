@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, Link, useSearchParams } from "react-router";
-import { ArrowLeft, Plus, AlertCircle, Lock, Kanban } from "lucide-react";
+import { ArrowLeft, Plus, AlertCircle, Kanban } from "lucide-react";
 import {
   fetchCyberboardBoard,
   createCyberboardCard,
@@ -39,8 +39,15 @@ import BoardControlsSidebar from "../components/cyberboard/BoardControlsSidebar"
 import BoardMediaVaultModal from "../components/cyberboard/BoardMediaVaultModal";
 import CyberboardChatSidebar from "../components/cyberboard/CyberboardChatSidebar";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
+import PrivateBoardAccessScreen from "../components/cyberboard/PrivateBoardAccessScreen";
+import BoardJoinRequestsPanel from "../components/cyberboard/BoardJoinRequestsPanel";
 import { exportBoardToExcel } from "../utils/exportBoardToExcel";
-import { getAvatarUrl, type CyberboardChatMessage } from "../utils/api";
+import {
+  getAvatarUrl,
+  generateCyberboardInviteLink,
+  fetchCyberboardJoinRequests,
+  type CyberboardChatMessage,
+} from "../utils/api";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -82,6 +89,14 @@ export default function CyberBoardView() {
   const [showBoardAuditLog, setShowBoardAuditLog] = useState(false);
   const [showMediaVaultModal, setShowMediaVaultModal] = useState(false);
   const [wasMediaVaultOpenBeforeCard, setWasMediaVaultOpenBeforeCard] = useState(false);
+  const [privateBoardError, setPrivateBoardError] = useState<{
+    board_id: number;
+    board_title?: string;
+    host_name?: string;
+    has_pending_request?: boolean;
+  } | null>(null);
+  const [showJoinRequestsPanel, setShowJoinRequestsPanel] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
@@ -132,7 +147,9 @@ export default function CyberBoardView() {
     }, 2000);
   }, []);
 
-  // Load board data (Silent background refresh option to prevent distracting loading spinners)
+  const inviteTokenParam = searchParams.get("invite_token");
+
+  // Load board data
   const loadBoard = useCallback(async (silent = false) => {
     if (!numericBoardId) return;
     if (!silent) setIsLoading(true);
@@ -140,13 +157,29 @@ export default function CyberBoardView() {
     try {
       const data = await fetchCyberboardBoard(numericBoardId);
       setBoard(data);
+      setPrivateBoardError(null);
+
+      if (user && (data.created_by === user.id || isAdmin)) {
+        fetchCyberboardJoinRequests(data.id)
+          .then((reqs) => setPendingRequestsCount(reqs ? reqs.length : 0))
+          .catch(() => {});
+      }
     } catch (err: any) {
       console.error("Failed to load board details:", err);
-      if (!silent) setError(err.message || "Failed to load board details.");
+      if (err.is_private_board || err.status === 403) {
+        setPrivateBoardError({
+          board_id: numericBoardId,
+          board_title: err.board_title || "Private CyberBoard",
+          host_name: err.host_name || "Board Host",
+          has_pending_request: err.has_pending_request || false,
+        });
+      } else {
+        if (!silent) setError(err.message || "Failed to load board details.");
+      }
     } finally {
       if (!silent) setIsLoading(false);
     }
-  }, [numericBoardId]);
+  }, [numericBoardId, user, isAdmin]);
 
   useEffect(() => {
     loadBoard();
@@ -1291,23 +1324,19 @@ export default function CyberBoardView() {
     }),
   ];
 
-  if (error && error.toLowerCase().includes("private")) {
+  if (privateBoardError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[75vh] p-6 text-center bg-surface-950 space-y-4">
-        <div className="p-4 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-lg">
-          <Lock className="w-10 h-10" />
-        </div>
-        <h2 className="text-xl font-bold text-text-primary">Private Board Access Denied</h2>
-        <p className="text-xs text-text-muted max-w-md leading-relaxed">
-          This board is private. You need an invitation from the board host to view or participate in this board.
-        </p>
-        <Link
-          to="/app/cyberboard"
-          className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all shadow-md shadow-primary/20"
-        >
-          Back to All Boards
-        </Link>
-      </div>
+      <PrivateBoardAccessScreen
+        boardId={privateBoardError.board_id}
+        boardTitle={privateBoardError.board_title}
+        hostName={privateBoardError.host_name}
+        hasPendingRequest={privateBoardError.has_pending_request}
+        inviteToken={inviteTokenParam}
+        onSuccessJoined={() => {
+          setPrivateBoardError(null);
+          loadBoard();
+        }}
+      />
     );
   }
 
@@ -1635,6 +1664,17 @@ export default function CyberBoardView() {
           onOpenSettings={() => setShowBoardSettingsModal(true)}
           onOpenBoardAuditLog={() => setShowBoardAuditLog(true)}
           onOpenMediaVault={() => setShowMediaVaultModal(true)}
+          onOpenJoinRequests={isHost || isAdmin ? () => setShowJoinRequestsPanel(true) : undefined}
+          pendingRequestsCount={pendingRequestsCount}
+          onGenerateInviteLink={board.visibility === "private" ? async () => {
+            try {
+              const res = await generateCyberboardInviteLink(board.id);
+              navigator.clipboard.writeText(res.invite_url);
+              showToast("Single-use 6h invite link copied to clipboard!", "success");
+            } catch (err: any) {
+              showToast(err.message || "Failed to generate invite link.", "error");
+            }
+          } : undefined}
           onExportToExcel={() => {
             if (board) {
               const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
@@ -1642,6 +1682,16 @@ export default function CyberBoardView() {
               showToast("Excel spreadsheet exported successfully!", "success");
             }
           }}
+        />
+      )}
+
+      {/* Host & Admin Join Requests Panel */}
+      {board && (
+        <BoardJoinRequestsPanel
+          boardId={board.id}
+          isOpen={showJoinRequestsPanel}
+          onClose={() => setShowJoinRequestsPanel(false)}
+          onToast={showToast}
         />
       )}
 
