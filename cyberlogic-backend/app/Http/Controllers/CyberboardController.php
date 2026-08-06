@@ -957,6 +957,12 @@ class CyberboardController extends Controller
         }
 
         $board = $targetColumn->board;
+        if ($board && !$this->canUserViewBoard($board, $user)) {
+            return response()->json([
+                'message' => 'Unauthorized to move cards on this private board.'
+            ], 403);
+        }
+
         $isHost = $board && $board->created_by === $user->id;
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
 

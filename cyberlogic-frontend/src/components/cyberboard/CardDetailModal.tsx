@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User,
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
-  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare
+  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare, GripVertical
 } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment, getAvatarUrl } from "../../utils/api";
@@ -376,6 +376,21 @@ export default function CardDetailModal({
       } catch (err) {
         console.error("Failed to delete checklist item:", err);
       }
+    }
+  };
+
+  const handleReorderChecklist = async (updated: CyberboardChecklistItem[]) => {
+    setChecklist(updated);
+    if (!card || !onUpdateCard) return;
+    const completedCount = updated.filter((item) => item.completed).length;
+    const rate = updated.length > 0
+      ? Math.round((completedCount / updated.length) * 100)
+      : manualCompletionPercentage;
+    const basePayload: Partial<CyberboardCard> = { checklist: updated, completion_percentage: rate };
+    try {
+      await onUpdateCard(card.id, basePayload);
+    } catch (err) {
+      console.error("Failed to reorder checklist items:", err);
     }
   };
 
@@ -1033,6 +1048,7 @@ export default function CardDetailModal({
             onToggleItem={handleToggleChecklistItem}
             onAddItem={handleAddChecklistItem}
             onDeleteItem={handleDeleteChecklistItem}
+            onReorderChecklist={handleReorderChecklist}
             onManualCompletionChange={handleManualCompletionChange}
             canEdit={canEditCard}
           />
@@ -1983,6 +1999,7 @@ function TaskChecklistSection({
   onToggleItem,
   onAddItem,
   onDeleteItem,
+  onReorderChecklist,
   onManualCompletionChange,
   canEdit = true,
 }: {
@@ -1996,10 +2013,14 @@ function TaskChecklistSection({
   onToggleItem: (id: string) => void;
   onAddItem: (text: string) => void;
   onDeleteItem: (id: string) => void;
+  onReorderChecklist?: (updated: CyberboardChecklistItem[]) => void;
   onManualCompletionChange: (val: number) => void;
   canEdit?: boolean;
 }) {
   const [newItemText, setNewItemText] = useState("");
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [dropPosition, setDropPosition] = useState<"above" | "below" | null>(null);
 
   const safeChecklist = useMemo(() => {
     if (!checklist) return [];
@@ -2079,6 +2100,65 @@ function TaskChecklistSection({
     setNewItemText("");
   };
 
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (!canEdit) return;
+    setDraggedItemId(id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    if (!canEdit || !draggedItemId || draggedItemId === id) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? "above" : "below";
+
+    setDragOverItemId(id);
+    setDropPosition(pos);
+  };
+
+  const handleDragLeave = (id: string) => {
+    if (dragOverItemId === id) {
+      setDragOverItemId(null);
+      setDropPosition(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!canEdit || !draggedItemId || draggedItemId === targetId) return;
+
+    const currentList = [...safeChecklist];
+    const draggedIdx = currentList.findIndex((i) => i.id === draggedItemId);
+    const targetIdx = currentList.findIndex((i) => i.id === targetId);
+
+    if (draggedIdx === -1 || targetIdx === -1) return;
+
+    const [removed] = currentList.splice(draggedIdx, 1);
+    let insertIdx = currentList.findIndex((i) => i.id === targetId);
+    if (dropPosition === "below") {
+      insertIdx += 1;
+    }
+    currentList.splice(insertIdx, 0, removed);
+
+    if (onReorderChecklist) {
+      onReorderChecklist(currentList);
+    }
+
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+    setDropPosition(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+    setDropPosition(null);
+  };
+
   return (
     <div className="space-y-3 p-4 rounded-2xl bg-surface-900/80 border border-border/80 shadow-md">
       {/* Header & Overall Progress Bar */}
@@ -2110,40 +2190,72 @@ function TaskChecklistSection({
 
       {/* Checklist Items Scroll List */}
       {totalItems > 0 && (
-        <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
-          {safeChecklist.map((item) => (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between gap-2 p-2 rounded-xl border transition-all ${
-                item.completed
-                  ? "bg-emerald-500/5 border-emerald-500/20 text-text-muted"
-                  : "bg-surface-800/80 border-border/60 text-text-primary"
-              }`}
-            >
-              <label className="flex items-start gap-2.5 min-w-0 flex-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={item.completed}
-                  onChange={() => canEdit && onToggleItem(item.id)}
-                  disabled={!canEdit}
-                  className="w-4 h-4 rounded border-border text-emerald-500 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer mt-0.5"
-                />
-                <span className={`text-xs font-medium whitespace-pre-wrap break-words leading-relaxed ${item.completed ? "line-through opacity-70" : ""}`}>
-                  {item.text}
-                </span>
-              </label>
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteItem(item.id)}
-                  className="text-text-muted hover:text-error p-1 rounded-lg hover:bg-surface-700 transition-colors flex-shrink-0"
-                  title="Remove checklist item"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="space-y-2 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+          {safeChecklist.map((item) => {
+            const isDragging = draggedItemId === item.id;
+            const isDragOver = dragOverItemId === item.id;
+
+            return (
+              <div
+                key={item.id}
+                draggable={canEdit}
+                onDragStart={(e) => handleDragStart(e, item.id)}
+                onDragOver={(e) => handleDragOver(e, item.id)}
+                onDragLeave={() => handleDragLeave(item.id)}
+                onDrop={(e) => handleDrop(e, item.id)}
+                onDragEnd={handleDragEnd}
+                className={`group relative flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all duration-200 ${
+                  isDragging
+                    ? "opacity-30 bg-emerald-500/10 border-dashed border-emerald-400 scale-[0.98] shadow-inner"
+                    : isDragOver
+                    ? dropPosition === "above"
+                      ? "border-t-2 border-t-cyan-400 ring-2 ring-cyan-400/20 bg-surface-800 scale-[1.01]"
+                      : "border-b-2 border-b-cyan-400 ring-2 ring-cyan-400/20 bg-surface-800 scale-[1.01]"
+                    : item.completed
+                    ? "bg-emerald-500/5 border-emerald-500/20 text-text-muted hover:border-emerald-500/30"
+                    : "bg-surface-800/80 border-border/60 text-text-primary hover:border-border"
+                }`}
+              >
+                {/* Drag Handle Grip Icon */}
+                {canEdit && (
+                  <div
+                    className="cursor-grab active:cursor-grabbing text-text-muted hover:text-text-primary p-0.5 rounded-md hover:bg-surface-700 transition-colors flex-shrink-0"
+                    title="Drag to reorder sub-task item"
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                  </div>
+                )}
+
+                <label className="flex items-start gap-2.5 min-w-0 flex-1 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={item.completed}
+                    onChange={() => canEdit && onToggleItem(item.id)}
+                    disabled={!canEdit}
+                    className="w-4 h-4 rounded border-border text-emerald-500 focus:ring-emerald-500 focus:ring-offset-surface-900 cursor-pointer mt-0.5"
+                  />
+                  <span
+                    className={`text-xs font-medium whitespace-pre-wrap break-words leading-relaxed ${
+                      item.completed ? "line-through opacity-70" : ""
+                    }`}
+                  >
+                    {item.text}
+                  </span>
+                </label>
+
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteItem(item.id)}
+                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-rose-400 p-1 rounded-lg hover:bg-surface-700 transition-all flex-shrink-0 cursor-pointer"
+                    title="Remove checklist item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
