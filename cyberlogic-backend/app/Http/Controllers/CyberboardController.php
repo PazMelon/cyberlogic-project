@@ -677,6 +677,22 @@ class CyberboardController extends Controller
             $validated['predecessor_ids'] = $validated['predecessor_id'] ? [$validated['predecessor_id']] : [];
         }
 
+        // Validate Gantt Chart editing permissions if timeline or phase is modified
+        $isGanttEdit = array_key_exists('phase', $validated) ||
+                       array_key_exists('activity_date', $validated) ||
+                       array_key_exists('activity_end_date', $validated) ||
+                       array_key_exists('predecessor_id', $validated) ||
+                       array_key_exists('predecessor_ids', $validated);
+
+        if ($isGanttEdit && $card->column) {
+            $board = CyberboardBoard::find($card->column->board_id);
+            if ($board && $board->type === 'roadmap' && !$this->canUserEditGantt($board, $user)) {
+                return response()->json([
+                    'message' => 'Permission Denied: You do not have permission to edit Gantt chart items or timeline dates on this board.'
+                ], 403);
+            }
+        }
+
         $changeDescItems = [];
         if (isset($validated['title']) && $validated['title'] !== $card->title) {
             $changeDescItems[] = "title to '{$validated['title']}'";
@@ -867,6 +883,13 @@ class CyberboardController extends Controller
         $board = $targetColumn->board;
         $isHost = $board && $board->created_by === $user->id;
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+
+        // Check Gantt Chart Editing Policy if board is Roadmap type
+        if ($board && $board->type === 'roadmap' && !$this->canUserEditGantt($board, $user)) {
+            return response()->json([
+                'message' => 'Permission Denied: You do not have permission to drag & drop or reorder Gantt chart items on this board.'
+            ], 403);
+        }
 
         // Check Source Column Permission (Moving Out)
         $sourceColumn = $card->column;
@@ -1249,6 +1272,12 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Board not found'], 404);
         }
 
+        if ($board->type === 'roadmap' && !$this->canUserEditGantt($board, $user)) {
+            return response()->json([
+                'message' => 'Permission Denied: You do not have permission to drag & drop or reorder Gantt chart items on this board.'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'items' => 'required|array',
             'items.*.id' => 'required|integer|exists:cyberboard_cards,id',
@@ -1382,5 +1411,30 @@ class CyberboardController extends Controller
         }
 
         return response()->json(['error' => 'Failed to upload attachment image.'], 400);
+    }
+
+    /**
+     * Helper method to validate if user has permission to edit Gantt items or roadmap dates/phases.
+     */
+    protected function canUserEditGantt(CyberboardBoard $board, $user): bool
+    {
+        if ($board->created_by === $user->id || in_array($user->role, ['admin', 'superadmin'])) {
+            return true;
+        }
+
+        $policy = $board->gantt_edit_policy ?? 'everyone';
+        if ($policy === 'host_admin_only') {
+            return false;
+        }
+        if ($policy === 'specific_roles') {
+            $roles = $board->allowed_gantt_editor_roles ?? [];
+            return !empty($roles) && in_array($user->role, $roles);
+        }
+        if ($policy === 'specific_users') {
+            $users = $board->allowed_gantt_editor_users ?? [];
+            return !empty($users) && in_array($user->id, $users);
+        }
+
+        return true;
     }
 }
