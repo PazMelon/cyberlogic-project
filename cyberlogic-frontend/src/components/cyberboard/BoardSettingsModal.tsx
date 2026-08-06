@@ -979,6 +979,7 @@ export default function BoardSettingsModal({
         onClose={onClose}
         title="Board Settings"
         initialSnap="3/4"
+        contentPaddingClass="p-0"
         footer={
           <div className="flex items-center justify-between gap-2">
             {onDeleteBoard ? (
@@ -1021,9 +1022,9 @@ export default function BoardSettingsModal({
           </div>
         }
       >
-        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="space-y-4">
-          {/* Mobile Tab Navigation Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/60">
+        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="flex flex-col h-full">
+          {/* Edge-to-Edge Mobile Tab Navigation Pills */}
+          <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none border-b border-border/60 bg-surface-950/30 flex-shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
@@ -1080,7 +1081,7 @@ export default function BoardSettingsModal({
           </div>
 
           {/* Tab Content Fields */}
-          <div className="py-1">
+          <div className="p-4 space-y-4 overflow-y-auto flex-1">
             {formContent}
           </div>
         </form>

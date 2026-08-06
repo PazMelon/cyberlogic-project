@@ -11,6 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 import MessageStream from "../chat/MessageStream";
 import MessageInput from "../chat/MessageInput";
 import EmojiSearchPicker from "../chat/EmojiSearchPicker";
+import ReactionPicker from "../chat/ReactionPicker";
 import DeleteMessageModal from "../chat/DeleteMessageModal";
 import type { ChatMessage } from "../chat/MessageBubble";
 import {
@@ -19,6 +20,7 @@ import {
   togglePinCyberboardChatMessage,
   deleteCyberboardChatMessage,
   toggleCyberboardChatMessageReaction,
+  getAvatarUrl,
   type CyberboardChatMessage,
   type CyberboardBoard,
 } from "../../utils/api";
@@ -144,9 +146,8 @@ export default function CyberboardChatSidebar({
     const authorName = m.user
       ? `${m.user.first_name || ""} ${m.user.last_name || ""}`.trim() || m.user.username || "Member"
       : "Member";
-    const authorAvatar =
-      m.user?.avatar_path ||
-      `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(authorName)}`;
+    const rawAvatar = m.user?.avatar || m.user?.avatar_path;
+    const authorAvatar = getAvatarUrl(rawAvatar, authorName);
 
     return {
       id: m.id,
@@ -431,6 +432,29 @@ export default function CyberboardChatSidebar({
             onClose={() => setShowEmojiPicker(false)}
           />
         )}
+
+        {/* Emoji Reaction Bar Popover Overlay - Centered on Sidebar */}
+        {activeReactionPickerMessageId !== null && (() => {
+          const targetMsg = chatMessages.find((m) => m.id === activeReactionPickerMessageId);
+          return (
+            <ReactionPicker
+              reactions={targetMsg?.reactions}
+              onReact={(emoji) => {
+                handleToggleReaction(activeReactionPickerMessageId, emoji);
+                setActiveReactionPickerMessageId(null);
+              }}
+              onOpenFullPicker={() => {
+                const id = activeReactionPickerMessageId;
+                setActiveReactionPickerMessageId(null);
+                setActiveFullPickerMessageId(id);
+              }}
+              onClose={() => setActiveReactionPickerMessageId(null)}
+              onTogglePin={() => handleTogglePin(activeReactionPickerMessageId)}
+              isPinned={targetMsg?.isPinned}
+              isSidebar={true}
+            />
+          );
+        })()}
 
         <MessageStream
           messages={chatMessages}

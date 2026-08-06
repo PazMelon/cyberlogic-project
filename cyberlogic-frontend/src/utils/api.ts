@@ -3336,7 +3336,22 @@ export async function reorderCyberboardColumns(
   return res.json();
 }
 
-// CYBERBOARD REALTIME SIDEBAR CHAT API
+export function getAvatarUrl(avatarPathOrUrl?: string | null, fallbackSeed: string = "User"): string {
+  if (!avatarPathOrUrl) {
+    return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encodeURIComponent(fallbackSeed)}`;
+  }
+  if (avatarPathOrUrl.startsWith("http://") || avatarPathOrUrl.startsWith("https://") || avatarPathOrUrl.startsWith("data:")) {
+    return avatarPathOrUrl;
+  }
+  if (avatarPathOrUrl.startsWith("/storage/")) {
+    return avatarPathOrUrl;
+  }
+  if (avatarPathOrUrl.startsWith("storage/")) {
+    return `/${avatarPathOrUrl}`;
+  }
+  return `/storage/${avatarPathOrUrl}`;
+}
+
 export interface CyberboardChatMessage {
   id: number;
   board_id: number;
@@ -3353,6 +3368,7 @@ export interface CyberboardChatMessage {
     id: number;
     first_name?: string;
     last_name?: string;
+    avatar?: string | null;
     avatar_path?: string | null;
     role?: string;
     username?: string;

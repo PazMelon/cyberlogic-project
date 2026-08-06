@@ -2,7 +2,6 @@ import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert, Pencil, Pin } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import ReactionPicker from "./ReactionPicker";
 import { PromptDialog } from "../ui";
 
 export interface ChatMessage {
@@ -106,7 +105,6 @@ export default function MessageBubble({
   onReact,
   activePickerId,
   setActivePickerId,
-  onOpenFullPicker,
   onReply,
   onDelete,
   onEdit,
@@ -493,10 +491,10 @@ export default function MessageBubble({
       style={{ willChange: "transform", transition: "transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)" }}
       className="relative group/message flex flex-col w-fit max-w-[70%] select-none cursor-grab active:cursor-grabbing"
     >
-      {/* Desktop hover controls: Smile picker trigger & Reply button */}
+      {/* Hover action toolbar (React, Reply, Pin, Edit, Delete) */}
       <div
-        className={`absolute bottom-0 translate-y-1/4 hidden md:group-hover/message:flex items-center gap-1 z-10 ${
-          isMeLayout ? "right-full pr-2 -mr-0.5" : "left-full pl-2 -ml-0.5"
+        className={`absolute -top-3.5 hidden group-hover/message:flex items-center gap-1 z-30 bg-surface-900/95 border border-border/80 rounded-full px-2 py-1 shadow-lg backdrop-blur-sm animate-in fade-in zoom-in-95 ${
+          isMeLayout ? "right-2" : "left-2"
         }`}
       >
         <button
@@ -553,17 +551,7 @@ export default function MessageBubble({
         )}
       </div>
 
-      {/* Floating Reaction Bar popover */}
-      {showReactionTrigger && (
-        <ReactionPicker
-          reactions={message.reactions}
-          onReact={handleReactionClick}
-          onOpenFullPicker={() => onOpenFullPicker(message.id)}
-          onClose={() => setActivePickerId(null)}
-          onTogglePin={onPin ? () => onPin(message) : undefined}
-          isPinned={message.isPinned}
-        />
-      )}
+
 
       {/* Reply Quote Display */}
       {message.replyTo && (() => {

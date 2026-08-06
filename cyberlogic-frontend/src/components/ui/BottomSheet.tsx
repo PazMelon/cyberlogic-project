@@ -7,6 +7,7 @@ interface BottomSheetProps {
   title?: string;
   initialSnap?: "1/2" | "3/4" | "fullscreen";
   maxWidthClass?: string;
+  contentPaddingClass?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }
@@ -17,6 +18,7 @@ export function BottomSheet({
   title,
   initialSnap = "3/4",
   maxWidthClass = "max-w-3xl sm:max-w-2xl",
+  contentPaddingClass = "p-3.5 sm:p-5",
   children,
   footer,
 }: BottomSheetProps) {
@@ -159,7 +161,7 @@ export function BottomSheet({
         )}
 
         {/* Content Container */}
-        <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 min-h-0">
+        <div className={`flex-1 overflow-y-auto min-h-0 ${contentPaddingClass}`}>
           {children}
         </div>
 

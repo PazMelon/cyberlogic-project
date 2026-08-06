@@ -39,7 +39,7 @@ import BoardControlsSidebar from "../components/cyberboard/BoardControlsSidebar"
 import CyberboardChatSidebar from "../components/cyberboard/CyberboardChatSidebar";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
 import { exportBoardToExcel } from "../utils/exportBoardToExcel";
-import type { CyberboardChatMessage } from "../utils/api";
+import { getAvatarUrl, type CyberboardChatMessage } from "../utils/api";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -1266,7 +1266,7 @@ export default function CyberBoardView() {
           {
             id: user.id,
             name: user.name || "You",
-            avatar: user.avatar,
+            avatar: getAvatarUrl(user.avatar, user.name || "You"),
             role: user.role,
             isMe: true,
             status: activeDragCard
@@ -1280,7 +1280,7 @@ export default function CyberBoardView() {
       return {
         id: pUser.id,
         name: pUser.name,
-        avatar: pUser.avatar,
+        avatar: getAvatarUrl(pUser.avatar, pUser.name),
         role: "Member",
         isMe: false,
         status: isDragging ? `Dragging "${isDragging.title}"` : pUser.status || "Viewing board",
