@@ -1297,6 +1297,10 @@ export default function CyberBoardView() {
               columns={columns}
               cards={columns.flatMap((col) => col.cards || [])}
               canManageBoard={canManageBoard}
+              currentUserId={user?.id}
+              userRole={user?.role}
+              boardHostId={board.created_by}
+              isAdmin={isAdmin}
               onSelectCard={(card) => setSelectedCard(card)}
               onUpdateCardDate={async (cardId, activityDate, activityEndDate) => {
                 await handleUpdateCard(cardId, {

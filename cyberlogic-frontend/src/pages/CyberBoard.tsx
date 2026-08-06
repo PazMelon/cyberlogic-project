@@ -89,13 +89,7 @@ export default function CyberBoard() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleCreateBoard = async (data: {
-    title: string;
-    description?: string;
-    type?: "activity" | "ideas" | "brainstorming" | "roadmap";
-    category?: "system" | "club_related" | "projects_tech" | "events_social" | "others";
-    cover_color?: string;
-  }) => {
+  const handleCreateBoard = async (data: Partial<CyberboardBoard> & { title: string }) => {
     const newBoard = await createCyberboardBoard(data);
     setBoards((prev) => [newBoard, ...prev]);
     showToast("Board created successfully!");

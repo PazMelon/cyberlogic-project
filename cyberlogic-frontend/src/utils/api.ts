@@ -3048,6 +3048,9 @@ export interface CyberboardBoard {
   column_creation_policy?: "host_admin_only" | "specific_roles" | "specific_users" | "everyone";
   allowed_column_creator_roles?: string[] | null;
   allowed_column_creator_users?: number[] | null;
+  gantt_edit_policy?: "host_admin_only" | "specific_roles" | "specific_users" | "everyone";
+  allowed_gantt_editor_roles?: string[] | null;
+  allowed_gantt_editor_users?: number[] | null;
   methodology?: "waterfall" | "agile" | "custom";
   phase_settings?: Array<{ name: string; color: string }>;
   created_at: string;
@@ -3083,17 +3086,7 @@ export async function fetchCyberboardBoardActivities(boardId: number): Promise<C
   return res.json();
 }
 
-export async function createCyberboardBoard(data: {
-  title: string;
-  description?: string;
-  type?: "activity" | "ideas" | "brainstorming" | "roadmap";
-  category?: BoardCategory;
-  cover_color?: string;
-  visibility?: "public" | "private";
-  allowed_members?: number[];
-  column_creation_policy?: "host_admin_only" | "specific_roles" | "everyone";
-  allowed_column_creator_roles?: string[];
-}): Promise<CyberboardBoard> {
+export async function createCyberboardBoard(data: Partial<CyberboardBoard> & { title: string }): Promise<CyberboardBoard> {
   const res = await apiRequest("/api/cyberboard", {
     method: "POST",
     body: JSON.stringify(data),

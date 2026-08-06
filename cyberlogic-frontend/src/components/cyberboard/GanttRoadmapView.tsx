@@ -12,6 +12,7 @@ import {
   ZoomIn,
   ZoomOut,
   X,
+  Lock,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
 import { updateCyberboardCard } from "../../utils/api";
@@ -21,6 +22,10 @@ interface GanttRoadmapViewProps {
   columns: CyberboardColumn[];
   cards: CyberboardCard[];
   canManageBoard?: boolean;
+  currentUserId?: number;
+  userRole?: string;
+  boardHostId?: number;
+  isAdmin?: boolean;
   onSelectCard: (card: CyberboardCard) => void;
   onUpdateCardDate?: (cardId: number, activityDate: string, activityEndDate: string) => Promise<void>;
   onAddNewCard?: (columnId?: number) => void;
@@ -52,6 +57,10 @@ export default function GanttRoadmapView({
   columns,
   cards,
   canManageBoard,
+  currentUserId,
+  userRole,
+  boardHostId,
+  isAdmin,
   onSelectCard,
   onUpdateCardDate,
   onAddNewCard,
@@ -60,6 +69,22 @@ export default function GanttRoadmapView({
   onUpdateCardPriority,
   onUpdateCardAssignees,
 }: GanttRoadmapViewProps) {
+  const canEditGantt = useMemo(() => {
+    const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : (board.created_by === currentUserId);
+    if (isHost || isAdmin) return true;
+    const policy = board.gantt_edit_policy || "everyone";
+    if (policy === "everyone") return true;
+    if (policy === "host_admin_only") return false;
+    if (policy === "specific_roles") {
+      const allowedRoles = board.allowed_gantt_editor_roles || [];
+      return Boolean(userRole && allowedRoles.includes(userRole));
+    }
+    if (policy === "specific_users") {
+      const allowedUsers = board.allowed_gantt_editor_users || [];
+      return Boolean(currentUserId && allowedUsers.includes(currentUserId));
+    }
+    return true;
+  }, [board, boardHostId, currentUserId, isAdmin, userRole]);
   const currentYearNow = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
@@ -302,6 +327,10 @@ export default function GanttRoadmapView({
   }, [board.id]);
 
   const handleGanttCardDragStart = (e: React.DragEvent, cardId: number) => {
+    if (!canEditGantt) {
+      e.preventDefault();
+      return;
+    }
     e.stopPropagation();
     setDraggedCardId(cardId);
     e.dataTransfer.setData("text/plain", cardId.toString());
@@ -309,6 +338,7 @@ export default function GanttRoadmapView({
   };
 
   const handleGanttGroupDragOver = (e: React.DragEvent, groupId: string) => {
+    if (!canEditGantt) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
@@ -325,6 +355,7 @@ export default function GanttRoadmapView({
   };
 
   const handleGanttCardDragOver = (e: React.DragEvent, cardId: number) => {
+    if (!canEditGantt) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
@@ -343,6 +374,7 @@ export default function GanttRoadmapView({
   const handleGanttDropOnCard = async (e: React.DragEvent, targetCard: CyberboardCard, group: any) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!canEditGantt) return;
     setDragOverGroupId(null);
     setDragOverCardId(null);
 
@@ -927,6 +959,7 @@ export default function GanttRoadmapView({
     card: CyberboardCard,
     mode: "start" | "end" | "move"
   ) => {
+    if (!canEditGantt) return;
     if (timeScale !== "day" && timeScale !== "week") return;
     e.stopPropagation();
     hasDraggedRef.current = false;
@@ -1409,6 +1442,16 @@ export default function GanttRoadmapView({
             <Calendar className="w-3.5 h-3.5" />
             <span>Today</span>
           </button>
+
+          {!canEditGantt && (
+            <span
+              className="px-2.5 py-1 rounded-xl bg-amber-950/70 border border-amber-600/50 text-[11px] font-semibold text-amber-300 flex items-center gap-1.5 shadow-xs"
+              title="Gantt chart drag-and-drop & editing is restricted by board policy"
+            >
+              <Lock className="w-3 h-3 text-amber-400" />
+              <span>View-Only</span>
+            </span>
+          )}
         </div>
 
         {/* Desktop Toolbar Controls (>= 1440px 2xl screens) */}

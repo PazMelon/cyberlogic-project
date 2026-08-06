@@ -36,7 +36,7 @@ const AVAILABLE_ROLES = [
 
 export default function BoardSettingsModal({
   board,
-  currentUserId: _currentUserId,
+  currentUserId,
   isAdmin,
   onClose,
   onSave,
@@ -60,6 +60,40 @@ export default function BoardSettingsModal({
   const [allowedCreatorUsers, setAllowedCreatorUsers] = useState<number[]>(
     board.allowed_column_creator_users || []
   );
+
+  const toggleRoleSelection = (roleId: string) => {
+    setAllowedCreatorRoles((prev) =>
+      prev.includes(roleId) ? prev.filter((r) => r !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const toggleCreatorUserSelection = (userId: number) => {
+    setAllowedCreatorUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const [ganttPolicy, setGanttPolicy] = useState<"host_admin_only" | "specific_roles" | "specific_users" | "everyone">(
+    board.gantt_edit_policy || "everyone"
+  );
+  const [allowedGanttEditorRoles, setAllowedGanttEditorRoles] = useState<string[]>(
+    board.allowed_gantt_editor_roles || ["officer", "admin"]
+  );
+  const [allowedGanttEditorUsers, setAllowedGanttEditorUsers] = useState<number[]>(
+    board.allowed_gantt_editor_users || []
+  );
+
+  const toggleGanttRoleSelection = (roleId: string) => {
+    setAllowedGanttEditorRoles((prev) =>
+      prev.includes(roleId) ? prev.filter((r) => r !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const toggleGanttUserSelection = (userId: number) => {
+    setAllowedGanttEditorUsers((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [directoryMembers, setDirectoryMembers] = useState<CollaboratorOption[]>([]);
@@ -116,27 +150,67 @@ export default function BoardSettingsModal({
     };
   }, []);
 
+  const ownerId = board.created_by || currentUserId;
+
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return directoryMembers;
     const query = searchQuery.toLowerCase().trim();
     return directoryMembers.filter((m) => m.name.toLowerCase().includes(query));
   }, [directoryMembers, searchQuery]);
 
+  // If board is Private / Exclusive, restrict selectable members for Column/Gantt permissions to Owner & Permitted Members
+  const accessibleMembers = useMemo(() => {
+    if (visibility !== "private") return filteredMembers;
+    return filteredMembers.filter(
+      (m) => (ownerId && m.id === ownerId) || allowedMembers.includes(m.id)
+    );
+  }, [filteredMembers, visibility, allowedMembers, ownerId]);
+
+  // Clean up any selected creator or Gantt editor users if they are no longer permitted on private board
+  useEffect(() => {
+    if (visibility === "private") {
+      const validIds = new Set([
+        ...(ownerId ? [ownerId] : []),
+        ...allowedMembers,
+      ]);
+      setAllowedCreatorUsers((prev) => prev.filter((id) => validIds.has(id)));
+      setAllowedGanttEditorUsers((prev) => prev.filter((id) => validIds.has(id)));
+    }
+  }, [visibility, allowedMembers, ownerId]);
+
+  const sortedExclusiveMembers = useMemo(() => {
+    return [...filteredMembers].sort((a, b) => {
+      const aSel = allowedMembers.includes(a.id);
+      const bSel = allowedMembers.includes(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [filteredMembers, allowedMembers]);
+
+  const sortedCreatorUsers = useMemo(() => {
+    return [...accessibleMembers].sort((a, b) => {
+      const aSel = allowedCreatorUsers.includes(a.id);
+      const bSel = allowedCreatorUsers.includes(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [accessibleMembers, allowedCreatorUsers]);
+
+  const sortedGanttEditorUsers = useMemo(() => {
+    return [...accessibleMembers].sort((a, b) => {
+      const aSel = allowedGanttEditorUsers.includes(a.id);
+      const bSel = allowedGanttEditorUsers.includes(b.id);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [accessibleMembers, allowedGanttEditorUsers]);
+
   const toggleMemberSelection = (userId: number) => {
     setAllowedMembers((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const toggleCreatorUserSelection = (userId: number) => {
-    setAllowedCreatorUsers((prev) =>
-      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
-    );
-  };
-
-  const toggleRoleSelection = (roleId: string) => {
-    setAllowedCreatorRoles((prev) =>
-      prev.includes(roleId) ? prev.filter((r) => r !== roleId) : [...prev, roleId]
     );
   };
 
@@ -157,6 +231,9 @@ export default function BoardSettingsModal({
         column_creation_policy: columnPolicy,
         allowed_column_creator_roles: columnPolicy === "specific_roles" ? allowedCreatorRoles : [],
         allowed_column_creator_users: columnPolicy === "specific_users" ? allowedCreatorUsers : [],
+        gantt_edit_policy: ganttPolicy,
+        allowed_gantt_editor_roles: ganttPolicy === "specific_roles" ? allowedGanttEditorRoles : [],
+        allowed_gantt_editor_users: ganttPolicy === "specific_users" ? allowedGanttEditorUsers : [],
         methodology,
         phase_settings: phaseSettings,
       });
@@ -337,10 +414,10 @@ export default function BoardSettingsModal({
               <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                 {isLoadingDirectory ? (
                   <p className="text-xs text-text-muted italic py-3 text-center">Loading members directory...</p>
-                ) : filteredMembers.length === 0 ? (
+                ) : sortedExclusiveMembers.length === 0 ? (
                   <p className="text-xs text-text-muted italic py-3 text-center">No members found.</p>
                 ) : (
-                  filteredMembers.map((member) => {
+                  sortedExclusiveMembers.map((member) => {
                     const isSelected = allowedMembers.includes(member.id);
                     return (
                       <div
@@ -504,10 +581,10 @@ export default function BoardSettingsModal({
               <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                 {isLoadingDirectory ? (
                   <p className="text-xs text-text-muted italic py-3 text-center">Loading members directory...</p>
-                ) : filteredMembers.length === 0 ? (
+                ) : sortedCreatorUsers.length === 0 ? (
                   <p className="text-xs text-text-muted italic py-3 text-center">No members found.</p>
                 ) : (
-                  filteredMembers.map((member) => {
+                  sortedCreatorUsers.map((member) => {
                     const isSelected = allowedCreatorUsers.includes(member.id);
                     return (
                       <div
@@ -534,6 +611,178 @@ export default function BoardSettingsModal({
                 )}
               </div>
             </div>
+          )}
+
+          {/* Gantt Chart Drag-and-Drop & Editing Policy (Only visible for Project Roadmap boards) */}
+          {type === "roadmap" && (
+            <>
+              <div className="pt-3 border-t border-border/60" />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+                    Gantt Chart Drag-and-Drop & Editing Policy
+                  </label>
+                  <span className="text-[10px] text-text-muted">Controls who can reorder tasks, shift dates & edit phases</span>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    onClick={() => setGanttPolicy("everyone")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                      ganttPolicy === "everyone"
+                        ? "bg-primary/10 border-primary text-primary font-bold"
+                        : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold">🌐 Everyone (All Board Members)</div>
+                      <div className="text-[11px] font-normal text-text-muted">
+                        Any member with board access can drag & drop, resize timeline dates, and edit phases.
+                      </div>
+                    </div>
+                    {ganttPolicy === "everyone" && <Check className="w-4 h-4 text-primary" />}
+                  </label>
+
+                  <label
+                    onClick={() => setGanttPolicy("host_admin_only")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                      ganttPolicy === "host_admin_only"
+                        ? "bg-primary/10 border-primary text-primary font-bold"
+                        : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold">🛡️ Host & Admins Only</div>
+                      <div className="text-[11px] font-normal text-text-muted">
+                        Only board creator and site administrators can drag & drop or edit Gantt items.
+                      </div>
+                    </div>
+                    {ganttPolicy === "host_admin_only" && <Check className="w-4 h-4 text-primary" />}
+                  </label>
+
+                  <label
+                    onClick={() => setGanttPolicy("specific_roles")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                      ganttPolicy === "specific_roles"
+                        ? "bg-primary/10 border-primary text-primary font-bold"
+                        : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold">🎓 Specific Roles Only</div>
+                      <div className="text-[11px] font-normal text-text-muted">
+                        Restrict Gantt drag-and-drop & editing to selected roles (e.g. Officers, Admins).
+                      </div>
+                    </div>
+                    {ganttPolicy === "specific_roles" && <Check className="w-4 h-4 text-primary" />}
+                  </label>
+
+                  <label
+                    onClick={() => setGanttPolicy("specific_users")}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                      ganttPolicy === "specific_users"
+                        ? "bg-primary/10 border-primary text-primary font-bold"
+                        : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                    }`}
+                  >
+                    <div>
+                      <div className="font-bold">👤 Specific Individuals (Users) Only</div>
+                      <div className="text-[11px] font-normal text-text-muted">
+                        Pick specific individual members permitted to edit & drag items in Gantt view.
+                      </div>
+                    </div>
+                    {ganttPolicy === "specific_users" && <Check className="w-4 h-4 text-primary" />}
+                  </label>
+                </div>
+
+                {/* Specific Roles Checkboxes */}
+                {ganttPolicy === "specific_roles" && (
+                  <div className="p-3 rounded-xl bg-surface-800/50 border border-border/50 space-y-2">
+                    <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
+                      Select Roles Permitted to Drag & Edit Gantt
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {AVAILABLE_ROLES.map((role) => {
+                        const isChecked = allowedGanttEditorRoles.includes(role.id);
+                        return (
+                          <label
+                            key={`gantt-role-${role.id}`}
+                            onClick={() => toggleGanttRoleSelection(role.id)}
+                            className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                              isChecked
+                                ? "bg-primary/15 border-primary/40 text-primary font-semibold"
+                                : "bg-surface-800/80 border-border/50 text-text-secondary"
+                            }`}
+                          >
+                            <span>{role.label}</span>
+                            {isChecked && <Check className="w-3.5 h-3.5 text-primary" />}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Specific Users Member Picker */}
+                {ganttPolicy === "specific_users" && (
+                  <div className="p-3.5 rounded-xl bg-surface-800/50 border border-border/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
+                        Select Permitted Gantt Editors ({allowedGanttEditorUsers.length})
+                      </label>
+                      <span className="text-[10px] text-text-muted">Search directory to permit users</span>
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search member name..."
+                        className="w-full pl-8 pr-3 py-2 rounded-lg bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    {/* Member Selection List */}
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                      {isLoadingDirectory ? (
+                        <p className="text-xs text-text-muted italic py-3 text-center">Loading members directory...</p>
+                      ) : sortedGanttEditorUsers.length === 0 ? (
+                        <p className="text-xs text-text-muted italic py-3 text-center">No members found.</p>
+                      ) : (
+                        sortedGanttEditorUsers.map((member) => {
+                          const isSelected = allowedGanttEditorUsers.includes(member.id);
+                          return (
+                            <div
+                              key={`gantt-user-${member.id}`}
+                              onClick={() => toggleGanttUserSelection(member.id)}
+                              className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-primary/15 border-primary/40 text-primary font-semibold"
+                                  : "bg-surface-800/70 border-border/50 text-text-secondary hover:bg-surface-800"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <img
+                                  src={member.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=member"}
+                                  alt={member.name}
+                                  className="w-5 h-5 rounded-full border border-border object-cover"
+                                />
+                                <span className="truncate">{member.name}</span>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       )}
