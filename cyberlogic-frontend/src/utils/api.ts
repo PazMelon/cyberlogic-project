@@ -3336,4 +3336,103 @@ export async function reorderCyberboardColumns(
   return res.json();
 }
 
+// CYBERBOARD REALTIME SIDEBAR CHAT API
+export interface CyberboardChatMessage {
+  id: number;
+  board_id: number;
+  user_id: number;
+  content: string;
+  reply_to_id?: number | null;
+  is_pinned?: boolean;
+  pinned_at?: string | null;
+  pinned_by?: number | null;
+  reactions?: { emoji: string; count: number; userIds?: number[] }[] | null;
+  created_at: string;
+  updated_at?: string;
+  user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    avatar_path?: string | null;
+    role?: string;
+    username?: string;
+  };
+  reply_to?: {
+    id: number;
+    user?: { first_name?: string; last_name?: string };
+    content?: string;
+  } | null;
+  pinned_by_user?: {
+    id: number;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  } | null;
+}
+
+export async function fetchCyberboardChatMessages(
+  boardId: number
+): Promise<{ messages: CyberboardChatMessage[]; pinned_messages: CyberboardChatMessage[] }> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/chat/messages`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch board chat messages.");
+  }
+  return res.json();
+}
+
+export async function sendCyberboardChatMessage(
+  boardId: number,
+  content: string,
+  replyToId?: number
+): Promise<CyberboardChatMessage> {
+  const res = await apiRequest(`/api/cyberboard/${boardId}/chat/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content, reply_to_id: replyToId }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || "Failed to send chat message.");
+  }
+  return res.json();
+}
+
+export async function togglePinCyberboardChatMessage(
+  messageId: number
+): Promise<CyberboardChatMessage> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}/pin`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to toggle pin state.");
+  }
+  return res.json();
+}
+
+export async function deleteCyberboardChatMessage(
+  messageId: number
+): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    throw new Error("Failed to delete chat message.");
+  }
+  return res.json();
+}
+
+export async function toggleCyberboardChatMessageReaction(
+  messageId: number,
+  emoji: string
+): Promise<{ message_id: number; reactions: any[] }> {
+  const res = await apiRequest(`/api/cyberboard/chat/messages/${messageId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+  if (!res.ok) {
+    throw new Error("Failed to toggle emoji reaction.");
+  }
+  return res.json();
+}
+
+
 

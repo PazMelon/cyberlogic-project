@@ -15,6 +15,7 @@ import {
   MoreVertical,
   SlidersHorizontal,
   FileSpreadsheet,
+  MessageSquare,
 } from "lucide-react";
 import type { CyberboardBoard } from "../../utils/api";
 
@@ -25,6 +26,9 @@ interface BoardHeaderProps {
   fromTab?: string;
   activeCollaboratorsCount: number;
   showCollaborators: boolean;
+  showChatSidebar?: boolean;
+  onToggleChatSidebar?: () => void;
+  hasUnreadChat?: boolean;
   copiedLink: boolean;
   canManageBoard?: boolean;
   viewMode?: "board" | "gantt";
@@ -46,6 +50,9 @@ export default function BoardHeader({
   fromTab,
   activeCollaboratorsCount,
   showCollaborators,
+  showChatSidebar,
+  onToggleChatSidebar,
+  hasUnreadChat,
   copiedLink,
   canManageBoard,
   viewMode = "board",
@@ -223,6 +230,26 @@ export default function BoardHeader({
               <span className="hidden sm:inline">Roadmap</span>
             </button>
           </div>
+        )}
+
+        {/* Board Chat Button */}
+        {onToggleChatSidebar && (
+          <button
+            type="button"
+            onClick={onToggleChatSidebar}
+            className={`px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              showChatSidebar
+                ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
+                : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
+            }`}
+            title="Toggle Realtime Board Chat Sidebar"
+          >
+            <MessageSquare className="w-4 h-4 flex-shrink-0 text-primary" />
+            <span className="hidden xs:inline">Chat</span>
+            {hasUnreadChat && (
+              <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
+            )}
+          </button>
         )}
 
         {/* Desktop Buttons (Visible on 2xl screens >= 1440px and larger) */}

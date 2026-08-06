@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, Link, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, AlertCircle, Lock, Kanban } from "lucide-react";
 import {
@@ -36,8 +36,10 @@ import ConfigureColumnModal from "../components/cyberboard/ConfigureColumnModal"
 import BoardSettingsModal from "../components/cyberboard/BoardSettingsModal";
 import BoardAuditLogDrawer from "../components/cyberboard/BoardAuditLogDrawer";
 import BoardControlsSidebar from "../components/cyberboard/BoardControlsSidebar";
+import CyberboardChatSidebar from "../components/cyberboard/CyberboardChatSidebar";
 import ConfirmModal from "../components/cyberboard/ConfirmModal";
 import { exportBoardToExcel } from "../utils/exportBoardToExcel";
+import type { CyberboardChatMessage } from "../utils/api";
 
 export default function CyberBoardView() {
   const { boardId } = useParams<{ boardId: string }>();
@@ -81,6 +83,20 @@ export default function CyberBoardView() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showControlsSidebar, setShowControlsSidebar] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const chatParam = searchParams.get("chat");
+  const [showChatSidebar, setShowChatSidebar] = useState(chatParam === "true");
+  const showChatSidebarRef = useRef(showChatSidebar);
+  useEffect(() => {
+    showChatSidebarRef.current = showChatSidebar;
+    if (showChatSidebar) setHasUnreadChat(false);
+  }, [showChatSidebar]);
+
+  const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const [realtimeChatMessage, setRealtimeChatMessage] = useState<CyberboardChatMessage | null>(null);
+  const [realtimePinnedMessage, setRealtimePinnedMessage] = useState<any | null>(null);
+  const [realtimeDeletedMessageId, setRealtimeDeletedMessageId] = useState<number | null>(null);
+  const [realtimeReactionMessage, setRealtimeReactionMessage] = useState<any | null>(null);
   const [viewMode, setViewMode] = useState<"board" | "gantt">("board");
 
   // Transient Realtime Highlighted Item IDs (Auto-expire after 2 seconds)
@@ -137,9 +153,9 @@ export default function CyberBoardView() {
     }
   }, [board?.title]);
 
-  const [searchParams] = useSearchParams();
   const cardParam = searchParams.get("card") || searchParams.get("card_id");
   const fromTab = searchParams.get("fromTab") || undefined;
+  const hasAutoOpenedCardRef = useRef(false);
 
   // Recursive helper to find card by id in nested cards/sub_cards array
   const findCardRecursive = (cardsList: CyberboardCard[], targetId: number): CyberboardCard | null => {
@@ -155,15 +171,22 @@ export default function CyberBoardView() {
 
   // Auto-open card detail modal if opened via notification link with ?card=cardId
   useEffect(() => {
-    if (board && cardParam) {
+    if (board && cardParam && !hasAutoOpenedCardRef.current) {
       const targetCardId = Number(cardParam);
       const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
       const foundCard = findCardRecursive(allBoardCards, targetCardId);
       if (foundCard) {
         setSelectedCard(foundCard);
+        hasAutoOpenedCardRef.current = true;
+
+        // Clean up ?card= parameter from URL address bar so refreshing doesn't re-open card
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("card");
+        newParams.delete("card_id");
+        setSearchParams(newParams, { replace: true });
       }
     }
-  }, [board, cardParam]);
+  }, [board, cardParam, searchParams, setSearchParams]);
 
   // Real-time WebSocket board event handler
   const handleWsBoardEvent = useCallback(
@@ -507,6 +530,15 @@ export default function CyberBoardView() {
         } else {
           loadBoard(true);
         }
+      } else if (type === "chat:message_sent") {
+        setRealtimeChatMessage(payload.message);
+        if (!showChatSidebarRef.current) setHasUnreadChat(true);
+      } else if (type === "chat:message_pinned") {
+        setRealtimePinnedMessage(payload);
+      } else if (type === "chat:message_deleted") {
+        setRealtimeDeletedMessageId(payload.message_id);
+      } else if (type === "chat:reaction_updated") {
+        setRealtimeReactionMessage(payload);
       }
     },
     [user?.id, loadBoard, triggerCardHighlight, triggerColumnHighlight]
@@ -1301,6 +1333,9 @@ export default function CyberBoardView() {
         fromTab={fromTab}
         activeCollaboratorsCount={activeCollaboratorsList.length}
         showCollaborators={showCollaborators}
+        showChatSidebar={showChatSidebar}
+        onToggleChatSidebar={() => setShowChatSidebar((prev) => !prev)}
+        hasUnreadChat={hasUnreadChat}
         showControlsSidebar={showControlsSidebar}
         onToggleControlsSidebar={() => setShowControlsSidebar((prev) => !prev)}
         copiedLink={copiedLink}
@@ -1471,8 +1506,15 @@ export default function CyberBoardView() {
                 }
               : undefined
           }
-          isAdmin={isAdmin}
-          onClose={() => setSelectedCard(null)}
+          onClose={() => {
+            setSelectedCard(null);
+            if (searchParams.has("card") || searchParams.has("card_id")) {
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete("card");
+              newParams.delete("card_id");
+              setSearchParams(newParams, { replace: true });
+            }
+          }}
           onVoteToggle={handleVoteToggle}
           onAddComment={handleAddComment}
           onDeleteComment={(commentId) => handleDeleteComment(selectedCard.id, commentId)}
@@ -1581,6 +1623,20 @@ export default function CyberBoardView() {
               showToast("Excel spreadsheet exported successfully!", "success");
             }
           }}
+        />
+      )}
+
+      {/* CyberBoard Realtime Board Sidebar Chat */}
+      {board && (
+        <CyberboardChatSidebar
+          isOpen={showChatSidebar}
+          onClose={() => setShowChatSidebar(false)}
+          board={board}
+          allUsers={activeCollaboratorsList}
+          realtimeChatMessage={realtimeChatMessage}
+          realtimePinnedMessage={realtimePinnedMessage}
+          realtimeDeletedMessageId={realtimeDeletedMessageId}
+          realtimeReactionMessage={realtimeReactionMessage}
         />
       )}
     </div>
