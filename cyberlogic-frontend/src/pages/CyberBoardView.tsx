@@ -81,6 +81,7 @@ export default function CyberBoardView() {
   const [showBoardSettingsModal, setShowBoardSettingsModal] = useState(false);
   const [showBoardAuditLog, setShowBoardAuditLog] = useState(false);
   const [showMediaVaultModal, setShowMediaVaultModal] = useState(false);
+  const [wasMediaVaultOpenBeforeCard, setWasMediaVaultOpenBeforeCard] = useState(false);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
@@ -1519,6 +1520,10 @@ export default function CyberBoardView() {
           }
           onClose={() => {
             setSelectedCard(null);
+            if (wasMediaVaultOpenBeforeCard) {
+              setShowMediaVaultModal(true);
+              setWasMediaVaultOpenBeforeCard(false);
+            }
             if (searchParams.has("card") || searchParams.has("card_id")) {
               const newParams = new URLSearchParams(searchParams);
               newParams.delete("card");
@@ -1645,11 +1650,18 @@ export default function CyberBoardView() {
         <BoardMediaVaultModal
           boardId={board.id}
           isOpen={showMediaVaultModal}
-          onClose={() => setShowMediaVaultModal(false)}
+          onClose={() => {
+            setShowMediaVaultModal(false);
+            setWasMediaVaultOpenBeforeCard(false);
+          }}
           onSelectCard={(cardId) => {
             const allCards = (board.columns || []).flatMap((c) => c.cards || []);
             const foundCard = allCards.find((c) => c.id === cardId);
-            if (foundCard) setSelectedCard(foundCard);
+            if (foundCard) {
+              setWasMediaVaultOpenBeforeCard(true);
+              setShowMediaVaultModal(false);
+              setSelectedCard(foundCard);
+            }
           }}
           onToast={showToast}
         />
