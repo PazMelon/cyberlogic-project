@@ -139,13 +139,26 @@ export default function CyberBoardView() {
 
   const [searchParams] = useSearchParams();
   const cardParam = searchParams.get("card") || searchParams.get("card_id");
+  const fromTab = searchParams.get("fromTab") || undefined;
+
+  // Recursive helper to find card by id in nested cards/sub_cards array
+  const findCardRecursive = (cardsList: CyberboardCard[], targetId: number): CyberboardCard | null => {
+    for (const c of cardsList) {
+      if (c.id === targetId) return c;
+      if (c.sub_cards && c.sub_cards.length > 0) {
+        const found = findCardRecursive(c.sub_cards, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
 
   // Auto-open card detail modal if opened via notification link with ?card=cardId
   useEffect(() => {
     if (board && cardParam) {
       const targetCardId = Number(cardParam);
       const allBoardCards = (board.columns || []).flatMap((col) => col.cards || []);
-      const foundCard = allBoardCards.find((c) => c.id === targetCardId);
+      const foundCard = findCardRecursive(allBoardCards, targetCardId);
       if (foundCard) {
         setSelectedCard(foundCard);
       }
@@ -1285,6 +1298,7 @@ export default function CyberBoardView() {
         board={board}
         totalCardsCount={totalCardsCount}
         isConnected={isConnected}
+        fromTab={fromTab}
         activeCollaboratorsCount={activeCollaboratorsList.length}
         showCollaborators={showCollaborators}
         showControlsSidebar={showControlsSidebar}

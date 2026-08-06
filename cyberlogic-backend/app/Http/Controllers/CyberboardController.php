@@ -615,7 +615,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -776,6 +776,24 @@ class CyberboardController extends Controller
             'card' => $cardArr,
         ], 'card:updated');
 
+        if (!empty($changeDescItems)) {
+            $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+            $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+            foreach ($notifyUserIds as $notifyId) {
+                if ($notifyId && $notifyId !== $user->id) {
+                    NotificationService::notifyUser(
+                        $notifyId,
+                        'cyberboard_card_updated',
+                        "CyberBoard Task Updated",
+                        "{$user->first_name} updated task '{$card->title}': " . implode(', ', $changeDescItems),
+                        ['board_id' => $boardId, 'card_id' => $card->id],
+                        'edit-3',
+                        "/app/cyberboard/{$boardId}?card={$card->id}"
+                    );
+                }
+            }
+        }
+
         $fullText = ($card->title ?? '') . ' ' . ($card->description ?? '');
         if (str_contains($fullText, '@')) {
             NotificationService::notifyMentions(
@@ -786,7 +804,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in CyberBoard idea '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -970,21 +988,27 @@ class CyberboardController extends Controller
             'activities' => $activities,
         ], 'card:moved');
 
-        if ($fromColumnId !== $toColumnId && $card->user_id !== $user->id) {
-            NotificationService::notifyUser(
-                $card->user_id,
-                'cyberboard_card_moved',
-                "Your idea was moved",
-                "Your suggestion '{$card->title}' was moved to the '{$targetColumn->title}' stage.",
-                [
-                    'board_id' => $boardId,
-                    'card_id' => $card->id,
-                    'column_id' => $toColumnId,
-                    'column_title' => $targetColumn->title,
-                ],
-                'arrow-right-circle',
-                "/app/cyberboard/{$boardId}"
-            );
+        if ($fromColumnId !== $toColumnId) {
+            $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+            $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+            foreach ($notifyUserIds as $notifyId) {
+                if ($notifyId && $notifyId !== $user->id) {
+                    NotificationService::notifyUser(
+                        $notifyId,
+                        'cyberboard_card_moved',
+                        "Task moved stage",
+                        "Task '{$card->title}' was moved to the '{$targetColumn->title}' stage.",
+                        [
+                            'board_id' => $boardId,
+                            'card_id' => $card->id,
+                            'column_id' => $toColumnId,
+                            'column_title' => $targetColumn->title,
+                        ],
+                        'arrow-right-circle',
+                        "/app/cyberboard/{$boardId}?card={$card->id}"
+                    );
+                }
+            }
         }
 
         return response()->json([
@@ -1060,7 +1084,7 @@ class CyberboardController extends Controller
                 "{$user->first_name} liked your suggestion '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'thumbs-up',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
 
@@ -1103,16 +1127,20 @@ class CyberboardController extends Controller
             'comment' => $comment,
         ], 'card:commented');
 
-        if ($card->user_id !== $user->id) {
-            NotificationService::notifyUser(
-                $card->user_id,
-                'cyberboard_comment',
-                "New comment on your idea",
-                "{$user->first_name} commented on '{$card->title}'",
-                ['board_id' => $boardId, 'card_id' => $card->id],
-                'message-square',
-                "/app/cyberboard/{$boardId}"
-            );
+        $assigned = $card->assigned_user_ids ?? ($card->assigned_user_id ? [$card->assigned_user_id] : []);
+        $notifyUserIds = array_unique(array_merge([$card->user_id], $assigned));
+        foreach ($notifyUserIds as $notifyId) {
+            if ($notifyId && $notifyId !== $user->id) {
+                NotificationService::notifyUser(
+                    $notifyId,
+                    'cyberboard_comment',
+                    "New comment on task",
+                    "{$user->first_name} commented on '{$card->title}'",
+                    ['board_id' => $boardId, 'card_id' => $card->id],
+                    'message-square',
+                    "/app/cyberboard/{$boardId}?card={$card->id}"
+                );
+            }
         }
 
         if (str_contains($validated['content'], '@')) {
@@ -1124,20 +1152,9 @@ class CyberboardController extends Controller
                 "{$user->first_name} mentioned you in a comment on '{$card->title}'",
                 ['board_id' => $boardId, 'card_id' => $card->id],
                 'at-sign',
-                "/app/cyberboard/{$boardId}"
+                "/app/cyberboard/{$boardId}?card={$card->id}"
             );
         }
-
-        NotificationService::notifyMentions(
-            $validated['content'],
-            $user,
-            'cyberboard_mention',
-            "Mentioned in CyberBoard",
-            "{$user->first_name} mentioned you in a comment on '{$card->title}'",
-            ['board_id' => $boardId, 'card_id' => $card->id],
-            'at-sign',
-            "/app/cyberboard/{$boardId}"
-        );
 
         return response()->json($comment, 201);
     }

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import {
   ArrowLeft,
   Radio,
@@ -22,6 +22,7 @@ interface BoardHeaderProps {
   board: CyberboardBoard;
   totalCardsCount: number;
   isConnected: boolean;
+  fromTab?: string;
   activeCollaboratorsCount: number;
   showCollaborators: boolean;
   copiedLink: boolean;
@@ -42,6 +43,7 @@ export default function BoardHeader({
   board,
   totalCardsCount,
   isConnected,
+  fromTab,
   activeCollaboratorsCount,
   showCollaborators,
   copiedLink,
@@ -57,7 +59,19 @@ export default function BoardHeader({
   onOpenBoardAuditLog,
   onExportToExcel,
 }: BoardHeaderProps) {
+  const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+
+  const handleBackClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (fromTab) {
+      navigate(`/app/cyberboard?tab=${fromTab}`);
+    } else if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      navigate("/app/cyberboard");
+    }
+  };
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -122,13 +136,20 @@ export default function BoardHeader({
     <div className="bg-surface-900/95 backdrop-blur-md border-b border-border/80 px-3 py-2.5 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 flex-shrink-0 sticky top-0 z-30 shadow-xs h-14 sm:h-16">
       {/* Title & Metadata (Single Line) */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        <Link
-          to="/app/cyberboard"
-          className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all flex-shrink-0"
-          title="Back to All Boards"
+        <button
+          type="button"
+          onClick={handleBackClick}
+          className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all flex-shrink-0 cursor-pointer"
+          title={
+            fromTab === "my"
+              ? "Back to My Boards"
+              : fromTab === "shared"
+              ? "Back to Shared With Me"
+              : "Back to All Boards"
+          }
         >
           <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
-        </Link>
+        </button>
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0 flex-1">
           <h1 className="text-sm sm:text-base font-bold text-text-primary truncate max-w-[160px] sm:max-w-xs md:max-w-sm lg:max-w-md">
