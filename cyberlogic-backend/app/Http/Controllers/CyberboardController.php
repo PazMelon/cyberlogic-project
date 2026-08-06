@@ -87,17 +87,33 @@ class CyberboardController extends Controller
         return $roleAllowed || $userAllowed;
     }
 
-    /**
-     * Get default columns setup for a new board.
-     */
-    private function getDefaultColumns(): array
+    private function getDefaultColumns(string $visibility = 'public', string $type = 'activity'): array
     {
+        if ($visibility === 'private') {
+            return [
+                ['title' => 'Private Backlog', 'icon' => '🔒', 'color' => '#8b5cf6', 'position' => 0, 'status_type' => 'not_started'],
+                ['title' => 'In Progress (Exclusive)', 'icon' => '⚡', 'color' => '#06b6d4', 'position' => 1, 'status_type' => 'in_progress'],
+                ['title' => 'Host Verification', 'icon' => '🛡️', 'color' => '#f59e0b', 'position' => 2, 'status_type' => 'in_progress'],
+                ['title' => 'Completed & Secured', 'icon' => '🏆', 'color' => '#10b981', 'position' => 3, 'status_type' => 'completed'],
+            ];
+        }
+
+        if ($type === 'ideas' || $type === 'brainstorming') {
+            return [
+                ['title' => 'Submitted Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0, 'status_type' => 'not_started'],
+                ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1, 'status_type' => 'in_progress'],
+                ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2, 'status_type' => 'in_progress'],
+                ['title' => 'Implementation', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3, 'status_type' => 'in_progress'],
+                ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4, 'status_type' => 'completed'],
+            ];
+        }
+
         return [
-            ['title' => 'Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0],
-            ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1],
-            ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2],
-            ['title' => 'In Progress', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3],
-            ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4],
+            ['title' => 'Ideas', 'icon' => '💡', 'color' => '#06b6d4', 'position' => 0, 'status_type' => 'not_started'],
+            ['title' => 'Under Review', 'icon' => '📋', 'color' => '#f59e0b', 'position' => 1, 'status_type' => 'in_progress'],
+            ['title' => 'Approved', 'icon' => '✅', 'color' => '#10b981', 'position' => 2, 'status_type' => 'in_progress'],
+            ['title' => 'In Progress', 'icon' => '🚀', 'color' => '#8b5cf6', 'position' => 3, 'status_type' => 'in_progress'],
+            ['title' => 'Completed', 'icon' => '🎉', 'color' => '#ec4899', 'position' => 4, 'status_type' => 'completed'],
         ];
     }
 
@@ -367,9 +383,9 @@ class CyberboardController extends Controller
             'is_archived' => false,
         ]);
 
-        // Auto-seed default 5 columns unless board type is roadmap
+        // Auto-seed default 4-5 columns tailored to board type & visibility unless board type is roadmap
         if (($validated['type'] ?? 'activity') !== 'roadmap') {
-            foreach ($this->getDefaultColumns() as $col) {
+            foreach ($this->getDefaultColumns($board->visibility, $board->type) as $col) {
                 $board->columns()->create($col);
             }
         }
@@ -1987,6 +2003,21 @@ class CyberboardController extends Controller
             'request' => $joinReq,
         ], 'join_request:created');
 
+        $applicantName = trim(($user->first_name ?? '').' '.($user->last_name ?? '')) ?: $user->username;
+
+        // Send in-app notification to Board Host
+        if ($board->created_by && $board->created_by !== $user->id) {
+            NotificationService::notifyUser(
+                $board->created_by,
+                'cyberboard_join_request',
+                "Pending Board Access Request",
+                "{$applicantName} requested access to join private board '{$board->title}'.",
+                ['board_id' => $boardId, 'request_id' => $joinReq->id],
+                'user-plus',
+                "/app/cyberboard/{$boardId}"
+            );
+        }
+
         return response()->json([
             'message' => 'Join request submitted successfully. Awaiting host approval.',
             'request' => $joinReq,
@@ -2064,6 +2095,17 @@ class CyberboardController extends Controller
                 'status' => 'approved',
             ], 'join_request:approved');
 
+            // Send in-app notification to applicant user
+            NotificationService::notifyUser(
+                $joinReq->user_id,
+                'cyberboard_join_approved',
+                "Board Access Approved!",
+                "Your request to join private board '{$board->title}' was approved by the host.",
+                ['board_id' => $boardId],
+                'check-circle',
+                "/app/cyberboard/{$boardId}"
+            );
+
             return response()->json(['message' => 'Join request approved. User added to board.']);
         } else {
             $joinReq->status = 'rejected';
@@ -2073,6 +2115,17 @@ class CyberboardController extends Controller
                 'user_id' => $joinReq->user_id,
                 'status' => 'rejected',
             ], 'join_request:rejected');
+
+            // Send in-app notification to applicant user
+            NotificationService::notifyUser(
+                $joinReq->user_id,
+                'cyberboard_join_rejected',
+                "Board Access Declined",
+                "Your request to join private board '{$board->title}' was declined.",
+                ['board_id' => $boardId],
+                'x-circle',
+                "/app/cyberboard/{$boardId}"
+            );
 
             return response()->json(['message' => 'Join request declined.']);
         }

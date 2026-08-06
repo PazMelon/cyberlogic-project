@@ -159,6 +159,12 @@ export default function CyberBoardView() {
       setBoard(data);
       setPrivateBoardError(null);
 
+      if (inviteTokenParam) {
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete("invite_token");
+        setSearchParams(newParams, { replace: true });
+      }
+
       if (user && (data.created_by === user.id || isAdmin)) {
         fetchCyberboardJoinRequests(data.id)
           .then((reqs) => setPendingRequestsCount(reqs ? reqs.length : 0))
@@ -166,7 +172,16 @@ export default function CyberBoardView() {
       }
     } catch (err: any) {
       console.error("Failed to load board details:", err);
-      if (err.is_private_board || err.status === 403) {
+      const isPrivateErr =
+        err.is_private_board ||
+        err.status === 403 ||
+        (err.message && (
+          err.message.toLowerCase().includes("private") ||
+          err.message.toLowerCase().includes("approval") ||
+          err.message.toLowerCase().includes("invite")
+        ));
+
+      if (isPrivateErr) {
         setPrivateBoardError({
           board_id: numericBoardId,
           board_title: err.board_title || "Private CyberBoard",
@@ -1252,6 +1267,22 @@ export default function CyberBoardView() {
     );
   }
 
+  if (privateBoardError) {
+    return (
+      <PrivateBoardAccessScreen
+        boardId={privateBoardError.board_id}
+        boardTitle={privateBoardError.board_title}
+        hostName={privateBoardError.host_name}
+        hasPendingRequest={privateBoardError.has_pending_request}
+        inviteToken={inviteTokenParam}
+        onSuccessJoined={() => {
+          setPrivateBoardError(null);
+          loadBoard();
+        }}
+      />
+    );
+  }
+
   if (error || !board) {
     return (
       <div className="p-8 max-w-xl mx-auto text-center space-y-4">
@@ -1324,21 +1355,7 @@ export default function CyberBoardView() {
     }),
   ];
 
-  if (privateBoardError) {
-    return (
-      <PrivateBoardAccessScreen
-        boardId={privateBoardError.board_id}
-        boardTitle={privateBoardError.board_title}
-        hostName={privateBoardError.host_name}
-        hasPendingRequest={privateBoardError.has_pending_request}
-        inviteToken={inviteTokenParam}
-        onSuccessJoined={() => {
-          setPrivateBoardError(null);
-          loadBoard();
-        }}
-      />
-    );
-  }
+
 
   return (
     <div
@@ -1634,6 +1651,7 @@ export default function CyberBoardView() {
         <ConfigureColumnModal
           column={selectedColumnToConfigure}
           collaboratorsList={activeCollaboratorsList}
+          boardVisibility={board?.visibility}
           onClose={() => setSelectedColumnToConfigure(null)}
           onSubmit={handleUpdateColumnPermissions}
         />

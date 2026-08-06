@@ -89,7 +89,7 @@ export default function GanttRoadmapView({
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
   const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
-  const [timeScale, setTimeScale] = useState<TimeScaleMode>("month");
+  const [timeScale, setTimeScale] = useState<TimeScaleMode>("week");
   const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);

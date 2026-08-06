@@ -35,10 +35,12 @@ export default function PrivateBoardAccessScreen({
         .then(() => {
           setSuccessText("Invite link validated! Granting board access...");
           setTimeout(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
             onSuccessJoined();
           }, 1200);
         })
         .catch((err) => {
+          window.history.replaceState({}, document.title, window.location.pathname);
           setErrorText(err.message || "Failed to redeem invite link. Token may be expired or already used.");
         })
         .finally(() => {

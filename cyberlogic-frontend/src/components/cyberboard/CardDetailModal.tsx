@@ -5,7 +5,7 @@ import {
   Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare
 } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
-import { uploadCyberboardAttachment } from "../../utils/api";
+import { uploadCyberboardAttachment, getAvatarUrl } from "../../utils/api";
 import { optimizeAndConvertToWebP } from "../../utils/imageOptimizer";
 import { BottomSheet } from "../ui/BottomSheet";
 import MentionTextArea from "../ui/MentionTextArea";
@@ -723,11 +723,9 @@ export default function CardDetailModal({
           <div className="space-y-4">
             {activities.slice(0, auditLogVisibleCount).map((act) => {
               const userName = act.user
-                ? act.user.name || `${act.user.first_name || ""} ${act.user.last_name || ""}`.trim()
+                ? `${act.user.first_name || ""} ${act.user.last_name || ""}`.trim() || act.user.name || act.user.username || "Member"
                 : "Member";
-              const userAvatar =
-                act.user?.avatar ||
-                "https://api.dicebear.com/9.x/avataaars/svg?seed=" + (act.user_id || "user");
+              const userAvatar = getAvatarUrl(act.user?.avatar || (act.user as any)?.avatar_path, userName);
 
               return (
                 <div key={act.id} className="relative pl-5 pb-3 border-l-2 border-border/60 last:border-l-0 space-y-1 group">
@@ -1504,6 +1502,10 @@ export default function CardDetailModal({
               ) : (
                 <>
                   {visibleComments.map((cm) => {
+                    const commenterName = cm.user
+                      ? `${cm.user.first_name || ""} ${cm.user.last_name || ""}`.trim() || cm.user.name || cm.user.username || "Member"
+                      : "Member";
+                    const commenterAvatar = getAvatarUrl(cm.user?.avatar || (cm.user as any)?.avatar_path, commenterName);
                     const canDeleteCm = cm.user_id === currentUserId || isAdmin;
                     return (
                       <div
@@ -1513,11 +1515,11 @@ export default function CardDetailModal({
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <img
-                              src={cm.user?.avatar || "https://api.dicebear.com/9.x/avataaars/svg?seed=user"}
-                              alt={cm.user?.name || "User"}
+                              src={commenterAvatar}
+                              alt={commenterName}
                               className="w-5 h-5 rounded-full border border-border object-cover"
                             />
-                            <span className="text-xs font-bold text-text-primary">{cm.user?.name || "Member"}</span>
+                            <span className="text-xs font-bold text-text-primary">{commenterName}</span>
                             <span className="text-[10px] text-text-muted">{formatDate(cm.created_at)}</span>
                           </div>
 
