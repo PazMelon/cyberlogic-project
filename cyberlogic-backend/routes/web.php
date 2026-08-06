@@ -280,6 +280,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/cyberboard/{boardId}/assets/upload', [CyberboardController::class, 'storeBoardFileAsset']);
     Route::delete('/api/cyberboard/{boardId}/assets/{assetId}', [CyberboardController::class, 'deleteBoardAsset']);
 
+    // CyberBoard Access Requests & Single-Use 6h Invite Endpoints
+    Route::post('/api/cyberboard/{boardId}/request-access', [CyberboardController::class, 'requestAccess']);
+    Route::get('/api/cyberboard/{boardId}/join-requests', [CyberboardController::class, 'getJoinRequests']);
+    Route::post('/api/cyberboard/{boardId}/join-requests/{requestId}/respond', [CyberboardController::class, 'respondJoinRequest']);
+    Route::post('/api/cyberboard/{boardId}/invite-link', [CyberboardController::class, 'generateInviteLink']);
+    Route::post('/api/cyberboard/{boardId}/redeem-invite', [CyberboardController::class, 'redeemInvite']);
+
     // Realtime Chess Game endpoints
     Route::get('/api/chess/games', [ChessController::class, 'index']);
     Route::post('/api/chess/games', [ChessController::class, 'store']);
