@@ -1796,6 +1796,14 @@ class CyberboardController extends Controller
 
         $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
 
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Added link '{$asset->title}' to Board Vault",
+        ]);
+
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'asset' => $asset,
         ], 'asset:created');
@@ -1844,6 +1852,14 @@ class CyberboardController extends Controller
 
         $asset->load(['user:id,first_name,last_name,avatar_path,role,username']);
 
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'created',
+            'description' => "Uploaded {$type} '{$asset->title}' to Board Vault",
+        ]);
+
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'asset' => $asset,
         ], 'asset:created');
@@ -1868,7 +1884,16 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Unauthorized to delete this board asset'], 403);
         }
 
+        $assetTitle = $asset->title;
         $asset->delete();
+
+        CyberboardCardActivity::create([
+            'board_id' => $boardId,
+            'card_id' => null,
+            'user_id' => $user->id,
+            'action' => 'deleted',
+            'description' => "Deleted board vault asset '{$assetTitle}'",
+        ]);
 
         RealtimeService::broadcast("cyberboard:{$boardId}", [
             'asset_id' => $assetId,

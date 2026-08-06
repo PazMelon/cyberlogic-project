@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   X,
   Link2,
@@ -12,6 +12,11 @@ import {
   FolderKanban,
   UploadCloud,
   Sparkles,
+  Layers,
+  Globe,
+  Search,
+  RefreshCw,
+  Info,
 } from "lucide-react";
 import {
   fetchCyberboardBoardAssets,
@@ -21,6 +26,7 @@ import {
   getAvatarUrl,
   type CyberboardBoardAsset,
 } from "../../utils/api";
+import { optimizeAndConvertToWebP, dataUrlToFile } from "../../utils/imageOptimizer";
 import { useWebSocket } from "../../context/WebSocketContext";
 import { BottomSheet } from "../ui/BottomSheet";
 
@@ -32,6 +38,8 @@ interface BoardMediaVaultModalProps {
   onToast?: (msg: string, type: "success" | "error" | "info") => void;
 }
 
+type MainVaultTab = "all" | "card_assets" | "general_assets" | "images" | "links" | "files";
+
 export default function BoardMediaVaultModal({
   boardId,
   isOpen,
@@ -40,7 +48,9 @@ export default function BoardMediaVaultModal({
   onToast,
 }: BoardMediaVaultModalProps) {
   const { subscribe } = useWebSocket();
-  const [activeTab, setActiveTab] = useState<"card_assets" | "general_assets">("card_assets");
+  const [activeTab, setActiveTab] = useState<MainVaultTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [cardAssets, setCardAssets] = useState<CyberboardBoardAsset[]>([]);
   const [generalAssets, setGeneralAssets] = useState<CyberboardBoardAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,10 +65,10 @@ export default function BoardMediaVaultModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | number | null>(null);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -104,6 +114,23 @@ export default function BoardMediaVaultModal({
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const getDomainFavicon = (urlStr: string) => {
+    try {
+      const domain = new URL(urlStr).hostname;
+      return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`;
+    } catch {
+      return null;
+    }
+  };
+
+  const getDomainHost = (urlStr: string) => {
+    try {
+      return new URL(urlStr).hostname.replace(/^www\./, "");
+    } catch {
+      return "web link";
+    }
+  };
+
   const handleAddLinkSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newUrl.trim()) return;
@@ -126,11 +153,29 @@ export default function BoardMediaVaultModal({
   const handleFileUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) return;
+
+    // 10MB File Size Validation
+    const maxSizeBytes = 10 * 1024 * 1024;
+    if (selectedFile.size > maxSizeBytes) {
+      if (onToast) onToast("File size exceeds 10MB limit. Please select a file under 10MB.", "error");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      let fileToUpload = selectedFile;
+      if (selectedFile.type.startsWith("image/") && !selectedFile.type.includes("gif")) {
+        try {
+          const optRes = await optimizeAndConvertToWebP(selectedFile, 0.82, 1600);
+          fileToUpload = dataUrlToFile(optRes.dataUrl, selectedFile.name);
+        } catch (optErr) {
+          console.warn("Client-side image optimization fallback:", optErr);
+        }
+      }
+
       const created = await uploadCyberboardBoardFileAsset(
         boardId,
-        selectedFile,
+        fileToUpload,
         newTitle.trim() || undefined,
         newDescription.trim() || undefined
       );
@@ -157,72 +202,208 @@ export default function BoardMediaVaultModal({
     }
   };
 
+  // Combined Raw Assets
+  const allCombinedAssets = useMemo(() => {
+    return [...generalAssets, ...cardAssets];
+  }, [generalAssets, cardAssets]);
+
+  // Asset Count Metrics
+  const counts = useMemo(() => {
+    const isImg = (a: CyberboardBoardAsset) =>
+      a.type === "image" || (a.url && /\.(gif|jpe?g|png|webp|svg)/i.test(a.url));
+    const isLnk = (a: CyberboardBoardAsset) => a.type === "link" || a.type === "card_link";
+
+    return {
+      all: allCombinedAssets.length,
+      card_assets: cardAssets.length,
+      general_assets: generalAssets.length,
+      images: allCombinedAssets.filter(isImg).length,
+      links: allCombinedAssets.filter(isLnk).length,
+      files: allCombinedAssets.filter((a) => !isImg(a) && !isLnk(a)).length,
+    };
+  }, [allCombinedAssets, cardAssets, generalAssets]);
+
+  // Tab Filtering
+  const tabFilteredAssets = useMemo(() => {
+    const isImg = (a: CyberboardBoardAsset) =>
+      a.type === "image" || (a.url && /\.(gif|jpe?g|png|webp|svg)/i.test(a.url));
+    const isLnk = (a: CyberboardBoardAsset) => a.type === "link" || a.type === "card_link";
+
+    switch (activeTab) {
+      case "card_assets":
+        return cardAssets;
+      case "general_assets":
+        return generalAssets;
+      case "images":
+        return allCombinedAssets.filter(isImg);
+      case "links":
+        return allCombinedAssets.filter(isLnk);
+      case "files":
+        return allCombinedAssets.filter((a) => !isImg(a) && !isLnk(a));
+      case "all":
+      default:
+        return allCombinedAssets;
+    }
+  }, [activeTab, allCombinedAssets, cardAssets, generalAssets]);
+
+  // Live Search Filtering
+  const filteredAssets = useMemo(() => {
+    if (!searchQuery.trim()) return tabFilteredAssets;
+    const q = searchQuery.toLowerCase();
+    return tabFilteredAssets.filter(
+      (asset) =>
+        asset.title.toLowerCase().includes(q) ||
+        (asset.description && asset.description.toLowerCase().includes(q)) ||
+        (asset.card_title && asset.card_title.toLowerCase().includes(q)) ||
+        (asset.url && asset.url.toLowerCase().includes(q))
+    );
+  }, [tabFilteredAssets, searchQuery]);
+
   if (!isOpen) return null;
 
+  const navItems = [
+    {
+      id: "all",
+      label: "All Vault Assets",
+      subtitle: "Combined cards & general board resources",
+      icon: Layers,
+      count: counts.all,
+    },
+    {
+      id: "card_assets",
+      label: "Card Task Resources",
+      subtitle: "Harvested from tasks & comments",
+      icon: Link2,
+      count: counts.card_assets,
+    },
+    {
+      id: "general_assets",
+      label: "General Board Vault",
+      subtitle: "Uploaded directly to board",
+      icon: UploadCloud,
+      count: counts.general_assets,
+    },
+    {
+      id: "images",
+      label: "Images & Visuals",
+      subtitle: "Gallery grid view",
+      icon: ImageIcon,
+      count: counts.images,
+    },
+    {
+      id: "links",
+      label: "Web Bookmarks",
+      subtitle: "Domain favicon cards",
+      icon: Globe,
+      count: counts.links,
+    },
+    {
+      id: "files",
+      label: "Files & Documents",
+      subtitle: "PDFs, docs & attachments",
+      icon: FileText,
+      count: counts.files,
+    },
+  ] as const;
+
+  const getTabHeaderTitle = () => {
+    switch (activeTab) {
+      case "card_assets":
+        return { title: "Card Task Resources", desc: "All links & attachments harvested from task cards" };
+      case "general_assets":
+        return { title: "General Board Vault", desc: "Task-unrelated links & files uploaded to board" };
+      case "images":
+        return { title: "Images & Visual Media", desc: "Visual gallery grid of board pictures & diagrams" };
+      case "links":
+        return { title: "Web Bookmarks & Links", desc: "Web link vault with domain favicons" };
+      case "files":
+        return { title: "Files & Documents", desc: "Documents, spreadsheets & attachments" };
+      case "all":
+      default:
+        return { title: "All Vault Assets", desc: "Complete repository of board resources" };
+    }
+  };
+
+  const headerInfo = getTabHeaderTitle();
+
   const renderContent = () => (
-    <div className="flex flex-col h-full bg-surface-900 text-text-primary overflow-hidden">
-      {/* Vault Header */}
-      <div className="p-4 sm:p-5 border-b border-border/80 flex items-center justify-between gap-3 bg-surface-950/60 flex-shrink-0">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
-            <FolderKanban className="w-5 h-5" />
+    <div className="bg-surface-900 border border-border rounded-3xl max-w-5xl w-full h-[720px] max-h-[92vh] shadow-2xl overflow-hidden flex flex-col md:flex-row">
+      {/* Left Sidebar Navigation Panel */}
+      <div className="w-full md:w-72 bg-surface-900/90 border-b md:border-b-0 md:border-r border-border/80 p-6 flex flex-col justify-between flex-shrink-0">
+        <div>
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <FolderKanban className="w-5 h-5" />
+            </div>
+            <h2 className="text-base font-bold text-text-primary">Media & Links Vault</h2>
+            <span className="text-text-muted hover:text-text-primary cursor-pointer p-0.5" title="Central Board Vault">
+              <Info className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-sm sm:text-base font-bold text-text-primary truncate">
-              Board Media & Links Vault
-            </h2>
-            <p className="text-[11px] text-text-muted truncate">
-              Extracted task resources & general board assets
-            </p>
-          </div>
+          <p className="text-xs text-text-muted leading-relaxed mb-6">
+            Central repository for card attachments, web bookmarks & general board uploads.
+          </p>
+
+          {/* Vertical Sidebar Navigation */}
+          <nav className="space-y-1.5">
+            {navItems.map((item) => {
+              const IconC = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full px-3.5 py-3 rounded-2xl transition-all cursor-pointer flex items-center justify-between text-xs font-semibold ${
+                    isActive
+                      ? "bg-surface-800 text-primary border border-border/60 shadow-xs font-bold"
+                      : "text-text-muted hover:text-text-primary hover:bg-surface-800/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <IconC className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-primary" : "text-text-muted"}`} />
+                    <div className="text-left min-w-0">
+                      <p className="truncate font-semibold">{item.label}</p>
+                      <p className="text-[10px] text-text-muted font-normal truncate">{item.subtitle}</p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full flex-shrink-0 ${
+                      isActive ? "bg-primary/20 text-primary border border-primary/30" : "bg-surface-800 text-text-muted"
+                    }`}
+                  >
+                    {item.count}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="p-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
-          title="Close Vault"
-        >
-          <X className="w-4.5 h-4.5" />
-        </button>
+        {/* Sidebar Footer Stats */}
+        <div className="pt-4 border-t border-border/60 hidden md:block">
+          <div className="flex items-center justify-between text-[11px] text-text-muted">
+            <span>Total Resources</span>
+            <span className="font-bold text-text-primary">{counts.all} Items</span>
+          </div>
+        </div>
       </div>
 
-      {/* Vault Navigation Tabs & Action Controls */}
-      <div className="px-4 py-2.5 border-b border-border/60 bg-surface-950/30 flex items-center justify-between gap-2 flex-shrink-0">
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveTab("card_assets")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "card_assets"
-                ? "bg-primary text-surface-950 font-bold"
-                : "bg-surface-800 text-text-muted hover:text-text-primary"
-            }`}
-          >
-            <Link2 className="w-3.5 h-3.5" />
-            <span>Card Resources ({cardAssets.length})</span>
-          </button>
+      {/* Right Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-900">
+        {/* Main Content Header */}
+        <div className="p-5 border-b border-border/80 bg-surface-950/40 flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-text-primary truncate">{headerInfo.title}</h3>
+            <p className="text-xs text-text-muted truncate">{headerInfo.desc}</p>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("general_assets")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === "general_assets"
-                ? "bg-primary text-surface-950 font-bold"
-                : "bg-surface-800 text-text-muted hover:text-text-primary"
-            }`}
-          >
-            <ImageIcon className="w-3.5 h-3.5" />
-            <span>General Board Vault ({generalAssets.length})</span>
-          </button>
-        </div>
-
-        {activeTab === "general_assets" && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="button"
               onClick={() => setShowAddForm("link")}
-              className="px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Add Link</span>
@@ -230,177 +411,277 @@ export default function BoardMediaVaultModal({
             <button
               type="button"
               onClick={() => setShowAddForm("upload")}
-              className="px-2.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <UploadCloud className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Upload File</span>
             </button>
-          </div>
-        )}
-      </div>
-
-      {/* Add Link / Upload File Form Modals */}
-      {showAddForm === "link" && (
-        <form onSubmit={handleAddLinkSubmit} className="p-4 bg-surface-950/80 border-b border-border/80 space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <Link2 className="w-3.5 h-3.5 text-primary" />
-              <span>Add General Board Link</span>
-            </h3>
             <button
               type="button"
-              onClick={() => setShowAddForm(null)}
-              className="text-text-muted hover:text-text-primary"
+              onClick={onClose}
+              className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+              title="Close Vault"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
+        </div>
 
-          <div className="space-y-2">
+        {/* Live Search & Filter Bar */}
+        <div className="px-5 py-3 border-b border-border/60 bg-surface-950/20 flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
             <input
               type="text"
-              placeholder="Link Title *"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              required
-              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+              placeholder="Search assets by title, domain, or card name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary placeholder:text-text-muted"
             />
-            <input
-              type="url"
-              placeholder="URL (https://...) *"
-              value={newUrl}
-              onChange={(e) => setNewUrl(e.target.value)}
-              required
-              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
-            />
-            <input
-              type="text"
-              placeholder="Description (Optional)"
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
-            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(null)}
-              className="px-3 py-1.5 rounded-xl border border-border text-xs text-text-muted hover:text-text-primary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !newTitle.trim() || !newUrl.trim()}
-              className="px-4 py-1.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light disabled:opacity-50"
-            >
-              {isSubmitting ? "Adding..." : "Add Link"}
-            </button>
-          </div>
-        </form>
-      )}
+          <button
+            type="button"
+            onClick={() => loadAssets()}
+            className="p-2 rounded-xl border border-border text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+            title="Refresh Vault Assets"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-primary" : ""}`} />
+          </button>
+        </div>
 
-      {showAddForm === "upload" && (
-        <form onSubmit={handleFileUploadSubmit} className="p-4 bg-surface-950/80 border-b border-border/80 space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <UploadCloud className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Upload General File / Image</span>
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowAddForm(null)}
-              className="text-text-muted hover:text-text-primary"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="space-y-2">
-            <input
-              type="file"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              required
-              className="w-full text-xs text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-500/20 file:text-emerald-300 hover:file:bg-emerald-500/30 cursor-pointer"
-            />
-            <input
-              type="text"
-              placeholder="Title (Optional)"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
-            />
-            <input
-              type="text"
-              placeholder="Description (Optional)"
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(null)}
-              className="px-3 py-1.5 rounded-xl border border-border text-xs text-text-muted hover:text-text-primary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !selectedFile}
-              className="px-4 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {isSubmitting ? "Uploading..." : "Upload File"}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Main Asset Grid / List */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-        {isLoading ? (
-          <div className="py-12 text-center space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
-            <p className="text-xs text-text-muted">Loading vault assets...</p>
-          </div>
-        ) : error ? (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center space-y-2">
-            <p>{error}</p>
-            <button
-              type="button"
-              onClick={() => loadAssets()}
-              className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold cursor-pointer"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : activeTab === "card_assets" ? (
-          cardAssets.length === 0 ? (
-            <div className="py-12 text-center space-y-2">
-              <Sparkles className="w-8 h-8 text-text-muted mx-auto opacity-50" />
-              <p className="text-xs font-semibold text-text-secondary">No task links or attachments found yet.</p>
-              <p className="text-[11px] text-text-muted">Add attachments or web links inside task cards to see them harvested here automatically.</p>
+        {/* Add Link Form */}
+        {showAddForm === "link" && (
+          <form onSubmit={handleAddLinkSubmit} className="p-4 bg-surface-950/90 border-b border-border/80 space-y-3 animate-in fade-in flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-primary" />
+                <span>Add General Board Link</span>
+              </h4>
+              <button type="button" onClick={() => setShowAddForm(null)} className="text-text-muted hover:text-text-primary">
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {cardAssets.map((asset) => {
-                const isImage = /\.(gif|jpe?g|png|webp|svg)/i.test(asset.url);
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <input
+                type="text"
+                placeholder="Link Title *"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                required
+                className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+              />
+              <input
+                type="url"
+                placeholder="URL (https://...) *"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                required
+                className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Description (Optional)"
+              value={newDescription}
+              onChange={(e) => setNewDescription(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowAddForm(null)} className="px-3 py-1.5 rounded-xl border border-border text-xs text-text-muted hover:text-text-primary">
+                Cancel
+              </button>
+              <button type="submit" disabled={isSubmitting || !newTitle.trim() || !newUrl.trim()} className="px-4 py-1.5 rounded-xl bg-primary text-surface-950 font-bold text-xs hover:bg-primary-light disabled:opacity-50">
+                {isSubmitting ? "Adding..." : "Add Link"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Upload File Form (Max 10MB) */}
+        {showAddForm === "upload" && (
+          <form onSubmit={handleFileUploadSubmit} className="p-4 bg-surface-950/90 border-b border-border/80 space-y-3 animate-in fade-in flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <UploadCloud className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Upload General File / Image (Max 10MB)</span>
+              </h4>
+              <button type="button" onClick={() => setShowAddForm(null)} className="text-text-muted hover:text-text-primary">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <input
+                type="file"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                required
+                className="w-full text-xs text-text-secondary file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-500/20 file:text-emerald-300 hover:file:bg-emerald-500/30 cursor-pointer"
+              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Title (Optional)"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+                />
+                <input
+                  type="text"
+                  placeholder="Description (Optional)"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border/60 text-xs text-text-primary focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowAddForm(null)} className="px-3 py-1.5 rounded-xl border border-border text-xs text-text-muted hover:text-text-primary">
+                Cancel
+              </button>
+              <button type="submit" disabled={isSubmitting || !selectedFile} className="px-4 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-50">
+                {isSubmitting ? "Compressing & Uploading..." : "Upload File"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {isLoading ? (
+            <div className="py-16 text-center space-y-3">
+              <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
+              <p className="text-xs text-text-muted">Loading board vault resources...</p>
+            </div>
+          ) : error ? (
+            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs text-center space-y-2">
+              <p>{error}</p>
+              <button type="button" onClick={() => loadAssets()} className="px-3 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold cursor-pointer">
+                Try Again
+              </button>
+            </div>
+          ) : filteredAssets.length === 0 ? (
+            <div className="py-16 text-center space-y-2">
+              <Sparkles className="w-8 h-8 text-text-muted mx-auto opacity-50" />
+              <p className="text-xs font-semibold text-text-secondary">No items found matching criteria.</p>
+              <p className="text-[11px] text-text-muted">Try clearing search query or uploading a file above.</p>
+            </div>
+          ) : activeTab === "images" ? (
+            /* Dedicated Image Thumbnail Grid Mode */
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {filteredAssets.map((asset) => {
+                const authorAvatar = getAvatarUrl(asset.user?.avatar || asset.user?.avatar_path, asset.user?.first_name || "User");
                 return (
                   <div
                     key={asset.id}
-                    className="p-3 rounded-2xl bg-surface-800/60 border border-border/60 hover:bg-surface-800 transition-all flex flex-col justify-between gap-2.5 group"
+                    className="group rounded-2xl bg-surface-800/80 border border-border/60 overflow-hidden flex flex-col hover:border-primary/50 transition-all shadow-md"
                   >
-                    <div className="flex items-start gap-2.5 min-w-0">
+                    <div className="relative aspect-[4/3] bg-surface-950 overflow-hidden">
+                      <img src={asset.url} alt={asset.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      <div className="absolute inset-0 bg-surface-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <a
+                          href={asset.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-2 rounded-xl bg-surface-900/90 text-text-primary hover:text-primary transition-colors shadow-lg"
+                          title="View Fullsize Image"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyLink(asset.url, asset.id)}
+                          className="p-2 rounded-xl bg-surface-900/90 text-text-primary hover:text-primary transition-colors shadow-lg cursor-pointer"
+                          title="Copy Image URL"
+                        >
+                          {copiedId === asset.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 space-y-1.5 flex-1 flex flex-col justify-between">
+                      <p className="text-xs font-bold text-text-primary truncate" title={asset.title}>
+                        {asset.title}
+                      </p>
+                      <div className="flex items-center justify-between gap-1 pt-1 border-t border-border/40 text-[10px] text-text-muted">
+                        {asset.card_id && onSelectCard ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectCard(asset.card_id!)}
+                            className="text-primary hover:underline font-semibold truncate"
+                            title="Jump to card"
+                          >
+                            Card: {asset.card_title}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1 min-w-0">
+                            <img src={authorAvatar} alt="User" className="w-3.5 h-3.5 rounded-full object-cover" />
+                            <span className="truncate">{asset.user_name || "General"}</span>
+                          </div>
+                        )}
+
+                        {asset.user_id && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            className="text-rose-400 hover:text-rose-300 p-0.5 cursor-pointer"
+                            title="Delete image"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Standard Vault Card Grid */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {filteredAssets.map((asset) => {
+                const isImage = asset.type === "image" || (asset.url && /\.(gif|jpe?g|png|webp|svg)/i.test(asset.url));
+                const isLink = asset.type === "link" || asset.type === "card_link";
+                const domainFavicon = isLink ? getDomainFavicon(asset.url) : null;
+                const domainHost = isLink ? getDomainHost(asset.url) : null;
+                const authorAvatar = getAvatarUrl(asset.user?.avatar || asset.user?.avatar_path, asset.user?.first_name || asset.user_name || "User");
+
+                return (
+                  <div
+                    key={asset.id}
+                    className="p-3.5 rounded-2xl bg-surface-800/60 border border-border/60 hover:bg-surface-800 transition-all flex flex-col justify-between gap-3 group"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
                       {isImage ? (
-                        <div className="w-10 h-10 rounded-xl bg-surface-950 border border-border/60 overflow-hidden flex-shrink-0">
+                        <div className="w-12 h-12 rounded-xl bg-surface-950 border border-border/60 overflow-hidden flex-shrink-0">
                           <img src={asset.url} alt={asset.title} className="w-full h-full object-cover" />
                         </div>
+                      ) : isLink ? (
+                        <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 w-12 h-12">
+                          {domainFavicon ? (
+                            <img
+                              src={domainFavicon}
+                              alt={domainHost || "domain"}
+                              className="w-6 h-6 rounded-md object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <Link2 className="w-5 h-5 text-primary" />
+                          )}
+                        </div>
                       ) : (
-                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 flex-shrink-0">
-                          <Link2 className="w-4 h-4" />
+                        <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0 w-12 h-12 flex items-center justify-center">
+                          <FileText className="w-5 h-5" />
                         </div>
                       )}
 
@@ -408,21 +689,35 @@ export default function BoardMediaVaultModal({
                         <p className="text-xs font-bold text-text-primary truncate group-hover:text-primary transition-colors" title={asset.title}>
                           {asset.title}
                         </p>
-                        <p className="text-[11px] text-text-muted truncate">
-                          Card: <span className="text-text-secondary font-semibold">{asset.card_title}</span>
-                        </p>
+
+                        {domainHost && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded-md bg-surface-950 text-text-muted text-[10px] font-semibold border border-border/40">
+                            {domainHost}
+                          </span>
+                        )}
+
+                        {asset.card_title && (
+                          <p className="text-[11px] text-text-muted truncate mt-0.5">
+                            Card: <span className="text-text-secondary font-semibold">{asset.card_title}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
-                      <span className="text-[10px] text-text-muted truncate">By {asset.user_name}</span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <img src={authorAvatar} alt="User" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
+                        <span className="text-[10px] text-text-muted truncate">
+                          {asset.user ? `${asset.user.first_name || ""} ${asset.user.last_name || ""}`.trim() || asset.user.username : asset.user_name || "Member"}
+                        </span>
+                      </div>
+
                       <div className="flex items-center gap-1">
                         {asset.card_id && onSelectCard && (
                           <button
                             type="button"
                             onClick={() => {
                               onSelectCard(asset.card_id!);
-                              onClose();
                             }}
                             className="px-2 py-1 rounded-lg bg-surface-700 hover:bg-primary/20 text-text-secondary hover:text-primary text-[10px] font-semibold transition-all cursor-pointer"
                             title="Jump to Card"
@@ -447,93 +742,32 @@ export default function BoardMediaVaultModal({
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
+                        {asset.user_id && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAsset(asset.id)}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors cursor-pointer"
+                            title="Delete Asset"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
-          )
-        ) : generalAssets.length === 0 ? (
-          <div className="py-12 text-center space-y-2">
-            <FolderKanban className="w-8 h-8 text-text-muted mx-auto opacity-50" />
-            <p className="text-xs font-semibold text-text-secondary">No general board media or links added yet.</p>
-            <p className="text-[11px] text-text-muted">Click "Add Link" or "Upload File" above to attach board-level resources.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {generalAssets.map((asset) => {
-              const isImage = asset.type === "image" || /\.(gif|jpe?g|png|webp|svg)/i.test(asset.url);
-              const authorAvatar = getAvatarUrl(asset.user?.avatar || asset.user?.avatar_path, asset.user?.first_name || "User");
-              return (
-                <div
-                  key={asset.id}
-                  className="p-3 rounded-2xl bg-surface-800/60 border border-border/60 hover:bg-surface-800 transition-all flex flex-col justify-between gap-2.5 group"
-                >
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    {isImage ? (
-                      <div className="w-10 h-10 rounded-xl bg-surface-950 border border-border/60 overflow-hidden flex-shrink-0">
-                        <img src={asset.url} alt={asset.title} className="w-full h-full object-cover" />
-                      </div>
-                    ) : (
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
-                        {asset.type === "link" ? <Link2 className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
-                      </div>
-                    )}
+          )}
+        </div>
 
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-text-primary truncate group-hover:text-emerald-400 transition-colors" title={asset.title}>
-                        {asset.title}
-                      </p>
-                      {asset.description && (
-                        <p className="text-[11px] text-text-muted line-clamp-1" title={asset.description}>
-                          {asset.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/40">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <img src={authorAvatar} alt="User" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />
-                      <span className="text-[10px] text-text-muted truncate">
-                        {asset.user ? `${asset.user.first_name || ""} ${asset.user.last_name || ""}`.trim() || asset.user.username : "Member"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleCopyLink(asset.url, asset.id)}
-                        className="p-1.5 rounded-lg hover:bg-surface-700 text-text-muted hover:text-text-primary transition-colors cursor-pointer"
-                        title="Copy Link"
-                      >
-                        {copiedId === asset.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                      <a
-                        href={asset.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-surface-700 text-text-muted hover:text-text-primary transition-colors"
-                        title="Open Asset"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAsset(asset.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors cursor-pointer"
-                        title="Delete Asset"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* Content Area Footer */}
+        <div className="px-5 py-3 border-t border-border/60 bg-surface-950/40 flex items-center justify-between text-xs text-text-muted flex-shrink-0">
+          <span>Showing <strong className="text-text-primary">{filteredAssets.length}</strong> of {counts.all} items</span>
+          {searchQuery && (
+            <span className="text-[11px] text-primary font-semibold">Filtered by "{searchQuery}"</span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -541,16 +775,14 @@ export default function BoardMediaVaultModal({
   if (isMobile) {
     return (
       <BottomSheet isOpen={true} onClose={onClose} contentPaddingClass="p-0">
-        <div className="h-[80vh]">{renderContent()}</div>
+        <div className="h-[85vh] overflow-hidden flex flex-col">{renderContent()}</div>
       </BottomSheet>
     );
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface-900 border border-border rounded-3xl max-w-4xl w-full h-[650px] max-h-[90vh] shadow-2xl overflow-hidden">
-        {renderContent()}
-      </div>
+      {renderContent()}
     </div>
   );
 }
