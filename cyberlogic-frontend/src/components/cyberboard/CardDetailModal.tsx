@@ -809,6 +809,7 @@ export default function CardDetailModal({
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
+                  maxLength={200}
                   required
                   className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-sm font-semibold text-text-primary focus:border-primary focus:outline-none transition-all"
                   placeholder="Task title..."
@@ -822,6 +823,7 @@ export default function CardDetailModal({
                 <textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
+                  maxLength={2000}
                   className="w-full flex-1 min-h-[200px] p-3.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none resize-none transition-all scrollbar-thin"
                   placeholder="Provide detailed context, instructions, or sub-task notes..."
                 />
@@ -1465,6 +1467,7 @@ export default function CardDetailModal({
               <MentionTextArea
                 value={newComment}
                 onValueChange={setNewComment}
+                maxLength={1000}
                 allowedUserIds={
                   boardVisibility === "private"
                     ? [

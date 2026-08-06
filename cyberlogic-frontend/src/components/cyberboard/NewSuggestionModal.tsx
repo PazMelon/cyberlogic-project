@@ -256,6 +256,7 @@ export default function NewSuggestionModal({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={copy.titlePlaceholder}
+          maxLength={200}
           required
           className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium"
         />
@@ -270,6 +271,7 @@ export default function NewSuggestionModal({
           value={description}
           onValueChange={setDescription}
           placeholder={copy.descPlaceholder}
+          maxLength={2000}
           rows={3}
           className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium resize-y min-h-[90px] leading-relaxed shadow-xs"
         />

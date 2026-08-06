@@ -101,6 +101,7 @@ export default function GanttRoadmapView({
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
 
   const handleRemoveDependency = async (targetCardId: number, fromCardId: number) => {
+    if (!canEditGantt) return;
     const allCards = columns.flatMap((col) => col.cards || []);
     const targetCard = allCards.find((c) => c.id === targetCardId);
     if (!targetCard) return;
@@ -2146,16 +2147,18 @@ export default function GanttRoadmapView({
                                       </div>
                                     )}
 
-                                    {/* Interactive Dependency Connector Handle Dot (Restored) */}
-                                    <div
-                                      draggable={false}
-                                      onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                      onMouseDown={(e) => handleLinkDragStart(e, card.id)}
-                                      className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
-                                      title="Click & drag to link predecessor dependency"
-                                    >
-                                      <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
-                                    </div>
+                                    {/* Interactive Dependency Connector Handle Dot */}
+                                    {canEditGantt && (
+                                      <div
+                                        draggable={false}
+                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                        onMouseDown={(e) => handleLinkDragStart(e, card.id)}
+                                        className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                        title="Click & drag to link predecessor dependency"
+                                      >
+                                        <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
+                                      </div>
+                                    )}
                                   </div>
                               )}
                             </div>
@@ -2270,16 +2273,18 @@ export default function GanttRoadmapView({
                                             </div>
                                           )}
 
-                                           {/* Subcard Interactive Dependency Connector Handle Dot (Restored) */}
-                                           <div
-                                             draggable={false}
-                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                             onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
-                                             className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
-                                             title="Click & drag to link predecessor dependency"
-                                           >
-                                             <div className="w-1 h-1 rounded-full bg-surface-950" />
-                                           </div>
+                                           {/* Subcard Interactive Dependency Connector Handle Dot */}
+                                            {canEditGantt && (
+                                              <div
+                                                draggable={false}
+                                                onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
+                                                className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                                title="Click & drag to link predecessor dependency"
+                                              >
+                                                <div className="w-1 h-1 rounded-full bg-surface-950" />
+                                              </div>
+                                            )}
                                         </div>
                                     )}
                                   </div>

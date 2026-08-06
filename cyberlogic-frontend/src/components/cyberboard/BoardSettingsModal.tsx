@@ -259,6 +259,7 @@ export default function BoardSettingsModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              maxLength={150}
               required
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all"
               placeholder="e.g. Q3 Hackathon Planning"
@@ -272,6 +273,7 @@ export default function BoardSettingsModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              maxLength={1000}
               rows={3}
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all resize-none"
               placeholder="Describe the purpose of this board..."

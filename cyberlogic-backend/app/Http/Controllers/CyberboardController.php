@@ -883,7 +883,8 @@ class CyberboardController extends Controller
         }
 
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
-        if ($card->user_id !== $user->id && !$isAdmin) {
+        $isHost = $card->column && $card->column->board && $card->column->board->created_by === $user->id;
+        if ($card->user_id !== $user->id && !$isAdmin && !$isHost) {
             return response()->json(['message' => 'Unauthorized action'], 403);
         }
 
@@ -1004,6 +1005,49 @@ class CyberboardController extends Controller
                 return response()->json([
                     'message' => 'You do not have permission to move cards into this column.'
                 ], 403);
+            }
+        }
+
+        // Check Predecessor Task Completion Restriction
+        $predecessorIds = $card->predecessor_ids && count($card->predecessor_ids) > 0
+            ? $card->predecessor_ids
+            : ($card->predecessor_id ? [$card->predecessor_id] : []);
+
+        if (!empty($predecessorIds)) {
+            $lastColPosition = CyberboardColumn::where('board_id', $targetColumn->board_id)->max('position') ?? 0;
+            $isTargetDoneOrProgress = $targetColumn->status_type === 'completed' ||
+                $targetColumn->status_type === 'in_progress' ||
+                str_contains(strtolower($targetColumn->title), 'done') ||
+                str_contains(strtolower($targetColumn->title), 'complete') ||
+                str_contains(strtolower($targetColumn->title), 'progress') ||
+                ($targetColumn->position === $lastColPosition && $lastColPosition > 0);
+
+            if ($isTargetDoneOrProgress) {
+                $allBoardCards = CyberboardCard::whereIn('column_id', CyberboardColumn::where('board_id', $targetColumn->board_id)->pluck('id'))->get();
+                $incompletePredecessors = [];
+
+                foreach ($predecessorIds as $predId) {
+                    $predCard = $allBoardCards->firstWhere('id', $predId);
+                    if ($predCard) {
+                        $predColumn = CyberboardColumn::find($predCard->column_id);
+                        $isPredDone = $predColumn && (
+                            $predColumn.status_type === 'completed' ||
+                            str_contains(strtolower($predColumn->title), 'done') ||
+                            str_contains(strtolower($predColumn->title), 'complete') ||
+                            ($predColumn->position === $lastColPosition && $lastColPosition > 0)
+                        );
+                        if (!$isPredDone) {
+                            $incompletePredecessors[] = $predCard->title;
+                        }
+                    }
+                }
+
+                if (!empty($incompletePredecessors)) {
+                    $predTitles = implode("', '", $incompletePredecessors);
+                    return response()->json([
+                        'message' => "Cannot move '{$card->title}': Predecessor task(s) '{$predTitles}' must be completed first."
+                    ], 422);
+                }
             }
         }
 
@@ -1643,6 +1687,12 @@ class CyberboardController extends Controller
             return response()->json(['message' => 'Access Denied'], 403);
         }
 
+        $isHost = $board && $board->created_by === $user->id;
+        $isAdmin = in_array($user->role, ['admin', 'superadmin']);
+        if (!$isHost && !$isAdmin) {
+            return response()->json(['message' => 'Only the board host or an admin can pin messages.'], 403);
+        }
+
         $newPinnedState = !$chatMsg->is_pinned;
         $chatMsg->is_pinned = $newPinnedState;
         $chatMsg->pinned_at = $newPinnedState ? now() : null;
@@ -1851,6 +1901,10 @@ class CyberboardController extends Controller
         $user = \Illuminate\Support\Facades\Auth::user();
         $board = CyberboardBoard::findOrFail($boardId);
 
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to add link assets to this board.'], 403);
+        }
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'url' => 'required|url|max:2000',
@@ -1891,6 +1945,10 @@ class CyberboardController extends Controller
     {
         $user = \Illuminate\Support\Facades\Auth::user();
         $board = CyberboardBoard::findOrFail($boardId);
+
+        if (!$this->canUserViewBoard($board, $user)) {
+            return response()->json(['message' => 'Unauthorized to upload assets to this board.'], 403);
+        }
 
         $request->validate([
             'file' => 'required|file|max:20480',

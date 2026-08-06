@@ -324,6 +324,7 @@ export default function BoardColumn({
               card={card}
               boardType={boardType}
               currentUserId={currentUserId}
+              boardHostId={boardHostId}
               isAdmin={isAdmin}
               isHighlighted={highlightedCardIds?.has(card.id)}
               isDraggable={isAllowedToDrop}
