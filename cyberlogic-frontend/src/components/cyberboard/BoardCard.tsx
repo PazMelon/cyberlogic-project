@@ -10,6 +10,7 @@ interface BoardCardProps {
   currentUserId?: number;
   isAdmin?: boolean;
   isHighlighted?: boolean;
+  isDraggable?: boolean;
   onCardClick: (card: CyberboardCard) => void;
   onVoteToggle: (cardId: number, e: React.MouseEvent) => void;
   onDelete?: (cardId: number, e: React.MouseEvent) => void;
@@ -23,6 +24,7 @@ export default function BoardCard({
   currentUserId,
   isAdmin,
   isHighlighted = false,
+  isDraggable = true,
   onCardClick,
   onVoteToggle,
   onDelete,
@@ -40,6 +42,10 @@ export default function BoardCard({
   };
 
   const handleDragStart = (e: React.DragEvent) => {
+    if (!isDraggable) {
+      e.preventDefault();
+      return;
+    }
     e.stopPropagation();
     e.dataTransfer.setData("text/plain", card.id.toString());
     e.dataTransfer.effectAllowed = "move";
@@ -49,6 +55,7 @@ export default function BoardCard({
   };
 
   const handleDragEnd = (e: React.DragEvent) => {
+    if (!isDraggable) return;
     e.stopPropagation();
     if (onDragEnd) {
       onDragEnd(e, card);
@@ -71,13 +78,13 @@ export default function BoardCard({
 
   return (
     <div
-      draggable
+      draggable={isDraggable}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onClick={() => onCardClick(card)}
-      className={`group relative bg-surface-800/80 hover:bg-surface-800 border border-border/80 hover:border-primary/40 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:shadow-primary/5 transition-all duration-200 cursor-grab active:cursor-grabbing space-y-3 ${
-        isHighlighted ? "animate-realtime-glow" : ""
-      }`}
+      className={`group relative bg-surface-800/80 hover:bg-surface-800 border border-border/80 hover:border-primary/40 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:shadow-primary/5 transition-all duration-200 space-y-3 ${
+        isDraggable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"
+      } ${isHighlighted ? "animate-realtime-glow" : ""}`}
       style={{
         borderLeftColor: card.color_tag || undefined,
         borderLeftWidth: card.color_tag ? "4px" : undefined,

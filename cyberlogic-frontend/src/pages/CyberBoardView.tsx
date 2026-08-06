@@ -564,16 +564,38 @@ export default function CyberBoardView() {
 
     if (!targetCard || fromColId === targetColId) return;
 
+    const sourceColumn = board.columns.find((c) => c.id === fromColId);
     const targetColumn = board.columns.find((c) => c.id === targetColId);
 
-    if (targetColumn) {
-      const isHost = board.created_by === user?.id;
-      const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+    const isHost = board.created_by === user?.id;
+    const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+
+    // Validate Source Column permissions (Moving Out)
+    if (sourceColumn && !isHost && !isAdmin) {
+      const srcAllowedRoles = sourceColumn.allowed_roles || [];
+      const srcAllowedUsers = sourceColumn.allowed_users || [];
+      const srcHasRestriction = srcAllowedRoles.length > 0 || srcAllowedUsers.length > 0;
+
+      if (srcHasRestriction) {
+        const roleAllowed = srcAllowedRoles.includes(user?.role || "");
+        const userAllowed = user?.id ? srcAllowedUsers.includes(user.id) : false;
+        if (!roleAllowed && !userAllowed) {
+          showToast(
+            `Permission Denied: You do not have permission to move cards out of '${sourceColumn.title}'.`,
+            "error"
+          );
+          return;
+        }
+      }
+    }
+
+    // Validate Target Column permissions (Moving In)
+    if (targetColumn && !isHost && !isAdmin) {
       const allowedRoles = targetColumn.allowed_roles || [];
       const allowedUsers = targetColumn.allowed_users || [];
       const hasRestriction = allowedRoles.length > 0 || allowedUsers.length > 0;
 
-      if (hasRestriction && !isHost && !isAdmin) {
+      if (hasRestriction) {
         const roleAllowed = allowedRoles.includes(user?.role || "");
         const userAllowed = user?.id ? allowedUsers.includes(user.id) : false;
         if (!roleAllowed && !userAllowed) {

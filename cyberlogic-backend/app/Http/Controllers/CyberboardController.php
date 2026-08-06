@@ -868,9 +868,27 @@ class CyberboardController extends Controller
         $isHost = $board && $board->created_by === $user->id;
         $isAdmin = in_array($user->role, ['admin', 'superadmin']);
 
+        // Check Source Column Permission (Moving Out)
+        $sourceColumn = $card->column;
+        if ($sourceColumn && $fromColumnId !== $toColumnId && !$isHost && !$isAdmin) {
+            $srcAllowedRoles = $sourceColumn->allowed_roles;
+            $srcAllowedUsers = $sourceColumn->allowed_users;
+            $srcHasRestriction = (!empty($srcAllowedRoles)) || (!empty($srcAllowedUsers));
+
+            if ($srcHasRestriction) {
+                $roleAllowed = !empty($srcAllowedRoles) && in_array($user->role, $srcAllowedRoles);
+                $userAllowed = !empty($srcAllowedUsers) && in_array($user->id, $srcAllowedUsers);
+                if (!$roleAllowed && !$userAllowed) {
+                    return response()->json([
+                        'message' => 'You do not have permission to move cards out of this column.'
+                    ], 403);
+                }
+            }
+        }
+
+        // Check Target Column Permission (Moving In)
         $allowedRoles = $targetColumn->allowed_roles;
         $allowedUsers = $targetColumn->allowed_users;
-
         $hasRestriction = (!empty($allowedRoles)) || (!empty($allowedUsers));
 
         if ($hasRestriction && !$isHost && !$isAdmin) {

@@ -326,6 +326,7 @@ export default function BoardColumn({
               currentUserId={currentUserId}
               isAdmin={isAdmin}
               isHighlighted={highlightedCardIds?.has(card.id)}
+              isDraggable={isAllowedToDrop}
               onCardClick={onCardClick}
               onVoteToggle={onVoteToggle}
               onDelete={onDeleteCard}
