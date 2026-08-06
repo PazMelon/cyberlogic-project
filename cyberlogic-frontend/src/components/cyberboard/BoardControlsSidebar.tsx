@@ -43,7 +43,7 @@ export default function BoardControlsSidebar({
   const collaborators = Object.values(boardPresenceUsers);
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 z-50 w-80 sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
       {/* Drawer Header */}
       <div className="h-16 px-5 border-b border-border/80 flex items-center justify-between bg-surface-900/90 backdrop-blur-md">
         <div className="flex items-center gap-2">

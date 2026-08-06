@@ -89,10 +89,14 @@ export default function CyberBoardView() {
   const showChatSidebarRef = useRef(showChatSidebar);
   useEffect(() => {
     showChatSidebarRef.current = showChatSidebar;
-    if (showChatSidebar) setHasUnreadChat(false);
+    if (showChatSidebar) {
+      setHasUnreadChat(false);
+      setUnreadChatCount(0);
+    }
   }, [showChatSidebar]);
 
   const [hasUnreadChat, setHasUnreadChat] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [realtimeChatMessage, setRealtimeChatMessage] = useState<CyberboardChatMessage | null>(null);
   const [realtimePinnedMessage, setRealtimePinnedMessage] = useState<any | null>(null);
   const [realtimeDeletedMessageId, setRealtimeDeletedMessageId] = useState<number | null>(null);
@@ -532,7 +536,11 @@ export default function CyberBoardView() {
         }
       } else if (type === "chat:message_sent") {
         setRealtimeChatMessage(payload.message);
-        if (!showChatSidebarRef.current) setHasUnreadChat(true);
+        const msgAuthorId = payload.message?.user_id || payload.message?.user?.id;
+        if (!showChatSidebarRef.current && msgAuthorId && Number(msgAuthorId) !== Number(user?.id)) {
+          setHasUnreadChat(true);
+          setUnreadChatCount((prev) => prev + 1);
+        }
       } else if (type === "chat:message_pinned") {
         setRealtimePinnedMessage(payload);
       } else if (type === "chat:message_deleted") {
@@ -1336,6 +1344,7 @@ export default function CyberBoardView() {
         showChatSidebar={showChatSidebar}
         onToggleChatSidebar={() => setShowChatSidebar((prev) => !prev)}
         hasUnreadChat={hasUnreadChat}
+        unreadChatCount={unreadChatCount}
         showControlsSidebar={showControlsSidebar}
         onToggleControlsSidebar={() => setShowControlsSidebar((prev) => !prev)}
         copiedLink={copiedLink}

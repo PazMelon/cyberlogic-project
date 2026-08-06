@@ -29,6 +29,7 @@ interface BoardHeaderProps {
   showChatSidebar?: boolean;
   onToggleChatSidebar?: () => void;
   hasUnreadChat?: boolean;
+  unreadChatCount?: number;
   copiedLink: boolean;
   canManageBoard?: boolean;
   viewMode?: "board" | "gantt";
@@ -53,6 +54,7 @@ export default function BoardHeader({
   showChatSidebar,
   onToggleChatSidebar,
   hasUnreadChat,
+  unreadChatCount,
   copiedLink,
   canManageBoard,
   viewMode = "board",
@@ -246,9 +248,13 @@ export default function BoardHeader({
           >
             <MessageSquare className="w-4 h-4 flex-shrink-0 text-primary" />
             <span className="hidden xs:inline">Chat</span>
-            {hasUnreadChat && (
+            {!!unreadChatCount && unreadChatCount > 0 ? (
+              <span className="px-1.5 py-0.2 rounded-full bg-primary text-surface-950 text-[10px] font-extrabold flex-shrink-0 animate-pulse">
+                {unreadChatCount}
+              </span>
+            ) : hasUnreadChat ? (
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
-            )}
+            ) : null}
           </button>
         )}
 

@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert, Pencil } from "lucide-react";
+import { Smile, Info, CornerUpLeft, Trash2, ShieldAlert, Pencil, Pin } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import ReactionPicker from "./ReactionPicker";
 import { PromptDialog } from "../ui";
@@ -27,6 +27,7 @@ export interface ChatMessage {
   }[];
   animate?: string;
   intent?: string;
+  isPinned?: boolean;
   replyTo?: {
     id: number;
     author: string;
@@ -45,6 +46,7 @@ export interface MessageBubbleProps {
   onReply?: (msg: ChatMessage) => void;
   onDelete?: (msg: ChatMessage) => void;
   onEdit?: (messageId: number, newContent: string) => void;
+  onPin?: (msg: ChatMessage) => void;
   readReceipts?: { user_id: number; name: string; avatar: string | null; message_id: number }[];
   onToast?: (msg: string) => void;
   onJumpToMessage?: (parentId: number) => void;
@@ -108,6 +110,7 @@ export default function MessageBubble({
   onReply,
   onDelete,
   onEdit,
+  onPin,
   readReceipts = [],
   onToast,
   onJumpToMessage,
@@ -534,6 +537,20 @@ export default function MessageBubble({
             <Pencil className="w-3.5 h-3.5" />
           </button>
         )}
+        {onPin && (
+          <button
+            type="button"
+            onClick={() => onPin(message)}
+            className={`p-1.5 rounded-full bg-surface-800 border border-border transition-colors shadow-md cursor-pointer ${
+              message.isPinned
+                ? "text-amber-400 border-amber-500/50"
+                : "text-text-muted hover:text-amber-400 hover:border-amber-500/50"
+            }`}
+            title={message.isPinned ? "Unpin message" : "Pin message"}
+          >
+            <Pin className={`w-3.5 h-3.5 ${message.isPinned ? "fill-amber-400 text-amber-400" : ""}`} />
+          </button>
+        )}
       </div>
 
       {/* Floating Reaction Bar popover */}
@@ -543,6 +560,8 @@ export default function MessageBubble({
           onReact={handleReactionClick}
           onOpenFullPicker={() => onOpenFullPicker(message.id)}
           onClose={() => setActivePickerId(null)}
+          onTogglePin={onPin ? () => onPin(message) : undefined}
+          isPinned={message.isPinned}
         />
       )}
 

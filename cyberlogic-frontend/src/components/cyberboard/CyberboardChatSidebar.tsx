@@ -158,6 +158,7 @@ export default function CyberboardChatSidebar({
       content: m.content,
       timestamp: m.created_at,
       isMe: user ? Number(m.user_id) === Number(user.id) : false,
+      isPinned: !!m.is_pinned,
       reactions: (m.reactions || []).map((r) => ({
         emoji: r.emoji,
         count: r.count,
@@ -177,7 +178,8 @@ export default function CyberboardChatSidebar({
     };
   });
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!messageText.trim() || !board.id) return;
     const text = messageText.trim();
     const replyId = replyingTo?.id;
@@ -269,7 +271,7 @@ export default function CyberboardChatSidebar({
   };
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 z-50 w-80 sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
       {/* Toast Alert */}
       {toastMessage && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-surface-950 border border-primary/40 text-primary text-xs px-3.5 py-2 rounded-xl shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95">
@@ -442,6 +444,7 @@ export default function CyberboardChatSidebar({
           onOpenFullPicker={setActiveFullPickerMessageId}
           onReply={(msg) => setReplyingTo({ id: msg.id, author: msg.author, content: msg.content })}
           onDelete={(msg) => setDeletingMessage(msg)}
+          onPin={(msg) => handleTogglePin(msg.id)}
           onToast={showToast}
           jumpToId={jumpToId}
           onJumpToIdCleared={() => setJumpToId(null)}
