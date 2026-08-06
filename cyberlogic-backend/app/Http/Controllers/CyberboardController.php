@@ -1638,34 +1638,45 @@ class CyberboardController extends Controller
         $emoji = $validated['emoji'];
 
         $reactions = $chatMsg->reactions ?? [];
-        $existingIdx = -1;
 
-        foreach ($reactions as $idx => $r) {
-            if ($r['emoji'] === $emoji) {
-                $existingIdx = $idx;
-                break;
+        // Remove user's ID from ALL existing reaction arrays first (Limit 1 reaction per user)
+        $alreadyHadThisEmoji = false;
+        foreach ($reactions as $idx => &$r) {
+            $userIds = $r['userIds'] ?? [];
+            if (in_array($user->id, $userIds)) {
+                if ($r['emoji'] === $emoji) {
+                    $alreadyHadThisEmoji = true;
+                }
+                $userIds = array_values(array_filter($userIds, fn($uid) => $uid !== $user->id));
+                $r['userIds'] = $userIds;
+                $r['count'] = count($userIds);
             }
         }
+        unset($r);
 
-        if ($existingIdx >= 0) {
-            $userIds = $reactions[$existingIdx]['userIds'] ?? [];
-            if (in_array($user->id, $userIds)) {
-                $userIds = array_values(array_filter($userIds, fn($uid) => $uid !== $user->id));
-            } else {
-                $userIds[] = $user->id;
+        // Filter out empty reaction items (where count is 0)
+        $reactions = array_values(array_filter($reactions, fn($r) => ($r['count'] ?? 0) > 0));
+
+        // If user didn't already have this exact emoji, add user's ID to the target emoji reaction
+        if (!$alreadyHadThisEmoji) {
+            $targetIdx = -1;
+            foreach ($reactions as $idx => $r) {
+                if ($r['emoji'] === $emoji) {
+                    $targetIdx = $idx;
+                    break;
+                }
             }
-            if (empty($userIds)) {
-                array_splice($reactions, $existingIdx, 1);
+
+            if ($targetIdx >= 0) {
+                $reactions[$targetIdx]['userIds'][] = $user->id;
+                $reactions[$targetIdx]['count'] = count($reactions[$targetIdx]['userIds']);
             } else {
-                $reactions[$existingIdx]['userIds'] = $userIds;
-                $reactions[$existingIdx]['count'] = count($userIds);
+                $reactions[] = [
+                    'emoji' => $emoji,
+                    'count' => 1,
+                    'userIds' => [$user->id],
+                ];
             }
-        } else {
-            $reactions[] = [
-                'emoji' => $emoji,
-                'count' => 1,
-                'userIds' => [$user->id],
-            ];
         }
 
         $chatMsg->reactions = $reactions;
