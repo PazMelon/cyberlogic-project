@@ -130,8 +130,18 @@ export default function GanttRoadmapView({
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
-
   const skipYearResetRef = useRef<boolean>(false);
+
+  // Close Gantt controls sidebar on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowGanttControlsSidebar(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Auto-fit date bounds to earliest start date & latest end date of tasks
   const handleFitToTaskDates = useCallback(() => {
@@ -2761,17 +2771,17 @@ export default function GanttRoadmapView({
 
       {/* Mobile / Tablet Slide-Over Gantt Controls Sidebar Drawer */}
       <>
-        {/* Invisible Click-Outside Overlay (No background blur or dimming) */}
+        {/* Click-Outside Backdrop Overlay */}
         <div
           onClick={() => setShowGanttControlsSidebar(false)}
-          className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          className={`fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
             showGanttControlsSidebar ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
           }`}
         />
 
         {/* Sidebar Panel */}
         <div
-          className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
+          className={`fixed top-0 right-0 bottom-0 z-[9995] w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
             showGanttControlsSidebar ? "translate-x-0" : "translate-x-full"
           }`}
         >
@@ -2789,6 +2799,7 @@ export default function GanttRoadmapView({
             <button
               onClick={() => setShowGanttControlsSidebar(false)}
               className="p-2 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+              aria-label="Close Gantt controls sidebar"
             >
               <X className="w-5 h-5" />
             </button>
@@ -2926,6 +2937,18 @@ export default function GanttRoadmapView({
                   <span>Export Board to Excel (.xlsx)</span>
                 </button>
               </div>
+            </div>
+
+            {/* Bottom Close Sidebar Action Button */}
+            <div className="pt-4 border-t border-border/60">
+              <button
+                type="button"
+                onClick={() => setShowGanttControlsSidebar(false)}
+                className="w-full py-3 px-4 rounded-xl border border-border/80 text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <X className="w-4 h-4 text-text-muted" />
+                <span>Close Gantt Controls</span>
+              </button>
             </div>
           </div>
         </div>
