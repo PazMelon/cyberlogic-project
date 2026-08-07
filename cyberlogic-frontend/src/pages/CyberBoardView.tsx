@@ -16,6 +16,7 @@ import {
   reorderCyberboardColumns,
   updateCyberboardBoard,
   deleteCyberboardBoard,
+  fetchDirectory,
   type CyberboardBoard,
   type CyberboardCard,
   type CyberboardColumn,
@@ -98,6 +99,19 @@ export default function CyberBoardView() {
   const [showJoinRequestsPanel, setShowJoinRequestsPanel] = useState(false);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
+  const [directoryMembers, setDirectoryMembers] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetchDirectory()
+      .then((data) => {
+        if (isMounted && data) setDirectoryMembers(data);
+      })
+      .catch((err) => console.error("Failed to load directory members:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showControlsSidebar, setShowControlsSidebar] = useState(false);
@@ -1355,6 +1369,52 @@ export default function CyberBoardView() {
     }),
   ];
 
+  // Compute full board members list (Active collaborators + Offline allowed members)
+  const allBoardMembersList = useCallback(() => {
+    const userMap = new Map<number, any>();
+
+    // Active presence users first
+    activeCollaboratorsList.forEach((c) => userMap.set(c.id, c));
+
+    // If private board, include offline allowed members + host
+    if (board?.visibility === "private") {
+      const allowedSet = new Set(board.allowed_members || []);
+      const hostId = board.created_by;
+
+      directoryMembers.forEach((m: any) => {
+        if (!userMap.has(m.id) && (m.id === hostId || allowedSet.has(m.id))) {
+          const name = m.name || m.username || "Member";
+          userMap.set(m.id, {
+            id: m.id,
+            name,
+            username: m.username,
+            avatar: getAvatarUrl(m.avatar, name),
+            role: "Member",
+            isMe: user ? m.id === user.id : false,
+            status: "Offline",
+          });
+        }
+      });
+    } else {
+      directoryMembers.forEach((m: any) => {
+        if (!userMap.has(m.id)) {
+          const name = m.name || m.username || "Member";
+          userMap.set(m.id, {
+            id: m.id,
+            name,
+            username: m.username,
+            avatar: getAvatarUrl(m.avatar, name),
+            role: "Member",
+            isMe: user ? m.id === user.id : false,
+            status: "Offline",
+          });
+        }
+      });
+    }
+
+    return Array.from(userMap.values());
+  }, [board, activeCollaboratorsList, directoryMembers, user])();
+
 
 
   return (
@@ -1651,7 +1711,7 @@ export default function CyberBoardView() {
       {selectedColumnToConfigure && (
         <ConfigureColumnModal
           column={selectedColumnToConfigure}
-          collaboratorsList={activeCollaboratorsList}
+          collaboratorsList={allBoardMembersList}
           boardVisibility={board?.visibility}
           onClose={() => setSelectedColumnToConfigure(null)}
           onSubmit={handleUpdateColumnPermissions}
@@ -1743,7 +1803,7 @@ export default function CyberBoardView() {
           isOpen={showChatSidebar}
           onClose={() => setShowChatSidebar(false)}
           board={board}
-          allUsers={activeCollaboratorsList}
+          allUsers={allBoardMembersList}
           realtimeChatMessage={realtimeChatMessage}
           realtimePinnedMessage={realtimePinnedMessage}
           realtimeDeletedMessageId={realtimeDeletedMessageId}

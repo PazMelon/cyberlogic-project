@@ -16,6 +16,7 @@ export interface MessageInputProps {
   setMessageText?: (text: string) => void;
   onOpenEmojiPicker?: () => void;
   isActivityLog?: boolean;
+  isPrivateBoard?: boolean;
 }
 
 export default function MessageInput({
@@ -32,6 +33,7 @@ export default function MessageInput({
   setMessageText,
   onOpenEmojiPicker,
   isActivityLog = false,
+  isPrivateBoard = false,
 }: MessageInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showGifPicker, setShowGifPicker] = useState(false);
@@ -117,16 +119,20 @@ export default function MessageInput({
   };
 
   // Filter mention suggestions safely (individual users & system group mentions)
-  const groupMentions = [
-    { id: "group-everyone", name: "Everyone (All Members)", username: "everyone", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=everyone" },
-    { id: "group-officers", name: "Officers (Admins)", username: "officers", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=officers" },
-    { id: "group-firstyear", name: "1st Year Students", username: "firstyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=firstyear" },
-    { id: "group-secondyear", name: "2nd Year Students", username: "secondyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=secondyear" },
-    { id: "group-thirdyear", name: "3rd Year Students", username: "thirdyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=thirdyear" },
-    { id: "group-fourthyear", name: "4th Year Students", username: "fourthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fourthyear" },
-    { id: "group-fifthyear", name: "5th Year Students", username: "fifthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fifthyear" },
-    { id: "group-graduate", name: "Graduates", username: "graduate", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=graduate" }
-  ];
+  const groupMentions = isPrivateBoard
+    ? [
+        { id: "group-members", name: "Members (All Private Board Members)", username: "members", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=members" }
+      ]
+    : [
+        { id: "group-everyone", name: "Everyone (All Members)", username: "everyone", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=everyone" },
+        { id: "group-officers", name: "Officers (Admins)", username: "officers", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=officers" },
+        { id: "group-firstyear", name: "1st Year Students", username: "firstyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=firstyear" },
+        { id: "group-secondyear", name: "2nd Year Students", username: "secondyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=secondyear" },
+        { id: "group-thirdyear", name: "3rd Year Students", username: "thirdyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=thirdyear" },
+        { id: "group-fourthyear", name: "4th Year Students", username: "fourthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fourthyear" },
+        { id: "group-fifthyear", name: "5th Year Students", username: "fifthyear", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=fifthyear" },
+        { id: "group-graduate", name: "Graduates", username: "graduate", avatar: "https://api.dicebear.com/9.x/identicon/svg?seed=graduate" }
+      ];
 
   const filteredGroups = groupMentions.filter((group) =>
     group.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||

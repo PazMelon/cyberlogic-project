@@ -63,12 +63,23 @@ export default function ConfigureColumnModal({
             name: m.name,
             avatar: m.avatar,
           }));
-          // Merge with collaboratorsList to avoid missing active users
           const mergedMap = new Map<number, CollaboratorOption>();
-          directoryOptions.forEach((m) => mergedMap.set(m.id, m));
-          collaboratorsList.forEach((m) => {
-            if (!mergedMap.has(m.id)) mergedMap.set(m.id, m);
-          });
+
+          if (boardVisibility === "private") {
+            const allowedIds = new Set(collaboratorsList.map((c) => c.id));
+            directoryOptions.forEach((m) => {
+              if (allowedIds.has(m.id)) mergedMap.set(m.id, m);
+            });
+            collaboratorsList.forEach((m) => {
+              if (!mergedMap.has(m.id)) mergedMap.set(m.id, m);
+            });
+          } else {
+            directoryOptions.forEach((m) => mergedMap.set(m.id, m));
+            collaboratorsList.forEach((m) => {
+              if (!mergedMap.has(m.id)) mergedMap.set(m.id, m);
+            });
+          }
+
           setAllMembers(Array.from(mergedMap.values()));
         }
       } catch (err) {
@@ -81,7 +92,7 @@ export default function ConfigureColumnModal({
     return () => {
       isMounted = false;
     };
-  }, [collaboratorsList]);
+  }, [collaboratorsList, boardVisibility]);
 
   const filteredMembers = useMemo(() => {
     if (!searchQuery.trim()) return allMembers;

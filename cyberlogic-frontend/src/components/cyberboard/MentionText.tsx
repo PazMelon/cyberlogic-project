@@ -30,15 +30,15 @@ export default function MentionText({ content, className = "" }: MentionTextProp
           );
         }
 
-        if (token === "@everyone") {
+        if (token === "@everyone" || token === "@members") {
           return (
             <span
               key={idx}
               className="inline-flex items-center gap-1 bg-cyan-500/15 text-cyan-400 font-bold px-1.5 py-0.5 rounded-md border border-cyan-500/30 text-xs mx-0.5"
-              title="Everyone Mention"
+              title={token === "@members" ? "All Board Members Mention" : "Everyone Mention"}
             >
               <Users className="w-3 h-3 text-cyan-400" />
-              <span>@everyone</span>
+              <span>{token}</span>
             </span>
           );
         }

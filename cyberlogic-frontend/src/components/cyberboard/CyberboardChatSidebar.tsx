@@ -486,6 +486,7 @@ export default function CyberboardChatSidebar({
           onChange={(e) => setMessageText(e.target.value)}
           hasWritePermission={true}
           onlineUsers={allUsers}
+          isPrivateBoard={board.visibility === "private"}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
           onSelectGif={handleSelectGif}
