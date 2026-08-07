@@ -175,16 +175,45 @@ export default function GanttRoadmapView({
     }
   }, []);
 
+  const ganttWorkspaceRef = useRef<HTMLDivElement>(null);
+
+  const captureGanttChartImage = async (targetEl: HTMLElement): Promise<string> => {
+    const fullWidth = Math.max(targetEl.scrollWidth, gridTimelineRef.current?.scrollWidth || 0);
+    const fullHeight = Math.max(targetEl.scrollHeight, leftScrollRef.current?.scrollHeight || 0, gridTimelineRef.current?.scrollHeight || 0);
+
+    return await toPng(targetEl, {
+      cacheBust: false,
+      skipFonts: true,
+      imagePlaceholder:
+        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='10' fill='%2306b6d4'/></svg>",
+      backgroundColor: "#0f172a",
+      quality: 0.95,
+      width: fullWidth,
+      height: fullHeight,
+      style: {
+        overflow: "visible",
+        height: "auto",
+        maxHeight: "none",
+      },
+      filter: (node: HTMLElement) => {
+        if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
+          const href = node.getAttribute("href") || "";
+          if (href.startsWith("http") && !href.includes(window.location.hostname)) {
+            return false;
+          }
+        }
+        return true;
+      },
+    });
+  };
+
   const handleExportGanttPng = async () => {
-    if (!containerRef.current) return;
+    const targetEl = ganttWorkspaceRef.current || containerRef.current;
+    if (!targetEl) return;
     setIsExporting(true);
     setShowExportDropdown(false);
     try {
-      const dataUrl = await toPng(containerRef.current, {
-        cacheBust: true,
-        backgroundColor: "#0f172a",
-        quality: 0.95,
-      });
+      const dataUrl = await captureGanttChartImage(targetEl);
       const link = document.createElement("a");
       link.download = `${(board.title || "Gantt_Chart").replace(/[^a-z0-9]/gi, "_")}_Gantt.png`;
       link.href = dataUrl;
@@ -197,15 +226,12 @@ export default function GanttRoadmapView({
   };
 
   const handleExportGanttPdf = async () => {
-    if (!containerRef.current) return;
+    const targetEl = ganttWorkspaceRef.current || containerRef.current;
+    if (!targetEl) return;
     setIsExporting(true);
     setShowExportDropdown(false);
     try {
-      const dataUrl = await toPng(containerRef.current, {
-        cacheBust: true,
-        backgroundColor: "#0f172a",
-        quality: 0.95,
-      });
+      const dataUrl = await captureGanttChartImage(targetEl);
 
       const img = new Image();
       img.src = dataUrl;
@@ -1573,21 +1599,13 @@ export default function GanttRoadmapView({
   return (
     <div ref={containerRef} className="flex flex-col w-full h-full bg-surface-950 text-text-primary overflow-hidden">
       {/* 1. Responsive Header Toolbar */}
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-20">
-        {/* Title & Today Jump (Visible on all screens) */}
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-50">
+        {/* Title Block */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-text-primary">
             <Layers className="w-4 h-4 text-primary" />
             <span>Gantt Roadmap</span>
           </div>
-
-          <button
-            onClick={handleJumpToToday}
-            className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border text-xs font-bold text-primary hover:bg-primary/10 hover:border-primary/40 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
-          >
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Today</span>
-          </button>
 
           {!canEditGantt && (
             <span
@@ -1781,7 +1799,7 @@ export default function GanttRoadmapView({
               </button>
 
               {showExportDropdown && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-full mt-2 w-52 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-1.5 z-[9999] flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
                   <button
                     onClick={handleExportGanttPng}
                     className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-text-primary hover:bg-surface-800 flex items-center gap-2 transition-colors cursor-pointer"
@@ -1848,7 +1866,7 @@ export default function GanttRoadmapView({
       </div>
 
       {/* 2. Main Gantt Layout */}
-      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+      <div ref={ganttWorkspaceRef} className="flex flex-1 min-h-0 overflow-hidden relative bg-surface-950">
         {/* Left Column: Group & Task Hierarchy Titles + Dedicated STATUS Column */}
         <div className="w-72 sm:w-[400px] flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg">
           <div className="h-12 border-b border-border/80 px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
