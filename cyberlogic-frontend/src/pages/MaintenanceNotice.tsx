@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { Wrench, Zap, Database, Rocket, ShieldAlert, Clock, ArrowRight, ShieldCheck, Terminal as TerminalIcon, Lock, Activity, Server, Cpu, Sparkles } from "lucide-react";
+import { Clock, ArrowRight, ShieldCheck, Lock, Sparkles } from "lucide-react";
 import { Link } from "react-router";
 import { fetchMaintenanceStatus } from "../utils/api";
 import type { MaintenanceStatus } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
-import Terminal from "../components/Terminal";
-import { Badge } from "../components/ui";
 
 export default function MaintenanceNotice() {
   const { user, isSuperAdmin } = useAuth();
@@ -27,7 +25,6 @@ export default function MaintenanceNotice() {
     };
   });
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number } | null>(null);
-  const [showTerminal, setShowTerminal] = useState(false);
   const [sirenColor, setSirenColor] = useState<"red" | "blue">("red");
 
   useEffect(() => {
@@ -45,11 +42,11 @@ export default function MaintenanceNotice() {
     loadStatus();
   }, []);
 
-  // Alternating siren pulse timer (red <-> blue)
+  // Alternating distant siren flash (red <-> blue)
   useEffect(() => {
     const interval = setInterval(() => {
       setSirenColor((prev) => (prev === "red" ? "blue" : "red"));
-    }, 1200);
+    }, 1400);
     return () => clearInterval(interval);
   }, []);
 
@@ -84,61 +81,41 @@ export default function MaintenanceNotice() {
     return () => clearInterval(interval);
   }, [status.maintenance_estimated_end]);
 
-  const getTemplateIcon = () => {
-    switch (status.maintenance_template) {
-      case "emergency_maintenance":
-        return <Zap className="w-4 h-4 text-rose-400 animate-pulse" />;
-      case "database_restoration":
-        return <Database className="w-4 h-4 text-purple-400 animate-bounce" />;
-      case "platform_upgrade":
-        return <Rocket className="w-4 h-4 text-cyan-400 animate-float" />;
-      case "scheduled_maintenance":
-      default:
-        return <Wrench className="w-4 h-4 text-amber-400" />;
-    }
-  };
-
-  const getBadgeStyle = () => {
-    switch (status.maintenance_template) {
-      case "emergency_maintenance":
-        return "bg-rose-500/10 border-rose-500/30 text-rose-300";
-      case "database_restoration":
-        return "bg-purple-500/10 border-purple-500/30 text-purple-300";
-      case "platform_upgrade":
-        return "bg-cyan-500/10 border-cyan-500/30 text-cyan-300";
-      default:
-        return "bg-amber-500/10 border-amber-500/30 text-amber-300";
-    }
-  };
-
   return (
     <div className="min-h-screen bg-surface-950 text-text-primary flex flex-col justify-between p-4 sm:p-6 lg:p-10 relative overflow-hidden font-sans">
       
       {/* Cyber Grid Canvas */}
       <div className="fixed inset-0 cyber-grid opacity-20 pointer-events-none z-0" />
 
-      {/* ================= SUBTLE ATMOSPHERIC SIREN LIGHT EFFECT (RIGHT EDGE) ================= */}
-      <div className="fixed right-0 top-1/2 -translate-y-1/2 w-[700px] h-[700px] pointer-events-none z-0 overflow-hidden">
-        {/* Pulsating Red & Blue Atmospheric Radial Glow pinned to Right Edge */}
+      {/* ================= DISTANT ATMOSPHERIC SIREN LIGHT WASH (NON-CIRCULAR RIGHT EDGE) ================= */}
+      <div className="fixed top-0 right-0 w-[55vw] h-full pointer-events-none z-0 overflow-hidden">
+        {/* Distant Red Siren Ambient Atmospheric Wash */}
         <div
-          className="absolute inset-0 rounded-full blur-[130px] transition-all duration-1000 opacity-70"
+          className={`absolute inset-0 transition-opacity duration-1000 blur-[160px] ${
+            sirenColor === "red" ? "opacity-100" : "opacity-0"
+          }`}
           style={{
             background:
-              sirenColor === "red"
-                ? "radial-gradient(circle at right center, rgba(239, 68, 68, 0.22) 0%, rgba(6, 182, 212, 0.12) 50%, transparent 75%)"
-                : "radial-gradient(circle at right center, rgba(6, 182, 212, 0.22) 0%, rgba(239, 68, 68, 0.12) 50%, transparent 75%)",
+              "linear-gradient(135deg, transparent 30%, rgba(239, 68, 68, 0.16) 70%, rgba(225, 29, 72, 0.22) 100%)",
           }}
         />
 
-        {/* Subtle Conic Beam Sweeping on Right Edge */}
+        {/* Distant Blue Siren Ambient Atmospheric Wash */}
         <div
-          className="absolute -right-24 top-1/2 -translate-y-1/2 w-[550px] h-[550px] rounded-full blur-[90px] animate-spin opacity-50 pointer-events-none"
+          className={`absolute inset-0 transition-opacity duration-1000 blur-[160px] ${
+            sirenColor === "blue" ? "opacity-100" : "opacity-0"
+          }`}
           style={{
             background:
-              "conic-gradient(from 0deg, rgba(239, 68, 68, 0.25) 0deg, transparent 80deg, rgba(6, 182, 212, 0.25) 180deg, transparent 260deg)",
-            animationDuration: "5s",
-            animationTimingFunction: "linear",
+              "linear-gradient(135deg, transparent 30%, rgba(6, 182, 212, 0.16) 70%, rgba(59, 130, 246, 0.22) 100%)",
           }}
+        />
+
+        {/* Distant Beacon Pulse Line on Far Right Edge */}
+        <div
+          className={`absolute top-0 right-0 w-2 h-full transition-all duration-700 blur-md ${
+            sirenColor === "red" ? "bg-red-500/40" : "bg-cyan-400/40"
+          }`}
         />
       </div>
 
@@ -146,30 +123,29 @@ export default function MaintenanceNotice() {
       <div className="absolute top-28 right-[12%] w-2.5 h-2.5 bg-primary rounded-full animate-float pointer-events-none z-0" />
       <div className="absolute top-44 left-[10%] w-2 h-2 bg-accent rounded-full animate-float delay-200 pointer-events-none z-0" />
 
-      {/* ================= TOP NAVBAR HEADER ================= */}
-      <header className="relative z-20 max-w-7xl w-full mx-auto flex items-center justify-between py-4 px-6 bg-surface-900/80 backdrop-blur-xl border border-border/80 rounded-2xl shadow-lg">
-        {/* Brand Logo & Name */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 flex items-center justify-center">
-            <div className="absolute inset-0 rounded-full animate-spin border border-transparent border-t-primary border-r-primary/40" style={{ animationDuration: "4s" }} />
-            <img src="/icons.svg" alt="Cyberlogic" className="w-6 h-6 drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
+      {/* ================= TOP NAVBAR BRAND HEADER (MATCHING LANDING PAGE) ================= */}
+      <header className="relative z-20 max-w-7xl w-full mx-auto flex items-center justify-between py-3 px-2">
+        {/* Brand Logo & Name (Matching Normal Landing Page Header) */}
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="w-12 h-12 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+            <img
+              src="/icons.svg"
+              alt="Cyberlogic"
+              className="w-11 h-11 object-contain drop-shadow-[0_0_16px_rgba(6,182,212,0.6)]"
+            />
           </div>
-          <span className="text-lg font-extrabold tracking-wider text-text-primary uppercase font-[family-name:var(--font-heading)]">
-            Cyberlogic
+          <span className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-heading)] tracking-tight">
+            <span className="text-gradient">Cyber</span>
+            <span className="text-text-primary">logic</span>
           </span>
-        </div>
+        </Link>
 
-        {/* Right Header Controls */}
-        <div className="flex items-center gap-3">
-          <div className={`hidden sm:inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${getBadgeStyle()}`}>
-            {getTemplateIcon()}
-            <span>Website Lockdown</span>
-          </div>
-
+        {/* Right Action Control */}
+        <div>
           {user && isSuperAdmin ? (
             <Link
               to="/admin/database"
-              className="px-4 py-2 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-xs font-bold shadow-md hover:shadow-primary/25 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white rounded-xl text-xs font-bold shadow-md hover:shadow-primary/25 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span>Super Admin Panel</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -177,7 +153,7 @@ export default function MaintenanceNotice() {
           ) : (
             <Link
               to="/login"
-              className="px-4 py-2 bg-surface-800 hover:bg-surface-700 border border-border text-text-primary rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-4 py-2 text-text-secondary hover:text-text-primary text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer hover:underline"
             >
               <Lock className="w-3.5 h-3.5 text-primary" />
               <span>Super Admin Login</span>
@@ -209,27 +185,18 @@ export default function MaintenanceNotice() {
             {status.maintenance_reason}
           </p>
 
-          {/* Action Button Controls */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowTerminal(!showTerminal)}
-              className="px-6 py-3 rounded-xl bg-surface-800 hover:bg-surface-700 border border-border text-text-primary text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
-            >
-              <TerminalIcon className="w-4 h-4 text-primary" />
-              <span>{showTerminal ? "Hide System Diagnostics" : "Inspect System Diagnostics CLI"}</span>
-            </button>
-
-            {user && isSuperAdmin && (
+          {/* Action Button Control (Super Admin Shortcut) */}
+          {user && isSuperAdmin && (
+            <div className="pt-2">
               <Link
                 to="/admin/database"
-                className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-primary/25 cursor-pointer"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-bold transition-all shadow-lg hover:shadow-primary/25 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>Super Admin Database Control</span>
               </Link>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Digital Countdown Timer Cards */}
           {timeLeft && (
@@ -259,16 +226,9 @@ export default function MaintenanceNotice() {
             </div>
           )}
 
-          {/* Collapsible Terminal Drawer */}
-          {showTerminal && (
-            <div className="pt-2 animate-fadeIn max-w-xl">
-              <Terminal />
-            </div>
-          )}
-
         </div>
 
-        {/* RIGHT COLUMN: UNCLIPPED VECTOR SVG CYBER WORKSTATION & RIGHT SIREN BEACON */}
+        {/* RIGHT COLUMN: UNCLIPPED VECTOR SVG CYBER WORKSTATION */}
         <div className="lg:col-span-6 relative flex items-center justify-center p-2">
           
           <div className="relative w-full max-w-xl aspect-square flex items-center justify-center overflow-visible">
@@ -333,7 +293,7 @@ export default function MaintenanceNotice() {
               {/* Terminal Output Box on Screen Bottom */}
               <rect x="144" y="290" width="312" height="95" rx="8" fill="rgba(2, 6, 23, 0.85)" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
               <text x="156" y="310" fill="#ef4444" fontSize="11" fontFamily="monospace" fontWeight="bold">&gt; LOCKDOWN_PROTOCOL: ENGAGED</text>
-              <text x="156" y="328" fill="var(--cl-primary, #06b6d4)" fontSize="10" fontFamily="monospace">&gt; Siren Beacon: Pulsing Red &amp; Blue (Right Edge)</text>
+              <text x="156" y="328" fill="var(--cl-primary, #06b6d4)" fontSize="10" fontFamily="monospace">&gt; Distant Siren Wash: Active (Horizon Glow)</text>
               <text x="156" y="346" fill="#f59e0b" fontSize="10" fontFamily="monospace">&gt; System Status: 100% Secure &amp; Encrypted</text>
               <text x="156" y="364" fill="var(--cl-accent, #a855f7)" fontSize="10" fontFamily="monospace">&gt; Awaiting SuperAdmin Override Signal_</text>
 
@@ -355,7 +315,7 @@ export default function MaintenanceNotice() {
                 </g>
               </g>
 
-              {/* PULSATING SIREN LIGHT DOME ON MONITOR TOP (RED & BLUE ALTERNATING) */}
+              {/* SIREN LIGHT DOME ON MONITOR TOP */}
               <g transform="translate(300, 115)">
                 <rect x="-18" y="15" width="36" height="10" rx="3" fill="#1e293b" stroke="#475569" strokeWidth="1" />
                 <path
@@ -373,7 +333,7 @@ export default function MaintenanceNotice() {
                 />
               </g>
 
-              {/* VECTOR HAZARD BARRICADE (Left Foreground) */}
+              {/* VECTOR HAZARD BARRICADE */}
               <g transform="translate(40, 395)">
                 <rect x="20" y="25" width="10" height="60" fill="#334155" rx="2" />
                 <rect x="120" y="25" width="10" height="60" fill="#334155" rx="2" />
@@ -387,7 +347,7 @@ export default function MaintenanceNotice() {
                   opacity="0.9"
                 />
                 
-                {/* Flashing Red/Blue Warning Lights on Barricade */}
+                {/* Warning Lights on Barricade */}
                 <circle cx="25" cy="20" r="7" fill="#ef4444" className="animate-pulse" />
                 <circle cx="125" cy="20" r="7" fill="#06b6d4" className="animate-pulse" />
               </g>
