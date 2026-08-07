@@ -1084,88 +1084,77 @@ export default function BoardSettingsModal({
         onClose={onClose}
         title="Board Settings"
         initialSnap="3/4"
-        contentPaddingClass="p-0"
         footer={
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 w-full">
-            {onDeleteBoard ? (
+          <div className="flex items-center justify-end gap-3 w-full">
+            {onDeleteBoard && (
               <button
                 type="button"
                 onClick={() => onDeleteBoard(board.id)}
-                className="w-full sm:w-auto px-4 py-3 rounded-2xl text-error bg-error/10 hover:bg-error/20 border border-error/25 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                className="px-3 py-3 rounded-xl text-error bg-error/10 hover:bg-error/20 border border-error/25 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>Delete Board</span>
+                <span className="hidden sm:inline">Delete Board</span>
               </button>
-            ) : (
-              <div />
             )}
 
-            <div className="flex items-center gap-2.5 w-full sm:w-auto flex-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-5 py-3 rounded-2xl border border-border text-text-muted hover:text-text-primary text-xs font-bold transition-all cursor-pointer active:scale-98"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="board-settings-mobile-form"
-                disabled={!title.trim() || isSubmitting}
-                className="flex-1 px-5 py-3 rounded-2xl bg-primary text-surface-950 text-xs font-extrabold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-primary/20 active:scale-98"
-              >
-                {isSubmitting ? (
-                  <span>Saving...</span>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span>Save Changes</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 px-4 rounded-xl border border-border text-text-muted hover:text-text-primary text-sm font-semibold hover:bg-surface-800 transition-all cursor-pointer text-center active:scale-98"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="board-settings-mobile-form"
+              disabled={!title.trim() || isSubmitting}
+              className="flex-1 py-3 px-5 rounded-xl bg-primary text-surface-950 text-sm font-extrabold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-primary/25 active:scale-98"
+            >
+              <Check className="w-4 h-4 text-surface-950" />
+              <span>{isSubmitting ? "Saving..." : "Save Board"}</span>
+            </button>
           </div>
         }
       >
-        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="flex flex-col h-full">
-          {/* Segmented Mobile Tab Navigation Strip */}
-          <div className="px-4 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-border/60 bg-surface-950/40 flex-shrink-0">
+        <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="space-y-4">
+          {/* Tab Selector */}
+          <div className="flex items-center gap-1 p-1 bg-surface-950/60 rounded-xl border border-border/60 overflow-x-auto scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "general"
-                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
-                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5 text-primary" />
               <span>General</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("privacy")}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "privacy"
-                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
-                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <Lock className="w-4 h-4" />
+              <Lock className="w-3.5 h-3.5 text-accent" />
               <span>Privacy</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("columns")}
-              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "columns"
-                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
-                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Columns</span>
             </button>
 
@@ -1173,22 +1162,19 @@ export default function BoardSettingsModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("phases")}
-                className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                   activeTab === "phases"
-                    ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
-                    : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
+                    ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
-                <Layers className="w-4 h-4" />
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Phases & Sprints</span>
               </button>
             )}
           </div>
 
-          {/* Tab Content Fields */}
-          <div className="p-4 space-y-4 overflow-y-auto flex-1">
-            {formContent}
-          </div>
+          <div className="py-1">{formContent}</div>
         </form>
       </BottomSheet>
     );

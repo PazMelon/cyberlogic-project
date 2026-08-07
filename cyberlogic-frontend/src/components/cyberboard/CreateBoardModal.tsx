@@ -447,7 +447,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
                   key={g.color}
                   type="button"
                   onClick={() => setCoverColor(g.color)}
-                  className={`w-7 h-7 rounded-xl border-2 transition-all cursor-pointer ${
+                  className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${
                     coverColor === g.color
                       ? "border-white scale-110 shadow-md ring-2 ring-primary/40"
                       : "border-transparent opacity-80 hover:opacity-100"
@@ -456,6 +456,16 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
                   title={g.name}
                 />
               ))}
+              <div className="flex items-center gap-2 ml-1">
+                <input
+                  type="color"
+                  value={coverColor}
+                  onChange={(e) => setCoverColor(e.target.value)}
+                  className="w-8 h-8 rounded-xl bg-surface-800 border border-border cursor-pointer p-0.5"
+                  title="Custom Color Picker"
+                />
+                <span className="text-xs font-mono font-bold text-text-muted">{coverColor}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -948,72 +958,67 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
         isOpen={true}
         onClose={onClose}
         title="Create New Board"
+        initialSnap="3/4"
         footer={
-          <div className="flex items-center justify-between gap-3 w-full">
+          <div className="flex items-center justify-end gap-3 w-full">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-border text-text-muted font-semibold text-xs transition-all cursor-pointer"
+              className="flex-1 py-3 px-4 rounded-xl border border-border text-text-muted hover:text-text-primary text-sm font-semibold hover:bg-surface-800 transition-all cursor-pointer text-center active:scale-98"
             >
               Cancel
             </button>
-
             <button
               type="submit"
               form="create-board-mobile-form"
               disabled={!title.trim() || isSubmitting}
-              className="flex-1 py-2.5 rounded-xl bg-primary text-surface-950 font-bold text-xs transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+              className="flex-1 py-3 px-5 rounded-xl bg-primary text-surface-950 text-sm font-extrabold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-primary/25 active:scale-98"
             >
-              {isSubmitting ? (
-                <span>Creating...</span>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Create Board</span>
-                </>
-              )}
+              <Check className="w-4 h-4 text-surface-950" />
+              <span>{isSubmitting ? "Creating..." : "Create Board"}</span>
             </button>
           </div>
         }
       >
         <form id="create-board-mobile-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/60">
+          {/* Tab Selector */}
+          <div className="flex items-center gap-1 p-1 bg-surface-950/60 rounded-xl border border-border/60 overflow-x-auto scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "general"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-3.5 h-3.5 text-primary" />
               <span>General</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("privacy")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "privacy"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-3.5 h-3.5 text-accent" />
               <span>Privacy</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("columns")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === "columns"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                  : "text-text-muted hover:text-text-primary"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Columns</span>
             </button>
 
@@ -1021,13 +1026,13 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
               <button
                 type="button"
                 onClick={() => setActiveTab("phases")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap ${
                   activeTab === "phases"
-                    ? "bg-primary text-surface-950 font-bold"
-                    : "bg-surface-800 text-text-muted hover:text-text-primary"
+                    ? "bg-surface-800 text-text-primary shadow-sm border border-border/80"
+                    : "text-text-muted hover:text-text-primary"
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" />
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Phases & Sprints</span>
               </button>
             )}
