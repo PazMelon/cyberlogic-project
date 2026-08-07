@@ -354,22 +354,31 @@ function GuestGate({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   const { user, isAuthenticated, isSuperAdmin, isLoading, forceLogout } = useAuth();
   const location = useLocation();
-  const [isMaintenanceActive, setIsMaintenanceActive] = useState(false);
+  const [isMaintenanceActive, setIsMaintenanceActive] = useState(() => {
+    return localStorage.getItem("cl_maintenance_mode") === "true";
+  });
+  const [isMaintenanceChecked, setIsMaintenanceChecked] = useState(() => {
+    return localStorage.getItem("cl_maintenance_mode") !== null;
+  });
 
   useEffect(() => {
     const checkMaintenance = async () => {
       try {
         const data = await fetchMaintenanceStatus();
         if (data && data.maintenance_mode) {
+          localStorage.setItem("cl_maintenance_mode", "true");
           setIsMaintenanceActive(true);
           if (user && user.role !== "superadmin") {
             forceLogout();
           }
         } else {
+          localStorage.setItem("cl_maintenance_mode", "false");
           setIsMaintenanceActive(false);
         }
       } catch (e) {
         // ignore
+      } finally {
+        setIsMaintenanceChecked(true);
       }
     };
     if (!isLoading) {
@@ -421,6 +430,10 @@ function AppRoutes() {
   const isUserSuperAdmin = user?.role === "superadmin" || isSuperAdmin;
   if (!isLoading && isMaintenanceActive && !isUserSuperAdmin && location.pathname !== "/login") {
     return <MaintenanceNotice />;
+  }
+
+  if (isLoading || (!isMaintenanceChecked && !isUserSuperAdmin && location.pathname !== "/login")) {
+    return <AuthLoader />;
   }
 
   return (

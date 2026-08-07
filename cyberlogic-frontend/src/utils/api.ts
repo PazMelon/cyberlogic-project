@@ -3662,7 +3662,12 @@ export async function fetchMaintenanceStatus(): Promise<MaintenanceStatus> {
       maintenance_estimated_end: "",
     };
   }
-  return res.json();
+  const data = await res.json();
+  if (typeof window !== "undefined" && data) {
+    localStorage.setItem("cl_maintenance_status", JSON.stringify(data));
+    localStorage.setItem("cl_maintenance_mode", data.maintenance_mode ? "true" : "false");
+  }
+  return data;
 }
 
 /**
@@ -3677,7 +3682,12 @@ export async function updateMaintenanceStatus(data: Partial<MaintenanceStatus>):
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.message || errData.error || "Failed to update maintenance status.");
   }
-  return res.json();
+  const result = await res.json();
+  if (typeof window !== "undefined" && result && result.status) {
+    localStorage.setItem("cl_maintenance_status", JSON.stringify(result.status));
+    localStorage.setItem("cl_maintenance_mode", result.status.maintenance_mode ? "true" : "false");
+  }
+  return result;
 }
 
 /**
