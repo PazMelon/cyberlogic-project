@@ -272,7 +272,21 @@ export default function CyberboardChatSidebar({
   };
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+    <>
+      {/* Invisible Click-Outside Overlay (No background blur or dimming) */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      />
+
+      {/* Sidebar Panel */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
       {/* Toast Alert */}
       {toastMessage && (
         <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-surface-950 border border-primary/40 text-primary text-xs px-3.5 py-2 rounded-xl shadow-xl backdrop-blur-md animate-in fade-in zoom-in-95">
@@ -502,6 +516,7 @@ export default function CyberboardChatSidebar({
         onClose={() => setDeletingMessage(null)}
         onConfirm={handleConfirmDelete}
       />
-    </div>
+      </div>
+    </>
   );
 }

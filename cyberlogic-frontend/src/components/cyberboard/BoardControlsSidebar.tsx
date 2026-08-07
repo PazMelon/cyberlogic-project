@@ -55,12 +55,24 @@ export default function BoardControlsSidebar({
   pendingRequestsCount = 0,
   onExportToExcel,
 }: BoardControlsSidebarProps) {
-  if (!isOpen) return null;
-
   const collaborators = Object.values(boardPresenceUsers);
 
   return (
-    <div className="fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+    <>
+      {/* Invisible Click-Outside Overlay (No background blur or dimming) */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+          isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
+      />
+
+      {/* Sidebar Panel */}
+      <div
+        className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
       {/* Drawer Header */}
       <div className="h-16 px-5 border-b border-border/80 flex items-center justify-between bg-surface-900/90 backdrop-blur-md flex-shrink-0">
         <div className="flex items-center gap-2.5">
@@ -308,5 +320,6 @@ export default function BoardControlsSidebar({
         </div>
       </div>
     </div>
-  );
+  </>
+);
 }

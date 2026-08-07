@@ -19,6 +19,8 @@ import {
   Maximize2,
   FileSpreadsheet,
   Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
 import { updateCyberboardCard, batchReorderCyberboardCards } from "../../utils/api";
@@ -44,7 +46,6 @@ interface GanttRoadmapViewProps {
   onUpdateCardAssignees?: (cardId: number, userIds: number[]) => Promise<void>;
 }
 
-type GroupByOption = "phase" | "column" | "priority" | "assignee";
 type TimeScaleMode = "month" | "week" | "day";
 
 const MONTH_NAMES = [
@@ -116,9 +117,10 @@ export default function GanttRoadmapView({
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
   const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
-  const [timeScale, setTimeScale] = useState<TimeScaleMode>("week");
-  const [groupBy, setGroupBy] = useState<GroupByOption>("phase");
+  const [timeScale, setTimeScale] = useState<"month" | "week" | "day">("month");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const [groupBy, setGroupBy] = useState<"phase" | "column" | "priority" | "assignee">("phase");
+  const [isTaskListCollapsed, setIsTaskListCollapsed] = useState(false);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [showGanttControlsSidebar, setShowGanttControlsSidebar] = useState<boolean>(false);
   const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
@@ -1807,6 +1809,25 @@ export default function GanttRoadmapView({
             <span>Gantt Roadmap</span>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setIsTaskListCollapsed(!isTaskListCollapsed)}
+            className="px-2 py-1 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-muted hover:text-text-primary border border-border/60 transition-all cursor-pointer flex items-center gap-1 text-[11px] font-semibold"
+            title={isTaskListCollapsed ? "Expand Task List Column" : "Minimize Task List Column"}
+          >
+            {isTaskListCollapsed ? (
+              <>
+                <PanelLeftOpen className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden sm:inline">Expand List</span>
+              </>
+            ) : (
+              <>
+                <PanelLeftClose className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline">Minimize List</span>
+              </>
+            )}
+          </button>
+
           {!canEditGantt && (
             <span
               className="px-2.5 py-1 rounded-xl bg-amber-950/70 border border-amber-600/50 text-[11px] font-semibold text-amber-300 flex items-center gap-1.5 shadow-xs"
@@ -2068,15 +2089,36 @@ export default function GanttRoadmapView({
       {/* 2. Main Gantt Layout */}
       <div ref={ganttWorkspaceRef} className="flex flex-1 min-h-0 overflow-hidden relative bg-surface-950">
         {/* Left Column: Group & Task Hierarchy Titles + Dedicated STATUS Column */}
-        <div className="w-72 sm:w-[400px] flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg">
-          <div className="h-12 box-border flex-shrink-0 border-b border-border/80 px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
-            <span className="flex items-center gap-2 flex-1 min-w-0 pr-2">
-              <Layers className="w-4 h-4 text-primary flex-shrink-0" />
-              <span className="truncate">{groupBy === "phase" ? "Tasks & Phases" : groupBy === "column" ? "Tasks & Stages" : groupBy === "priority" ? "Tasks & Priority" : "Tasks & Assignees"}</span>
-            </span>
-            <div className="w-28 flex-shrink-0 text-center font-bold text-[10px] text-text-muted uppercase tracking-widest border-l border-border/40 pl-2">
-              Status
-            </div>
+        <div className={`flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg transition-all duration-300 ease-in-out ${isTaskListCollapsed ? "w-12 sm:w-14 overflow-hidden" : "w-72 sm:w-[400px]"}`}>
+          <div className="h-12 box-border flex-shrink-0 border-b border-border/80 px-2 sm:px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
+            {isTaskListCollapsed ? (
+              <button
+                type="button"
+                onClick={() => setIsTaskListCollapsed(false)}
+                className="w-full flex items-center justify-center p-1 text-cyan-400 hover:text-white transition-colors cursor-pointer"
+                title="Expand Task List Column"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+            ) : (
+              <>
+                <span className="flex items-center gap-2 flex-1 min-w-0 pr-2">
+                  <Layers className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span className="truncate">{groupBy === "phase" ? "Tasks & Phases" : groupBy === "column" ? "Tasks & Stages" : groupBy === "priority" ? "Tasks & Priority" : "Tasks & Assignees"}</span>
+                </span>
+                <div className="w-28 flex-shrink-0 text-center font-bold text-[10px] text-text-muted uppercase tracking-widest border-l border-border/40 pl-2">
+                  Status
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTaskListCollapsed(true)}
+                  className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-800 transition-colors ml-1 cursor-pointer"
+                  title="Minimize Task List Column"
+                >
+                  <PanelLeftClose className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Rows List (Left Panel - Completely Hidden Scrollbar with Wheel Forwarding) */}
@@ -2718,8 +2760,21 @@ export default function GanttRoadmapView({
       </div>
 
       {/* Mobile / Tablet Slide-Over Gantt Controls Sidebar Drawer */}
-      {showGanttControlsSidebar && (
-        <div className="fixed top-0 right-0 bottom-0 z-50 w-80 sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col animate-in slide-in-from-right duration-200">
+      <>
+        {/* Invisible Click-Outside Overlay (No background blur or dimming) */}
+        <div
+          onClick={() => setShowGanttControlsSidebar(false)}
+          className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+            showGanttControlsSidebar ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        />
+
+        {/* Sidebar Panel */}
+        <div
+          className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
+            showGanttControlsSidebar ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
           <div className="h-16 px-5 border-b border-border/80 flex items-center justify-between bg-surface-900/90 backdrop-blur-md">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary">
@@ -2874,7 +2929,7 @@ export default function GanttRoadmapView({
             </div>
           </div>
         </div>
-      )}
+      </>
 
       {/* Unblocked Fixed Hover Popover for Assigned Members */}
       {hoveredAssigneeCardId && hoveredAssigneePos && (() => {
