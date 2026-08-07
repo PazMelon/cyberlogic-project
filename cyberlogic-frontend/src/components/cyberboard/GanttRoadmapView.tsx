@@ -204,20 +204,43 @@ export default function GanttRoadmapView({
     const rightGridScrollHeight = rightEl ? rightEl.scrollHeight + 48 : 0;
     const fullHeight = Math.max(targetEl.scrollHeight, leftColScrollHeight, rightGridScrollHeight);
 
+    const origTargetBg = targetEl.style.backgroundColor;
+    const origTargetColor = targetEl.style.color;
+
+    const origLeftBg = leftEl ? leftEl.style.backgroundColor : "";
+    const origRightBg = rightEl ? rightEl.style.backgroundColor : "";
+
+    const styledSubNodes: { node: HTMLElement; origBg: string }[] = [];
+
     try {
+      // Pin explicit solid dark theme background colors for SVG rendering
+      targetEl.style.backgroundColor = "#090d16";
+      targetEl.style.color = "#f8fafc";
+
       if (leftEl) {
         leftEl.style.height = `${fullHeight}px`;
         leftEl.style.maxHeight = "none";
         leftEl.style.overflow = "visible";
+        leftEl.style.backgroundColor = "#0f172a";
       }
       if (rightEl) {
         rightEl.style.height = `${fullHeight}px`;
         rightEl.style.maxHeight = "none";
         rightEl.style.overflow = "visible";
+        rightEl.style.backgroundColor = "#090d16";
       }
       targetEl.style.height = `${fullHeight}px`;
       targetEl.style.maxHeight = "none";
       targetEl.style.overflow = "visible";
+
+      // Pin all surface background elements to solid hex dark colors
+      const subNodes = targetEl.querySelectorAll<HTMLElement>("*");
+      subNodes.forEach((node) => {
+        if (node.className && typeof node.className === "string" && node.className.includes("bg-surface-")) {
+          styledSubNodes.push({ node, origBg: node.style.backgroundColor });
+          node.style.backgroundColor = "#0f172a";
+        }
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 60));
 
@@ -226,7 +249,7 @@ export default function GanttRoadmapView({
         skipFonts: true,
         imagePlaceholder:
           "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='10' fill='%2306b6d4'/></svg>",
-        backgroundColor: "#0f172a",
+        backgroundColor: "#090d16",
         quality: 0.95,
         width: fullWidth,
         height: fullHeight,
@@ -236,6 +259,8 @@ export default function GanttRoadmapView({
           height: `${fullHeight}px`,
           maxHeight: "none",
           maxWidth: "none",
+          backgroundColor: "#090d16",
+          color: "#f8fafc",
         },
         filter: (node: HTMLElement) => {
           if (node.classList && node.classList.contains("export-ignore")) {
@@ -251,19 +276,28 @@ export default function GanttRoadmapView({
         },
       });
     } finally {
+      // Restore original inline styles
+      styledSubNodes.forEach(({ node, origBg }) => {
+        node.style.backgroundColor = origBg;
+      });
+
       if (leftEl) {
         leftEl.style.height = origLeftHeight;
         leftEl.style.maxHeight = origLeftMaxHeight;
         leftEl.style.overflow = origLeftOverflow;
+        leftEl.style.backgroundColor = origLeftBg;
       }
       if (rightEl) {
         rightEl.style.height = origRightHeight;
         rightEl.style.maxHeight = origRightMaxHeight;
         rightEl.style.overflow = origRightOverflow;
+        rightEl.style.backgroundColor = origRightBg;
       }
       targetEl.style.height = origTargetHeight;
       targetEl.style.maxHeight = origTargetMaxHeight;
       targetEl.style.overflow = origTargetOverflow;
+      targetEl.style.backgroundColor = origTargetBg;
+      targetEl.style.color = origTargetColor;
     }
   };
 
