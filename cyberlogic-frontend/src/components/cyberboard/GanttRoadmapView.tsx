@@ -1819,25 +1819,6 @@ export default function GanttRoadmapView({
             <span>Gantt Roadmap</span>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsTaskListCollapsed(!isTaskListCollapsed)}
-            className="px-2 py-1 rounded-xl bg-surface-800 hover:bg-surface-700 text-text-muted hover:text-text-primary border border-border/60 transition-all cursor-pointer flex items-center gap-1 text-[11px] font-semibold"
-            title={isTaskListCollapsed ? "Expand Task List Column" : "Minimize Task List Column"}
-          >
-            {isTaskListCollapsed ? (
-              <>
-                <PanelLeftOpen className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="hidden sm:inline">Expand List</span>
-              </>
-            ) : (
-              <>
-                <PanelLeftClose className="w-3.5 h-3.5 text-primary" />
-                <span className="hidden sm:inline">Minimize List</span>
-              </>
-            )}
-          </button>
-
           {!canEditGantt && (
             <span
               className="px-2.5 py-1 rounded-xl bg-amber-950/70 border border-amber-600/50 text-[11px] font-semibold text-amber-300 flex items-center gap-1.5 shadow-xs"
@@ -2774,15 +2755,17 @@ export default function GanttRoadmapView({
         {/* Click-Outside Backdrop Overlay */}
         <div
           onClick={() => setShowGanttControlsSidebar(false)}
-          className={`fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
+          className={`fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out ${
             showGanttControlsSidebar ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
           }`}
         />
 
         {/* Sidebar Panel */}
         <div
-          className={`fixed top-0 right-0 bottom-0 z-[9995] w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
-            showGanttControlsSidebar ? "translate-x-0" : "translate-x-full"
+          className={`fixed top-0 right-0 bottom-0 z-[9995] w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-all duration-300 ease-in-out will-change-transform ${
+            showGanttControlsSidebar
+              ? "translate-x-0 opacity-100 pointer-events-auto"
+              : "translate-x-full opacity-0 pointer-events-none"
           }`}
         >
           <div className="h-16 px-5 border-b border-border/80 flex items-center justify-between bg-surface-900/90 backdrop-blur-md">
