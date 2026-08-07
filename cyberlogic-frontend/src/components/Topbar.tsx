@@ -280,6 +280,15 @@ export default function Topbar() {
     };
   }, [isAdmin, subscribe]);
 
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
+  const [activeToast, setActiveToast] = useState<any | null>(null);
+  const [expandedNotifIds, setExpandedNotifIds] = useState<Record<number, boolean>>({});
+
   // Close mobile search and menus on route changes
   useEffect(() => {
     setShowMobileSearch(false);
@@ -308,15 +317,6 @@ export default function Topbar() {
       document.body.style.overflow = "";
     };
   }, [showMobileMenu]);
-
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(false);
-  const [activeToast, setActiveToast] = useState<any | null>(null);
-  const [expandedNotifIds, setExpandedNotifIds] = useState<Record<number, boolean>>({});
 
   const isAdminRoute = location.pathname.startsWith("/admin");
 
