@@ -327,6 +327,18 @@ Route::middleware('auth')->group(function () {
     Route::post('/api/chess/tournaments/{id}/matches/{matchId}/checkin', [ChessTournamentController::class, 'checkin']);
     Route::post('/api/chess/tournaments/{id}/matches/{matchId}/pause', [ChessTournamentController::class, 'pause']);
     Route::post('/api/chess/tournaments/{id}/matches/{matchId}/resume', [ChessTournamentController::class, 'resume']);
+
+    // 1-Click Database Backup, Restore, and Auto-Backup Settings (Superadmin)
+    Route::get('/api/admin/database/backups', [DatabaseBackupController::class, 'index']);
+    Route::get('/api/admin/database/backup-stream', [DatabaseBackupController::class, 'backupStream']);
+    Route::get('/api/admin/database/download/{filename}', [DatabaseBackupController::class, 'download']);
+    Route::delete('/api/admin/database/backups/{filename}', [DatabaseBackupController::class, 'delete']);
+    Route::post('/api/admin/database/upload', [DatabaseBackupController::class, 'upload']);
+    Route::get('/api/admin/database/restore-stream/{filename}', [DatabaseBackupController::class, 'restoreStream']);
+    Route::post('/api/admin/maintenance-status', [DatabaseBackupController::class, 'updateMaintenanceStatus']);
+    Route::get('/api/admin/database/auto-backup-settings', [DatabaseBackupController::class, 'getAutoBackupSettings']);
+    Route::post('/api/admin/database/auto-backup-settings', [DatabaseBackupController::class, 'updateAutoBackupSettings']);
+    Route::post('/api/admin/database/run-auto-backup', [DatabaseBackupController::class, 'triggerManualAutoBackup']);
 });
 
 Route::get('/storage/{path}', function ($path) {

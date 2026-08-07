@@ -3755,6 +3755,62 @@ export async function uploadDatabaseBackup(file: File): Promise<{ message: strin
   return res.json();
 }
 
+export interface AutoBackupSettings {
+  auto_backup_enabled: boolean;
+  auto_backup_time: string;
+  auto_backup_max_files: number;
+  auto_backup_last_run: string;
+}
+
+/**
+ * Fetch automated database backup settings (Super Admin).
+ */
+export async function fetchAutoBackupSettings(): Promise<AutoBackupSettings> {
+  const res = await apiRequest("/api/admin/database/auto-backup-settings");
+  if (!res.ok) {
+    return {
+      auto_backup_enabled: true,
+      auto_backup_time: "02:00",
+      auto_backup_max_files: 7,
+      auto_backup_last_run: "",
+    };
+  }
+  return res.json();
+}
+
+/**
+ * Update automated database backup settings (Super Admin).
+ */
+export async function updateAutoBackupSettings(data: {
+  auto_backup_enabled: boolean;
+  auto_backup_time: string;
+  auto_backup_max_files: number;
+}): Promise<{ message: string; settings: AutoBackupSettings }> {
+  const res = await apiRequest("/api/admin/database/auto-backup-settings", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || errData.error || "Failed to update automated backup settings.");
+  }
+  return res.json();
+}
+
+/**
+ * Trigger manual execution of automated backup job (Super Admin).
+ */
+export async function triggerManualAutoBackup(): Promise<{ message: string; result: any }> {
+  const res = await apiRequest("/api/admin/database/run-auto-backup", {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || errData.error || "Failed to run automated backup job.");
+  }
+  return res.json();
+}
+
 
 
 

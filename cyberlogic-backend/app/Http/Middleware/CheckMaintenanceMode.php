@@ -29,6 +29,8 @@ class CheckMaintenanceMode
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $this->checkAndTriggerAutoBackup();
+
         $maintenanceSetting = SiteSetting::where('key', 'maintenance_mode')->first();
         $isMaintenanceActive = $maintenanceSetting && $maintenanceSetting->value === 'true';
 
@@ -66,5 +68,31 @@ class CheckMaintenanceMode
             'template' => $template,
             'estimated_end' => $estimatedEnd,
         ], 503);
+    }
+
+    /**
+     * Failsafe check for Laragon Windows environment:
+     * Triggers daily automated backup & pruning if current time >= scheduled time and hasn't run today.
+     */
+    private function checkAndTriggerAutoBackup(): void
+    {
+        try {
+            $enabled = SiteSetting::where('key', 'auto_backup_enabled')->value('value') !== 'false';
+            if (!$enabled) return;
+
+            $scheduledTime = SiteSetting::where('key', 'auto_backup_time')->value('value') ?: '02:00';
+            $lastRun = SiteSetting::where('key', 'auto_backup_last_run')->value('value') ?: '';
+            $todayStr = date('Y-m-d');
+
+            if ($lastRun === $todayStr) return;
+
+            $currentTime = date('H:i');
+            if ($currentTime >= $scheduledTime) {
+                $controller = new \App\Http\Controllers\DatabaseBackupController();
+                $controller->runAutoBackupJob();
+            }
+        } catch (\Throwable $e) {
+            // Ignore failsafe errors to avoid blocking HTTP requests
+        }
     }
 }

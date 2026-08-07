@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Sparkles,
   Shield,
-  FileCode
+  FileCode,
+  Clock
 } from "lucide-react";
 import {
   fetchDatabaseBackups,
@@ -19,9 +20,12 @@ import {
   deleteDatabaseBackup,
   uploadDatabaseBackup,
   fetchMaintenanceStatus,
-  updateMaintenanceStatus
+  updateMaintenanceStatus,
+  fetchAutoBackupSettings,
+  updateAutoBackupSettings,
+  triggerManualAutoBackup,
 } from "../../utils/api";
-import type { BackupItem, MaintenanceStatus } from "../../utils/api";
+import type { BackupItem, MaintenanceStatus, AutoBackupSettings } from "../../utils/api";
 import { useDialog } from "../../utils/useDialog";
 import { useSEO } from "../../utils/useSEO";
 import { useAuth } from "../../context/AuthContext";
@@ -50,6 +54,16 @@ export default function DatabaseManagement() {
     maintenance_estimated_end: "",
   });
   const [isSavingMaintenance, setIsSavingMaintenance] = useState<boolean>(false);
+
+  // Auto Backup Settings State
+  const [autoBackup, setAutoBackup] = useState<AutoBackupSettings>({
+    auto_backup_enabled: true,
+    auto_backup_time: "02:00",
+    auto_backup_max_files: 7,
+    auto_backup_last_run: "",
+  });
+  const [isSavingAutoBackup, setIsSavingAutoBackup] = useState<boolean>(false);
+  const [isRunningAutoBackup, setIsRunningAutoBackup] = useState<boolean>(false);
 
   // Active Streaming Task State (Backup or Restore)
   const [activeTask, setActiveTask] = useState<{
@@ -97,13 +111,15 @@ export default function DatabaseManagement() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [dbRes, maintRes] = await Promise.all([
+      const [dbRes, maintRes, autoRes] = await Promise.all([
         fetchDatabaseBackups(),
         fetchMaintenanceStatus(),
+        fetchAutoBackupSettings(),
       ]);
       setBackups(dbRes.backups || []);
       setDbType(dbRes.database_type || "MySQL");
       if (maintRes) setMaintenance(maintRes);
+      if (autoRes) setAutoBackup(autoRes);
     } catch (err: any) {
       showAlert({ title: "Failed to Load Backups", message: err.message || "Failed to load database backups.", type: "error" });
     } finally {
@@ -119,6 +135,42 @@ export default function DatabaseManagement() {
       }
     };
   }, []);
+
+  // Handle Auto Backup Settings Save
+  const handleSaveAutoBackup = async () => {
+    try {
+      setIsSavingAutoBackup(true);
+      const res = await updateAutoBackupSettings({
+        auto_backup_enabled: autoBackup.auto_backup_enabled,
+        auto_backup_time: autoBackup.auto_backup_time,
+        auto_backup_max_files: Number(autoBackup.auto_backup_max_files),
+      });
+      if (res.settings) setAutoBackup(res.settings);
+      showAlert({ title: "Auto-Backup Saved", message: "Automated daily backup configuration saved successfully!", type: "success" });
+    } catch (err: any) {
+      showAlert({ title: "Save Failed", message: err.message || "Failed to save auto-backup settings.", type: "error" });
+    } finally {
+      setIsSavingAutoBackup(false);
+    }
+  };
+
+  // Handle Manual Execution Test for Auto-Backup
+  const handleRunManualAutoBackupTest = async () => {
+    try {
+      setIsRunningAutoBackup(true);
+      const res = await triggerManualAutoBackup();
+      showAlert({
+        title: "Auto-Backup Test Executed",
+        message: `Backup snapshot (${res.result?.filename || "auto-backup.sql"}) created successfully! Pruned ${res.result?.pruned_count || 0} older files beyond the ${res.result?.max_files || 7}-file retention limit.`,
+        type: "success",
+      });
+      loadData();
+    } catch (err: any) {
+      showAlert({ title: "Auto-Backup Failed", message: err.message || "Failed to run automated backup.", type: "error" });
+    } finally {
+      setIsRunningAutoBackup(false);
+    }
+  };
 
   // Handle Maintenance Template Selection
   const handleSelectTemplate = (templateId: string) => {
@@ -525,6 +577,107 @@ export default function DatabaseManagement() {
               Save Notice Template
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Automated Daily Backup & Retention Policy Card */}
+      <div className="p-6 rounded-2xl bg-surface-900/80 border border-border/80 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+          <div className="space-y-1">
+            <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              <span>Automated Daily Backup & Retention Policy</span>
+            </h3>
+            <p className="text-xs text-text-muted">
+              Configure daily scheduled database snapshots and retention rules. Old automated backups beyond the set limit are automatically pruned.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRunManualAutoBackupTest}
+              disabled={isRunningAutoBackup}
+              className="px-4 py-2 bg-surface-800 hover:bg-surface-700 border border-border text-text-primary text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className={`w-3.5 h-3.5 text-primary ${isRunningAutoBackup ? "animate-spin" : ""}`} />
+              <span>{isRunningAutoBackup ? "Running Auto-Backup..." : "Run Auto-Backup Test Now"}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+          {/* Enable Toggle */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-text-secondary">Automated Daily Backup</label>
+            <button
+              type="button"
+              onClick={() => setAutoBackup({ ...autoBackup, auto_backup_enabled: !autoBackup.auto_backup_enabled })}
+              className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                autoBackup.auto_backup_enabled
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-surface-950 border-border text-text-muted"
+              }`}
+            >
+              <span>{autoBackup.auto_backup_enabled ? "Enabled (Active)" : "Disabled"}</span>
+              <div className={`w-4 h-4 rounded-full ${autoBackup.auto_backup_enabled ? "bg-emerald-400" : "bg-surface-700"}`} />
+            </button>
+          </div>
+
+          {/* Scheduled Execution Time */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-text-secondary">Scheduled Execution Time (Daily)</label>
+            <select
+              value={autoBackup.auto_backup_time}
+              onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_time: e.target.value })}
+              className="w-full px-4 py-2.5 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono cursor-pointer"
+            >
+              <option value="00:00">12:00 AM Midnight</option>
+              <option value="01:00">01:00 AM</option>
+              <option value="02:00">02:00 AM (Default / Recommended)</option>
+              <option value="03:00">03:00 AM</option>
+              <option value="04:00">04:00 AM</option>
+              <option value="05:00">05:00 AM</option>
+              <option value="06:00">06:00 AM</option>
+              <option value="12:00">12:00 PM Noon</option>
+              <option value="18:00">06:00 PM</option>
+              <option value="22:00">10:00 PM</option>
+            </select>
+          </div>
+
+          {/* Retention Limit (Max files) */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-text-secondary">Max Auto Backups to Retain</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={autoBackup.auto_backup_max_files}
+                onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_max_files: Number(e.target.value) })}
+                className="w-full px-4 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono"
+              />
+              <button
+                onClick={handleSaveAutoBackup}
+                disabled={isSavingAutoBackup}
+                className="px-5 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer shrink-0 disabled:opacity-50"
+              >
+                {isSavingAutoBackup ? "Saving..." : "Save Settings"}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Policy Info Strip */}
+        <div className="p-3 bg-surface-950/60 border border-border/60 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-text-muted">
+          <span className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>
+              Policy: Retaining <strong className="text-text-primary">{autoBackup.auto_backup_max_files} latest daily snapshots</strong>. Manual 1-Click backups are protected and never auto-pruned.
+            </span>
+          </span>
+          {autoBackup.auto_backup_last_run && (
+            <span className="font-mono text-[11px]">Last Auto-Backup: {autoBackup.auto_backup_last_run}</span>
+          )}
         </div>
       </div>
 

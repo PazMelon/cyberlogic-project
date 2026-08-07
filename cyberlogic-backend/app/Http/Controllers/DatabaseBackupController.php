@@ -589,4 +589,203 @@ class DatabaseBackupController extends Controller
             'status' => $this->getMaintenanceStatus()->getData(),
         ]);
     }
+
+    /**
+     * GET /api/admin/database/auto-backup-settings
+     * Fetch automated daily backup settings.
+     */
+    public function getAutoBackupSettings(): JsonResponse
+    {
+        $enabled = SiteSetting::where('key', 'auto_backup_enabled')->value('value') !== 'false';
+        $time = SiteSetting::where('key', 'auto_backup_time')->value('value') ?: '02:00';
+        $maxFiles = (int) (SiteSetting::where('key', 'auto_backup_max_files')->value('value') ?: 7);
+        $lastRun = SiteSetting::where('key', 'auto_backup_last_run')->value('value') ?: '';
+
+        return response()->json([
+            'auto_backup_enabled' => $enabled,
+            'auto_backup_time' => $time,
+            'auto_backup_max_files' => $maxFiles,
+            'auto_backup_last_run' => $lastRun,
+        ]);
+    }
+
+    /**
+     * POST /api/admin/database/auto-backup-settings
+     * Update automated daily backup settings (Super Admin).
+     */
+    public function updateAutoBackupSettings(Request $request): JsonResponse
+    {
+        if ($forbidden = $this->checkSuperAdmin($request)) {
+            return $forbidden;
+        }
+
+        $validated = $request->validate([
+            'auto_backup_enabled' => ['required', 'boolean'],
+            'auto_backup_time' => ['required', 'string', 'regex:/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/'],
+            'auto_backup_max_files' => ['required', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        SiteSetting::updateOrCreate(['key' => 'auto_backup_enabled'], ['value' => $validated['auto_backup_enabled'] ? 'true' : 'false']);
+        SiteSetting::updateOrCreate(['key' => 'auto_backup_time'], ['value' => $validated['auto_backup_time']]);
+        SiteSetting::updateOrCreate(['key' => 'auto_backup_max_files'], ['value' => (string) $validated['auto_backup_max_files']]);
+
+        AuditLogger::log('updated', 'SiteSetting', null, "Updated Automated Backup Settings: Time={$validated['auto_backup_time']}, MaxFiles={$validated['auto_backup_max_files']}", [
+            'enabled' => $validated['auto_backup_enabled'],
+            'time' => $validated['auto_backup_time'],
+            'max_files' => $validated['auto_backup_max_files'],
+        ], $request);
+
+        return response()->json([
+            'message' => 'Automated backup configuration saved successfully!',
+            'settings' => $this->getAutoBackupSettings()->getData(),
+        ]);
+    }
+
+    /**
+     * POST /api/admin/database/run-auto-backup
+     * Manually trigger automated backup job execution (Super Admin).
+     */
+    public function triggerManualAutoBackup(Request $request): JsonResponse
+    {
+        if ($forbidden = $this->checkSuperAdmin($request)) {
+            return $forbidden;
+        }
+
+        $result = $this->runAutoBackupJob(true);
+
+        return response()->json([
+            'message' => 'Automated backup job executed successfully!',
+            'result' => $result,
+        ]);
+    }
+
+    /**
+     * Perform automated daily database backup & prune older auto-backups exceeding retention limit.
+     */
+    public function runAutoBackupJob(bool $forceRun = false): array
+    {
+        $enabled = SiteSetting::where('key', 'auto_backup_enabled')->value('value') !== 'false';
+        if (!$enabled && !$forceRun) {
+            return ['status' => 'skipped', 'message' => 'Auto backup is disabled.'];
+        }
+
+        $maxFiles = (int) (SiteSetting::where('key', 'auto_backup_max_files')->value('value') ?: 7);
+        $maxFiles = max(1, min(100, $maxFiles));
+
+        @set_time_limit(600);
+        @ini_set('memory_limit', '512M');
+
+        $driver = DB::getDriverName();
+        $filename = 'auto-backup-' . date('Y-m-d_H-i-s') . '.sql';
+        $filePath = $this->getBackupPath($filename);
+
+        $tables = [];
+        if ($driver === 'mysql') {
+            $rows = DB::select('SHOW TABLES');
+            foreach ($rows as $row) {
+                $val = array_values((array) $row);
+                if (isset($val[0])) {
+                    $tables[] = $val[0];
+                }
+            }
+        } else {
+            $rows = DB::select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+            foreach ($rows as $row) {
+                $tables[] = $row->name;
+            }
+        }
+
+        $handle = fopen($filePath, 'w');
+        if (!$handle) {
+            return ['status' => 'error', 'message' => 'Failed to open file for writing.'];
+        }
+
+        fwrite($handle, "-- Cyberlogic Automated Daily Database Backup\n");
+        fwrite($handle, "-- Generated: " . date('Y-m-d H:i:s') . "\n");
+        fwrite($handle, "-- Database Driver: " . $driver . "\n\n");
+        if ($driver === 'mysql') {
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=0;\n\n");
+        } else {
+            fwrite($handle, "PRAGMA foreign_keys = OFF;\n\n");
+        }
+
+        foreach ($tables as $table) {
+            fwrite($handle, "-- Table structure for `$table` --\n");
+            if ($driver === 'mysql') {
+                fwrite($handle, "DROP TABLE IF EXISTS `$table`;\n");
+                $createRow = DB::select("SHOW CREATE TABLE `$table`");
+                if (!empty($createRow)) {
+                    $createArr = (array) $createRow[0];
+                    $createSql = $createArr['Create Table'] ?? array_values($createArr)[1] ?? '';
+                    fwrite($handle, $createSql . ";\n\n");
+                }
+            } else {
+                fwrite($handle, "DROP TABLE IF EXISTS \"$table\";\n");
+                $createRow = DB::select("SELECT sql FROM sqlite_master WHERE type='table' AND name=?", [$table]);
+                if (!empty($createRow) && !empty($createRow[0]->sql)) {
+                    fwrite($handle, $createRow[0]->sql . ";\n\n");
+                }
+            }
+
+            fwrite($handle, "-- Dumping data for `$table` --\n");
+            DB::table($table)->orderByRaw('1')->chunk(250, function ($rows) use ($handle, $table) {
+                foreach ($rows as $row) {
+                    $rowArr = (array) $row;
+                    $columns = array_map(fn($col) => "`$col`", array_keys($rowArr));
+                    $values = array_map(function ($val) {
+                        if ($val === null) return 'NULL';
+                        if (is_bool($val)) return $val ? '1' : '0';
+                        if (is_numeric($val)) return $val;
+                        return "'" . addslashes((string) $val) . "'";
+                    }, array_values($rowArr));
+
+                    $sql = "INSERT INTO `$table` (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $values) . ");\n";
+                    fwrite($handle, $sql);
+                }
+            });
+            fwrite($handle, "\n");
+        }
+
+        if ($driver === 'mysql') {
+            fwrite($handle, "SET FOREIGN_KEY_CHECKS=1;\n");
+        } else {
+            fwrite($handle, "PRAGMA foreign_keys = ON;\n");
+        }
+        fclose($handle);
+
+        // Update last run date
+        $todayStr = date('Y-m-d');
+        SiteSetting::updateOrCreate(['key' => 'auto_backup_last_run'], ['value' => $todayStr]);
+
+        // Prune older auto-backups exceeding retention limit ($maxFiles)
+        $dir = $this->getBackupPath();
+        $autoFiles = glob($dir . '/auto-backup-*.sql');
+        usort($autoFiles, fn($a, $b) => filemtime($b) <=> filemtime($a));
+
+        $deletedCount = 0;
+        if (count($autoFiles) > $maxFiles) {
+            $filesToDelete = array_slice($autoFiles, $maxFiles);
+            foreach ($filesToDelete as $oldFile) {
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                    $deletedCount++;
+                }
+            }
+        }
+
+        AuditLogger::log('created', 'DatabaseBackup', null, "Automated Daily Database Backup Created: {$filename}", [
+            'filename' => $filename,
+            'size' => filesize($filePath),
+            'pruned_old_files' => $deletedCount,
+            'max_retained' => $maxFiles,
+        ]);
+
+        return [
+            'status' => 'success',
+            'filename' => $filename,
+            'size' => filesize($filePath),
+            'pruned_count' => $deletedCount,
+            'max_files' => $maxFiles,
+        ];
+    }
 }
