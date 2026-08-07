@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, Link, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, AlertCircle, Kanban } from "lucide-react";
 import {
@@ -636,6 +636,81 @@ export default function CyberBoardView() {
     userId: user?.id,
     onWsBoardEvent: handleWsBoardEvent,
   });
+
+  // Compute active collaborators list (Self + Remote board presence users)
+  const activeCollaboratorsList = useMemo(() => [
+    ...(user
+      ? [
+          {
+            id: user.id,
+            name: user.name || "You",
+            avatar: getAvatarUrl(user.avatar, user.name || "You"),
+            role: user.role,
+            isMe: true,
+            status: activeDragCard
+              ? `Dragging "${activeDragCard.title}"`
+              : "Active (You)",
+          },
+        ]
+      : []),
+    ...Object.values(boardPresenceUsers).map((pUser) => {
+      const isDragging = remoteDraggingCards[pUser.id];
+      return {
+        id: pUser.id,
+        name: pUser.name,
+        avatar: getAvatarUrl(pUser.avatar, pUser.name),
+        role: "Member",
+        isMe: false,
+        status: isDragging ? `Dragging "${isDragging.title}"` : pUser.status || "Viewing board",
+      };
+    }),
+  ], [user, activeDragCard, boardPresenceUsers, remoteDraggingCards]);
+
+  // Compute full board members list (Active collaborators + Offline allowed members)
+  const allBoardMembersList = useMemo(() => {
+    const userMap = new Map<number, any>();
+
+    // Active presence users first
+    activeCollaboratorsList.forEach((c) => userMap.set(c.id, c));
+
+    // If private board, include offline allowed members + host
+    if (board?.visibility === "private") {
+      const allowedSet = new Set(board.allowed_members || []);
+      const hostId = board.created_by;
+
+      directoryMembers.forEach((m: any) => {
+        if (!userMap.has(m.id) && (m.id === hostId || allowedSet.has(m.id))) {
+          const name = m.name || m.username || "Member";
+          userMap.set(m.id, {
+            id: m.id,
+            name,
+            username: m.username,
+            avatar: getAvatarUrl(m.avatar, name),
+            role: "Member",
+            isMe: user ? m.id === user.id : false,
+            status: "Offline",
+          });
+        }
+      });
+    } else {
+      directoryMembers.forEach((m: any) => {
+        if (!userMap.has(m.id)) {
+          const name = m.name || m.username || "Member";
+          userMap.set(m.id, {
+            id: m.id,
+            name,
+            username: m.username,
+            avatar: getAvatarUrl(m.avatar, name),
+            role: "Member",
+            isMe: user ? m.id === user.id : false,
+            status: "Offline",
+          });
+        }
+      });
+    }
+
+    return Array.from(userMap.values());
+  }, [board, activeCollaboratorsList, directoryMembers, user]);
 
   // Actions
   const handleAddSuggestion = async (data: {
@@ -1340,80 +1415,7 @@ export default function CyberBoardView() {
     ? columns.find((c) => c.id === selectedCard.column_id)
     : null;
 
-  // Compute active collaborators list (Self + Remote board presence users)
-  const activeCollaboratorsList = [
-    ...(user
-      ? [
-          {
-            id: user.id,
-            name: user.name || "You",
-            avatar: getAvatarUrl(user.avatar, user.name || "You"),
-            role: user.role,
-            isMe: true,
-            status: activeDragCard
-              ? `Dragging "${activeDragCard.title}"`
-              : "Active (You)",
-          },
-        ]
-      : []),
-    ...Object.values(boardPresenceUsers).map((pUser) => {
-      const isDragging = remoteDraggingCards[pUser.id];
-      return {
-        id: pUser.id,
-        name: pUser.name,
-        avatar: getAvatarUrl(pUser.avatar, pUser.name),
-        role: "Member",
-        isMe: false,
-        status: isDragging ? `Dragging "${isDragging.title}"` : pUser.status || "Viewing board",
-      };
-    }),
-  ];
 
-  // Compute full board members list (Active collaborators + Offline allowed members)
-  const allBoardMembersList = useCallback(() => {
-    const userMap = new Map<number, any>();
-
-    // Active presence users first
-    activeCollaboratorsList.forEach((c) => userMap.set(c.id, c));
-
-    // If private board, include offline allowed members + host
-    if (board?.visibility === "private") {
-      const allowedSet = new Set(board.allowed_members || []);
-      const hostId = board.created_by;
-
-      directoryMembers.forEach((m: any) => {
-        if (!userMap.has(m.id) && (m.id === hostId || allowedSet.has(m.id))) {
-          const name = m.name || m.username || "Member";
-          userMap.set(m.id, {
-            id: m.id,
-            name,
-            username: m.username,
-            avatar: getAvatarUrl(m.avatar, name),
-            role: "Member",
-            isMe: user ? m.id === user.id : false,
-            status: "Offline",
-          });
-        }
-      });
-    } else {
-      directoryMembers.forEach((m: any) => {
-        if (!userMap.has(m.id)) {
-          const name = m.name || m.username || "Member";
-          userMap.set(m.id, {
-            id: m.id,
-            name,
-            username: m.username,
-            avatar: getAvatarUrl(m.avatar, name),
-            role: "Member",
-            isMe: user ? m.id === user.id : false,
-            status: "Offline",
-          });
-        }
-      });
-    }
-
-    return Array.from(userMap.values());
-  }, [board, activeCollaboratorsList, directoryMembers, user])();
 
 
 
