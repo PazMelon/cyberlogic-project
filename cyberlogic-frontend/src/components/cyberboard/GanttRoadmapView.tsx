@@ -178,8 +178,16 @@ export default function GanttRoadmapView({
   const ganttWorkspaceRef = useRef<HTMLDivElement>(null);
 
   const captureGanttChartImage = async (targetEl: HTMLElement): Promise<string> => {
-    const fullWidth = Math.max(targetEl.scrollWidth, gridTimelineRef.current?.scrollWidth || 0);
-    const fullHeight = Math.max(targetEl.scrollHeight, leftScrollRef.current?.scrollHeight || 0, gridTimelineRef.current?.scrollHeight || 0);
+    // Allow React frame to repaint with isExporting = true (hiding avatars and Today marker)
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const leftColWidth = leftScrollRef.current ? leftScrollRef.current.clientWidth : 400;
+    const rightGridScrollWidth = gridTimelineRef.current ? gridTimelineRef.current.scrollWidth : gridMinWidth;
+    const fullWidth = leftColWidth + rightGridScrollWidth;
+
+    const leftColScrollHeight = leftScrollRef.current ? leftScrollRef.current.scrollHeight + 48 : 0;
+    const rightGridScrollHeight = gridTimelineRef.current ? gridTimelineRef.current.scrollHeight : 0;
+    const fullHeight = Math.max(targetEl.scrollHeight, leftColScrollHeight, rightGridScrollHeight);
 
     return await toPng(targetEl, {
       cacheBust: false,
@@ -192,8 +200,10 @@ export default function GanttRoadmapView({
       height: fullHeight,
       style: {
         overflow: "visible",
-        height: "auto",
+        width: `${fullWidth}px`,
+        height: `${fullHeight}px`,
         maxHeight: "none",
+        maxWidth: "none",
       },
       filter: (node: HTMLElement) => {
         if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
@@ -1515,7 +1525,7 @@ export default function GanttRoadmapView({
 
   // Renderer for Left Tree Rows (Crisp Avatars + Unblocked Fixed Hover Popover Card)
   const renderTreeAssigneeAvatars = (cardItem: CyberboardCard) => {
-    if (groupBy === "assignee") return null;
+    if (isExporting || groupBy === "assignee") return null;
 
     const users = getCardUsers(cardItem);
     if (users.length === 0) return null;
@@ -1555,7 +1565,7 @@ export default function GanttRoadmapView({
 
   // Adaptive Renderer for Timeline Bars (Static Badges ONLY - Popover Disabled on Bars)
   const renderTimelineAssigneeAvatars = (cardItem: CyberboardCard, widthPercent: number) => {
-    if (groupBy === "assignee") return null;
+    if (isExporting || groupBy === "assignee") return null;
 
     const users = getCardUsers(cardItem);
     if (users.length === 0) return null;
@@ -2071,7 +2081,7 @@ export default function GanttRoadmapView({
               ))}
 
               {/* Vertical TODAY Line */}
-              {todayPercentage !== null && (
+              {todayPercentage !== null && !isExporting && (
                 <div
                   className="absolute top-0 bottom-0 z-10 pointer-events-none flex flex-col items-center"
                   style={{ left: `${todayPercentage}%` }}
