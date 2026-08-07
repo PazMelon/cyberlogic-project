@@ -1992,7 +1992,7 @@ export default function GanttRoadmapView({
       <div ref={ganttWorkspaceRef} className="flex flex-1 min-h-0 overflow-hidden relative bg-surface-950">
         {/* Left Column: Group & Task Hierarchy Titles + Dedicated STATUS Column */}
         <div className="w-72 sm:w-[400px] flex-shrink-0 bg-surface-900/90 border-r border-border/80 flex flex-col z-10 shadow-lg">
-          <div className="h-12 border-b border-border/80 px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
+          <div className="h-12 box-border flex-shrink-0 border-b border-border/80 px-3 flex items-center justify-between bg-surface-900/95 font-bold text-xs text-text-secondary uppercase tracking-wider">
             <span className="flex items-center gap-2 flex-1 min-w-0 pr-2">
               <Layers className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="truncate">{groupBy === "phase" ? "Tasks & Phases" : groupBy === "column" ? "Tasks & Stages" : groupBy === "priority" ? "Tasks & Priority" : "Tasks & Assignees"}</span>
@@ -2010,7 +2010,7 @@ export default function GanttRoadmapView({
                 gridTimelineRef.current.scrollTop += e.deltaY;
               }
             }}
-            className="flex-1 overflow-hidden divide-y divide-border/40 select-none"
+            className="flex-1 overflow-hidden select-none"
           >
             {groupedData.map((group) => {
               const parentCards = group.cards.filter((c) => !c.parent_id);
@@ -2027,7 +2027,7 @@ export default function GanttRoadmapView({
                   }`}
                 >
                   {/* Group Title Bar */}
-                  <div className="h-[44px] px-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
+                  <div className="h-[44px] box-border px-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-xs"
@@ -2055,9 +2055,9 @@ export default function GanttRoadmapView({
                   </div>
 
                   {/* Group Items List (Tree Rows) */}
-                  <div className="divide-y divide-border/20">
+                  <div className="flex flex-col">
                     {parentCards.length === 0 ? (
-                      <div className="h-[44px] px-4 flex items-center gap-2 text-xs font-semibold text-text-muted/80 bg-surface-950/20 border-b border-border/20">
+                      <div className="h-[44px] box-border px-4 flex items-center gap-2 text-xs font-semibold text-text-muted/80 bg-surface-950/20 border-b border-border/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-text-muted/40 flex-shrink-0" />
                         <span>No tasks in group</span>
                       </div>
@@ -2078,7 +2078,7 @@ export default function GanttRoadmapView({
                               onDragOver={(e) => handleGanttCardDragOver(e, card.id)}
                               onDragLeave={(e) => handleGanttCardDragLeave(e, card.id)}
                               onDrop={(e) => handleGanttDropOnCard(e, card, group)}
-                              className={`h-[44px] px-3 flex items-center justify-between gap-2 transition-all border-b border-border/20 cursor-grab active:cursor-grabbing group/leftrow ${
+                              className={`h-[44px] box-border px-3 flex items-center justify-between gap-2 transition-all border-b border-border/20 cursor-grab active:cursor-grabbing group/leftrow ${
                                 isCardDragOver ? "bg-primary/20 border-t-2 border-primary ring-1 ring-primary/40" : "hover:bg-surface-800/40"
                               }`}
                             >
@@ -2126,7 +2126,7 @@ export default function GanttRoadmapView({
                                 return (
                                   <div
                                     key={`row-left-sub-${subCard.id}`}
-                                    className="h-[38px] pl-7 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
+                                    className="h-[38px] box-border pl-7 pr-3 flex items-center justify-between gap-2 bg-surface-950/40 hover:bg-surface-800/30 transition-colors border-l-2 border-primary/30 border-b border-border/20"
                                   >
                                     <div className="flex-1 items-center gap-2 min-w-0 flex">
                                       <span
@@ -2161,7 +2161,7 @@ export default function GanttRoadmapView({
               );
             })}
             {/* Horizontal scrollbar height spacer to maintain 100% vertical row alignment with right timeline */}
-            <div className="h-4 flex-shrink-0 border-t border-border/20 bg-surface-900/40" />
+            {!isExporting && <div className="h-4 flex-shrink-0 border-t border-border/20 bg-surface-900/40" />}
           </div>
         </div>
 
@@ -2173,7 +2173,7 @@ export default function GanttRoadmapView({
         >
           <div style={{ minWidth: `${gridMinWidth}px` }} className="flex-1 flex flex-col relative transition-all duration-200">
             {/* Timeline Column Headers Bar */}
-            <div className="h-12 border-b border-border/80 flex items-center bg-surface-900/90 sticky top-0 z-20 backdrop-blur-md">
+            <div className="h-12 box-border flex-shrink-0 border-b border-border/80 flex items-center bg-surface-900/90 sticky top-0 z-20 backdrop-blur-md">
               {timelineColumns.map((col, cIdx) => (
                 <div
                   key={`timeline-col-${cIdx}`}
@@ -2209,7 +2209,7 @@ export default function GanttRoadmapView({
             </div>
 
             {/* Timeline Rows Body */}
-            <div className="flex-1 divide-y divide-border/40 relative z-10">
+            <div className="flex-1 relative z-10">
               {/* SVG Task Dependency Connector Lines Overlay */}
               <svg className="absolute inset-0 pointer-events-none z-20 w-full h-full overflow-visible">
                 <defs>
@@ -2342,12 +2342,12 @@ export default function GanttRoadmapView({
                     }`}
                   >
                     {/* Group Header Spacer */}
-                    <div className="h-[44px] border-b border-border/40 bg-surface-900/30" />
+                    <div className="h-[44px] box-border border-b border-border/40 bg-surface-900/30" />
 
                     {/* Timeline Bars for Cards & Sub-Cards */}
-                    <div className="divide-y divide-border/20">
+                    <div className="flex flex-col">
                       {parentCards.length === 0 ? (
-                        <div className="h-[44px] border-b border-border/20 flex items-center px-4 relative pointer-events-none">
+                        <div className="h-[44px] box-border border-b border-border/20 flex items-center px-4 relative pointer-events-none">
                           <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted italic px-3 py-1 rounded-lg bg-surface-800/90 border border-border/70 shadow-xs">
                             No tasks in group
                           </span>
@@ -2366,7 +2366,7 @@ export default function GanttRoadmapView({
                                 onDragOver={(e) => handleGanttCardDragOver(e, card.id)}
                                 onDragLeave={(e) => handleGanttCardDragLeave(e, card.id)}
                                 onDrop={(e) => handleGanttDropOnCard(e, card, group)}
-                                className={`h-[44px] px-2 flex items-center relative transition-colors border-b border-border/20 ${
+                                className={`h-[44px] box-border px-2 flex items-center relative transition-colors border-b border-border/20 ${
                                   dragOverCardId === card.id ? "bg-primary/15 border-t-2 border-primary" : "hover:bg-surface-900/10"
                                 }`}
                               >
@@ -2511,7 +2511,7 @@ export default function GanttRoadmapView({
                                 return (
                                   <div
                                     key={`gantt-row-sub-${subCard.id}`}
-                                    className="h-[38px] px-2 flex items-center relative bg-surface-950/20 hover:bg-surface-900/10 transition-colors border-b border-border/20"
+                                    className="h-[38px] box-border px-2 flex items-center relative bg-surface-950/20 hover:bg-surface-900/10 transition-colors border-b border-border/20"
                                   >
                                     {isSubDateless ? (
                                       <div
