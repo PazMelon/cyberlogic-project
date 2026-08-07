@@ -373,22 +373,17 @@ export default function ReportManagement() {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading content reports...</p>
-        </div>
-      ) : (
-        <DataTable
-          data={filteredReports}
-          columns={columns}
-          searchPlaceholder="Search reports by preview, reason, or details..."
-          searchField={(row: DbReport) => row.reportable_title + " " + row.reason + " " + (row.details || "")}
-          emptyStateText={`No reports found in ${statusFilter === "pending" ? "pending reviews" : statusFilter === "approved" ? "approved history" : statusFilter === "rejected" ? "rejected history" : "all logs"}.`}
-          enablePagination
-          defaultItemsPerPage={10}
-        />
-      )}
+      <DataTable
+        data={filteredReports}
+        columns={columns}
+        searchPlaceholder="Search reports by preview, reason, or details..."
+        searchField={(row: DbReport) => row.reportable_title + " " + row.reason + " " + (row.details || "")}
+        emptyStateText={`No reports found in ${statusFilter === "pending" ? "pending reviews" : statusFilter === "approved" ? "approved history" : statusFilter === "rejected" ? "rejected history" : "all logs"}.`}
+        enablePagination
+        defaultItemsPerPage={10}
+        isLoading={isLoading}
+        skeletonRows={5}
+      />
     </div>
   );
 }

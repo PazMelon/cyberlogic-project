@@ -270,20 +270,15 @@ export default function EventManagement() {
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading events database...</p>
-        </div>
-      ) : (
-        <DataTable
-          data={eventList}
-          columns={eventColumns}
-          filterGroups={eventFilters}
-          searchPlaceholder="Search events..."
-          emptyStateText="No events found matching the criteria."
-        />
-      )}
+      <DataTable
+        data={eventList}
+        columns={eventColumns}
+        filterGroups={eventFilters}
+        searchPlaceholder="Search events..."
+        emptyStateText="No events found matching the criteria."
+        isLoading={isLoading}
+        skeletonRows={5}
+      />
     </div>
   );
 }

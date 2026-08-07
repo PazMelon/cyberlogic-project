@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   Database,
   Download,
@@ -12,7 +13,9 @@ import {
   Sparkles,
   Shield,
   FileCode,
-  Clock
+  Clock,
+  Eye,
+  Layers,
 } from "lucide-react";
 import {
   fetchDatabaseBackups,
@@ -29,7 +32,7 @@ import type { BackupItem, MaintenanceStatus, AutoBackupSettings } from "../../ut
 import { useDialog } from "../../utils/useDialog";
 import { useSEO } from "../../utils/useSEO";
 import { useAuth } from "../../context/AuthContext";
-import { SkeletonLine } from "../../components/Skeleton";
+import { DataTable } from "../../components/ui";
 
 export default function DatabaseManagement() {
   useSEO({
@@ -45,6 +48,7 @@ export default function DatabaseManagement() {
   const [dbType, setDbType] = useState<string>("MySQL");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<"backups" | "lockdown" | "auto_backup">("backups");
 
   // Lockdown State
   const [maintenance, setMaintenance] = useState<MaintenanceStatus>({
@@ -449,426 +453,528 @@ export default function DatabaseManagement() {
     );
   }
 
+  const backupColumns = [
+    {
+      header: "Filename",
+      accessor: (b: BackupItem) => (
+        <span className="font-mono font-medium text-text-primary">{b.filename}</span>
+      ),
+    },
+    {
+      header: "Type",
+      accessor: (b: BackupItem) =>
+        b.is_auto_snapshot ? (
+          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
+            Auto Snapshot
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[10px] font-semibold">
+            Manual Backup
+          </span>
+        ),
+    },
+    {
+      header: "File Size",
+      accessor: (b: BackupItem) => (
+        <span className="font-semibold text-text-secondary">{b.size_formatted}</span>
+      ),
+    },
+    {
+      header: "Created Date",
+      accessor: (b: BackupItem) => <span className="text-text-muted">{b.created_at}</span>,
+    },
+    {
+      header: "Actions",
+      accessor: (b: BackupItem) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => downloadDatabaseBackup(b.filename)}
+            className="p-2 bg-surface-800 hover:bg-surface-700 text-text-primary rounded-lg transition-all border border-border cursor-pointer"
+            title="Download Backup SQL File"
+          >
+            <Download className="w-3.5 h-3.5 text-primary" />
+          </button>
+
+          <button
+            onClick={() => handleTriggerRestore(b.filename)}
+            disabled={!!activeTask}
+            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 disabled:opacity-50 text-xs cursor-pointer"
+            title="1-Click Restore Database"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>1-Click Restore</span>
+          </button>
+
+          <button
+            onClick={() => handleDeleteBackup(b.filename)}
+            className="p-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded-lg transition-all border border-rose-800/40 cursor-pointer"
+            title="Delete Backup File"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+          </button>
+        </div>
+      ),
+      className: "text-right",
+    },
+  ];
+
+  const tabs = [
+    { key: "backups", label: "Database Backups & Restore", icon: Database, badge: backups.length.toString() },
+    { key: "lockdown", label: "Website Lockdown Mode", icon: maintenance.maintenance_mode ? Lock : Unlock, badge: maintenance.maintenance_mode ? "Active" : "Public" },
+    { key: "auto_backup", label: "Automated Daily Schedule", icon: Clock, badge: autoBackup.auto_backup_enabled ? autoBackup.auto_backup_time : "Off" },
+  ] as const;
+
   return (
-    <div className="w-full space-y-6 animate-fadeIn text-left pb-16">
-      
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 sm:p-8 rounded-2xl bg-surface-900/80 border border-border/80 shadow-lg backdrop-blur-xl relative overflow-hidden">
-        <div className="space-y-1.5 z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-semibold uppercase tracking-wider">
-            <Database className="w-3.5 h-3.5" />
-            <span>Super Admin Engine • {dbType}</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold font-[family-name:var(--font-heading)] text-text-primary tracking-tight">
-            Database Backups & Website Lockdown
+    <div className="w-full space-y-6 animate-fadeIn text-left pb-12">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6 rounded-2xl bg-surface-900/80 border border-border/80 shadow-lg">
+        <div>
+          <h1 className="text-2xl font-bold font-[family-name:var(--font-heading)] text-text-primary flex items-center gap-2.5">
+            <Database className="w-6 h-6 text-primary" />
+            <span>Database & Website Lockdown</span>
           </h1>
-          <p className="text-text-muted text-xs sm:text-sm max-w-2xl">
-            Execute 1-Click Database Backups, 1-Click Restores with real-time percentage loading & ETA countdown, or toggle Website Lockdown for maintenance mode.
+          <p className="text-xs text-text-muted mt-1">
+            Super Admin infrastructure controls for 1-Click backups, restores with real-time SSE progress, daily auto-snapshots, and site lockdown.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 z-10">
+        <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={loadData}
             disabled={isLoading}
-            className="p-2.5 bg-surface-800 hover:bg-surface-700 text-text-secondary hover:text-text-primary rounded-xl transition-all border border-border cursor-pointer disabled:opacity-50"
-            title="Refresh Backups List"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-xs font-semibold text-text-secondary hover:text-text-primary hover:border-primary/30 transition-all cursor-pointer disabled:opacity-50"
+            title="Refresh Database Info"
           >
-            <RefreshCw className={`w-5 h-5 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+            <span>Refresh</span>
           </button>
 
           <button
+            type="button"
             onClick={handleTriggerBackup}
             disabled={!!activeTask}
-            className="px-5 py-2.5 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl shadow-lg hover:shadow-primary/25 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary to-accent text-white text-xs font-bold shadow-lg hover:shadow-primary/25 transition-all hover:-translate-y-0.5 cursor-pointer disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4" />
-            <span>⚡ Create 1-Click Backup</span>
+            <span>⚡ 1-Click Backup</span>
           </button>
         </div>
       </div>
 
-      {/* Website Lockdown Control Panel Card */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-surface-900/80 border border-border/80 space-y-6 shadow-lg backdrop-blur-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
-          <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-2xl border ${maintenance.maintenance_mode ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : "bg-surface-800 border-border text-text-muted"}`}>
-              {maintenance.maintenance_mode ? <Lock className="w-6 h-6 animate-pulse text-rose-400" /> : <Unlock className="w-6 h-6 text-text-muted" />}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
-                <span>Website Lockdown (Maintenance Mode)</span>
-                {maintenance.maintenance_mode ? (
-                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold uppercase tracking-wider">Active</span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-surface-800 text-text-muted border border-border text-xs font-semibold">Public Access</span>
-                )}
-              </h2>
-              <p className="text-xs text-text-muted mt-0.5">
-                When active, non-superadmin members and visitors are redirected to the Maintenance Webpage. Super Admins retain full access.
-              </p>
-            </div>
+      {/* Top Status Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-primary/10 text-primary border border-primary/20">
+            <Database className="w-5 h-5" />
           </div>
-
-          <button
-            onClick={() => handleSaveMaintenance(!maintenance.maintenance_mode)}
-            disabled={isSavingMaintenance}
-            className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              maintenance.maintenance_mode
-                ? "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20"
-                : "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20"
-            }`}
-          >
-            {maintenance.maintenance_mode ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-            <span>{maintenance.maintenance_mode ? "Disable Website Lockdown" : "Activate Website Lockdown"}</span>
-          </button>
-        </div>
-
-        {/* Maintenance Templates & Reason Form */}
-        <div className="space-y-4 pt-2">
-          <label className="block text-xs font-bold uppercase tracking-wider text-text-muted">
-            Quick Maintenance Reason Templates
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {maintenanceTemplates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => handleSelectTemplate(t.id)}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
-                  maintenance.maintenance_template === t.id
-                    ? "bg-primary/10 border-primary/50 text-text-primary shadow-md shadow-primary/10"
-                    : "bg-surface-950/60 border-border text-text-secondary hover:bg-surface-800/80"
-                }`}
-              >
-                <div className="font-bold text-xs mb-1 text-text-primary">{t.label}</div>
-                <div className="text-[11px] text-text-muted line-clamp-2">{t.reason}</div>
-              </button>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-text-secondary">Notice Title Header</label>
-              <input
-                type="text"
-                value={maintenance.maintenance_title}
-                onChange={(e) => setMaintenance({ ...maintenance, maintenance_title: e.target.value })}
-                placeholder="e.g. Scheduled System Maintenance"
-                className="w-full px-4 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold text-text-secondary">Estimated Completion Time (Optional Countdown)</label>
-              <input
-                type="datetime-local"
-                value={maintenance.maintenance_estimated_end}
-                onChange={(e) => setMaintenance({ ...maintenance, maintenance_estimated_end: e.target.value })}
-                className="w-full px-4 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-text-secondary">Notice Explanation Message</label>
-            <textarea
-              rows={3}
-              value={maintenance.maintenance_reason}
-              onChange={(e) => setMaintenance({ ...maintenance, maintenance_reason: e.target.value })}
-              placeholder="Detailed reason for maintenance..."
-              className="w-full px-4 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary"
-            />
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={() => handleSaveMaintenance()}
-              disabled={isSavingMaintenance}
-              className="px-5 py-2.5 bg-surface-800 hover:bg-surface-700 text-text-primary font-semibold rounded-xl text-xs transition-all border border-border cursor-pointer"
-            >
-              Save Notice Template
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Automated Daily Backup & Retention Policy Card */}
-      <div className="p-6 rounded-2xl bg-surface-900/80 border border-border/80 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-          <div className="space-y-1">
-            <h3 className="font-bold text-text-primary text-base flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <span>Automated Daily Backup & Retention Policy</span>
-            </h3>
-            <p className="text-xs text-text-muted">
-              Configure daily scheduled database snapshots and retention rules. Old automated backups beyond the set limit are automatically pruned.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleRunManualAutoBackupTest}
-              disabled={isRunningAutoBackup}
-              className="px-4 py-2 bg-surface-800 hover:bg-surface-700 border border-border text-text-primary text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <Sparkles className={`w-3.5 h-3.5 text-primary ${isRunningAutoBackup ? "animate-spin" : ""}`} />
-              <span>{isRunningAutoBackup ? "Running Auto-Backup..." : "Run Auto-Backup Test Now"}</span>
-            </button>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Database Engine</span>
+            <span className="text-xs font-bold text-text-primary truncate block mt-0.5">{dbType} Engine</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-          {/* Enable Toggle */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-text-secondary">Automated Daily Backup</label>
-            <button
-              type="button"
-              onClick={() => setAutoBackup({ ...autoBackup, auto_backup_enabled: !autoBackup.auto_backup_enabled })}
-              className={`w-full py-2.5 px-4 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
-                autoBackup.auto_backup_enabled
-                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                  : "bg-surface-950 border-border text-text-muted"
-              }`}
-            >
-              <span>{autoBackup.auto_backup_enabled ? "Enabled (Active)" : "Disabled"}</span>
-              <div className={`w-4 h-4 rounded-full ${autoBackup.auto_backup_enabled ? "bg-emerald-400" : "bg-surface-700"}`} />
-            </button>
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <Layers className="w-5 h-5" />
           </div>
-
-          {/* Scheduled Execution Time */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-text-secondary">Scheduled Execution Time (Daily)</label>
-            <select
-              value={autoBackup.auto_backup_time}
-              onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_time: e.target.value })}
-              className="w-full px-4 py-2.5 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono cursor-pointer"
-            >
-              <option value="00:00">12:00 AM Midnight</option>
-              <option value="01:00">01:00 AM</option>
-              <option value="02:00">02:00 AM (Default / Recommended)</option>
-              <option value="03:00">03:00 AM</option>
-              <option value="04:00">04:00 AM</option>
-              <option value="05:00">05:00 AM</option>
-              <option value="06:00">06:00 AM</option>
-              <option value="12:00">12:00 PM Noon</option>
-              <option value="18:00">06:00 PM</option>
-              <option value="22:00">10:00 PM</option>
-            </select>
-          </div>
-
-          {/* Retention Limit (Max files) */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-text-secondary">Max Auto Backups to Retain</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                max={100}
-                value={autoBackup.auto_backup_max_files}
-                onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_max_files: Number(e.target.value) })}
-                className="w-full px-4 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono"
-              />
-              <button
-                onClick={handleSaveAutoBackup}
-                disabled={isSavingAutoBackup}
-                className="px-5 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer shrink-0 disabled:opacity-50"
-              >
-                {isSavingAutoBackup ? "Saving..." : "Save Settings"}
-              </button>
-            </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Backup History</span>
+            <span className="text-sm font-bold text-text-primary block mt-0.5">{backups.length} Files</span>
           </div>
         </div>
 
-        {/* Policy Info Strip */}
-        <div className="p-3 bg-surface-950/60 border border-border/60 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-text-muted">
-          <span className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
-              Policy: Retaining <strong className="text-text-primary">{autoBackup.auto_backup_max_files} latest daily snapshots</strong>. Manual 1-Click backups are protected and never auto-pruned.
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className={`p-3 rounded-xl border ${maintenance.maintenance_mode ? "bg-rose-500/10 text-rose-400 border-rose-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"}`}>
+            {maintenance.maintenance_mode ? <Lock className="w-5 h-5 animate-pulse" /> : <Unlock className="w-5 h-5" />}
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Lockdown Status</span>
+            <span className={`text-xs font-bold truncate block mt-0.5 ${maintenance.maintenance_mode ? "text-rose-400" : "text-emerald-400"}`}>
+              {maintenance.maintenance_mode ? "● Active Lockdown" : "● Public Access"}
             </span>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-surface-900/60 border border-border/60 flex items-center gap-3">
+          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider block">Daily Snapshots</span>
+            <span className="text-xs font-bold text-text-primary truncate block mt-0.5">
+              {autoBackup.auto_backup_enabled ? `Active @ ${autoBackup.auto_backup_time}` : "Disabled"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main 2-Column Desktop Grid Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* Left Navigation Sidebar */}
+        <div className="lg:col-span-1 space-y-2 bg-surface-900/80 border border-border/80 p-3 rounded-2xl static lg:sticky lg:top-20 shadow-md">
+          <span className="text-[11px] font-bold text-text-muted uppercase tracking-wider px-3 py-1 hidden lg:block">
+            Database Modules
           </span>
-          {autoBackup.auto_backup_last_run && (
-            <span className="font-mono text-[11px]">Last Auto-Backup: {autoBackup.auto_backup_last_run}</span>
+          <div className="flex flex-row lg:flex-col gap-1.5 overflow-x-auto lg:overflow-x-visible no-scrollbar">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.key;
+              const IconComp = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`flex-1 lg:w-full flex items-center justify-between p-2.5 sm:p-3 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap lg:whitespace-normal ${
+                    isActive
+                      ? "bg-primary text-white shadow-lg shadow-primary/20 font-bold"
+                      : "text-text-secondary hover:text-text-primary hover:bg-surface-800/80 bg-surface-800/40 lg:bg-transparent"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <IconComp className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-white" : "text-text-muted"}`} />
+                    <span className="truncate">{tab.label}</span>
+                  </div>
+                  <span
+                    className={`ml-2 px-2 py-0.5 rounded-md text-[10px] font-bold hidden sm:inline-block ${
+                      isActive ? "bg-white/20 text-white" : "bg-surface-800 text-text-muted border border-border/60"
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right Main Content Area */}
+        <div className="lg:col-span-3 space-y-6">
+          {activeTab === "backups" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Top Row: Quick Upload & Safeguards side by side */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 rounded-2xl bg-surface-900/80 border border-border/80 space-y-3 flex flex-col justify-between shadow-md">
+                  <div>
+                    <h3 className="font-bold text-text-primary text-xs uppercase tracking-wider flex items-center gap-2">
+                      <Upload className="w-4 h-4 text-primary" />
+                      <span>Upload SQL Dump File</span>
+                    </h3>
+                    <p className="text-[11px] text-text-muted mt-0.5">
+                      Drag and drop any custom .sql dump file to upload it into the backup repository for instant 1-Click Restoration.
+                    </p>
+                  </div>
+
+                  <div className="relative border-2 border-dashed border-border/80 hover:border-primary/50 rounded-xl p-3.5 text-center transition-all bg-surface-950/40 group cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".sql,.gz"
+                      onChange={handleUploadFile}
+                      disabled={isUploading}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                    />
+                    <div className="flex items-center justify-center gap-2.5">
+                      <FileCode className="w-5 h-5 text-text-muted group-hover:text-primary transition-colors flex-shrink-0" />
+                      <span className="text-xs font-semibold text-text-primary">
+                        {isUploading ? "Uploading database file..." : "Click or drag .sql file here (Max 100MB)"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-surface-900/80 border border-border/80 space-y-3 flex flex-col justify-between shadow-md">
+                  <div>
+                    <h3 className="font-bold text-text-primary text-xs uppercase tracking-wider flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                      <span>Restoration Safeguards</span>
+                    </h3>
+                    <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+                      Every 1-Click Restore automatically generates a <span className="text-emerald-400 font-semibold">pre-restore safety snapshot</span> before altering active database tables.
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="text-[11px] font-semibold">
+                      Disaster Rollback Active: Instant revert supported via safety snapshots.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Backup History DataTable */}
+              <div className="bg-surface-900/80 border border-border/80 rounded-2xl p-6 space-y-4 shadow-md">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                    <Database className="w-5 h-5 text-primary" />
+                    <span>Database Backup Repository ({backups.length})</span>
+                  </h2>
+                </div>
+
+                <DataTable
+                  data={backups}
+                  columns={backupColumns}
+                  isLoading={isLoading}
+                  skeletonRows={5}
+                  searchPlaceholder="Search database backup files..."
+                  searchField={(b) => b.filename}
+                  emptyStateText="No database backups found. Click '⚡ 1-Click Backup' above to generate your first snapshot."
+                  enablePagination={true}
+                  defaultItemsPerPage={10}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "lockdown" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Master Toggle Card */}
+              <div className="bg-surface-900/80 border border-border/80 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className={`p-3 rounded-2xl border ${maintenance.maintenance_mode ? "bg-rose-500/10 border-rose-500/30 text-rose-400" : "bg-surface-800 border-border text-text-muted"}`}>
+                    {maintenance.maintenance_mode ? <Lock className="w-6 h-6 animate-pulse text-rose-400" /> : <Unlock className="w-6 h-6 text-text-muted" />}
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                      <span>Website Lockdown (Maintenance Mode)</span>
+                      {maintenance.maintenance_mode ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold uppercase tracking-wider">Active</span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full bg-surface-800 text-text-muted border border-border text-[10px] font-semibold">Public Access</span>
+                      )}
+                    </h2>
+                    <p className="text-xs text-text-muted mt-0.5">
+                      When active, non-superadmin visitors are redirected to the Maintenance Webpage. Super Admins retain full access.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveMaintenance(!maintenance.maintenance_mode)}
+                  disabled={isSavingMaintenance}
+                  className={`px-5 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer flex-shrink-0 ${
+                    maintenance.maintenance_mode
+                      ? "bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20"
+                      : "bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/20"
+                  }`}
+                >
+                  {maintenance.maintenance_mode ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  <span>{maintenance.maintenance_mode ? "Disable Lockdown" : "Activate Lockdown"}</span>
+                </button>
+              </div>
+
+              {/* Form & Live Preview Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Form Column */}
+                <div className="lg:col-span-2 bg-surface-900/80 border border-border/80 rounded-2xl p-6 space-y-4 shadow-md">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-text-muted mb-2">
+                      Quick Maintenance Templates
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {maintenanceTemplates.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => handleSelectTemplate(t.id)}
+                          className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                            maintenance.maintenance_template === t.id
+                              ? "bg-primary/10 border-primary/50 text-text-primary shadow-sm"
+                              : "bg-surface-950/60 border-border text-text-secondary hover:bg-surface-800/80"
+                          }`}
+                        >
+                          <div className="font-bold text-xs truncate">{t.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-text-secondary">Notice Title Header</label>
+                      <input
+                        type="text"
+                        value={maintenance.maintenance_title}
+                        onChange={(e) => setMaintenance({ ...maintenance, maintenance_title: e.target.value })}
+                        placeholder="e.g. Scheduled System Maintenance"
+                        className="w-full px-3.5 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-text-secondary">Estimated End Time (Optional)</label>
+                      <input
+                        type="datetime-local"
+                        value={maintenance.maintenance_estimated_end}
+                        onChange={(e) => setMaintenance({ ...maintenance, maintenance_estimated_end: e.target.value })}
+                        className="w-full px-3.5 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-text-secondary">Notice Explanation Message</label>
+                    <textarea
+                      rows={3}
+                      value={maintenance.maintenance_reason}
+                      onChange={(e) => setMaintenance({ ...maintenance, maintenance_reason: e.target.value })}
+                      placeholder="Detailed reason for maintenance..."
+                      className="w-full px-3.5 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSaveMaintenance()}
+                      disabled={isSavingMaintenance}
+                      className="px-5 py-2 bg-surface-800 hover:bg-surface-700 text-text-primary font-semibold rounded-xl text-xs transition-all border border-border cursor-pointer flex items-center gap-1.5"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Save Notice Settings</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Live Preview Card */}
+                <div className="p-5 rounded-2xl bg-surface-950/80 border border-border/80 space-y-3 flex flex-col justify-between shadow-md">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted flex items-center gap-1.5 mb-3">
+                      <Eye className="w-3.5 h-3.5 text-primary" />
+                      <span>Live Public Notice Preview</span>
+                    </span>
+
+                    <div className="p-4 rounded-xl bg-surface-900 border border-border/60 space-y-3">
+                      <div className="flex items-center gap-2 text-rose-400 font-bold text-xs">
+                        <Lock className="w-4 h-4" />
+                        <span>{maintenance.maintenance_title || "Maintenance Mode Active"}</span>
+                      </div>
+                      <p className="text-xs text-text-muted leading-relaxed">
+                        {maintenance.maintenance_reason || "No message provided."}
+                      </p>
+                      {maintenance.maintenance_estimated_end && (
+                        <div className="text-[10px] font-mono text-primary flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>ETA: {new Date(maintenance.maintenance_estimated_end).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-[10px] text-text-muted italic text-center">
+                    This message displays to all visitors on the Maintenance screen when Lockdown is active.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "auto_backup" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <div className="bg-surface-900/80 border border-border/80 rounded-2xl p-6 space-y-5 shadow-md">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+                  <div className="space-y-1">
+                    <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <span>Automated Daily Backup Schedule & Retention</span>
+                    </h2>
+                    <p className="text-xs text-text-muted">
+                      Configure automatic daily snapshots. Older automated backups past the set limit are automatically pruned.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRunManualAutoBackupTest}
+                    disabled={isRunningAutoBackup}
+                    className="px-4 py-2 bg-surface-800 hover:bg-surface-700 border border-border text-text-primary text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 flex-shrink-0"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-primary ${isRunningAutoBackup ? "animate-spin" : ""}`} />
+                    <span>{isRunningAutoBackup ? "Running Auto-Backup..." : "Test Run Auto-Backup Now"}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-end">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-text-secondary">Automated Daily Backup</label>
+                    <button
+                      type="button"
+                      onClick={() => setAutoBackup({ ...autoBackup, auto_backup_enabled: !autoBackup.auto_backup_enabled })}
+                      className={`w-full py-2 px-3.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                        autoBackup.auto_backup_enabled
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                          : "bg-surface-950 border-border text-text-muted"
+                      }`}
+                    >
+                      <span>{autoBackup.auto_backup_enabled ? "Enabled (Daily Schedule)" : "Disabled"}</span>
+                      <div className={`w-3 h-3 rounded-full ${autoBackup.auto_backup_enabled ? "bg-emerald-400" : "bg-surface-700"}`} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-text-secondary">Daily Execution Time (24h)</label>
+                    <select
+                      value={autoBackup.auto_backup_time}
+                      onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_time: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono cursor-pointer"
+                    >
+                      <option value="00:00">12:00 AM Midnight</option>
+                      <option value="01:00">01:00 AM</option>
+                      <option value="02:00">02:00 AM (Recommended)</option>
+                      <option value="03:00">03:00 AM</option>
+                      <option value="04:00">04:00 AM</option>
+                      <option value="05:00">05:00 AM</option>
+                      <option value="06:00">06:00 AM</option>
+                      <option value="12:00">12:00 PM Noon</option>
+                      <option value="18:00">06:00 PM</option>
+                      <option value="22:00">10:00 PM</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-text-secondary">Max Retention Count</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={autoBackup.auto_backup_max_files}
+                        onChange={(e) => setAutoBackup({ ...autoBackup, auto_backup_max_files: Number(e.target.value) })}
+                        className="w-full px-3.5 py-2 bg-surface-950 border border-border rounded-xl text-text-primary text-xs focus:outline-none focus:border-primary font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveAutoBackup}
+                        disabled={isSavingAutoBackup}
+                        className="px-4 py-2 bg-primary hover:bg-primary-hover text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer shrink-0 disabled:opacity-50"
+                      >
+                        {isSavingAutoBackup ? "Saving..." : "Save Settings"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-surface-950/60 border border-border/60 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-text-muted">
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      Retaining <strong className="text-text-primary">{autoBackup.auto_backup_max_files} latest daily snapshots</strong>. Manual backups are protected from auto-pruning.
+                    </span>
+                  </span>
+                  {autoBackup.auto_backup_last_run && (
+                    <span className="font-mono text-[11px]">Last Run: {autoBackup.auto_backup_last_run}</span>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Upload Custom Backup & Options */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 p-6 rounded-2xl bg-surface-900/80 border border-border/80 flex flex-col justify-between gap-4">
-          <div>
-            <h3 className="font-bold text-text-primary text-sm flex items-center gap-2 mb-1">
-              <Upload className="w-4 h-4 text-primary" />
-              <span>Upload Custom Database Backup (.sql)</span>
-            </h3>
-            <p className="text-xs text-text-muted">
-              Select or drag-and-drop any SQL dump file to upload it into the backup repository for instant 1-Click Restoration.
-            </p>
-          </div>
-
-          <div className="relative border-2 border-dashed border-border hover:border-primary/50 rounded-xl p-6 text-center transition-all bg-surface-950/40">
-            <input
-              type="file"
-              accept=".sql"
-              onChange={handleUploadFile}
-              disabled={isUploading}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-            />
-            <div className="flex flex-col items-center gap-2">
-              <FileCode className="w-8 h-8 text-primary/80" />
-              <span className="text-xs font-semibold text-text-secondary">
-                {isUploading ? "Uploading database file..." : "Click or drag .sql file here"}
-              </span>
-              <span className="text-[10px] text-text-muted">Maximum file size: 100MB</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-2xl bg-surface-900/80 border border-border/80 space-y-3 flex flex-col justify-between">
-          <div>
-            <h3 className="font-bold text-text-primary text-sm flex items-center gap-2 mb-1">
-              <Shield className="w-4 h-4 text-emerald-400" />
-              <span>Restoration Safeguards</span>
-            </h3>
-            <p className="text-xs text-text-muted leading-relaxed">
-              Every 1-Click Restore automatically creates a <span className="text-emerald-400 font-semibold">pre-restore safety snapshot</span> before altering active database tables.
-            </p>
-          </div>
-
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-400 space-y-1">
-            <div className="font-semibold flex items-center gap-1.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Disaster Rollback Enabled</span>
-            </div>
-            <p className="text-[11px] text-emerald-400/80">
-              If an unintended restore occurs, you can revert instantly using the generated snapshot file.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Backup History Table */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-surface-900/80 border border-border/80 space-y-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-text-primary flex items-center gap-2">
-            <Database className="w-4 h-4 text-primary" />
-            <span>Database Backup History ({backups.length})</span>
-          </h3>
-        </div>
-
-        {isLoading ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-text-primary border-collapse">
-              <thead>
-                <tr className="border-b border-border text-text-muted uppercase tracking-wider text-[10px] font-bold">
-                  <th className="py-3 px-4">Filename</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">File Size</th>
-                  <th className="py-3 px-4">Created Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {Array.from({ length: 5 }).map((_, idx) => (
-                  <tr key={`db-skeleton-${idx}`} className="animate-pulse">
-                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-52" heightClass="h-4" /></td>
-                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-24" heightClass="h-4" /></td>
-                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-16" heightClass="h-4" /></td>
-                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-32" heightClass="h-4" /></td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <SkeletonLine widthClass="w-8" heightClass="h-8" />
-                        <SkeletonLine widthClass="w-28" heightClass="h-8" />
-                        <SkeletonLine widthClass="w-8" heightClass="h-8" />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : backups.length === 0 ? (
-          <div className="p-12 text-center border border-border rounded-xl bg-surface-950/40 text-text-muted space-y-3">
-            <Database className="w-10 h-10 mx-auto text-text-muted/60" />
-            <p className="text-xs font-semibold">No database backups found.</p>
-            <p className="text-[11px] text-text-muted">Click "⚡ Create 1-Click Backup" above to generate your first backup snapshot.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-text-primary border-collapse">
-              <thead>
-                <tr className="border-b border-border text-text-muted uppercase tracking-wider text-[10px] font-bold">
-                  <th className="py-3 px-4">Filename</th>
-                  <th className="py-3 px-4">Type</th>
-                  <th className="py-3 px-4">File Size</th>
-                  <th className="py-3 px-4">Created Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {backups.map((b) => (
-                  <tr key={b.filename} className="hover:bg-surface-800/40 transition-all">
-                    <td className="py-3 px-4 font-mono font-medium text-text-primary">
-                      {b.filename}
-                    </td>
-                    <td className="py-3 px-4">
-                      {b.is_auto_snapshot ? (
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">
-                          Auto Snapshot
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-[10px] font-semibold">
-                          Manual Backup
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-text-secondary">
-                      {b.size_formatted}
-                    </td>
-                    <td className="py-3 px-4 text-text-muted">
-                      {b.created_at}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => downloadDatabaseBackup(b.filename)}
-                          className="p-2 bg-surface-800 hover:bg-surface-700 text-text-primary rounded-lg transition-all border border-border cursor-pointer"
-                          title="Download Backup SQL File"
-                        >
-                          <Download className="w-3.5 h-3.5 text-primary" />
-                        </button>
-
-                        <button
-                          onClick={() => handleTriggerRestore(b.filename)}
-                          disabled={!!activeTask}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg transition-all shadow-md shadow-purple-600/20 flex items-center gap-1.5 disabled:opacity-50 text-xs cursor-pointer"
-                          title="1-Click Restore Database"
-                        >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>1-Click Restore</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteBackup(b.filename)}
-                          className="p-2 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 rounded-lg transition-all border border-rose-800/40 cursor-pointer"
-                          title="Delete Backup File"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       {/* Live SSE Stream Progress & ETA Overlay Modal */}
-      {activeTask && (
-        <div className="fixed inset-0 bg-surface-950/90 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
+      {activeTask && createPortal(
+        <div className="fixed inset-0 bg-surface-950/80 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
           <div className="max-w-lg w-full bg-surface-900 border border-border rounded-2xl p-8 shadow-2xl space-y-6 text-center relative overflow-hidden">
             
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto text-primary">
@@ -954,9 +1060,9 @@ export default function DatabaseManagement() {
               </p>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { fetchEventById, fetchEventAttendees } from "../../utils/api";
 import { useDialog } from "../../utils/useDialog";
 import type { Event } from "../../data/mockData";
 import { DataTable } from "../../components/ui";
+import { SkeletonTable, SkeletonLine } from "../../components/Skeleton";
 
 interface AttendeeRecord {
   id: number;
@@ -215,9 +216,18 @@ export default function EventAttendeesView() {
 
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-3">
-        <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-        <p className="text-xs text-text-muted">Loading attendees records...</p>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center gap-4">
+          <SkeletonLine widthClass="w-32" heightClass="h-8" />
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <SkeletonLine widthClass="w-64" heightClass="h-8" />
+            <SkeletonLine widthClass="w-48" heightClass="h-4" />
+          </div>
+          <SkeletonLine widthClass="w-36" heightClass="h-10" />
+        </div>
+        <SkeletonTable rows={6} columns={5} />
       </div>
     );
   }

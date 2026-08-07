@@ -669,20 +669,15 @@ export default function ForumModeration() {
         </Card>
       )}
 
-      {isLoadingThreads ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading forum threads...</p>
-        </div>
-      ) : (
-        <DataTable
-          data={threadList}
-          columns={forumColumns}
-          filterGroups={forumFilters}
-          searchPlaceholder="Search forum threads..."
-          emptyStateText="No forum threads found matching the criteria."
-        />
-      )}
+      <DataTable
+        data={threadList}
+        columns={forumColumns}
+        filterGroups={forumFilters}
+        searchPlaceholder="Search forum threads..."
+        emptyStateText="No forum threads found matching the criteria."
+        isLoading={isLoadingThreads}
+        skeletonRows={5}
+      />
     </div>
   );
 }

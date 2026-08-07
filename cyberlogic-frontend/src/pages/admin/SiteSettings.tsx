@@ -7,6 +7,7 @@ import AboutMissionVisionSettings from "../../components/admin/about/AboutMissio
 import AboutHistorySettings from "../../components/admin/about/AboutHistorySettings";
 import AboutOfficerSettings from "../../components/admin/about/AboutOfficerSettings";
 import { useSEO } from "../../utils/useSEO";
+import { SkeletonBox, SkeletonLine } from "../../components/Skeleton";
 
 const availableThemes = [
   // Dark Themes
@@ -285,9 +286,10 @@ export default function SiteSettings() {
               </div>
 
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 space-y-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                  <p className="text-xs text-text-muted">Loading theme configurations...</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 animate-pulse">
+                  {Array.from({ length: 8 }).map((_, idx) => (
+                    <SkeletonBox key={idx} className="h-36 rounded-xl" />
+                  ))}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -346,9 +348,10 @@ export default function SiteSettings() {
               </div>
 
               {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 space-y-3">
-                  <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                  <p className="text-xs text-text-muted">Loading connect links...</p>
+                <div className="space-y-4 animate-pulse">
+                  <SkeletonLine widthClass="w-full" heightClass="h-10" />
+                  <SkeletonLine widthClass="w-full" heightClass="h-10" />
+                  <SkeletonLine widthClass="w-full" heightClass="h-10" />
                 </div>
               ) : (
                 <div className="space-y-6">

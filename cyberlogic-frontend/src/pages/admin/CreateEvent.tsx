@@ -6,6 +6,7 @@ import { fetchEventById, createEvent, updateEvent } from "../../utils/api";
 import { useDialog } from "../../utils/useDialog";
 import CMSBlogBuilder, { generateId } from "../../components/ui/CMSBlogBuilder";
 import type { CMSBlogState } from "../../components/ui/CMSBlogBuilder";
+import { SkeletonLine, SkeletonBox } from "../../components/Skeleton";
 
 export default function CreateEvent() {
   const navigate = useNavigate();
@@ -176,9 +177,14 @@ export default function CreateEvent() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading data from secure database...</p>
+        <div className="space-y-6 animate-pulse p-6 bg-surface-900/80 border border-border/80 rounded-2xl">
+          <SkeletonLine widthClass="w-3/4" heightClass="h-10" />
+          <SkeletonLine widthClass="w-full" heightClass="h-5" />
+          <SkeletonBox className="h-48 rounded-xl" />
+          <div className="grid grid-cols-2 gap-4">
+            <SkeletonBox className="h-12 rounded-xl" />
+            <SkeletonBox className="h-12 rounded-xl" />
+          </div>
         </div>
       ) : (
         /* Generic CMS Builder Component configured for Events */

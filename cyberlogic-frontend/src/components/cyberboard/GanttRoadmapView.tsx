@@ -61,6 +61,24 @@ const PRESET_COLORS = [
   "#06b6d4", // Cyan
 ];
 
+const parseLocalDate = (dateStr?: string | null, fallbackYear = 2026, isEnd = false): Date => {
+  if (!dateStr) {
+    return isEnd
+      ? new Date(fallbackYear, 11, 31, 23, 59, 59, 999)
+      : new Date(fallbackYear, 0, 1, 0, 0, 0, 0);
+  }
+  const clean = typeof dateStr === "string" ? dateStr.split("T")[0] : "";
+  const parts = clean.split("-").map(Number);
+  if (parts.length < 3 || parts.some(isNaN)) {
+    return isEnd
+      ? new Date(fallbackYear, 11, 31, 23, 59, 59, 999)
+      : new Date(fallbackYear, 0, 1, 0, 0, 0, 0);
+  }
+  return isEnd
+    ? new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999)
+    : new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+};
+
 export default function GanttRoadmapView({
   board,
   columns,
@@ -111,6 +129,8 @@ export default function GanttRoadmapView({
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
 
+  const skipYearResetRef = useRef<boolean>(false);
+
   // Auto-fit date bounds to earliest start date & latest end date of tasks
   const handleFitToTaskDates = useCallback(() => {
     let minMs: number | null = null;
@@ -137,12 +157,15 @@ export default function GanttRoadmapView({
     if (minMs !== null && maxMs !== null) {
       const minDate = new Date(minMs).toISOString().split("T")[0];
       const maxDate = new Date(maxMs).toISOString().split("T")[0];
+      const minYear = new Date(minMs).getFullYear();
+      if (minYear !== selectedYear) {
+        skipYearResetRef.current = true;
+        setSelectedYear(minYear);
+      }
       setStartDateStr(minDate);
       setEndDateStr(maxDate);
-      const minYear = new Date(minMs).getFullYear();
-      setSelectedYear(minYear);
     }
-  }, [cards]);
+  }, [cards, selectedYear]);
 
   // Initial mount auto-fit if scheduled cards exist
   useEffect(() => {
@@ -169,9 +192,13 @@ export default function GanttRoadmapView({
     if (minMs !== null && maxMs !== null) {
       const minDate = new Date(minMs).toISOString().split("T")[0];
       const maxDate = new Date(maxMs).toISOString().split("T")[0];
+      const minYear = new Date(minMs).getFullYear();
+      if (minYear !== selectedYear) {
+        skipYearResetRef.current = true;
+        setSelectedYear(minYear);
+      }
       setStartDateStr(minDate);
       setEndDateStr(maxDate);
-      setSelectedYear(new Date(minMs).getFullYear());
     }
   }, []);
 
@@ -420,6 +447,22 @@ export default function GanttRoadmapView({
   const isSyncingScrollRef = useRef<boolean>(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasDraggedRef = useRef<boolean>(false);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  // Observe actual DOM width of gridTimelineRef container for perfect SVG scaling
+  useEffect(() => {
+    const el = gridTimelineRef.current;
+    if (!el) return;
+    const updateWidth = () => {
+      setContainerWidth(el.clientWidth);
+    };
+    updateWidth();
+    const observer = new ResizeObserver(() => {
+      updateWidth();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   // Drag-to-Link global mousemove and mouseup listeners
   useEffect(() => {
@@ -759,23 +802,65 @@ export default function GanttRoadmapView({
     }
   };
 
-  // Today calculations
+  // Unified effective timeline date range calculation using local calendar dates
+  const effectiveRange = useMemo(() => {
+    let rangeStart = parseLocalDate(startDateStr, selectedYear, false);
+    let rangeEnd = parseLocalDate(endDateStr, selectedYear, true);
+
+    if (timeScale === "month") {
+      rangeStart = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1, 0, 0, 0, 0);
+      const lastDay = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() + 1, 0).getDate();
+      rangeEnd = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), lastDay, 23, 59, 59, 999);
+    } else if (timeScale === "week") {
+      let totalWeeks = 0;
+      let curr = new Date(rangeStart);
+      while (curr <= rangeEnd) {
+        totalWeeks++;
+        curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 7, 0, 0, 0, 0);
+      }
+      if (totalWeeks > 0) {
+        rangeEnd = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + totalWeeks * 7, 0, 0, 0, 0);
+        rangeEnd = new Date(rangeEnd.getTime() - 1);
+      }
+    } else if (timeScale === "day") {
+      let totalDays = 0;
+      let curr = new Date(rangeStart);
+      while (curr <= rangeEnd) {
+        totalDays++;
+        curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1, 0, 0, 0, 0);
+      }
+      if (totalDays > 0) {
+        rangeEnd = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + totalDays, 0, 0, 0, 0);
+        rangeEnd = new Date(rangeEnd.getTime() - 1);
+      }
+    }
+
+    const startMs = rangeStart.getTime();
+    const endMs = rangeEnd.getTime();
+    const totalMs = Math.max(1, endMs - startMs);
+
+    return { rangeStart, rangeEnd, startMs, endMs, totalMs };
+  }, [startDateStr, endDateStr, selectedYear, timeScale]);
+
+  // Today calculations relative to active effectiveRange
   const today = new Date();
-  const isTodayInSelectedYear = today.getFullYear() === selectedYear;
 
   // Calculate Today position percentage (0 to 100%)
   const todayPercentage = useMemo(() => {
-    if (!isTodayInSelectedYear) return null;
-    const startOfYear = new Date(selectedYear, 0, 1).getTime();
-    const endOfYear = new Date(selectedYear, 11, 31, 23, 59, 59).getTime();
     const nowTime = today.getTime();
-    if (nowTime < startOfYear || nowTime > endOfYear) return null;
-    return ((nowTime - startOfYear) / (endOfYear - startOfYear)) * 100;
-  }, [selectedYear, isTodayInSelectedYear, today]);
+    if (nowTime < effectiveRange.startMs || nowTime > effectiveRange.endMs) return null;
+    return ((nowTime - effectiveRange.startMs) / effectiveRange.totalMs) * 100;
+  }, [effectiveRange, today]);
 
   const handleJumpToToday = () => {
-    if (!isTodayInSelectedYear) {
-      setSelectedYear(today.getFullYear());
+    const nowTime = today.getTime();
+    if (nowTime < effectiveRange.startMs || nowTime > effectiveRange.endMs) {
+      if (today.getFullYear() !== selectedYear) {
+        skipYearResetRef.current = true;
+        setSelectedYear(today.getFullYear());
+      }
+      setStartDateStr(`${today.getFullYear()}-01-01`);
+      setEndDateStr(`${today.getFullYear()}-12-31`);
     }
     setTimeout(() => {
       if (gridTimelineRef.current) {
@@ -791,6 +876,8 @@ export default function GanttRoadmapView({
     setTimeScale(mode);
     if (mode === "month" && zoomLevel < 125) {
       setZoomLevel(125);
+    } else if (mode === "day" && zoomLevel < 75) {
+      setZoomLevel(75);
     }
     setTimeout(() => {
       handleJumpToToday();
@@ -800,6 +887,8 @@ export default function GanttRoadmapView({
   useEffect(() => {
     if (timeScale === "month" && zoomLevel < 125) {
       setZoomLevel(125);
+    } else if (timeScale === "day" && zoomLevel < 75) {
+      setZoomLevel(75);
     }
   }, [timeScale, zoomLevel]);
 
@@ -1003,17 +1092,18 @@ export default function GanttRoadmapView({
   }, [cards]);
 
   useEffect(() => {
+    if (skipYearResetRef.current) {
+      skipYearResetRef.current = false;
+      return;
+    }
     setStartDateStr(`${selectedYear}-01-01`);
     setEndDateStr(`${selectedYear}-12-31`);
   }, [selectedYear]);
 
-  // Compute Timeline Columns based on timeScale and date range
+  // Compute Timeline Columns based on timeScale and effectiveRange
   const timelineColumns = useMemo(() => {
-    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
-    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
-
-    const rangeStart = isNaN(sDate.getTime()) ? new Date(selectedYear, 0, 1) : sDate;
-    const rangeEnd = isNaN(eDate.getTime()) ? new Date(selectedYear, 11, 31) : eDate;
+    const rangeStart = effectiveRange.rangeStart;
+    const rangeEnd = effectiveRange.rangeEnd;
 
     if (timeScale === "month") {
       const cols = [];
@@ -1065,13 +1155,13 @@ export default function GanttRoadmapView({
           fullLabel: `${mName} ${dNum}, ${curr.getFullYear()}`,
         });
 
-        curr = new Date(curr.getTime() + 24 * 60 * 60 * 1000);
+        curr = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate() + 1, 0, 0, 0, 0);
       }
       return cols.length > 0 ? cols : [{ label: "1", sublabel: "Day 1" }];
     }
-  }, [timeScale, selectedYear, startDateStr, endDateStr]);
+  }, [timeScale, selectedYear, effectiveRange]);
 
-  const minZoomLevel = timeScale === "month" ? 125 : 50;
+  const minZoomLevel = timeScale === "month" ? 125 : timeScale === "day" ? 75 : 50;
 
   const gridMinWidth = useMemo(() => {
     let base = 1300;
@@ -1084,6 +1174,10 @@ export default function GanttRoadmapView({
     }
     return Math.round(base * (zoomLevel / 100));
   }, [timeScale, timelineColumns.length, zoomLevel]);
+
+  const effectiveGridWidth = useMemo(() => {
+    return Math.max(gridMinWidth, containerWidth);
+  }, [gridMinWidth, containerWidth]);
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(250, prev + 25));
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(minZoomLevel, prev - 25));
@@ -1101,18 +1195,8 @@ export default function GanttRoadmapView({
       }
     >();
 
-    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
-    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
-
-    const rangeStartMs = isNaN(sDate.getTime())
-      ? new Date(selectedYear, 0, 1, 0, 0, 0).getTime()
-      : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate(), 0, 0, 0).getTime();
-
-    const rangeEndMs = isNaN(eDate.getTime())
-      ? new Date(selectedYear, 11, 31, 23, 59, 59).getTime()
-      : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate(), 23, 59, 59).getTime();
-
-    const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
+    const rangeStartMs = effectiveRange.startMs;
+    const totalMs = effectiveRange.totalMs;
 
     normalizedCards.forEach((card) => {
       let startDate: Date;
@@ -1123,23 +1207,14 @@ export default function GanttRoadmapView({
       const actEndDate = custom && custom.activity_end_date !== undefined ? custom.activity_end_date : card.activity_end_date;
 
       if (actDate && actEndDate) {
-        startDate = new Date(actDate);
-        endDate = new Date(actEndDate);
-        if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
-          endDate.setHours(23, 59, 59, 999);
-        }
+        startDate = parseLocalDate(actDate, selectedYear, false);
+        endDate = parseLocalDate(actEndDate, selectedYear, true);
       } else if (actDate) {
-        startDate = new Date(actDate);
-        endDate = new Date(actDate);
-        if (typeof actDate === "string" && !actDate.includes("T")) {
-          endDate.setHours(23, 59, 59, 999);
-        }
+        startDate = parseLocalDate(actDate, selectedYear, false);
+        endDate = parseLocalDate(actDate, selectedYear, true);
       } else if (actEndDate) {
-        startDate = new Date(actEndDate);
-        endDate = new Date(actEndDate);
-        if (typeof actEndDate === "string" && !actEndDate.includes("T")) {
-          endDate.setHours(23, 59, 59, 999);
-        }
+        startDate = parseLocalDate(actEndDate, selectedYear, false);
+        endDate = parseLocalDate(actEndDate, selectedYear, true);
       } else {
         startDate = new Date(card.created_at || Date.now());
         endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000);
@@ -1161,7 +1236,7 @@ export default function GanttRoadmapView({
     });
 
     return map;
-  }, [normalizedCards, startDateStr, endDateStr, selectedYear, customCardDates]);
+  }, [normalizedCards, effectiveRange, customCardDates]);
 
   const getCardTimelinePosition = useCallback(
     (card: CyberboardCard) => {
@@ -1387,6 +1462,7 @@ export default function GanttRoadmapView({
     }> = [];
 
     let currentY = 0; // top offset inside timeline rows container
+    const availableWidth = Math.max(1, effectiveGridWidth - 16);
 
     groupedData.forEach((group) => {
       currentY += 44; // group header height 44px
@@ -1400,8 +1476,8 @@ export default function GanttRoadmapView({
           const rowHeight = 44;
           const centerY = currentY + rowHeight / 2;
           const pos = getCardTimelinePosition(card);
-          const startPx = isDateless ? 16 : (gridMinWidth * pos.leftPercent) / 100;
-          const widthPx = isDateless ? 160 : Math.max(24, (gridMinWidth * pos.widthPercent) / 100);
+          const startPx = isDateless ? 16 : 8 + (availableWidth * pos.leftPercent) / 100;
+          const widthPx = isDateless ? 160 : Math.max(28, (availableWidth * pos.widthPercent) / 100);
           const endPx = startPx + widthPx;
 
           layoutMap.set(card.id, {
@@ -1421,8 +1497,8 @@ export default function GanttRoadmapView({
               const subRowHeight = 38;
               const subCenterY = currentY + subRowHeight / 2;
               const subPos = getCardTimelinePosition(subCard);
-              const subStartPx = isSubDateless ? 32 : (gridMinWidth * subPos.leftPercent) / 100;
-              const subWidthPx = isSubDateless ? 140 : Math.max(20, (gridMinWidth * subPos.widthPercent) / 100);
+              const subStartPx = isSubDateless ? 32 : 8 + (availableWidth * subPos.leftPercent) / 100;
+              const subWidthPx = isSubDateless ? 140 : Math.max(20, (availableWidth * subPos.widthPercent) / 100);
               const subEndPx = subStartPx + subWidthPx;
 
               layoutMap.set(subCard.id, {
@@ -1515,99 +1591,100 @@ export default function GanttRoadmapView({
         return toA.centerYPx - toB.centerYPx;
       });
 
-      // Y range spanned by source and all targets in this group
-      const allY = [y1, ...sortedLinks.map((l) => layoutMap.get(l.toCardId)!.centerYPx)];
-      const minY = Math.min(...allY);
-      const maxY = Math.max(...allY);
-
-      // Find the minimum startPx of ALL cards in layoutMap located within the vertical row range [minY, maxY]
-      let minCardStartX = Math.min(x1, ...sortedLinks.map((l) => layoutMap.get(l.toCardId)!.startPx));
-      layoutMap.forEach((layout) => {
-        if (layout.centerYPx >= minY - 4 && layout.centerYPx <= maxY + 4) {
-          if (layout.startPx < minCardStartX) {
-            minCardStartX = layout.startPx;
-          }
-        }
-      });
-
-      // Check if all targets are far enough forward (x2 >= x1 + 24)
-      const allForward = sortedLinks.every((l) => layoutMap.get(l.toCardId)!.startPx >= x1 + 24);
-
-      // Check if x1 + 14 right stem trunk collides with any card bar in the Y range
-      let trunkRightBlocked = false;
-      layoutMap.forEach((layout) => {
-        if (layout.centerYPx >= minY - 4 && layout.centerYPx <= maxY + 4) {
-          if (layout.startPx < x1 + 20 && layout.endPx > x1 + 8) {
-            trunkRightBlocked = true;
-          }
-        }
-      });
-
-      const useLeftTrunk = !allForward || trunkRightBlocked || minCardStartX < x1 + 16;
-
-      // X position of shared vertical trunk line
-      const X_trunk = useLeftTrunk
-        ? Math.max(8, minCardStartX - 16)
-        : x1 + 14;
-
-      const rowHalfHeight = fromPos.rowHeight / 2;
-      const y_channel = maxY >= y1
-        ? y1 + rowHalfHeight + 4
-        : y1 - rowHalfHeight - 4;
-
       sortedLinks.forEach((link) => {
         const toPos = layoutMap.get(link.toCardId)!;
         const x2 = toPos.startPx;
         const y2 = toPos.centerYPx;
+        const targetX = x2 - 6;
+
+        const minY = Math.min(y1, y2);
+        const maxY = Math.max(y1, y2);
+
+        // Find all intermediate card bars in layoutMap spanning vertically between y1 and y2
+        const intermediateLayouts: Array<{ startPx: number; endPx: number }> = [];
+        layoutMap.forEach((layout) => {
+          if (layout.centerYPx > minY + 2 && layout.centerYPx < maxY - 2) {
+            intermediateLayouts.push(layout);
+          }
+        });
+
+        // Check if candidate right trunk (x1 + 14) collides with any intermediate bar
+        const candidateRightTrunk = x1 + 14;
+        const isRightTrunkBlocked = intermediateLayouts.some(
+          (layout) => candidateRightTrunk >= layout.startPx - 6 && candidateRightTrunk <= layout.endPx + 6
+        );
 
         let pathD = "";
+        let X_trunk = candidateRightTrunk;
 
-        if (!useLeftTrunk) {
-          // Shared Right Trunk (Forward target cards):
-          // Line leaves x1 -> X_trunk (x1 + 14), goes vertically down X_trunk, and branches horizontally to x2 - 4 at target row y2
-          const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(x2 - 4 - X_trunk) / 2);
+        const maxIntermediateEndPx = intermediateLayouts.reduce((max, l) => Math.max(max, l.endPx), 0);
+        const canUseRightCorridor = targetX >= maxIntermediateEndPx + 12 && maxIntermediateEndPx > 0;
+
+        if (x2 >= x1 + 20 && !isRightTrunkBlocked) {
+          // 1. Unblocked Direct Forward Right Trunk
+          X_trunk = Math.max(x1 + 12, Math.min(x1 + 20, targetX - 8));
+          const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(targetX - X_trunk) / 2);
           const dirY = y2 >= y1 ? 1 : -1;
 
           if (r < 1.5 || Math.abs(y2 - y1) < 4) {
-            pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${x2 - 4}`;
+            pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${targetX}`;
           } else {
             pathD = `M ${x1} ${y1}` +
                     ` H ${X_trunk - r}` +
                     ` Q ${X_trunk} ${y1}, ${X_trunk} ${y1 + r * dirY}` +
                     ` V ${y2 - r * dirY}` +
                     ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
-                    ` H ${x2 - 4}`;
+                    ` H ${targetX}`;
+          }
+        } else if (canUseRightCorridor) {
+          // 2. Obstacle-Avoidance Right Bypass Corridor (Bypasses intermediate bars to the right)
+          X_trunk = Math.max(x1 + 14, maxIntermediateEndPx + 12);
+          const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(targetX - X_trunk) / 2);
+          const dirY = y2 >= y1 ? 1 : -1;
+
+          if (r < 1.5 || Math.abs(y2 - y1) < 4) {
+            pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${targetX}`;
+          } else {
+            pathD = `M ${x1} ${y1}` +
+                    ` H ${X_trunk - r}` +
+                    ` Q ${X_trunk} ${y1}, ${X_trunk} ${y1 + r * dirY}` +
+                    ` V ${y2 - r * dirY}` +
+                    ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                    ` H ${targetX}`;
           }
         } else {
-          // Shared Left Bypass Trunk (Backward/Overlapping targets or blocked path):
-          // Leaves (x1, y1) -> goes right 14px -> curves to y_channel -> goes left to X_trunk (left of ALL cards)
-          // -> runs down shared vertical trunk X_trunk (|) -> branches right at target y2 (|_____) into x2 - 4
+          // 3. Obstacle-Avoidance Left Bypass Corridor (Bypasses intermediate bars to the left)
+          const minIntermediateStartPx = intermediateLayouts.reduce((min, l) => Math.min(min, l.startPx), x2);
+          X_trunk = Math.max(8, Math.min(minIntermediateStartPx - 14, x2 - 12));
+
+          const rowHalfHeight = fromPos.rowHeight / 2;
+          const y_channel = y2 >= y1 ? y1 + rowHalfHeight + 4 : y1 - rowHalfHeight - 4;
           const dirY1 = y_channel >= y1 ? 1 : -1;
           const dirY2 = y2 >= y_channel ? 1 : -1;
 
           const maxR = 6;
           const r = Math.min(
             maxR,
-            Math.abs(x1 + 14 - x1) / 2,
+            Math.abs(x1 + 12 - x1) / 2,
             Math.abs(y_channel - y1) / 2,
-            Math.abs(x1 + 14 - X_trunk) / 2,
+            Math.abs(x1 + 12 - X_trunk) / 2,
             Math.abs(y2 - y_channel) / 2,
-            Math.abs(x2 - 4 - X_trunk) / 2
+            Math.abs(targetX - X_trunk) / 2
           );
 
           if (r < 1.5) {
-            pathD = `M ${x1} ${y1} H ${x1 + 14} V ${y_channel} H ${X_trunk} V ${y2} H ${x2 - 4}`;
+            pathD = `M ${x1} ${y1} H ${x1 + 12} V ${y_channel} H ${X_trunk} V ${y2} H ${targetX}`;
           } else {
             pathD = `M ${x1} ${y1}` +
-                    ` H ${x1 + 14 - r}` +
-                    ` Q ${x1 + 14} ${y1}, ${x1 + 14} ${y1 + r * dirY1}` +
+                    ` H ${x1 + 12 - r}` +
+                    ` Q ${x1 + 12} ${y1}, ${x1 + 12} ${y1 + r * dirY1}` +
                     ` V ${y_channel - r * dirY1}` +
-                    ` Q ${x1 + 14} ${y_channel}, ${x1 + 14 - r} ${y_channel}` +
+                    ` Q ${x1 + 12} ${y_channel}, ${x1 + 12 - r} ${y_channel}` +
                     ` H ${X_trunk + r}` +
                     ` Q ${X_trunk} ${y_channel}, ${X_trunk} ${y_channel + r * dirY2}` +
                     ` V ${y2 - r * dirY2}` +
                     ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
-                    ` H ${x2 - 4}`;
+                    ` H ${targetX}`;
           }
         }
 
@@ -1625,7 +1702,7 @@ export default function GanttRoadmapView({
     });
 
     return { dependencyLines: lines, layoutMap };
-  }, [groupedData, gridMinWidth, expandedParents, getCardTimelinePosition]);
+  }, [groupedData, effectiveGridWidth, expandedParents, getCardTimelinePosition]);
 
   // Helper to extract assigned users array cleanly
   const getCardUsers = (cardItem: CyberboardCard) => {

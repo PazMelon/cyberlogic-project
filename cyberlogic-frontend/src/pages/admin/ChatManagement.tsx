@@ -28,6 +28,7 @@ import {
 import { Button, Card } from "../../components/ui";
 import { useAuth, apiRequest } from "../../context/AuthContext";
 import { useDialog } from "../../utils/useDialog";
+import { SkeletonBox } from "../../components/Skeleton";
 import { 
   createChatChannel, 
   updateChatChannel, 
@@ -539,9 +540,10 @@ export default function ChatManagement() {
 
       {activeTab === "channels" ? (
         isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-xs text-text-muted">Loading channels...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <SkeletonBox key={idx} className="h-28 rounded-2xl" />
+            ))}
           </div>
         ) : (
           <div className="space-y-6">
@@ -643,9 +645,10 @@ export default function ChatManagement() {
           </div>
 
           {libraryLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-3">
-              <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-              <p className="text-xs text-text-muted">Loading media library...</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 animate-pulse">
+              {Array.from({ length: 10 }).map((_, idx) => (
+                <SkeletonBox key={idx} className="h-40 rounded-2xl" />
+              ))}
             </div>
           ) : library.length === 0 ? (
             <div className="text-center py-20 border border-dashed border-border/40 rounded-2xl bg-surface-900/30">

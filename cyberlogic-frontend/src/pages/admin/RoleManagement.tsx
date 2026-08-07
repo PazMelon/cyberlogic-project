@@ -21,6 +21,7 @@ import {
   type Permission,
 } from "../../utils/api";
 import { Button, Card, Badge } from "../../components/ui";
+import { SkeletonLine, SkeletonBox, SkeletonTable } from "../../components/Skeleton";
 
 const POSITION_OPTIONS = [
   "President",
@@ -202,11 +203,20 @@ export default function RoleManagement() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 text-text-secondary">
-        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
-        <p className="text-sm font-semibold tracking-wider animate-pulse">
-          INITIALIZING RBAC OVERVIEW...
-        </p>
+      <div className="space-y-6 animate-pulse">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <SkeletonLine widthClass="w-64" heightClass="h-8" />
+            <SkeletonLine widthClass="w-96" heightClass="h-4" />
+          </div>
+          <SkeletonLine widthClass="w-36" heightClass="h-10" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <SkeletonBox className="h-32 rounded-2xl" />
+          <SkeletonBox className="h-32 rounded-2xl" />
+          <SkeletonBox className="h-32 rounded-2xl" />
+        </div>
+        <SkeletonTable rows={6} columns={4} />
       </div>
     );
   }

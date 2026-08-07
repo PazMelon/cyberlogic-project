@@ -323,20 +323,15 @@ export function BlogManagement() {
 
       {/* Main Full-Width Data Table */}
       <div className="bg-surface-900/80 border border-border/80 rounded-2xl p-6 shadow-md">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-3">
-            <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-            <p className="text-xs text-text-muted">Loading blog post records...</p>
-          </div>
-        ) : (
-          <DataTable
-            data={blogList}
-            columns={blogColumns}
-            filterGroups={blogFilters}
-            searchPlaceholder="Search by title, excerpt, category, or author..."
-            emptyStateText="No blog posts found matching the criteria."
-          />
-        )}
+        <DataTable
+          data={blogList}
+          columns={blogColumns}
+          filterGroups={blogFilters}
+          searchPlaceholder="Search by title, excerpt, category, or author..."
+          emptyStateText="No blog posts found matching the criteria."
+          isLoading={isLoading}
+          skeletonRows={5}
+        />
       </div>
     </div>
   );

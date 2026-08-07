@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Info, CheckCircle, AlertTriangle, XCircle, X } from "lucide-react";
 import { Button } from "./Button";
 
@@ -82,7 +83,7 @@ export function Dialog({
     }
   };
 
-  return (
+  return createPortal(
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
@@ -140,6 +141,7 @@ export function Dialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -279,28 +279,23 @@ export default function ContactMessages() {
       </div>
 
       {/* Main Panel */}
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading messages...</p>
-        </div>
-      ) : (
-        <DataTable
-          data={filteredMessages}
-          columns={contactColumns}
-          searchPlaceholder="Search messages..."
-          emptyStateText="No contact messages found matching the criteria."
-          topActions={
-            <button
-              type="button"
-              onClick={loadMessages}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800 border border-border text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Refresh
-            </button>
-          }
-        />
-      )}
+      <DataTable
+        data={filteredMessages}
+        columns={contactColumns}
+        searchPlaceholder="Search messages..."
+        emptyStateText="No contact messages found matching the criteria."
+        isLoading={isLoading}
+        skeletonRows={5}
+        topActions={
+          <button
+            type="button"
+            onClick={loadMessages}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-800 border border-border text-xs font-semibold text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        }
+      />
 
       {/* Message Modal */}
       {selectedMessage && (

@@ -404,20 +404,15 @@ export default function FreedomWallModeration() {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 space-y-3">
-          <div className="w-8 h-8 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-          <p className="text-xs text-text-muted">Loading flagged messages...</p>
-        </div>
-      ) : (
-        <DataTable
-          data={filteredMessages}
-          columns={columns}
-          searchPlaceholder="Search flagged messages content or reason..."
-          searchField={(row: FlaggedMessage) => row.content + " " + row.flagged_reason}
-          emptyStateText={`No messages found in ${statusFilter} status.`}
-        />
-      )}
+      <DataTable
+        data={filteredMessages}
+        columns={columns}
+        searchPlaceholder="Search flagged messages content or reason..."
+        searchField={(row: FlaggedMessage) => row.content + " " + row.flagged_reason}
+        emptyStateText={`No messages found in ${statusFilter} status.`}
+        isLoading={isLoading}
+        skeletonRows={5}
+      />
 
       <PromptDialog
         isOpen={rejectingMessageId !== null}

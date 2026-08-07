@@ -40,6 +40,8 @@ import {
   Flag,
   Kanban,
   Trophy,
+  Database,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useWebSocket } from "../context/WebSocketContext";
@@ -113,6 +115,7 @@ const adminNavSections: NavSection[] = [
       { icon: FileText, label: "Blog Posts", path: "/admin/blogs", permission: "manage_blogs" },
       { icon: Calendar, label: "Events", path: "/admin/events", permission: "manage_events" },
       { icon: BookOpen, label: "Resources", path: "/admin/resources", permission: "manage_resources" },
+      { icon: Mail, label: "Contact Inbox", path: "/admin/contact-messages", permission: "manage_settings" },
     ],
   },
   {
@@ -121,6 +124,7 @@ const adminNavSections: NavSection[] = [
       { icon: Palette, label: "Site Settings", path: "/admin/settings", permission: "manage_settings" },
       { icon: ScrollText, label: "Audit Logs", path: "/admin/audit-logs", permission: "view_audit_logs" },
       { icon: KeyRound, label: "Roles & Permissions", path: "/admin/roles", superAdminOnly: true },
+      { icon: Database, label: "Database & Lockdown", path: "/admin/database", superAdminOnly: true },
     ],
   },
 ];
