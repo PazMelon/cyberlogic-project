@@ -569,11 +569,11 @@ export default function NewSuggestionModal({
         title={copy.modalTitle}
         initialSnap="3/4"
         footer={
-          <div className="flex items-center justify-end gap-2.5">
+          <div className="flex items-center justify-end gap-3 w-full">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold hover:bg-surface-800 transition-all cursor-pointer"
+              className="flex-1 py-3 px-4 rounded-xl border border-border text-text-muted hover:text-text-primary text-sm font-semibold hover:bg-surface-800 transition-all cursor-pointer text-center active:scale-98"
             >
               Cancel
             </button>
@@ -582,7 +582,7 @@ export default function NewSuggestionModal({
               type="submit"
               form="new-suggestion-form"
               disabled={isSubmitting || !title.trim()}
-              className="px-6 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer shadow-md shadow-primary/20"
+              className="flex-1 py-3 px-5 rounded-xl bg-primary text-surface-950 text-sm font-extrabold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-primary/25 active:scale-98"
             >
               <Sparkles className="w-4 h-4" />
               <span>{isSubmitting ? "Submitting..." : copy.submitButton}</span>

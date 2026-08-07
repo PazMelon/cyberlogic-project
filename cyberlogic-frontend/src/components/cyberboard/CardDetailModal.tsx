@@ -1643,11 +1643,11 @@ export default function CardDetailModal({
 
   if (isMobile) {
     const mobileEditFooter = isEditing && !showAuditLog ? (
-      <div className="flex items-center justify-end gap-2 w-full">
+      <div className="flex items-center justify-end gap-3 w-full">
         <button
           type="button"
           onClick={() => setIsEditing(false)}
-          className="px-4 py-2.5 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold cursor-pointer transition-all"
+          className="flex-1 py-3 px-4 rounded-xl border border-border text-text-muted hover:text-text-primary text-sm font-semibold hover:bg-surface-800 transition-all cursor-pointer text-center active:scale-98"
         >
           Cancel
         </button>
@@ -1655,7 +1655,7 @@ export default function CardDetailModal({
           type="button"
           onClick={handleSaveCardEdits}
           disabled={!editTitle.trim() || isSavingEdit}
-          className="px-5 py-2.5 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light flex items-center gap-1.5 shadow-sm shadow-primary/20 cursor-pointer transition-all disabled:opacity-50"
+          className="flex-1 py-3 px-5 rounded-xl bg-primary text-surface-950 text-sm font-extrabold hover:bg-primary-light flex items-center justify-center gap-2 shadow-lg shadow-primary/25 cursor-pointer transition-all disabled:opacity-50 active:scale-98"
         >
           <Check className="w-4 h-4" />
           <span>{isSavingEdit ? "Saving..." : "Save Changes"}</span>
@@ -1672,15 +1672,15 @@ export default function CardDetailModal({
         footer={mobileEditFooter}
       >
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
+          <div className="flex items-center justify-between gap-2.5 border-b border-border pb-3">
             <button
               type="button"
               onClick={() => setShowAuditLog(!showAuditLog)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                showAuditLog ? "bg-primary/20 border-primary text-primary" : "border-border text-text-muted"
+              className={`flex-1 py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                showAuditLog ? "bg-primary/20 border-primary text-primary" : "border-border text-text-muted hover:bg-surface-800"
               }`}
             >
-              <History className="w-3.5 h-3.5" />
+              <History className="w-4 h-4" />
               <span>Audit Log ({activities.length})</span>
             </button>
 
@@ -1688,9 +1688,13 @@ export default function CardDetailModal({
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
-                className="px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs font-semibold text-text-primary flex items-center gap-1.5"
+                className={`flex-1 py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
+                  isEditing
+                    ? "bg-primary text-surface-950 font-extrabold border-primary"
+                    : "bg-surface-800 border-border text-text-primary hover:bg-surface-750"
+                }`}
               >
-                <Edit3 className="w-3.5 h-3.5" />
+                <Edit3 className="w-4 h-4" />
                 <span>{isEditing ? "View Details" : "Edit Card"}</span>
               </button>
             )}
