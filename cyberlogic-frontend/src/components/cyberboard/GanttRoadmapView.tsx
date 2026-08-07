@@ -210,35 +210,62 @@ export default function GanttRoadmapView({
     const origLeftBg = leftEl ? leftEl.style.backgroundColor : "";
     const origRightBg = rightEl ? rightEl.style.backgroundColor : "";
 
-    const styledSubNodes: { node: HTMLElement; origBg: string }[] = [];
+    const styledSubNodes: { node: HTMLElement; origBg: string; origColor: string; origBorder: string }[] = [];
 
     try {
-      // Pin explicit solid dark theme background colors for SVG rendering
-      targetEl.style.backgroundColor = "#090d16";
-      targetEl.style.color = "#f8fafc";
+      // Pin Unified Professional Light Standard Export Theme (#ffffff canvas, #f1f5f9 headers, #0f172a text)
+      targetEl.style.backgroundColor = "#ffffff";
+      targetEl.style.color = "#0f172a";
 
       if (leftEl) {
         leftEl.style.height = `${fullHeight}px`;
         leftEl.style.maxHeight = "none";
         leftEl.style.overflow = "visible";
-        leftEl.style.backgroundColor = "#0f172a";
+        leftEl.style.backgroundColor = "#ffffff";
       }
       if (rightEl) {
         rightEl.style.height = `${fullHeight}px`;
         rightEl.style.maxHeight = "none";
         rightEl.style.overflow = "visible";
-        rightEl.style.backgroundColor = "#090d16";
+        rightEl.style.backgroundColor = "#ffffff";
       }
       targetEl.style.height = `${fullHeight}px`;
       targetEl.style.maxHeight = "none";
       targetEl.style.overflow = "visible";
 
-      // Pin all surface background elements to solid hex dark colors
+      // Pin sub-nodes to high-contrast Light Standard colors
       const subNodes = targetEl.querySelectorAll<HTMLElement>("*");
       subNodes.forEach((node) => {
-        if (node.className && typeof node.className === "string" && node.className.includes("bg-surface-")) {
-          styledSubNodes.push({ node, origBg: node.style.backgroundColor });
-          node.style.backgroundColor = "#0f172a";
+        const cls = typeof node.className === "string" ? node.className : "";
+        const origBg = node.style.backgroundColor;
+        const origColor = node.style.color;
+        const origBorder = node.style.borderColor;
+
+        let modified = false;
+
+        if (cls.includes("bg-surface-900") || cls.includes("bg-surface-800")) {
+          node.style.backgroundColor = "#f1f5f9";
+          node.style.color = "#0f172a";
+          modified = true;
+        } else if (cls.includes("bg-surface-950")) {
+          node.style.backgroundColor = "#ffffff";
+          node.style.color = "#0f172a";
+          modified = true;
+        } else if (cls.includes("border-border")) {
+          node.style.borderColor = "#cbd5e1";
+          modified = true;
+        }
+
+        if (cls.includes("text-text-primary")) {
+          node.style.color = "#0f172a";
+          modified = true;
+        } else if (cls.includes("text-text-secondary") || cls.includes("text-text-muted")) {
+          node.style.color = "#475569";
+          modified = true;
+        }
+
+        if (modified) {
+          styledSubNodes.push({ node, origBg, origColor, origBorder });
         }
       });
 
@@ -249,7 +276,7 @@ export default function GanttRoadmapView({
         skipFonts: true,
         imagePlaceholder:
           "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='10' fill='%2306b6d4'/></svg>",
-        backgroundColor: "#090d16",
+        backgroundColor: "#ffffff",
         quality: 0.95,
         width: fullWidth,
         height: fullHeight,
@@ -259,8 +286,8 @@ export default function GanttRoadmapView({
           height: `${fullHeight}px`,
           maxHeight: "none",
           maxWidth: "none",
-          backgroundColor: "#090d16",
-          color: "#f8fafc",
+          backgroundColor: "#ffffff",
+          color: "#0f172a",
         },
         filter: (node: HTMLElement) => {
           if (node.classList && node.classList.contains("export-ignore")) {
@@ -277,8 +304,10 @@ export default function GanttRoadmapView({
       });
     } finally {
       // Restore original inline styles
-      styledSubNodes.forEach(({ node, origBg }) => {
+      styledSubNodes.forEach(({ node, origBg, origColor, origBorder }) => {
         node.style.backgroundColor = origBg;
+        node.style.color = origColor;
+        node.style.borderColor = origBorder;
       });
 
       if (leftEl) {
