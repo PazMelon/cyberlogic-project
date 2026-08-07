@@ -288,6 +288,27 @@ export default function Topbar() {
     setShowNotifDropdown(false);
   }, [location.pathname]);
 
+  // Close open mobile drawers on Escape key & lock scroll when mobile menu is open
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowMobileMenu(false);
+        setShowDropdown(false);
+        setShowNotifDropdown(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    if (showMobileMenu) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [showMobileMenu]);
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -1033,6 +1054,18 @@ export default function Topbar() {
                   title="Logout"
                 >
                   <LogOut className="w-4.5 h-4.5" />
+                </button>
+              </div>
+
+              {/* Bottom Close Drawer Action Button */}
+              <div className="p-3 border-t border-border/60 bg-surface-950/40">
+                <button
+                  type="button"
+                  onClick={() => setShowMobileMenu(false)}
+                  className="w-full py-2.5 px-4 rounded-xl border border-border/80 text-text-muted hover:text-text-primary hover:bg-surface-800 text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <X className="w-4 h-4 text-text-muted" />
+                  <span>Close Sidebar Menu</span>
                 </button>
               </div>
             </div>

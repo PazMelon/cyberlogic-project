@@ -59,17 +59,17 @@ export default function BoardControlsSidebar({
 
   return (
     <>
-      {/* Invisible Click-Outside Overlay (No background blur or dimming) */}
+      {/* Click-Outside Backdrop Overlay */}
       <div
         onClick={onClose}
-        className={`fixed inset-0 z-40 transition-opacity duration-300 ${
+        className={`fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
           isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       />
 
       {/* Sidebar Panel */}
       <div
-        className={`fixed top-0 right-0 bottom-0 z-50 w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 bottom-0 z-[9995] w-full sm:w-96 bg-surface-900 shadow-2xl border-l border-border/80 flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

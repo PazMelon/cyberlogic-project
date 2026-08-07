@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  HelpCircle,
   Eye,
 } from "lucide-react";
 import { fetchDirectory, type CyberboardColumn, type DirectoryMember } from "../../utils/api";

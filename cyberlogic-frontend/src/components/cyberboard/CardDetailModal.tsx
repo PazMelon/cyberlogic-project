@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   X, ThumbsUp, Calendar, Send, Trash2, MessageSquare, History, Edit3, Check, Clock, User,
   Layers, Tag, Flag, Paperclip, Link as LinkIcon, Image as ImageIcon, ExternalLink, Plus,
-  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare, GripVertical
+  Loader2, Sparkles, ChevronLeft, ChevronRight, Download, ShieldCheck, Reply, CheckSquare, GripVertical, AlertCircle
 } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment, getAvatarUrl } from "../../utils/api";
@@ -1119,17 +1119,25 @@ export default function CardDetailModal({
 
           {/* Target Dates */}
           {showDateSection && (
-            <div className="p-4 rounded-xl bg-surface-800/40 border border-border/50 flex flex-wrap items-center gap-4 text-xs">
-              <div className="flex items-center gap-2 text-text-muted">
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span className="font-semibold uppercase tracking-wider">
-                  {boardType === "roadmap" ? "Milestone Schedule:" : "Event Schedule:"}
+                <span>
+                  {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 font-medium text-text-primary">
-                {card.activity_date && <span>Start: {formatDate(card.activity_date)}</span>}
-                {card.activity_end_date && <span>End: {formatDate(card.activity_end_date)}</span>}
+              <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
+                {card.activity_date && (
+                  <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                    Start: <strong className="text-primary">{formatDate(card.activity_date)}</strong>
+                  </span>
+                )}
+                {card.activity_end_date && (
+                  <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                    End: <strong className="text-primary">{formatDate(card.activity_end_date)}</strong>
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -1141,25 +1149,25 @@ export default function CardDetailModal({
             const linkAttachments = allAttachments.filter((att) => att.type !== "image");
 
             return (
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 pt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider flex items-center gap-1.5">
-                    <Paperclip className="w-3.5 h-3.5 text-primary" />
+                    <Paperclip className="w-4 h-4 text-primary" />
                     <span>Attachments ({allAttachments.length})</span>
                   </h4>
 
                   {canEditCard && (
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
                       {/* Upload Image Button */}
                       <label
-                        className={`px-2.5 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-700 text-xs font-bold text-text-primary border border-border flex items-center gap-1.5 cursor-pointer transition-all ${
+                        className={`px-3 py-2 rounded-xl bg-surface-800 hover:bg-surface-750 text-xs font-bold text-text-primary border border-border flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 shadow-xs ${
                           isUploadingImage ? "opacity-50 pointer-events-none" : ""
                         }`}
                       >
                         {isUploadingImage ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                          <Loader2 className="w-4 h-4 animate-spin text-primary" />
                         ) : (
-                          <ImageIcon className="w-3.5 h-3.5 text-primary" />
+                          <ImageIcon className="w-4 h-4 text-primary" />
                         )}
                         <span>{isUploadingImage ? "Uploading..." : "Upload Image"}</span>
                         <input
@@ -1175,9 +1183,9 @@ export default function CardDetailModal({
                       <button
                         type="button"
                         onClick={() => setShowAddLinkModal(true)}
-                        className="px-2.5 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-xs font-bold text-primary border border-primary/20 flex items-center gap-1.5 cursor-pointer transition-all"
+                        className="px-3 py-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-xs font-bold text-primary border border-primary/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 shadow-xs"
                       >
-                        <LinkIcon className="w-3.5 h-3.5 text-primary" />
+                        <LinkIcon className="w-4 h-4 text-primary" />
                         <span>Add Link</span>
                       </button>
                     </div>
@@ -1239,7 +1247,7 @@ export default function CardDetailModal({
                                   if (targetId) handleRemoveAttachment(targetId);
                                   if (activeCarouselIndex > 0) setActiveCarouselIndex(activeCarouselIndex - 1);
                                 }}
-                                className="absolute top-2 right-2 p-2 rounded-xl bg-surface-900/90 text-text-muted hover:text-error border border-border/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
+                                className="absolute top-2 right-2 p-2 rounded-xl bg-surface-900/90 text-text-muted hover:text-error border border-border/60 backdrop-blur-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all cursor-pointer z-10 active:scale-95"
                                 title="Remove Image"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -1376,10 +1384,10 @@ export default function CardDetailModal({
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveAttachment(att.id)}
-                                    className="text-text-muted hover:text-error p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0"
+                                    className="text-text-muted hover:text-error p-1.5 rounded-lg opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer flex-shrink-0 active:scale-95"
                                     title="Remove Attachment"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-4 h-4" />
                                   </button>
                                 )}
                               </div>
@@ -1587,17 +1595,29 @@ export default function CardDetailModal({
             </div>
           </div>
 
-          {/* Delete Card Button */}
+          {/* Danger Zone: Delete Card Button */}
           {canDeleteCard && (
-            <div className="pt-4 border-t border-border flex justify-end">
-              <button
-                type="button"
-                onClick={() => onDeleteCard(card.id)}
-                className="px-3.5 py-2 rounded-xl text-error bg-error/10 hover:bg-error/20 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete Card</span>
-              </button>
+            <div className="pt-5 border-t border-border/60">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-error/10 border border-error/25 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                <div className="text-center sm:text-left space-y-0.5">
+                  <h5 className="text-xs font-extrabold text-error flex items-center justify-center sm:justify-start gap-1.5 uppercase tracking-wider">
+                    <AlertCircle className="w-4 h-4 text-error" />
+                    <span>Danger Zone</span>
+                  </h5>
+                  <p className="text-[11px] text-text-muted">
+                    Permanently delete this task card and all of its comments & attachments.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteCard(card.id)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-error text-white font-extrabold text-xs hover:bg-error-light transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-error/20 active:scale-98"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Card</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -2254,10 +2274,10 @@ function TaskChecklistSection({
                   <button
                     type="button"
                     onClick={() => onDeleteItem(item.id)}
-                    className="opacity-0 group-hover:opacity-100 text-text-muted hover:text-rose-400 p-1 rounded-lg hover:bg-surface-700 transition-all flex-shrink-0 cursor-pointer"
+                    className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-text-muted hover:text-rose-400 p-1.5 rounded-lg hover:bg-surface-700 transition-all flex-shrink-0 cursor-pointer active:scale-95"
                     title="Remove checklist item"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4 text-text-muted hover:text-rose-400" />
                   </button>
                 )}
               </div>
@@ -2268,26 +2288,20 @@ function TaskChecklistSection({
 
       {/* Add New Item Form */}
       {canEdit && (
-        <form onSubmit={handleSubmitNewItem} className="flex items-start gap-2 pt-1">
-          <textarea
-            rows={2}
+        <form onSubmit={handleSubmitNewItem} className="flex items-center gap-2 pt-2">
+          <input
+            type="text"
             value={newItemText}
             onChange={(e) => setNewItemText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmitNewItem(e);
-              }
-            }}
-            placeholder="Add a sub-task / checklist item (supports multiline, Press Enter to add, Shift+Enter for new line)..."
-            className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted focus:border-emerald-500 focus:outline-none resize-y min-h-[42px]"
+            placeholder="Add a sub-task item..."
+            className="flex-1 px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary placeholder:text-text-muted/70 focus:border-emerald-500 focus:outline-none transition-all shadow-inner"
           />
           <button
             type="submit"
             disabled={!newItemText.trim()}
-            className="px-3 py-1.5 rounded-xl bg-emerald-500 text-surface-950 font-bold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+            className="px-4 py-2.5 rounded-xl bg-emerald-500 text-surface-950 font-extrabold text-xs hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Add</span>
           </button>
         </form>
@@ -2298,7 +2312,7 @@ function TaskChecklistSection({
         <div className="pt-2 border-t border-border/40 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-text-muted font-semibold">Manual Completion Percentage:</span>
-            <span className="font-bold text-primary">{completionPercentage}%</span>
+            <span className="font-extrabold text-emerald-400 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">{completionPercentage}%</span>
           </div>
           <div className="flex items-center gap-3">
             <input
@@ -2318,7 +2332,7 @@ function TaskChecklistSection({
               value={completionPercentage}
               onChange={(e) => canEdit && onManualCompletionChange(Number(e.target.value))}
               disabled={!canEdit}
-              className="w-16 px-2 py-1 rounded-lg bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
+              className="w-14 px-2 py-1 rounded-xl bg-surface-800 border border-border text-xs text-center font-bold text-text-primary focus:border-primary focus:outline-none"
             />
           </div>
         </div>
