@@ -25,6 +25,7 @@ use App\Http\Controllers\ContactMessageController;
 use App\Http\Controllers\CyberboardController;
 use App\Http\Controllers\ChessController;
 use App\Http\Controllers\ChessTournamentController;
+use App\Http\Controllers\DatabaseBackupController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
@@ -40,6 +41,7 @@ Route::post('/api/login', [AuthController::class, 'login']);
 Route::post('/api/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::post('/api/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/api/site-settings', [SiteSettingController::class, 'index']);
+Route::get('/api/maintenance-status', [DatabaseBackupController::class, 'getMaintenanceStatus']);
 Route::get('/api/club-stats', [SiteSettingController::class, 'getClubStats']);
 Route::get('/api/officers', [OfficerController::class, 'index']);
 Route::get('/api/officers/{id}', [OfficerController::class, 'show']);
@@ -80,6 +82,16 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/admin/contact-messages', [ContactMessageController::class, 'index']);
     Route::put('/api/admin/contact-messages/{id}', [ContactMessageController::class, 'update']);
     Route::delete('/api/admin/contact-messages/{id}', [ContactMessageController::class, 'destroy']);
+
+    // Database Backup & Maintenance Lockdown endpoints (Super Admin)
+    Route::get('/api/admin/maintenance-status', [DatabaseBackupController::class, 'getMaintenanceStatus']);
+    Route::post('/api/admin/maintenance-status', [DatabaseBackupController::class, 'updateMaintenanceStatus']);
+    Route::get('/api/admin/database/backups', [DatabaseBackupController::class, 'index']);
+    Route::get('/api/admin/database/backup-stream', [DatabaseBackupController::class, 'backupStream']);
+    Route::post('/api/admin/database/restore-stream', [DatabaseBackupController::class, 'restoreStream']);
+    Route::get('/api/admin/database/backups/{filename}/download', [DatabaseBackupController::class, 'download']);
+    Route::delete('/api/admin/database/backups/{filename}', [DatabaseBackupController::class, 'delete']);
+    Route::post('/api/admin/database/upload', [DatabaseBackupController::class, 'upload']);
 
     // Directory endpoints
     Route::get('/api/directory', [DirectoryController::class, 'index']);

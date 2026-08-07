@@ -19,6 +19,7 @@ import {
   Flag,
   Shield,
   Mail,
+  Database,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
@@ -67,6 +68,7 @@ const adminNavSections: NavSection[] = [
       { icon: Palette, label: "Site Settings", path: "/admin/settings", permission: "manage_settings" },
       { icon: ScrollText, label: "Audit Logs", path: "/admin/audit-logs", permission: "view_audit_logs" },
       { icon: KeyRound, label: "Roles & Permissions", path: "/admin/roles", superAdminOnly: true },
+      { icon: Database, label: "Database & Lockdown", path: "/admin/database", superAdminOnly: true },
     ],
   },
 ];

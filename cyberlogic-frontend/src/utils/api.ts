@@ -3631,5 +3631,120 @@ export async function redeemCyberboardInviteToken(
   return res.json();
 }
 
+export interface MaintenanceStatus {
+  maintenance_mode: boolean;
+  maintenance_title: string;
+  maintenance_reason: string;
+  maintenance_template: string;
+  maintenance_estimated_end: string;
+}
+
+export interface BackupItem {
+  filename: string;
+  size: number;
+  size_formatted: string;
+  created_at: string;
+  created_at_timestamp: number;
+  is_auto_snapshot: boolean;
+}
+
+/**
+ * Fetch current website maintenance status & notice templates.
+ */
+export async function fetchMaintenanceStatus(): Promise<MaintenanceStatus> {
+  const res = await apiRequest("/api/maintenance-status");
+  if (!res.ok) {
+    return {
+      maintenance_mode: false,
+      maintenance_title: "Scheduled Maintenance",
+      maintenance_reason: "System maintenance in progress.",
+      maintenance_template: "scheduled_maintenance",
+      maintenance_estimated_end: "",
+    };
+  }
+  return res.json();
+}
+
+/**
+ * Update website lockdown & maintenance settings (Super Admin).
+ */
+export async function updateMaintenanceStatus(data: Partial<MaintenanceStatus>): Promise<{ message: string; status: MaintenanceStatus }> {
+  const res = await apiRequest("/api/admin/maintenance-status", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || errData.error || "Failed to update maintenance status.");
+  }
+  return res.json();
+}
+
+/**
+ * Fetch database backups list (Super Admin).
+ */
+export async function fetchDatabaseBackups(): Promise<{ backups: BackupItem[]; database_type: string }> {
+  const res = await apiRequest("/api/admin/database/backups");
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || "Failed to fetch database backups list.");
+  }
+  return res.json();
+}
+
+/**
+ * Download a backup file (Super Admin).
+ */
+export async function downloadDatabaseBackup(filename: string): Promise<void> {
+  const res = await apiRequest(`/api/admin/database/backups/${encodeURIComponent(filename)}/download`);
+  if (!res.ok) {
+    throw new Error("Failed to download database backup file.");
+  }
+  const blob = await res.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+}
+
+/**
+ * Delete a database backup file (Super Admin).
+ */
+export async function deleteDatabaseBackup(filename: string): Promise<{ message: string }> {
+  const res = await apiRequest(`/api/admin/database/backups/${encodeURIComponent(filename)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || errData.message || "Failed to delete backup file.");
+  }
+  return res.json();
+}
+
+/**
+ * Upload a custom .sql database backup file (Super Admin).
+ */
+export async function uploadDatabaseBackup(file: File): Promise<{ message: string; filename: string; size_formatted: string }> {
+  const formData = new FormData();
+  formData.append("backup_file", file);
+
+  const res = await apiRequest("/api/admin/database/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || errData.message || "Failed to upload database backup file.");
+  }
+
+  return res.json();
+}
+
+
 
 

@@ -47,6 +47,7 @@ interface AuthContextType {
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   register: (formValues: any) => Promise<void>;
   logout: () => Promise<void>;
+  forceLogout: () => Promise<void>;
   updateProfile: (profileData: {
     username?: string | null;
     first_name: string;
@@ -121,16 +122,9 @@ export async function apiRequest(url: string, options: RequestInit = {}) {
     credentials: "same-origin",
   });
 
-  if (response.status === 419) {
-    cachedCsrfToken = null;
-    const retryCsrf = await getCsrfToken();
-    if (retryCsrf) {
-      headers.set("X-CSRF-TOKEN", retryCsrf);
-      return fetch(url, {
-        ...options,
-        headers,
-        credentials: "same-origin",
-      });
+  if (response.status === 503) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("cyberlogic:maintenance_lockdown"));
     }
   }
 
@@ -161,6 +155,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     checkSession();
   }, []);
+
+  const forceLogout = async () => {
+    try {
+      await apiRequest("/api/logout", { method: "POST" });
+    } catch (e) {
+      // ignore
+    }
+    setUser(null);
+  };
+
+  useEffect(() => {
+    const handleLockdownEvent = () => {
+      if (user && user.role !== "superadmin") {
+        forceLogout();
+      }
+    };
+    window.addEventListener("cyberlogic:maintenance_lockdown", handleLockdownEvent);
+    return () => window.removeEventListener("cyberlogic:maintenance_lockdown", handleLockdownEvent);
+  }, [user]);
 
   const login = async (email: string, password: string, remember: boolean) => {
     // Clear cached CSRF token to get a fresh one for login
@@ -280,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        forceLogout,
         updateProfile,
         updatePassword,
         updateUser,

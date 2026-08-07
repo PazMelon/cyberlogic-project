@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
         ]);
+        $middleware->appendToGroup('web', \App\Http\Middleware\CheckMaintenanceMode::class);
         $middleware->preventRequestForgery(except: [
             'api/internal/chat/messages/moderate',
             'api/internal/chat/messages/moderate-batch',

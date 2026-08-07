@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { useEffect, useState } from "react";
 import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { fetchSiteSettings } from "./utils/api";
+import { fetchSiteSettings, fetchMaintenanceStatus } from "./utils/api";
 import { WebSocketProvider } from "./context/WebSocketContext";
 import { DialogProvider } from "./context/DialogContext";
 import PublicLayout from "./layouts/PublicLayout";
@@ -50,6 +50,8 @@ import CreateMemberBlog from "./pages/CreateMemberBlog";
 import RoleManagement from "./pages/admin/RoleManagement";
 import { BlogManagement, CreateBlog } from "./pages/admin/blog";
 import ContactMessages from "./pages/admin/ContactMessages";
+import DatabaseManagement from "./pages/admin/DatabaseManagement";
+import MaintenanceNotice from "./pages/MaintenanceNotice";
 import SearchResults from "./pages/SearchResults";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -350,7 +352,30 @@ function GuestGate({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isSuperAdmin, isLoading, forceLogout } = useAuth();
+  const location = useLocation();
+  const [isMaintenanceActive, setIsMaintenanceActive] = useState(false);
+
+  useEffect(() => {
+    const checkMaintenance = async () => {
+      try {
+        const data = await fetchMaintenanceStatus();
+        if (data && data.maintenance_mode) {
+          setIsMaintenanceActive(true);
+          if (user && user.role !== "superadmin") {
+            forceLogout();
+          }
+        } else {
+          setIsMaintenanceActive(false);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    if (!isLoading) {
+      checkMaintenance();
+    }
+  }, [location.pathname, user, isLoading, forceLogout]);
 
   useEffect(() => {
     const initTheme = async () => {
@@ -392,6 +417,11 @@ function AppRoutes() {
       initTheme();
     }
   }, [isAuthenticated, user, isLoading]);
+
+  const isUserSuperAdmin = user?.role === "superadmin" || isSuperAdmin;
+  if (!isLoading && isMaintenanceActive && !isUserSuperAdmin && location.pathname !== "/login") {
+    return <MaintenanceNotice />;
+  }
 
   return (
     <Routes>
@@ -507,6 +537,7 @@ function AppRoutes() {
         <Route path="blogs/create" element={<CreateBlog />} />
         <Route path="blogs/edit/:id" element={<CreateBlog />} />
         <Route path="contact-messages" element={<ContactMessages />} />
+        <Route path="database" element={<DatabaseManagement />} />
       </Route>
 
       {/* Portal Routes */}
