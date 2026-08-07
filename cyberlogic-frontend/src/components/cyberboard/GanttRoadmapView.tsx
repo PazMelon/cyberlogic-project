@@ -1722,7 +1722,7 @@ export default function GanttRoadmapView({
   return (
     <div ref={containerRef} className="flex flex-col w-full h-full bg-surface-950 text-text-primary overflow-hidden">
       {/* 1. Responsive Header Toolbar */}
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-20">
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-50">
         {/* Title Block */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-text-primary">
@@ -1922,7 +1922,7 @@ export default function GanttRoadmapView({
               </button>
 
               {showExportDropdown && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-1.5 z-40 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 top-full mt-2 w-52 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
                   <button
                     onClick={handleExportGanttPng}
                     className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-text-primary hover:bg-surface-800 flex items-center gap-2 transition-colors cursor-pointer"

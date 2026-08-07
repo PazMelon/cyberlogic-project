@@ -29,7 +29,7 @@ export function Toast({ message, type = "error", onClose, duration = 3500 }: Toa
   };
 
   return (
-    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] transition-all animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-auto">
+    <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[10000] transition-all animate-in fade-in slide-in-from-top-4 duration-200 pointer-events-auto">
       <div
         className={`border backdrop-blur-md text-xs px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 ${styleClasses[type]}`}
       >

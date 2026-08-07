@@ -70,7 +70,7 @@ export function PromptDialog({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-950/60 backdrop-blur-md animate-dialog-backdrop"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-xl animate-dialog-backdrop"
     >
       <div
         ref={containerRef}

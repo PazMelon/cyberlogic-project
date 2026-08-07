@@ -54,6 +54,10 @@ interface DataTableProps<T> {
   expandedRowIds?: Record<string | number, boolean>;
   renderExpandedRow?: (row: T) => React.ReactNode;
 
+  // Loading skeleton support
+  isLoading?: boolean;
+  skeletonRows?: number;
+
   // Layout variant ("default" renders inner glass shadow card, "flat" renders seamless integrated borders)
   variant?: "default" | "flat";
   tableWrapperClassName?: string;
@@ -84,6 +88,8 @@ export function DataTable<T extends Record<string, any>>({
   onSearchQueryChange,
   expandedRowIds = {},
   renderExpandedRow,
+  isLoading = false,
+  skeletonRows = 5,
   variant = "default",
   tableWrapperClassName = "",
 }: DataTableProps<T>) {
@@ -375,7 +381,21 @@ export function DataTable<T extends Record<string, any>>({
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
-              {displayData.length === 0 ? (
+              {isLoading ? (
+                Array.from({ length: skeletonRows }).map((_, rIdx) => (
+                  <tr key={`datatable-skeleton-${rIdx}`} className="animate-pulse">
+                    {columns.map((col, cIdx) => (
+                      <td key={`datatable-skeleton-cell-${cIdx}`} className={`px-5 py-4 ${col.className || ""}`}>
+                        <div
+                          className={`h-4 bg-surface-800/70 rounded-lg border border-border/10 animate-pulse ${
+                            cIdx === 0 ? "w-8" : cIdx === 1 ? "w-32" : cIdx % 2 === 0 ? "w-3/4" : "w-1/2"
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : displayData.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="text-center py-10 text-xs text-text-muted italic bg-surface-900/10">
                     {emptyStateText}

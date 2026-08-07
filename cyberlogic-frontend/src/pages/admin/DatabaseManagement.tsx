@@ -29,6 +29,7 @@ import type { BackupItem, MaintenanceStatus, AutoBackupSettings } from "../../ut
 import { useDialog } from "../../utils/useDialog";
 import { useSEO } from "../../utils/useSEO";
 import { useAuth } from "../../context/AuthContext";
+import { SkeletonLine } from "../../components/Skeleton";
 
 export default function DatabaseManagement() {
   useSEO({
@@ -135,6 +136,18 @@ export default function DatabaseManagement() {
       }
     };
   }, []);
+
+  // Prevent accidental page navigation / reload while restoration or backup is running
+  useEffect(() => {
+    if (!activeTask || activeTask.status !== "running") return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "A database operation (restoration or backup) is currently running. Navigating away may disrupt the operation.";
+      return e.returnValue;
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [activeTask?.status]);
 
   // Handle Auto Backup Settings Save
   const handleSaveAutoBackup = async () => {
@@ -744,7 +757,38 @@ export default function DatabaseManagement() {
           </h3>
         </div>
 
-        {backups.length === 0 ? (
+        {isLoading ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs text-text-primary border-collapse">
+              <thead>
+                <tr className="border-b border-border text-text-muted uppercase tracking-wider text-[10px] font-bold">
+                  <th className="py-3 px-4">Filename</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">File Size</th>
+                  <th className="py-3 px-4">Created Date</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`db-skeleton-${idx}`} className="animate-pulse">
+                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-52" heightClass="h-4" /></td>
+                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-24" heightClass="h-4" /></td>
+                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-16" heightClass="h-4" /></td>
+                    <td className="py-3.5 px-4"><SkeletonLine widthClass="w-32" heightClass="h-4" /></td>
+                    <td className="py-3.5 px-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <SkeletonLine widthClass="w-8" heightClass="h-8" />
+                        <SkeletonLine widthClass="w-28" heightClass="h-8" />
+                        <SkeletonLine widthClass="w-8" heightClass="h-8" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : backups.length === 0 ? (
           <div className="p-12 text-center border border-border rounded-xl bg-surface-950/40 text-text-muted space-y-3">
             <Database className="w-10 h-10 mx-auto text-text-muted/60" />
             <p className="text-xs font-semibold">No database backups found.</p>
@@ -824,7 +868,7 @@ export default function DatabaseManagement() {
 
       {/* Live SSE Stream Progress & ETA Overlay Modal */}
       {activeTask && (
-        <div className="fixed inset-0 bg-surface-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-surface-950/90 backdrop-blur-xl z-[9999] flex items-center justify-center p-4">
           <div className="max-w-lg w-full bg-surface-900 border border-border rounded-2xl p-8 shadow-2xl space-y-6 text-center relative overflow-hidden">
             
             <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto text-primary">

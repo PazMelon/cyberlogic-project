@@ -144,3 +144,58 @@ export function SkeletonResourceCard() {
   );
 }
 
+export function SkeletonStatCard() {
+  return (
+    <div className="glass rounded-xl p-4 flex flex-col justify-between border border-border/40 animate-pulse space-y-3">
+      <SkeletonLine widthClass="w-24" heightClass="h-3" />
+      <SkeletonLine widthClass="w-28" heightClass="h-7" />
+      <SkeletonLine widthClass="w-32" heightClass="h-2.5" />
+    </div>
+  );
+}
+
+export function SkeletonTableRow({ columns = 5 }: { columns?: number }) {
+  return (
+    <tr className="animate-pulse border-b border-border/40">
+      {Array.from({ length: columns }).map((_, idx) => (
+        <td key={idx} className="px-5 py-4">
+          <SkeletonLine
+            widthClass={idx === 0 ? "w-8" : idx === 1 ? "w-32" : idx === 2 ? "w-3/4" : idx === 3 ? "w-24" : "w-16"}
+            heightClass="h-4"
+          />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+export function SkeletonTable({ rows = 5, columns = 5 }: { rows?: number; columns?: number }) {
+  return (
+    <div className="glass rounded-xl overflow-hidden shadow-lg border border-border/80 animate-pulse">
+      <div className="p-4 border-b border-border/60 flex items-center justify-between">
+        <SkeletonLine widthClass="w-48" heightClass="h-8" />
+        <SkeletonLine widthClass="w-24" heightClass="h-8" />
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface-950/30">
+              {Array.from({ length: columns }).map((_, idx) => (
+                <th key={idx} className="px-5 py-3.5 text-left">
+                  <SkeletonLine widthClass="w-20" heightClass="h-3" />
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {Array.from({ length: rows }).map((_, rIdx) => (
+              <SkeletonTableRow key={rIdx} columns={columns} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+

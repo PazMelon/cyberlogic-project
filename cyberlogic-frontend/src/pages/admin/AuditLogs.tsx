@@ -25,6 +25,7 @@ import { fetchAuditLogs, fetchAuditLogStats } from "../../utils/api";
 import type { AuditLogEntry, AuditLogStats } from "../../utils/api";
 import { Button, Card, Badge, DataTable } from "../../components/ui";
 import { useWebSocket } from "../../context/WebSocketContext";
+import { SkeletonStatCard } from "../../components/Skeleton";
 
 const actionIcons: Record<string, any> = {
   created: PlusCircle,
@@ -360,54 +361,49 @@ export default function AuditLogs() {
 
       {/* Stats Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4 flex flex-col justify-between">
-          <span className="text-xs text-text-muted">Total Security Logs</span>
-          {isStatsLoading ? (
-            <div className="h-8 w-16 bg-surface-800 animate-pulse rounded mt-2" />
-          ) : (
-            <span className="text-2xl font-bold text-text-primary font-[family-name:var(--font-heading)] mt-1">
-              {stats?.total_logs ?? 0}
-            </span>
-          )}
-          <span className="text-[10px] text-text-muted mt-1">All-time entries recorded</span>
-        </Card>
-        <Card className="p-4 flex flex-col justify-between">
-          <span className="text-xs text-text-muted">Logged Today</span>
-          {isStatsLoading ? (
-            <div className="h-8 w-16 bg-surface-800 animate-pulse rounded mt-2" />
-          ) : (
-            <span className="text-2xl font-bold text-amber-500 font-[family-name:var(--font-heading)] mt-1">
-              {stats?.logs_today ?? 0}
-            </span>
-          )}
-          <span className="text-[10px] text-text-muted mt-1">Actions in the last 24h</span>
-        </Card>
-        <Card className="p-4 flex flex-col justify-between">
-          <span className="text-xs text-text-muted">Most Active Actor</span>
-          {isStatsLoading ? (
-            <div className="h-8 w-32 bg-surface-800 animate-pulse rounded mt-2" />
-          ) : (
-            <span className="text-base font-bold text-text-secondary truncate mt-1">
-              {stats?.top_actor ?? "System"}
-            </span>
-          )}
-          <span className="text-[10px] text-text-muted mt-1">
-            {stats?.top_actor_count ? `${stats.top_actor_count} actions total` : "No actors logged"}
-          </span>
-        </Card>
-        <Card className="p-4 flex flex-col justify-between">
-          <span className="text-xs text-text-muted">Top Action Mode</span>
-          {isStatsLoading ? (
-            <div className="h-8 w-24 bg-surface-800 animate-pulse rounded mt-2" />
-          ) : (
-            <span className="text-base font-bold text-accent capitalize mt-1">
-              {stats?.action_summary?.[0]?.action ?? "N/A"}
-            </span>
-          )}
-          <span className="text-[10px] text-text-muted mt-1">
-            {stats?.action_summary?.[0]?.total ? `${stats.action_summary[0].total} occurrences` : "No actions logged"}
-          </span>
-        </Card>
+        {isStatsLoading ? (
+          <>
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </>
+        ) : (
+          <>
+            <Card className="p-4 flex flex-col justify-between">
+              <span className="text-xs text-text-muted">Total Security Logs</span>
+              <span className="text-2xl font-bold text-text-primary font-[family-name:var(--font-heading)] mt-1">
+                {stats?.total_logs ?? 0}
+              </span>
+              <span className="text-[10px] text-text-muted mt-1">All-time entries recorded</span>
+            </Card>
+            <Card className="p-4 flex flex-col justify-between">
+              <span className="text-xs text-text-muted">Logged Today</span>
+              <span className="text-2xl font-bold text-amber-500 font-[family-name:var(--font-heading)] mt-1">
+                {stats?.logs_today ?? 0}
+              </span>
+              <span className="text-[10px] text-text-muted mt-1">Actions in the last 24h</span>
+            </Card>
+            <Card className="p-4 flex flex-col justify-between">
+              <span className="text-xs text-text-muted">Most Active Actor</span>
+              <span className="text-base font-bold text-text-secondary truncate mt-1">
+                {stats?.top_actor ?? "System"}
+              </span>
+              <span className="text-[10px] text-text-muted mt-1">
+                {stats?.top_actor_count ? `${stats.top_actor_count} actions total` : "No actors logged"}
+              </span>
+            </Card>
+            <Card className="p-4 flex flex-col justify-between">
+              <span className="text-xs text-text-muted">Top Action Mode</span>
+              <span className="text-base font-bold text-accent capitalize mt-1">
+                {stats?.action_summary?.[0]?.action ?? "N/A"}
+              </span>
+              <span className="text-[10px] text-text-muted mt-1">
+                {stats?.action_summary?.[0]?.total ? `${stats.action_summary[0].total} occurrences` : "No actions logged"}
+              </span>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filter and Search Bar */}
@@ -518,6 +514,8 @@ export default function AuditLogs() {
       <DataTable
         data={logs}
         columns={auditLogColumns}
+        isLoading={isLoading}
+        skeletonRows={10}
         enablePagination={true}
         serverSide={true}
         totalItems={totalLogs}
