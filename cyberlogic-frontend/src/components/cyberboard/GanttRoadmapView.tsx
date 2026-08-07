@@ -206,6 +206,9 @@ export default function GanttRoadmapView({
         maxWidth: "none",
       },
       filter: (node: HTMLElement) => {
+        if (node.classList && node.classList.contains("export-ignore")) {
+          return false;
+        }
         if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
           const href = node.getAttribute("href") || "";
           if (href.startsWith("http") && !href.includes(window.location.hostname)) {
@@ -2729,6 +2732,19 @@ export default function GanttRoadmapView({
           </div>
         );
       })()}
+
+      {/* Fullscreen Export Loading Overlay */}
+      {isExporting && (
+        <div className="export-ignore fixed inset-0 bg-surface-950/85 backdrop-blur-md z-[10000] flex flex-col items-center justify-center gap-3 animate-in fade-in duration-150">
+          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary shadow-lg animate-bounce">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+          <div className="flex flex-col items-center text-center gap-1">
+            <h4 className="text-sm font-bold text-text-primary">Generating Gantt Chart Export...</h4>
+            <p className="text-xs text-text-muted">Preparing high-resolution chart. Please wait a moment.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
