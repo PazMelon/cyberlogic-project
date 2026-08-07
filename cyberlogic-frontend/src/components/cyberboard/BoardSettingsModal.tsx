@@ -340,12 +340,23 @@ export default function BoardSettingsModal({
                   type="button"
                   key={c}
                   onClick={() => setCoverColor(c)}
-                  className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
-                    coverColor === c ? "ring-2 ring-primary ring-offset-2 ring-offset-surface-900 scale-110" : "hover:scale-105"
+                  className={`w-8 h-8 rounded-full transition-all cursor-pointer border border-white/10 ${
+                    coverColor === c ? "ring-2 ring-primary ring-offset-2 ring-offset-surface-900 scale-110 shadow-md" : "hover:scale-105 opacity-80 hover:opacity-100"
                   }`}
                   style={{ backgroundColor: c }}
+                  title={c}
                 />
               ))}
+              <div className="flex items-center gap-2 ml-1">
+                <input
+                  type="color"
+                  value={coverColor}
+                  onChange={(e) => setCoverColor(e.target.value)}
+                  className="w-8 h-8 rounded-xl bg-surface-800 border border-border cursor-pointer p-0.5"
+                  title="Custom Color Picker"
+                />
+                <span className="text-xs font-mono font-bold text-text-muted">{coverColor}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1075,25 +1086,25 @@ export default function BoardSettingsModal({
         initialSnap="3/4"
         contentPaddingClass="p-0"
         footer={
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 w-full">
             {onDeleteBoard ? (
               <button
                 type="button"
                 onClick={() => onDeleteBoard(board.id)}
-                className="px-3 py-2 rounded-xl text-error bg-error/10 hover:bg-error/20 font-semibold text-xs transition-all flex items-center gap-1 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-3 rounded-2xl text-error bg-error/10 hover:bg-error/20 border border-error/25 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Delete</span>
+                <Trash2 className="w-4 h-4" />
+                <span>Delete Board</span>
               </button>
             ) : (
               <div />
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto flex-1">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 rounded-xl border border-border text-text-muted hover:text-text-primary text-xs font-semibold cursor-pointer"
+                className="flex-1 px-5 py-3 rounded-2xl border border-border text-text-muted hover:text-text-primary text-xs font-bold transition-all cursor-pointer active:scale-98"
               >
                 Cancel
               </button>
@@ -1101,13 +1112,13 @@ export default function BoardSettingsModal({
                 type="submit"
                 form="board-settings-mobile-form"
                 disabled={!title.trim() || isSubmitting}
-                className="px-4 py-2 rounded-xl bg-primary text-surface-950 text-xs font-bold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-md shadow-primary/20"
+                className="flex-1 px-5 py-3 rounded-2xl bg-primary text-surface-950 text-xs font-extrabold hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-primary/20 active:scale-98"
               >
                 {isSubmitting ? (
                   <span>Saving...</span>
                 ) : (
                   <>
-                    <Check className="w-3.5 h-3.5" />
+                    <Check className="w-4 h-4" />
                     <span>Save Changes</span>
                   </>
                 )}
@@ -1117,44 +1128,44 @@ export default function BoardSettingsModal({
         }
       >
         <form id="board-settings-mobile-form" onSubmit={handleSubmit} className="flex flex-col h-full">
-          {/* Edge-to-Edge Mobile Tab Navigation Pills */}
-          <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none border-b border-border/60 bg-surface-950/30 flex-shrink-0">
+          {/* Segmented Mobile Tab Navigation Strip */}
+          <div className="px-4 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-border/60 bg-surface-950/40 flex-shrink-0">
             <button
               type="button"
               onClick={() => setActiveTab("general")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 activeTab === "general"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
+                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
               }`}
             >
-              <Settings className="w-3.5 h-3.5" />
+              <Settings className="w-4 h-4" />
               <span>General</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("privacy")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 activeTab === "privacy"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
+                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
               }`}
             >
-              <Lock className="w-3.5 h-3.5" />
+              <Lock className="w-4 h-4" />
               <span>Privacy</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab("columns")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                 activeTab === "columns"
-                  ? "bg-primary text-surface-950 font-bold"
-                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+                  ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
+                  : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
               }`}
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-4 h-4" />
               <span>Columns</span>
             </button>
 
@@ -1162,13 +1173,13 @@ export default function BoardSettingsModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("phases")}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-95 ${
                   activeTab === "phases"
-                    ? "bg-primary text-surface-950 font-bold"
-                    : "bg-surface-800 text-text-muted hover:text-text-primary"
+                    ? "bg-primary text-surface-950 shadow-md shadow-primary/20"
+                    : "bg-surface-800/80 text-text-muted hover:text-text-primary border border-border/40"
                 }`}
               >
-                <Layers className="w-3.5 h-3.5" />
+                <Layers className="w-4 h-4" />
                 <span>Phases & Sprints</span>
               </button>
             )}

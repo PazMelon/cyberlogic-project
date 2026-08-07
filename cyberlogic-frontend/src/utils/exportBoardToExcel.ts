@@ -96,6 +96,7 @@ export function exportBoardToExcel(
     endDate: string;
     duration: string;
     status: string;
+    startMs?: number | null;
     cards: CyberboardCard[];
   }
 
@@ -171,11 +172,25 @@ export function exportBoardToExcel(
         }
       });
 
+      // Sort phase items chronologically from oldest start date to newest start date (e.g., August 1 to August 31)
+      const sortedPhaseCards = [...phaseCards].sort((a, b) => {
+        const startA = a.activity_date ? new Date(a.activity_date).getTime() : Infinity;
+        const startB = b.activity_date ? new Date(b.activity_date).getTime() : Infinity;
+
+        if (startA !== startB) {
+          return startA - startB; // Ascending: earliest start date first
+        }
+
+        const endA = a.activity_end_date ? new Date(a.activity_end_date).getTime() : Infinity;
+        const endB = b.activity_end_date ? new Date(b.activity_end_date).getTime() : Infinity;
+        return endA - endB;
+      });
+
       const pStartStr = pStartMs ? new Date(pStartMs).toISOString() : "";
       const pEndStr = pEndMs ? new Date(pEndMs).toISOString() : "";
       const pDuration = calculateDurationDays(pStartStr, pEndStr);
 
-      const allDone = phaseCards.length > 0 && phaseCards.every((c) => {
+      const allDone = sortedPhaseCards.length > 0 && sortedPhaseCards.every((c) => {
         const matchingCol = columns.find((col) => col.id === c.column_id);
         const cCol = matchingCol?.title || "";
         return matchingCol?.status_type === "completed" ||
@@ -191,8 +206,9 @@ export function exportBoardToExcel(
         startDate: formatDateShort(pStartStr),
         endDate: formatDateShort(pEndStr),
         duration: pDuration,
-        status: phaseCards.length === 0 ? "Not Started" : allDone ? "Complete" : "In Progress",
-        cards: phaseCards,
+        status: sortedPhaseCards.length === 0 ? "Not Started" : allDone ? "Complete" : "In Progress",
+        startMs: pStartMs,
+        cards: sortedPhaseCards,
       });
     }
   });
@@ -225,6 +241,20 @@ export function exportBoardToExcel(
           }
         });
 
+        // Sort column cards chronologically from oldest time to newest time
+        const sortedColCards = [...colCards].sort((a, b) => {
+          const startA = a.activity_date ? new Date(a.activity_date).getTime() : Infinity;
+          const startB = b.activity_date ? new Date(b.activity_date).getTime() : Infinity;
+
+          if (startA !== startB) {
+            return startA - startB;
+          }
+
+          const endA = a.activity_end_date ? new Date(a.activity_end_date).getTime() : Infinity;
+          const endB = b.activity_end_date ? new Date(b.activity_end_date).getTime() : Infinity;
+          return endA - endB;
+        });
+
         const pStartStr = pStartMs ? new Date(pStartMs).toISOString() : "";
         const pEndStr = pEndMs ? new Date(pEndMs).toISOString() : "";
 
@@ -236,11 +266,19 @@ export function exportBoardToExcel(
           endDate: formatDateShort(pEndStr),
           duration: calculateDurationDays(pStartStr, pEndStr),
           status: col.title,
-          cards: colCards,
+          startMs: pStartMs,
+          cards: sortedColCards,
         });
       }
     });
   }
+
+  // Sort sections chronologically by their earliest start date (dated sections come first, from oldest to newest)
+  sections.sort((a, b) => {
+    const startA = a.startMs !== undefined && a.startMs !== null ? a.startMs : Infinity;
+    const startB = b.startMs !== undefined && b.startMs !== null ? b.startMs : Infinity;
+    return startA - startB;
+  });
 
   const overallStartStr = earliestStartMs ? new Date(earliestStartMs).toISOString() : "";
   const overallEndStr = latestEndMs ? new Date(latestEndMs).toISOString() : "";
