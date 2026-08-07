@@ -596,7 +596,7 @@ export default function NewSuggestionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-surface-900 border border-border/80 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Top Header Accent Line */}
         <div className="h-1.5 w-full bg-gradient-to-r from-primary via-accent to-primary" />

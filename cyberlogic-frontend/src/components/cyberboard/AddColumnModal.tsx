@@ -350,7 +350,7 @@ export default function AddColumnModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-surface-900 border border-border rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-5">
         <div className="flex items-center justify-between border-b border-border/50 pb-4">
           <h2 className="text-base font-bold text-text-primary flex items-center gap-2">

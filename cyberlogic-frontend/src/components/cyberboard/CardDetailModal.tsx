@@ -1605,7 +1605,7 @@ export default function CardDetailModal({
 
       {/* Confirmation Modal when reaching 100% completion */}
       {pendingCompletionModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-surface-900 border border-emerald-500/40 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mx-auto">
               <CheckSquare className="w-6 h-6" />
@@ -1703,7 +1703,7 @@ export default function CardDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div
         className={`bg-surface-900 border border-border rounded-3xl w-full shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
           isEditing
@@ -1802,7 +1802,7 @@ export default function CardDetailModal({
 
       {/* Modal to Add External Link */}
       {showAddLinkModal && (
-        <div className="fixed inset-0 z-[100] bg-surface-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[10000] bg-surface-950/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-surface-900 border border-border rounded-2xl p-5 w-full max-w-md space-y-4 shadow-xl animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
@@ -1888,7 +1888,7 @@ export default function CardDetailModal({
         const currentImg = imageAttachments[fullscreenImageIndex];
 
         return (
-          <div className="fixed inset-0 z-[130] bg-surface-950/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200">
+          <div className="fixed inset-0 z-[10000] bg-surface-950/95 backdrop-blur-md flex flex-col justify-between p-4 sm:p-6 animate-in fade-in duration-200">
             {/* Lightbox Header */}
             <div className="flex items-center justify-between text-text-primary z-20">
               <div className="flex items-center gap-3 min-w-0">

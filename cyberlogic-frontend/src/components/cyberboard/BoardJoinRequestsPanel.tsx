@@ -77,7 +77,7 @@ export default function BoardJoinRequestsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-surface-900 border border-border rounded-3xl max-w-lg w-full h-[550px] max-h-[85vh] shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-5 border-b border-border/80 flex items-center justify-between gap-3 bg-surface-950/60 flex-shrink-0">

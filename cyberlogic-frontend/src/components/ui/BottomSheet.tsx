@@ -118,7 +118,7 @@ export function BottomSheet({
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-surface-950/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 sm:p-2"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200 p-0 sm:p-2"
     >
       <div
         ref={sheetRef}
