@@ -96,6 +96,7 @@ export default function BoardSettingsModal({
   };
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [phaseErrorMessage, setPhaseErrorMessage] = useState<string | null>(null);
   const [directoryMembers, setDirectoryMembers] = useState<CollaboratorOption[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDirectory, setIsLoadingDirectory] = useState(false);
@@ -158,6 +159,17 @@ export default function BoardSettingsModal({
     return directoryMembers.filter((m) => m.name.toLowerCase().includes(query));
   }, [directoryMembers, searchQuery]);
 
+  // Count active cards assigned to each phase name for deletion safeguards
+  const cardsInPhase = useMemo(() => {
+    const map: Record<string, number> = {};
+    (board.cards || []).forEach((c) => {
+      if (!c.is_archived && c.phase) {
+        map[c.phase] = (map[c.phase] || 0) + 1;
+      }
+    });
+    return map;
+  }, [board.cards]);
+
   // If board is Private / Exclusive, restrict selectable members for Column/Gantt permissions to Owner & Permitted Members
   const accessibleMembers = useMemo(() => {
     if (visibility !== "private") return filteredMembers;
@@ -169,6 +181,8 @@ export default function BoardSettingsModal({
   // Clean up any selected creator or Gantt editor users if they are no longer permitted on private board
   useEffect(() => {
     if (visibility === "private") {
+      if (columnPolicy === "specific_roles") setColumnPolicy("everyone");
+      if (ganttPolicy === "specific_roles") setGanttPolicy("everyone");
       const validIds = new Set([
         ...(ownerId ? [ownerId] : []),
         ...allowedMembers,
@@ -176,7 +190,7 @@ export default function BoardSettingsModal({
       setAllowedCreatorUsers((prev) => prev.filter((id) => validIds.has(id)));
       setAllowedGanttEditorUsers((prev) => prev.filter((id) => validIds.has(id)));
     }
-  }, [visibility, allowedMembers, ownerId]);
+  }, [visibility, allowedMembers, ownerId, columnPolicy, ganttPolicy]);
 
   const sortedExclusiveMembers = useMemo(() => {
     return [...filteredMembers].sort((a, b) => {
@@ -453,6 +467,13 @@ export default function BoardSettingsModal({
       {/* Tab 3: Column Creation Controls */}
       {activeTab === "columns" && (
         <div className="space-y-4 animate-in fade-in duration-150">
+          {visibility === "private" && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
+              <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>Exclusive Private Board Policy — Settings strictly apply to the Board Host and invited Private Members.</span>
+            </div>
+          )}
+
           <div className="space-y-3">
             <label className="block text-xs font-bold text-text-primary uppercase tracking-wider">
               Who is allowed to add/create new columns?
@@ -468,9 +489,13 @@ export default function BoardSettingsModal({
                 }`}
               >
                 <div>
-                  <div className="font-bold">Everyone (All Board Members)</div>
+                  <div className="font-bold">
+                    {visibility === "private" ? "All Allowed Private Board Members" : "Everyone (All Board Members)"}
+                  </div>
                   <div className="text-[11px] font-normal text-text-muted">
-                    Any authorized member of this board can create columns.
+                    {visibility === "private"
+                      ? "Any approved member of this private board can create columns."
+                      : "Any authorized member of this board can create columns."}
                   </div>
                 </div>
                 {columnPolicy === "everyone" && <Check className="w-4 h-4 text-primary" />}
@@ -485,30 +510,36 @@ export default function BoardSettingsModal({
                 }`}
               >
                 <div>
-                  <div className="font-bold">Host & Admins Only</div>
+                  <div className="font-bold">
+                    {visibility === "private" ? "Private Board Host Only (Strict Lock)" : "Host & Admins Only"}
+                  </div>
                   <div className="text-[11px] font-normal text-text-muted">
-                    Only board creator and site administrators can add columns.
+                    {visibility === "private"
+                      ? "Only the creator of this private board can add columns."
+                      : "Only board creator and site administrators can add columns."}
                   </div>
                 </div>
                 {columnPolicy === "host_admin_only" && <Check className="w-4 h-4 text-primary" />}
               </label>
 
-              <label
-                onClick={() => setColumnPolicy("specific_roles")}
-                className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                  columnPolicy === "specific_roles"
-                    ? "bg-primary/10 border-primary text-primary font-bold"
-                    : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
-                }`}
-              >
-                <div>
-                  <div className="font-bold">Specific Roles Only</div>
-                  <div className="text-[11px] font-normal text-text-muted">
-                    Restrict column creation to selected role permissions.
+              {visibility !== "private" && (
+                <label
+                  onClick={() => setColumnPolicy("specific_roles")}
+                  className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                    columnPolicy === "specific_roles"
+                      ? "bg-primary/10 border-primary text-primary font-bold"
+                      : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                  }`}
+                >
+                  <div>
+                    <div className="font-bold">Specific Roles Only</div>
+                    <div className="text-[11px] font-normal text-text-muted">
+                      Restrict column creation to selected role permissions.
+                    </div>
                   </div>
-                </div>
-                {columnPolicy === "specific_roles" && <Check className="w-4 h-4 text-primary" />}
-              </label>
+                  {columnPolicy === "specific_roles" && <Check className="w-4 h-4 text-primary" />}
+                </label>
+              )}
 
               <label
                 onClick={() => setColumnPolicy("specific_users")}
@@ -519,9 +550,13 @@ export default function BoardSettingsModal({
                 }`}
               >
                 <div>
-                  <div className="font-bold">Specific Individuals (Users) Only</div>
+                  <div className="font-bold">
+                    {visibility === "private" ? "Specific Private Board Members Only" : "Specific Individuals (Users) Only"}
+                  </div>
                   <div className="text-[11px] font-normal text-text-muted">
-                    Pick specific individual members permitted to add columns.
+                    {visibility === "private"
+                      ? "Pick specific private board members permitted to add columns."
+                      : "Pick specific individual members permitted to add columns."}
                   </div>
                 </div>
                 {columnPolicy === "specific_users" && <Check className="w-4 h-4 text-primary" />}
@@ -529,13 +564,13 @@ export default function BoardSettingsModal({
             </div>
           </div>
 
-          {/* Specific Roles Checkboxes */}
-          {columnPolicy === "specific_roles" && (
-            <div className="p-3.5 rounded-xl bg-surface-800/50 border border-border/50 space-y-2.5">
-              <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
-                Select Permitted Roles
+          {/* Specific Roles Checkboxes (Public Boards Only) */}
+          {visibility !== "private" && columnPolicy === "specific_roles" && (
+            <div className="p-3 rounded-xl bg-surface-800/50 border border-border/50 space-y-2">
+              <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
+                Select Roles Permitted to Create Columns
               </label>
-              <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {AVAILABLE_ROLES.map((role) => {
                   const isChecked = allowedCreatorRoles.includes(role.id);
                   return (
@@ -638,9 +673,13 @@ export default function BoardSettingsModal({
                     }`}
                   >
                     <div>
-                      <div className="font-bold">🌐 Everyone (All Board Members)</div>
+                      <div className="font-bold">
+                        {visibility === "private" ? "🔒 All Allowed Private Board Members" : "🌐 Everyone (All Board Members)"}
+                      </div>
                       <div className="text-[11px] font-normal text-text-muted">
-                        Any member with board access can drag & drop, resize timeline dates, and edit phases.
+                        {visibility === "private"
+                          ? "Any approved member of this private board can drag & drop, resize timeline dates, and edit phases."
+                          : "Any member with board access can drag & drop, resize timeline dates, and edit phases."}
                       </div>
                     </div>
                     {ganttPolicy === "everyone" && <Check className="w-4 h-4 text-primary" />}
@@ -655,30 +694,36 @@ export default function BoardSettingsModal({
                     }`}
                   >
                     <div>
-                      <div className="font-bold">🛡️ Host & Admins Only</div>
+                      <div className="font-bold">
+                        {visibility === "private" ? "🛡️ Private Board Host Only (Strict Lock)" : "🛡️ Host & Admins Only"}
+                      </div>
                       <div className="text-[11px] font-normal text-text-muted">
-                        Only board creator and site administrators can drag & drop or edit Gantt items.
+                        {visibility === "private"
+                          ? "Only the creator of this private board can drag & drop or edit Gantt items."
+                          : "Only board creator and site administrators can drag & drop or edit Gantt items."}
                       </div>
                     </div>
                     {ganttPolicy === "host_admin_only" && <Check className="w-4 h-4 text-primary" />}
                   </label>
 
-                  <label
-                    onClick={() => setGanttPolicy("specific_roles")}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                      ganttPolicy === "specific_roles"
-                        ? "bg-primary/10 border-primary text-primary font-bold"
-                        : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
-                    }`}
-                  >
-                    <div>
-                      <div className="font-bold">🎓 Specific Roles Only</div>
-                      <div className="text-[11px] font-normal text-text-muted">
-                        Restrict Gantt drag-and-drop & editing to selected roles (e.g. Officers, Admins).
+                  {visibility !== "private" && (
+                    <label
+                      onClick={() => setGanttPolicy("specific_roles")}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
+                        ganttPolicy === "specific_roles"
+                          ? "bg-primary/10 border-primary text-primary font-bold"
+                          : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-bold">🎓 Specific Roles Only</div>
+                        <div className="text-[11px] font-normal text-text-muted">
+                          Restrict Gantt drag-and-drop & editing to selected roles (e.g. Officers, Admins).
+                        </div>
                       </div>
-                    </div>
-                    {ganttPolicy === "specific_roles" && <Check className="w-4 h-4 text-primary" />}
-                  </label>
+                      {ganttPolicy === "specific_roles" && <Check className="w-4 h-4 text-primary" />}
+                    </label>
+                  )}
 
                   <label
                     onClick={() => setGanttPolicy("specific_users")}
@@ -689,17 +734,21 @@ export default function BoardSettingsModal({
                     }`}
                   >
                     <div>
-                      <div className="font-bold">👤 Specific Individuals (Users) Only</div>
+                      <div className="font-bold">
+                        {visibility === "private" ? "👤 Specific Private Board Members Only" : "👤 Specific Individuals (Users) Only"}
+                      </div>
                       <div className="text-[11px] font-normal text-text-muted">
-                        Pick specific individual members permitted to edit & drag items in Gantt view.
+                        {visibility === "private"
+                          ? "Pick specific private board members permitted to edit & drag items in Gantt view."
+                          : "Pick specific individual members permitted to edit & drag items in Gantt view."}
                       </div>
                     </div>
                     {ganttPolicy === "specific_users" && <Check className="w-4 h-4 text-primary" />}
                   </label>
                 </div>
 
-                {/* Specific Roles Checkboxes */}
-                {ganttPolicy === "specific_roles" && (
+                {/* Specific Roles Checkboxes (Public Boards Only) */}
+                {visibility !== "private" && ganttPolicy === "specific_roles" && (
                   <div className="p-3 rounded-xl bg-surface-800/50 border border-border/50 space-y-2">
                     <label className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
                       Select Roles Permitted to Drag & Edit Gantt
@@ -792,6 +841,26 @@ export default function BoardSettingsModal({
       {/* Tab 4: Dynamic Phases & Sprints Management */}
       {activeTab === "phases" && (
         <div className="h-full flex flex-col space-y-4 animate-in fade-in duration-150 min-h-0">
+          {visibility === "private" && (
+            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
+              <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+              <span>Exclusive Private Board Phases — Phase configuration applies to this private board's workflow.</span>
+            </div>
+          )}
+
+          {phaseErrorMessage && (
+            <div className="p-3 rounded-xl bg-error/10 border border-error/30 text-error text-xs font-semibold flex items-center justify-between animate-in fade-in duration-150">
+              <span>{phaseErrorMessage}</span>
+              <button
+                type="button"
+                onClick={() => setPhaseErrorMessage(null)}
+                className="p-1 hover:bg-error/20 rounded-md transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Methodology Selector */}
           <div className="space-y-1.5 flex-shrink-0">
             <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
@@ -817,6 +886,12 @@ export default function BoardSettingsModal({
               <button
                 type="button"
                 onClick={() => {
+                  const lockedPhases = phaseSettings.filter((p) => (cardsInPhase[p.name] || 0) > 0);
+                  if (lockedPhases.length > 0) {
+                    setPhaseErrorMessage(`Cannot reset template while tasks exist under "${lockedPhases.map((p) => p.name).join(", ")}". Move or reassign those tasks first.`);
+                    return;
+                  }
+                  setPhaseErrorMessage(null);
                   setMethodology("waterfall");
                   setPhaseSettings([
                     { name: "Requirements & Planning", color: "#3b82f6" },
@@ -835,6 +910,12 @@ export default function BoardSettingsModal({
               <button
                 type="button"
                 onClick={() => {
+                  const lockedPhases = phaseSettings.filter((p) => (cardsInPhase[p.name] || 0) > 0);
+                  if (lockedPhases.length > 0) {
+                    setPhaseErrorMessage(`Cannot reset template while tasks exist under "${lockedPhases.map((p) => p.name).join(", ")}". Move or reassign those tasks first.`);
+                    return;
+                  }
+                  setPhaseErrorMessage(null);
                   setMethodology("agile");
                   setPhaseSettings([
                     { name: "Sprint 1", color: "#06b6d4" },
@@ -955,10 +1036,20 @@ export default function BoardSettingsModal({
                       <button
                         type="button"
                         onClick={() => {
+                          const count = cardsInPhase[phaseItem.name] || 0;
+                          if (count > 0) {
+                            setPhaseErrorMessage(`Cannot delete "${phaseItem.name}" because ${count} task(s) are assigned to it. Move or reassign those tasks first.`);
+                            return;
+                          }
+                          setPhaseErrorMessage(null);
                           setPhaseSettings((prev) => prev.filter((_, idx) => idx !== index));
                         }}
                         className="p-1.5 text-text-muted hover:text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer flex-shrink-0 ml-auto sm:ml-0"
-                        title="Delete Phase / Sprint"
+                        title={
+                          (cardsInPhase[phaseItem.name] || 0) > 0
+                            ? `Cannot delete phase: ${cardsInPhase[phaseItem.name]} task(s) assigned`
+                            : "Delete Phase / Sprint"
+                        }
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

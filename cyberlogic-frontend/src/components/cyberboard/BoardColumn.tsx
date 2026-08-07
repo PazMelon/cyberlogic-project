@@ -280,6 +280,12 @@ export default function BoardColumn({
                       type="button"
                       onClick={() => {
                         setShowOptions(false);
+                        if (cards.length > 0) {
+                          if (onShowToast) {
+                            onShowToast(`Cannot delete column '${column.title}' because it contains ${cards.length} task(s). Move or archive the cards first.`, "error");
+                          }
+                          return;
+                        }
                         onDeleteColumn(column.id);
                       }}
                       className="w-full text-left px-3 py-2 text-error hover:bg-error/10 flex items-center gap-2 font-medium cursor-pointer"

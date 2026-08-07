@@ -517,7 +517,7 @@ export default function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 h-16 glass border-b border-border flex items-center px-4 sm:px-6 gap-4">
+      <header className="sticky top-0 z-[100] h-16 glass border-b border-border flex items-center px-4 sm:px-6 gap-4">
         {showMobileSearch ? (
           <div className="flex-1 flex items-center gap-2 z-50">
             <button
@@ -589,10 +589,10 @@ export default function Topbar() {
           {showNotifDropdown && (
             <div className="hidden lg:block">
               <div
-                className="fixed inset-0 z-40"
+                className="fixed inset-0 z-[110]"
                 onClick={() => setShowNotifDropdown(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface-900 rounded-xl border border-border shadow-xl z-50 py-2 flex flex-col max-h-[480px]">
+              <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface-900 rounded-xl border border-border shadow-xl z-[120] py-2 flex flex-col max-h-[480px]">
                 <div className="px-4 py-2 border-b border-border flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-text-primary">Notifications</span>
                   <div className="flex items-center gap-3">
@@ -647,10 +647,10 @@ export default function Topbar() {
           {showDropdown && (
             <div className="hidden lg:block">
               <div
-                className="fixed inset-0 z-40"
+                className="fixed inset-0 z-[110]"
                 onClick={() => setShowDropdown(false)}
               />
-              <div className="absolute right-0 top-full mt-2 w-56 bg-surface-900 rounded-xl border border-border shadow-xl z-50 py-2">
+              <div className="absolute right-0 top-full mt-2 w-56 bg-surface-900 rounded-xl border border-border shadow-xl z-[120] py-2">
                 <div className="px-4 py-2 border-b border-border">
                   <p className="text-sm font-medium text-text-primary">{user?.name}</p>
                   <p className="text-xs text-text-muted">{user?.email}</p>
@@ -721,10 +721,10 @@ export default function Topbar() {
       {showNotifDropdown && (
         <div className="lg:hidden">
           <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setShowNotifDropdown(false)}
           />
-          <div className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface-900 border-l border-border z-50 flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
+          <div className="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-surface-900 border-l border-border z-[130] flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
             <div className="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
               <span className="text-sm font-semibold text-text-primary">Notifications</span>
               <div className="flex items-center gap-3">
@@ -767,10 +767,10 @@ export default function Topbar() {
       {showDropdown && (
         <div className="lg:hidden">
           <div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-fade-in"
+            className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-sm animate-fade-in"
             onClick={() => setShowDropdown(false)}
           />
-          <div className="fixed top-0 right-0 bottom-0 w-72 max-w-[80vw] bg-surface-900 border-l border-border z-50 flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
+          <div className="fixed top-0 right-0 bottom-0 w-72 max-w-[80vw] bg-surface-900 border-l border-border z-[130] flex flex-col animate-slide-in-right-drawer overflow-hidden shadow-2xl">
             {/* Drawer Header */}
             <div className="flex items-center justify-between px-5 h-16 border-b border-border flex-shrink-0">
               <span className="text-sm font-semibold text-text-primary">Account Options</span>
