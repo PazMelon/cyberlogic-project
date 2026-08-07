@@ -1031,7 +1031,7 @@ class CyberboardController extends Controller
                     if ($predCard) {
                         $predColumn = CyberboardColumn::find($predCard->column_id);
                         $isPredDone = $predColumn && (
-                            $predColumn.status_type === 'completed' ||
+                            $predColumn->status_type === 'completed' ||
                             str_contains(strtolower($predColumn->title), 'done') ||
                             str_contains(strtolower($predColumn->title), 'complete') ||
                             ($predColumn->position === $lastColPosition && $lastColPosition > 0)

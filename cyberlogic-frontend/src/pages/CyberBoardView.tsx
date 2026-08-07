@@ -1462,6 +1462,7 @@ export default function CyberBoardView() {
           /* Main Kanban Columns Workspace (Horizontal Scroll) */
           <div
             onDragOver={handleBoardDragOver}
+            onDrop={(e) => e.preventDefault()}
             className="flex-1 overflow-x-auto p-4 sm:p-6 flex items-start gap-4 h-full"
           >
             {columns.length === 0 ? (

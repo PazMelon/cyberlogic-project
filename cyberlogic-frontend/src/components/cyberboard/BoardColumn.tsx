@@ -59,10 +59,12 @@ export default function BoardColumn({
   const hasRestrictions = allowedRoles.length > 0 || allowedUsers.length > 0;
 
   let isAllowedToDrop = true;
+  let isAllowedToMoveOut = true;
   if (hasRestrictions && !canManageColumn) {
     const roleMatch = allowedRoles.length > 0 && userRole && allowedRoles.includes(userRole);
     const userMatch = allowedUsers.length > 0 && currentUserId && allowedUsers.includes(currentUserId);
     isAllowedToDrop = Boolean(roleMatch || userMatch);
+    isAllowedToMoveOut = Boolean(roleMatch || userMatch);
   }
 
   const handleColumnDragStart = (e: React.DragEvent) => {
@@ -327,7 +329,7 @@ export default function BoardColumn({
               boardHostId={boardHostId}
               isAdmin={isAdmin}
               isHighlighted={highlightedCardIds?.has(card.id)}
-              isDraggable={isAllowedToDrop}
+              isDraggable={isAllowedToMoveOut}
               onCardClick={onCardClick}
               onVoteToggle={onVoteToggle}
               onDelete={onDeleteCard}
