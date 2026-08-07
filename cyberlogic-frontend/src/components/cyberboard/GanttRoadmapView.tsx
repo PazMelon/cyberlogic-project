@@ -181,43 +181,90 @@ export default function GanttRoadmapView({
     // Allow React frame to repaint with isExporting = true (hiding avatars and Today marker)
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    const leftColWidth = leftScrollRef.current ? leftScrollRef.current.clientWidth : 400;
-    const rightGridScrollWidth = gridTimelineRef.current ? gridTimelineRef.current.scrollWidth : gridMinWidth;
+    const leftEl = leftScrollRef.current;
+    const rightEl = gridTimelineRef.current;
+
+    const origTargetHeight = targetEl.style.height;
+    const origTargetMaxHeight = targetEl.style.maxHeight;
+    const origTargetOverflow = targetEl.style.overflow;
+
+    const origLeftHeight = leftEl ? leftEl.style.height : "";
+    const origLeftMaxHeight = leftEl ? leftEl.style.maxHeight : "";
+    const origLeftOverflow = leftEl ? leftEl.style.overflow : "";
+
+    const origRightHeight = rightEl ? rightEl.style.height : "";
+    const origRightMaxHeight = rightEl ? rightEl.style.maxHeight : "";
+    const origRightOverflow = rightEl ? rightEl.style.overflow : "";
+
+    const leftColWidth = leftEl ? leftEl.clientWidth : 400;
+    const rightGridScrollWidth = rightEl ? rightEl.scrollWidth : gridMinWidth;
     const fullWidth = leftColWidth + rightGridScrollWidth;
 
-    const leftColScrollHeight = leftScrollRef.current ? leftScrollRef.current.scrollHeight + 48 : 0;
-    const rightGridScrollHeight = gridTimelineRef.current ? gridTimelineRef.current.scrollHeight : 0;
+    const leftColScrollHeight = leftEl ? leftEl.scrollHeight + 48 : 0;
+    const rightGridScrollHeight = rightEl ? rightEl.scrollHeight + 48 : 0;
     const fullHeight = Math.max(targetEl.scrollHeight, leftColScrollHeight, rightGridScrollHeight);
 
-    return await toPng(targetEl, {
-      cacheBust: false,
-      skipFonts: true,
-      imagePlaceholder:
-        "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='10' fill='%2306b6d4'/></svg>",
-      backgroundColor: "#0f172a",
-      quality: 0.95,
-      width: fullWidth,
-      height: fullHeight,
-      style: {
-        overflow: "visible",
-        width: `${fullWidth}px`,
-        height: `${fullHeight}px`,
-        maxHeight: "none",
-        maxWidth: "none",
-      },
-      filter: (node: HTMLElement) => {
-        if (node.classList && node.classList.contains("export-ignore")) {
-          return false;
-        }
-        if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
-          const href = node.getAttribute("href") || "";
-          if (href.startsWith("http") && !href.includes(window.location.hostname)) {
+    try {
+      if (leftEl) {
+        leftEl.style.height = `${fullHeight}px`;
+        leftEl.style.maxHeight = "none";
+        leftEl.style.overflow = "visible";
+      }
+      if (rightEl) {
+        rightEl.style.height = `${fullHeight}px`;
+        rightEl.style.maxHeight = "none";
+        rightEl.style.overflow = "visible";
+      }
+      targetEl.style.height = `${fullHeight}px`;
+      targetEl.style.maxHeight = "none";
+      targetEl.style.overflow = "visible";
+
+      await new Promise((resolve) => setTimeout(resolve, 60));
+
+      return await toPng(targetEl, {
+        cacheBust: false,
+        skipFonts: true,
+        imagePlaceholder:
+          "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><circle cx='12' cy='12' r='10' fill='%2306b6d4'/></svg>",
+        backgroundColor: "#0f172a",
+        quality: 0.95,
+        width: fullWidth,
+        height: fullHeight,
+        style: {
+          overflow: "visible",
+          width: `${fullWidth}px`,
+          height: `${fullHeight}px`,
+          maxHeight: "none",
+          maxWidth: "none",
+        },
+        filter: (node: HTMLElement) => {
+          if (node.classList && node.classList.contains("export-ignore")) {
             return false;
           }
-        }
-        return true;
-      },
-    });
+          if (node.tagName === "LINK" && node.getAttribute("rel") === "stylesheet") {
+            const href = node.getAttribute("href") || "";
+            if (href.startsWith("http") && !href.includes(window.location.hostname)) {
+              return false;
+            }
+          }
+          return true;
+        },
+      });
+    } finally {
+      if (leftEl) {
+        leftEl.style.height = origLeftHeight;
+        leftEl.style.maxHeight = origLeftMaxHeight;
+        leftEl.style.overflow = origLeftOverflow;
+      }
+      if (rightEl) {
+        rightEl.style.height = origRightHeight;
+        rightEl.style.maxHeight = origRightMaxHeight;
+        rightEl.style.overflow = origRightOverflow;
+      }
+      targetEl.style.height = origTargetHeight;
+      targetEl.style.maxHeight = origTargetMaxHeight;
+      targetEl.style.overflow = origTargetOverflow;
+    }
   };
 
   const handleExportGanttPng = async () => {
