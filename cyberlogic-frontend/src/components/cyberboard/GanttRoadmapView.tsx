@@ -13,9 +13,18 @@ import {
   ZoomOut,
   X,
   Lock,
+  Download,
+  Image as ImageIcon,
+  FileText,
+  Maximize2,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
 import { updateCyberboardCard, batchReorderCyberboardCards } from "../../utils/api";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
+import { exportBoardToExcel } from "../../utils/exportBoardToExcel";
 
 interface GanttRoadmapViewProps {
   board: CyberboardBoard;
@@ -94,11 +103,135 @@ export default function GanttRoadmapView({
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showUnscheduledDrawer, setShowUnscheduledDrawer] = useState<boolean>(false);
   const [showGanttControlsSidebar, setShowGanttControlsSidebar] = useState<boolean>(false);
+  const [showExportDropdown, setShowExportDropdown] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
+
+  // Auto-fit date bounds to earliest start date & latest end date of tasks
+  const handleFitToTaskDates = useCallback(() => {
+    let minMs: number | null = null;
+    let maxMs: number | null = null;
+
+    cards.forEach((c) => {
+      if (c.is_archived) return;
+      if (c.activity_date) {
+        const ms = new Date(c.activity_date).getTime();
+        if (!isNaN(ms)) {
+          if (minMs === null || ms < minMs) minMs = ms;
+          if (maxMs === null || ms > maxMs) maxMs = ms;
+        }
+      }
+      if (c.activity_end_date) {
+        const ms = new Date(c.activity_end_date).getTime();
+        if (!isNaN(ms)) {
+          if (minMs === null || ms < minMs) minMs = ms;
+          if (maxMs === null || ms > maxMs) maxMs = ms;
+        }
+      }
+    });
+
+    if (minMs !== null && maxMs !== null) {
+      const minDate = new Date(minMs).toISOString().split("T")[0];
+      const maxDate = new Date(maxMs).toISOString().split("T")[0];
+      setStartDateStr(minDate);
+      setEndDateStr(maxDate);
+      const minYear = new Date(minMs).getFullYear();
+      setSelectedYear(minYear);
+    }
+  }, [cards]);
+
+  // Initial mount auto-fit if scheduled cards exist
+  useEffect(() => {
+    let minMs: number | null = null;
+    let maxMs: number | null = null;
+    cards.forEach((c) => {
+      if (c.is_archived) return;
+      if (c.activity_date) {
+        const ms = new Date(c.activity_date).getTime();
+        if (!isNaN(ms)) {
+          if (minMs === null || ms < minMs) minMs = ms;
+          if (maxMs === null || ms > maxMs) maxMs = ms;
+        }
+      }
+      if (c.activity_end_date) {
+        const ms = new Date(c.activity_end_date).getTime();
+        if (!isNaN(ms)) {
+          if (minMs === null || ms < minMs) minMs = ms;
+          if (maxMs === null || ms > maxMs) maxMs = ms;
+        }
+      }
+    });
+
+    if (minMs !== null && maxMs !== null) {
+      const minDate = new Date(minMs).toISOString().split("T")[0];
+      const maxDate = new Date(maxMs).toISOString().split("T")[0];
+      setStartDateStr(minDate);
+      setEndDateStr(maxDate);
+      setSelectedYear(new Date(minMs).getFullYear());
+    }
+  }, []);
+
+  const handleExportGanttPng = async () => {
+    if (!containerRef.current) return;
+    setIsExporting(true);
+    setShowExportDropdown(false);
+    try {
+      const dataUrl = await toPng(containerRef.current, {
+        cacheBust: true,
+        backgroundColor: "#0f172a",
+        quality: 0.95,
+      });
+      const link = document.createElement("a");
+      link.download = `${(board.title || "Gantt_Chart").replace(/[^a-z0-9]/gi, "_")}_Gantt.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Failed to export Gantt chart as PNG:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportGanttPdf = async () => {
+    if (!containerRef.current) return;
+    setIsExporting(true);
+    setShowExportDropdown(false);
+    try {
+      const dataUrl = await toPng(containerRef.current, {
+        cacheBust: true,
+        backgroundColor: "#0f172a",
+        quality: 0.95,
+      });
+
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const pdf = new jsPDF({
+        orientation: img.width > img.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [img.width, img.height],
+      });
+
+      pdf.addImage(dataUrl, "PNG", 0, 0, img.width, img.height);
+      pdf.save(`${(board.title || "Gantt_Chart").replace(/[^a-z0-9]/gi, "_")}_Gantt.pdf`);
+    } catch (err) {
+      console.error("Failed to export Gantt chart as PDF:", err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExportExcelClick = () => {
+    setShowExportDropdown(false);
+    exportBoardToExcel(board, columns, cards);
+  };
 
   const handleRemoveDependency = async (targetCardId: number, fromCardId: number) => {
     if (!canEditGantt) return;
@@ -1467,13 +1600,10 @@ export default function GanttRoadmapView({
           )}
         </div>
 
-        {/* Desktop Toolbar Controls (>= 1440px 2xl screens) */}
-        <div className="hidden 2xl:flex items-center gap-3">
+        {/* Desktop Toolbar Controls (>= 1280px xl screens with clean wrapping) */}
+        <div className="hidden xl:flex flex-wrap items-center gap-2 2xl:gap-3 justify-end flex-1 min-w-0">
           {/* Grouping Buttons */}
-          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
-            <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-primary" /> Group by:
-            </span>
+          <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <button
               onClick={() => setGroupBy("phase")}
               className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
@@ -1517,13 +1647,10 @@ export default function GanttRoadmapView({
           </div>
 
           {/* Scale Selector */}
-          <div className="flex items-center gap-1.5 bg-surface-800/80 p-1 rounded-xl border border-border/60">
-            <span className="text-xs text-text-muted font-medium px-2 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-primary" /> Scale:
-            </span>
+          <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <button
               onClick={() => handleScaleChange("month")}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "month"
                   ? "bg-primary text-surface-950 shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
@@ -1533,7 +1660,7 @@ export default function GanttRoadmapView({
             </button>
             <button
               onClick={() => handleScaleChange("week")}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "week"
                   ? "bg-primary text-surface-950 shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
@@ -1543,7 +1670,7 @@ export default function GanttRoadmapView({
             </button>
             <button
               onClick={() => handleScaleChange("day")}
-              className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                 timeScale === "day"
                   ? "bg-primary text-surface-950 shadow-sm"
                   : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
@@ -1554,7 +1681,7 @@ export default function GanttRoadmapView({
           </div>
 
           {/* Zoom Level Control */}
-          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-1.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
             <button
               onClick={handleZoomOut}
               disabled={zoomLevel <= 50}
@@ -1565,7 +1692,7 @@ export default function GanttRoadmapView({
             </button>
             <span
               onClick={handleResetZoom}
-              className="px-1.5 text-xs font-bold text-text-primary font-mono cursor-pointer hover:text-primary transition-colors min-w-[42px] text-center"
+              className="px-1 text-xs font-bold text-text-primary font-mono cursor-pointer hover:text-primary transition-colors min-w-[36px] text-center"
               title="Click to reset zoom to 100%"
             >
               {zoomLevel}%
@@ -1580,10 +1707,9 @@ export default function GanttRoadmapView({
             </button>
           </div>
 
-          {/* Interactive Date Range Picker */}
-          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-border px-2.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
+          {/* Interactive Date Range Picker & Fit Tasks */}
+          <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-2 py-1 rounded-xl text-xs text-text-primary shadow-xs">
             <Calendar className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-            <span className="text-text-muted font-bold text-[10px] uppercase tracking-wider">Range:</span>
             <input
               type="date"
               value={startDateStr}
@@ -1597,6 +1723,14 @@ export default function GanttRoadmapView({
               onChange={(e) => setEndDateStr(e.target.value)}
               className="bg-surface-900 border border-border/80 text-text-primary px-1.5 py-0.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
             />
+            <button
+              onClick={handleFitToTaskDates}
+              className="px-2 py-0.5 rounded-lg bg-primary/15 border border-primary/40 text-primary hover:bg-primary/25 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+              title="Limit timeline range to earliest start date & latest end date of tasks"
+            >
+              <Maximize2 className="w-3 h-3" />
+              <span>Fit</span>
+            </button>
           </div>
 
           {/* Year Selector & Today Button */}
@@ -1607,9 +1741,9 @@ export default function GanttRoadmapView({
                 className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
                 title="Previous Year"
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft className="w-3.5 h-3.5" />
               </button>
-              <span className="px-3 text-xs font-bold tracking-wider text-text-primary font-mono">
+              <span className="px-2 text-xs font-bold tracking-wider text-text-primary font-mono">
                 {selectedYear}
               </span>
               <button
@@ -1617,7 +1751,7 @@ export default function GanttRoadmapView({
                 className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-700 transition-all cursor-pointer"
                 title="Next Year"
               >
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -1629,6 +1763,49 @@ export default function GanttRoadmapView({
               <Clock className="w-3.5 h-3.5" />
               <span>Today</span>
             </button>
+
+            {/* Export Options Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                disabled={isExporting}
+                className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+                <span>Export</span>
+                <ChevronDown className="w-3 h-3 text-emerald-400" />
+              </button>
+
+              {showExportDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-52 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    onClick={handleExportGanttPng}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-text-primary hover:bg-surface-800 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <ImageIcon className="w-4 h-4 text-cyan-400" />
+                    <span>Export Chart as PNG</span>
+                  </button>
+                  <button
+                    onClick={handleExportGanttPdf}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-text-primary hover:bg-surface-800 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-4 h-4 text-rose-400" />
+                    <span>Export Chart as PDF</span>
+                  </button>
+                  <button
+                    onClick={handleExportExcelClick}
+                    className="w-full px-3 py-2 rounded-xl text-xs font-semibold text-text-primary hover:bg-surface-800 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                    <span>Export Board to Excel (.xlsx)</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Unscheduled items badge (Icon + Count only) */}
@@ -1648,8 +1825,8 @@ export default function GanttRoadmapView({
           )}
         </div>
 
-        {/* Mobile, Tablet & HD Screens Controls Drawer Button (< 1440px 2xl screens) */}
-        <div className="flex 2xl:hidden items-center gap-2">
+        {/* Mobile & Tablet Controls Drawer Button (< 1280px xl screens) */}
+        <div className="flex xl:hidden items-center gap-2">
           {unscheduledCards.length > 0 && (
             <button
               onClick={() => setShowUnscheduledDrawer(!showUnscheduledDrawer)}
@@ -2414,7 +2591,17 @@ export default function GanttRoadmapView({
 
             {/* Date Range Picker */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Date Range Filter:</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Date Range Filter:</label>
+                <button
+                  onClick={handleFitToTaskDates}
+                  className="px-2 py-0.5 rounded-lg bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer"
+                  title="Limit timeline range to earliest start date & latest end date of tasks"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>Fit Tasks</span>
+                </button>
+              </div>
               <div className="flex flex-col gap-2 bg-surface-800/90 p-3 rounded-xl border border-border/60">
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] text-text-muted font-semibold uppercase">Start Date:</span>
@@ -2434,6 +2621,37 @@ export default function GanttRoadmapView({
                     className="bg-surface-900 border border-border/80 text-text-primary px-2.5 py-1.5 rounded-lg text-xs font-semibold focus:border-primary focus:outline-none cursor-pointer"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Export Actions Section */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider">Export Options:</label>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={handleExportGanttPng}
+                  disabled={isExporting}
+                  className="w-full px-3 py-2 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <ImageIcon className="w-4 h-4 text-cyan-400" />
+                  <span>Export Chart as PNG</span>
+                </button>
+                <button
+                  onClick={handleExportGanttPdf}
+                  disabled={isExporting}
+                  className="w-full px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 hover:bg-rose-500/20 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-rose-400" />
+                  <span>Export Chart as PDF</span>
+                </button>
+                <button
+                  onClick={handleExportExcelClick}
+                  disabled={isExporting}
+                  className="w-full px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  <span>Export Board to Excel (.xlsx)</span>
+                </button>
               </div>
             </div>
           </div>

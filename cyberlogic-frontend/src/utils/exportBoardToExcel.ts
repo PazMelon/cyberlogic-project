@@ -101,66 +101,103 @@ export function exportBoardToExcel(
 
   const sections: GroupedExportSection[] = [];
 
-  if (board.type === "roadmap") {
-    const phases = [
-      { id: "phase-1", title: "SPRINT 1" },
-      { id: "phase-2", title: "SPRINT 2" },
-      { id: "phase-3", title: "SPRINT 3" },
-      { id: "phase-4", title: "SPRINT 4" },
-      { id: "phase-5", title: "SPRINT 5" },
-    ];
+  // Group by Phase if board is a roadmap or any card has phase assigned or board has phase_settings
+  const configuredPhases = (board.phase_settings && board.phase_settings.length > 0)
+    ? board.phase_settings
+    : [
+        { name: "Requirements & Planning" },
+        { name: "Architecture & Design" },
+        { name: "Development & Implementation" },
+        { name: "Testing & QA" },
+        { name: "Deployment & Release" },
+      ];
 
-    phases.forEach((phase) => {
-      const phaseCards = allCards.filter(
-        (c) => ((c as any).sdlc_phase || "phase-1") === phase.id
-      );
+  const phaseMap = new Map<string, { id: string; title: string; cards: CyberboardCard[] }>();
 
-      if (phaseCards.length > 0) {
-        let pStartMs: number | null = null;
-        let pEndMs: number | null = null;
-        const assigneesSet = new Set<string>();
+  configuredPhases.forEach((ps, idx) => {
+    phaseMap.set(ps.name.toLowerCase(), {
+      id: `phase-${idx}`,
+      title: ps.name,
+      cards: [],
+    });
+  });
 
-        phaseCards.forEach((card) => {
-          if (card.activity_date) {
-            const ms = new Date(card.activity_date).getTime();
-            if (!isNaN(ms) && (pStartMs === null || ms < pStartMs)) pStartMs = ms;
-          }
-          if (card.activity_end_date) {
-            const ms = new Date(card.activity_end_date).getTime();
-            if (!isNaN(ms) && (pEndMs === null || ms > pEndMs)) pEndMs = ms;
-          }
-          if (card.assigned_users && card.assigned_users.length > 0) {
-            card.assigned_users.forEach((u) => assigneesSet.add(u.name));
-          } else if ((card as any).assignee) {
-            assigneesSet.add((card as any).assignee.name);
-          }
-        });
+  phaseMap.set("unassigned", {
+    id: "phase-unassigned",
+    title: "General / Unassigned Phase",
+    cards: [],
+  });
 
-        const pStartStr = pStartMs ? new Date(pStartMs).toISOString() : "";
-        const pEndStr = pEndMs ? new Date(pEndMs).toISOString() : "";
-        const pDuration = calculateDurationDays(pStartStr, pEndStr);
-
-        // Check if all completed
-        const allDone = phaseCards.every((c) => {
-          const cCol = columns.find((col) => col.id === c.column_id)?.title || "";
-          return cCol.toLowerCase().includes("done") || cCol.toLowerCase().includes("complete");
-        });
-
-        sections.push({
-          id: phase.id,
-          title: phase.title,
-          responsible: Array.from(assigneesSet).join(", ") || "",
-          startDate: formatDateShort(pStartStr),
-          endDate: formatDateShort(pEndStr),
-          duration: pDuration,
-          status: allDone ? "Complete" : "In Progress",
-          cards: phaseCards,
+  allCards.forEach((c) => {
+    if (c.phase) {
+      const key = c.phase.toLowerCase();
+      if (!phaseMap.has(key)) {
+        phaseMap.set(key, {
+          id: `phase-custom-${key}`,
+          title: c.phase,
+          cards: [],
         });
       }
-    });
-  }
+      phaseMap.get(key)?.cards.push(c);
+    } else {
+      phaseMap.get("unassigned")?.cards.push(c);
+    }
+  });
 
-  // Fallback: If no phases found or normal board, group by Column
+  // Convert phaseMap entries into sections (include configured phases or non-empty unassigned/custom phases)
+  Array.from(phaseMap.values()).forEach((group) => {
+    if (group.cards.length > 0 || (group.id !== "phase-unassigned" && board.type === "roadmap")) {
+      const phaseCards = group.cards;
+      let pStartMs: number | null = null;
+      let pEndMs: number | null = null;
+      const assigneesSet = new Set<string>();
+
+      phaseCards.forEach((card) => {
+        if (card.activity_date) {
+          const ms = new Date(card.activity_date).getTime();
+          if (!isNaN(ms) && (pStartMs === null || ms < pStartMs)) pStartMs = ms;
+        }
+        if (card.activity_end_date) {
+          const ms = new Date(card.activity_end_date).getTime();
+          if (!isNaN(ms) && (pEndMs === null || ms > pEndMs)) pEndMs = ms;
+        }
+        if (card.assigned_users && card.assigned_users.length > 0) {
+          card.assigned_users.forEach((u) => {
+            const name = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || u.username;
+            if (name) assigneesSet.add(name);
+          });
+        } else if ((card as any).assignee) {
+          assigneesSet.add((card as any).assignee.name || (card as any).assignee.username);
+        }
+      });
+
+      const pStartStr = pStartMs ? new Date(pStartMs).toISOString() : "";
+      const pEndStr = pEndMs ? new Date(pEndMs).toISOString() : "";
+      const pDuration = calculateDurationDays(pStartStr, pEndStr);
+
+      const allDone = phaseCards.length > 0 && phaseCards.every((c) => {
+        const matchingCol = columns.find((col) => col.id === c.column_id);
+        const cCol = matchingCol?.title || "";
+        return matchingCol?.status_type === "completed" ||
+          cCol.toLowerCase().includes("done") ||
+          cCol.toLowerCase().includes("complete") ||
+          (c as any).is_completed;
+      });
+
+      sections.push({
+        id: group.id,
+        title: group.title.toUpperCase(),
+        responsible: Array.from(assigneesSet).join(", ") || "",
+        startDate: formatDateShort(pStartStr),
+        endDate: formatDateShort(pEndStr),
+        duration: pDuration,
+        status: phaseCards.length === 0 ? "Not Started" : allDone ? "Complete" : "In Progress",
+        cards: phaseCards,
+      });
+    }
+  });
+
+  // Fallback: If no phases were found/populated and not a roadmap board, group by Column
   if (sections.length === 0) {
     (columns || []).forEach((col) => {
       const colCards = col.cards || allCards.filter((c) => c.column_id === col.id);
@@ -179,9 +216,12 @@ export function exportBoardToExcel(
             if (!isNaN(ms) && (pEndMs === null || ms > pEndMs)) pEndMs = ms;
           }
           if (card.assigned_users && card.assigned_users.length > 0) {
-            card.assigned_users.forEach((u) => assigneesSet.add(u.name));
+            card.assigned_users.forEach((u) => {
+              const name = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.name || u.username;
+              if (name) assigneesSet.add(name);
+            });
           } else if ((card as any).assignee) {
-            assigneesSet.add((card as any).assignee.name);
+            assigneesSet.add((card as any).assignee.name || (card as any).assignee.username);
           }
         });
 
