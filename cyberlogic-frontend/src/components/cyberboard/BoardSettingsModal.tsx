@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Settings, X, Lock, Globe, ShieldCheck, Users, Search, Trash2, Check, Layers, Plus, RefreshCw, Info, SlidersHorizontal, GripVertical } from "lucide-react";
-import { fetchDirectory, type CyberboardBoard, type DirectoryMember, type BoardCategory } from "../../utils/api";
+import { fetchDirectory, type CyberboardBoard, type DirectoryMember, type BoardCategory, type CyberboardCard } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
 
 interface CollaboratorOption {
@@ -162,13 +162,14 @@ export default function BoardSettingsModal({
   // Count active cards assigned to each phase name for deletion safeguards
   const cardsInPhase = useMemo(() => {
     const map: Record<string, number> = {};
-    (board.cards || []).forEach((c) => {
+    const allCards: CyberboardCard[] = board.cards || (board.columns || []).flatMap((col) => col.cards || []);
+    allCards.forEach((c) => {
       if (!c.is_archived && c.phase) {
         map[c.phase] = (map[c.phase] || 0) + 1;
       }
     });
     return map;
-  }, [board.cards]);
+  }, [board.cards, board.columns]);
 
   // If board is Private / Exclusive, restrict selectable members for Column/Gantt permissions to Owner & Permitted Members
   const accessibleMembers = useMemo(() => {
@@ -385,7 +386,7 @@ export default function BoardSettingsModal({
                 onClick={() => setVisibility("private")}
                 className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start gap-3 ${
                   visibility === "private"
-                    ? "bg-amber-500/10 border-amber-500/50 text-amber-400"
+                    ? "bg-warning/10 border-warning/50 text-warning"
                     : "bg-surface-800/60 border-border hover:bg-surface-800 text-text-secondary"
                 }`}
               >
@@ -393,7 +394,7 @@ export default function BoardSettingsModal({
                 <div className="space-y-1">
                   <div className="font-bold text-xs flex items-center gap-1.5">
                     <span>Private Board (Exclusive)</span>
-                    {visibility === "private" && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    {visibility === "private" && <Check className="w-3.5 h-3.5 text-warning" />}
                   </div>
                   <p className="text-[11px] text-text-muted leading-snug">
                     Exclusively restricted to host, admins & invited members.
@@ -405,10 +406,10 @@ export default function BoardSettingsModal({
 
           {/* Member Picker for Private Boards */}
           {visibility === "private" && (
-            <div className="p-4 rounded-xl bg-surface-800/40 border border-amber-500/20 space-y-3">
+            <div className="p-4 rounded-xl bg-surface-800/40 border border-warning/20 space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-text-primary flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-amber-400" />
+                  <Users className="w-4 h-4 text-warning" />
                   <span>Allowed Exclusive Members ({allowedMembers.length})</span>
                 </label>
                 <span className="text-[10px] text-text-muted">Search directory to grant access</span>
@@ -422,7 +423,7 @@ export default function BoardSettingsModal({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search member name..."
-                  className="w-full pl-8 pr-3 py-2 rounded-lg bg-surface-800 border border-border text-xs text-text-primary focus:border-amber-400 focus:outline-none transition-all"
+                  className="w-full pl-8 pr-3 py-2 rounded-lg bg-surface-800 border border-border text-xs text-text-primary focus:border-warning focus:outline-none transition-all"
                 />
               </div>
 
@@ -441,7 +442,7 @@ export default function BoardSettingsModal({
                         onClick={() => toggleMemberSelection(member.id)}
                         className={`p-2 rounded-lg border text-xs flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? "bg-amber-500/15 border-amber-500/40 text-amber-300 font-semibold"
+                            ? "bg-warning/15 border-warning/40 text-warning font-semibold"
                             : "bg-surface-800/70 border-border/50 text-text-secondary hover:bg-surface-800"
                         }`}
                       >
@@ -453,7 +454,7 @@ export default function BoardSettingsModal({
                           />
                           <span className="truncate">{member.name}</span>
                         </div>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-warning flex-shrink-0" />}
                       </div>
                     );
                   })
@@ -468,8 +469,8 @@ export default function BoardSettingsModal({
       {activeTab === "columns" && (
         <div className="space-y-4 animate-in fade-in duration-150">
           {visibility === "private" && (
-            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
-              <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <div className="p-3 rounded-2xl bg-warning/10 border border-warning/20 flex items-center gap-2.5 text-warning text-xs font-semibold">
+              <Lock className="w-4 h-4 text-warning flex-shrink-0" />
               <span>Exclusive Private Board Policy — Settings strictly apply to the Board Host and invited Private Members.</span>
             </div>
           )}
@@ -842,8 +843,8 @@ export default function BoardSettingsModal({
       {activeTab === "phases" && (
         <div className="h-full flex flex-col space-y-4 animate-in fade-in duration-150 min-h-0">
           {visibility === "private" && (
-            <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
-              <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <div className="p-3 rounded-2xl bg-warning/10 border border-warning/20 flex items-center gap-2.5 text-warning text-xs font-semibold">
+              <Lock className="w-4 h-4 text-warning flex-shrink-0" />
               <span>Exclusive Private Board Phases — Phase configuration applies to this private board's workflow.</span>
             </div>
           )}

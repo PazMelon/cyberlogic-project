@@ -150,8 +150,8 @@ export default function ConfigureColumnModal({
     <form id="configure-column-form" onSubmit={handleSubmit} className="space-y-5">
       {/* Exclusive Private Board Column Disclaimer */}
       {boardVisibility === "private" && (
-        <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center gap-2.5 text-amber-300 text-xs font-semibold">
-          <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
+        <div className="p-3 rounded-2xl bg-warning/10 border border-warning/20 flex items-center gap-2.5 text-warning text-xs font-semibold">
+          <Lock className="w-4 h-4 text-warning flex-shrink-0" />
           <span>Exclusive Private Board Column Settings — Permissions apply to invited members only.</span>
         </div>
       )}
@@ -263,7 +263,7 @@ export default function ConfigureColumnModal({
                 : "bg-surface-800/40 border-border/60 text-text-muted hover:bg-surface-800"
             }`}
           >
-            <Lock className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+            <Lock className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="flex-1 space-y-0.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-text-primary">

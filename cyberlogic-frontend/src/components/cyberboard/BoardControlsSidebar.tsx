@@ -168,14 +168,14 @@ export default function BoardControlsSidebar({
                 onOpenJoinRequests();
                 onClose();
               }}
-              className="w-full px-4 py-3 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs font-bold text-amber-300 flex items-center justify-between transition-all cursor-pointer group shadow-xs"
+              className="w-full px-4 py-3 rounded-xl border border-warning/30 bg-warning/10 hover:bg-warning/20 text-xs font-bold text-warning flex items-center justify-between transition-all cursor-pointer group shadow-xs"
             >
               <div className="flex items-center gap-2.5">
-                <UserCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <UserCheck className="w-4 h-4 text-warning group-hover:scale-110 transition-transform" />
                 <span>Pending Join Requests</span>
               </div>
               {pendingRequestsCount > 0 ? (
-                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-surface-950 animate-pulse">
+                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-warning text-surface-950 animate-pulse">
                   {pendingRequestsCount} New
                 </span>
               ) : (
@@ -255,7 +255,7 @@ export default function BoardControlsSidebar({
               }}
               className="w-full px-4 py-3 rounded-xl border border-border/80 bg-surface-950/40 hover:bg-surface-800 text-xs font-semibold text-text-primary flex items-center gap-2.5 transition-all cursor-pointer group"
             >
-              <Settings className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <Settings className="w-4 h-4 text-warning group-hover:scale-110 transition-transform" />
               <span>Board Settings & Permissions</span>
             </button>
           )}

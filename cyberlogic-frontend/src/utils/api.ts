@@ -3058,6 +3058,7 @@ export interface CyberboardBoard {
   creator?: CyberboardUserSummary;
   cards_count?: number;
   columns?: CyberboardColumn[];
+  cards?: CyberboardCard[];
 }
 
 export async function fetchCyberboardBoards(): Promise<CyberboardBoard[]> {

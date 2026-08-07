@@ -36,6 +36,7 @@
   /* Status Colors */
   --color-success: var(--cl-success, #22c55e);
   --color-warning: var(--cl-warning, #f59e0b);
+  --color-warning-hover: var(--cl-warning-hover, #d97706);
   --color-error: var(--cl-error, #ef4444);
   --color-info: var(--cl-info, #3b82f6);
 
@@ -92,6 +93,8 @@
   --cl-border-light: rgba(15, 23, 42, 0.08);
   --cl-glass: rgba(248, 250, 252, 0.8);
   --cl-glass-light: rgba(248, 250, 252, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="light-neo"] {
@@ -129,6 +132,8 @@
   --cl-border-light: rgba(23, 23, 23, 0.08);
   --cl-glass: rgba(255, 255, 255, 0.85);
   --cl-glass-light: rgba(255, 255, 255, 0.45);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="light-mint"] {
@@ -162,6 +167,8 @@
   --cl-border-light: rgba(20, 83, 45, 0.08);
   --cl-glass: rgba(240, 253, 244, 0.8);
   --cl-glass-light: rgba(240, 253, 244, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="light-lavender"] {
@@ -195,6 +202,8 @@
   --cl-border-light: rgba(59, 7, 100, 0.08);
   --cl-glass: rgba(250, 245, 255, 0.8);
   --cl-glass-light: rgba(250, 245, 255, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="light-retro"] {
@@ -228,6 +237,8 @@
   --cl-border-light: rgba(69, 26, 3, 0.08);
   --cl-glass: rgba(253, 251, 247, 0.8);
   --cl-glass-light: rgba(253, 251, 247, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="maroon-spider"] {
@@ -290,6 +301,8 @@
   --cl-border-light: rgba(76, 5, 25, 0.08);
   --cl-glass: rgba(255, 241, 242, 0.8);
   --cl-glass-light: rgba(255, 241, 242, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="dark-pink"] {
@@ -336,6 +349,8 @@
   --cl-border-light: rgba(67, 20, 7, 0.08);
   --cl-glass: rgba(255, 247, 237, 0.8);
   --cl-glass-light: rgba(255, 247, 237, 0.4);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="dark-orange"] {
@@ -382,6 +397,8 @@
   --cl-border-light: rgba(23, 23, 23, 0.08);
   --cl-glass: rgba(255, 255, 255, 0.85);
   --cl-glass-light: rgba(255, 255, 255, 0.45);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 :root[data-theme="maroon-spider-light"] {
@@ -405,6 +422,8 @@
   --cl-border-light: rgba(136, 19, 55, 0.08);
   --cl-glass: rgba(255, 245, 246, 0.85);
   --cl-glass-light: rgba(255, 245, 246, 0.45);
+  --cl-warning: #b45309;
+  --cl-warning-hover: #92400e;
 }
 
 /* ============================================

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { applyGlobalTheme } from "./utils/theme";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { fetchSiteSettings, fetchMaintenanceStatus } from "./utils/api";
@@ -62,6 +62,10 @@ import ChessGameRoom from "./pages/ChessGameRoom";
 import PortalLayout from "./layouts/PortalLayout";
 import AttendancePortal from "./pages/portal/AttendancePortal";
 import { NotFound, Forbidden, ServerError } from "./pages/errors";
+
+const DevThemeSwitcher = import.meta.env.DEV
+  ? lazy(() => import("./components/dev/DevThemeSwitcher"))
+  : null;
 
 /**
  * Elegant loader for initial session / auth checks.
@@ -593,6 +597,11 @@ export default function App() {
           <BrowserRouter>
             <ScrollToTop />
             <AppRoutes />
+            {DevThemeSwitcher && (
+              <Suspense fallback={null}>
+                <DevThemeSwitcher />
+              </Suspense>
+            )}
           </BrowserRouter>
         </WebSocketProvider>
       </AuthProvider>
