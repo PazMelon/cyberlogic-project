@@ -287,6 +287,28 @@ export async function createChessTournament(data: {
   return result.tournament;
 }
 
+export async function updateChessTournament(id: number, data: {
+  title?: string;
+  description?: string;
+  max_players?: number;
+  time_control?: number;
+  type?: 'ranked' | 'casual';
+  enable_third_place_match?: boolean;
+  elimination_mode?: 'single' | 'double';
+  start_time?: string;
+}): Promise<ChessTournament> {
+  const res = await apiRequest(`/api/chess/tournaments/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || err.error || 'Failed to update tournament');
+  }
+  const result = await res.json();
+  return result.tournament;
+}
+
 export async function fetchChessTournament(id: number): Promise<ChessTournament> {
   const res = await apiRequest(`/api/chess/tournaments/${id}`);
   if (!res.ok) throw new Error('Failed to fetch tournament details');

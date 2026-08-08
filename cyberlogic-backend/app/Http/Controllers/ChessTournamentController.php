@@ -164,6 +164,103 @@ class ChessTournamentController extends Controller
     }
 
     /**
+     * Update an existing tournament (Tournament Creator or Admin).
+     */
+    public function update(int $id, Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $tournament = ChessTournament::findOrFail($id);
+
+        if ($tournament->creator_id !== $user->id && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Only the tournament creator or administrators can edit this tournament.'], 403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'sometimes|required|string|max:100',
+            'description' => 'nullable|string|max:500',
+            'max_players' => 'nullable|integer|min:2|max:32',
+            'time_control' => 'nullable|integer|min:1|max:60',
+            'type' => 'nullable|in:ranked,casual',
+            'enable_third_place_match' => 'nullable|boolean',
+            'elimination_mode' => 'nullable|in:single,double',
+            'start_time' => 'nullable|date',
+            'scheduled_at' => 'nullable|date',
+        ]);
+
+        // Validate type restriction: Only admins can set Ranked mode
+        if (isset($validated['type']) && $validated['type'] === 'ranked' && !$user->isAdmin() && !$user->isSuperAdmin()) {
+            return response()->json(['message' => 'Unauthorized. Only administrators can set tournament type to Ranked.'], 403);
+        }
+
+        // If tournament is still in registration, update structural fields
+        if ($tournament->status === 'registration') {
+            if (isset($validated['max_players'])) {
+                $participantCount = $tournament->participants()->count();
+                if ($validated['max_players'] < $participantCount) {
+                    return response()->json([
+                        'message' => "Cannot reduce max players below currently registered participants count ({$participantCount}).",
+                    ], 422);
+                }
+                $tournament->max_players = $validated['max_players'];
+            }
+
+            if (isset($validated['time_control'])) {
+                $tournament->time_control = $validated['time_control'];
+            }
+
+            if (isset($validated['elimination_mode'])) {
+                $tournament->elimination_mode = $validated['elimination_mode'];
+            }
+
+            if (isset($validated['enable_third_place_match'])) {
+                $tournament->enable_third_place_match = $validated['enable_third_place_match'];
+            }
+
+            if (array_key_exists('start_time', $validated) || array_key_exists('scheduled_at', $validated)) {
+                $startTime = $validated['start_time'] ?? $validated['scheduled_at'] ?? null;
+                $tournament->scheduled_at = $startTime ? \Carbon\Carbon::parse($startTime) : null;
+            }
+
+            if (isset($validated['type']) && ($user->isAdmin() || $user->isSuperAdmin())) {
+                $tournament->type = $validated['type'];
+            }
+        }
+
+        // Always update basic metadata
+        if (isset($validated['title'])) {
+            $tournament->title = $validated['title'];
+        }
+        if (array_key_exists('description', $validated)) {
+            $tournament->description = $validated['description'];
+        }
+
+        $tournament->save();
+
+        $tournament->load([
+            'creator',
+            'winner',
+            'participants.user',
+            'matches.whiteUser',
+            'matches.blackUser',
+            'matches.winnerUser',
+            'matches.chessGame',
+        ]);
+
+        AuditLogger::log('updated', 'ChessTournament', $tournament->id, $tournament->title, [
+            'max_players' => $tournament->max_players,
+            'time_control' => $tournament->time_control,
+            'elimination_mode' => $tournament->elimination_mode,
+            'status' => $tournament->status,
+        ], $request);
+
+        return response()->json([
+            'message' => 'Tournament updated successfully',
+            'tournament' => $tournament,
+        ]);
+    }
+
+    /**
      * Join tournament registration.
      */
     public function join(int $id): JsonResponse

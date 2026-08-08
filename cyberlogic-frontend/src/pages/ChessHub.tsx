@@ -14,6 +14,7 @@ import {
   fetchChessTournaments,
   fetchChessTournament,
   createChessTournament,
+  updateChessTournament,
   joinChessTournament,
   leaveChessTournament,
   startChessTournament,
@@ -24,7 +25,7 @@ import {
   type ChessLobbyChatMessage,
   type ChessTournament,
 } from '../utils/chessApi';
-import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Calendar, Clock } from 'lucide-react';
+import { Swords, Trophy, Users, Award, Plus, Play, UserPlus, LogOut, Trash2, History, ChevronLeft, ChevronRight, PanelRightClose, PanelRightOpen, Calendar, Clock, Settings } from 'lucide-react';
 import { useDialog } from '../utils/useDialog';
 import { ChessWelcomeBanner } from '../components/chess/ChessWelcomeBanner';
 import { AvailableMatchRoomsCard } from '../components/chess/AvailableMatchRoomsCard';
@@ -35,6 +36,7 @@ import { CreateMatchModal } from '../components/chess/CreateMatchModal';
 import { MobileCommunityDrawer } from '../components/chess/MobileCommunityDrawer';
 import { ChessTournamentBracket } from '../components/chess/ChessTournamentBracket';
 import { CreateTournamentModal } from '../components/chess/CreateTournamentModal';
+import { EditTournamentModal } from '../components/chess/EditTournamentModal';
 import { ChessMatchHistoryCard } from '../components/chess/ChessMatchHistoryCard';
 
 export default function ChessHub() {
@@ -60,6 +62,7 @@ export default function ChessHub() {
   const [tournaments, setTournaments] = useState<ChessTournament[]>([]);
   const [selectedTournament, setSelectedTournament] = useState<ChessTournament | null>(null);
   const [showCreateTournamentModal, setShowCreateTournamentModal] = useState(false);
+  const [editingTournament, setEditingTournament] = useState<ChessTournament | null>(null);
 
   // Create Game Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -283,6 +286,28 @@ export default function ChessHub() {
           type: 'error',
         });
       }
+    }
+  };
+
+  const handleUpdateTournament = async (tId: number, data: any) => {
+    try {
+      const updated = await updateChessTournament(tId, data);
+      setTournaments((prev) => prev.map((t) => (t.id === tId ? updated : t)));
+      if (selectedTournament?.id === tId) {
+        setSelectedTournament(updated);
+      }
+      showAlert({
+        title: 'Settings Updated',
+        message: 'Tournament settings updated successfully.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      showAlert({
+        title: 'Update Error',
+        message: err.message || 'Could not update tournament settings',
+        type: 'error',
+      });
+      throw err;
     }
   };
 
@@ -710,6 +735,17 @@ export default function ChessHub() {
                         </>
                       )}
 
+                      {(user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && (
+                        <button
+                          onClick={() => setEditingTournament(selectedTournament)}
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-[var(--cl-text-primary)] border border-[var(--cl-border)] transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                          title="Edit Tournament Settings"
+                        >
+                          <Settings className="w-3.5 h-3.5 text-[var(--cl-primary-light)]" />
+                          <span>Edit Settings</span>
+                        </button>
+                      )}
+
                       {(user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && selectedTournament.status === 'registration' && (
                         <button
                           onClick={() => handleDeleteTournament(selectedTournament.id, false)}
@@ -786,6 +822,19 @@ export default function ChessHub() {
                               <span className="ml-1">• Created by {t.creator?.name || 'Player'}</span>
                             </span>
                             <div className="flex items-center gap-2 shrink-0">
+                              {(t.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTournament(t);
+                                  }}
+                                  className="p-1 rounded text-[var(--cl-text-muted)] hover:text-[var(--cl-primary-light)] hover:bg-[var(--cl-surface-800)] transition-colors cursor-pointer"
+                                  title="Edit Tournament Settings"
+                                >
+                                  <Settings className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               {(t.creator_id === user?.id || user?.role === 'admin' || user?.role === 'superadmin') && t.status !== 'completed' && (
                                 <button
                                   type="button"
@@ -907,6 +956,14 @@ export default function ChessHub() {
         isOpen={showCreateTournamentModal}
         onClose={() => setShowCreateTournamentModal(false)}
         onCreate={handleCreateTournament}
+      />
+
+      {/* Edit Tournament Modal */}
+      <EditTournamentModal
+        isOpen={!!editingTournament}
+        tournament={editingTournament}
+        onClose={() => setEditingTournament(null)}
+        onUpdate={handleUpdateTournament}
       />
     </div>
   );

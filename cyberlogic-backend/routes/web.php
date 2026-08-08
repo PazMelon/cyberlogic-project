@@ -318,6 +318,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/chess/tournaments', [ChessTournamentController::class, 'index']);
     Route::post('/api/chess/tournaments', [ChessTournamentController::class, 'store']);
     Route::get('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'show']);
+    Route::put('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'update']);
     Route::delete('/api/chess/tournaments/{id}', [ChessTournamentController::class, 'destroy']);
     Route::post('/api/chess/tournaments/{id}/join', [ChessTournamentController::class, 'join']);
     Route::post('/api/chess/tournaments/{id}/leave', [ChessTournamentController::class, 'leave']);
