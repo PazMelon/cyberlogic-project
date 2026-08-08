@@ -13,6 +13,7 @@ interface GanttDependencyCanvasProps {
   onRemoveDependency?: (targetCardId: number, fromCardId: number) => void;
   showCriticalPath?: boolean;
   criticalPathCardIds?: Set<number>;
+  isExporting?: boolean;
 }
 
 export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
@@ -27,6 +28,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
   onRemoveDependency,
   showCriticalPath = false,
   criticalPathCardIds = new Set(),
+  isExporting = false,
 }) => {
   if (containerWidth <= 0) return null;
 
@@ -104,8 +106,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
   // Sort pairs deterministically by target Y row position
   rawPairs.sort((a, b) => a.toY - b.toY || a.fromY - b.fromY);
 
-  // ── Step 3: Compute clean left-side trunk orthogonal paths ───────────
-  // All vertical drop lines are strictly placed on the FAR LEFT of all cards in the vertical span (leftCorridorX < minSpanLeftX)
+  // ── Step 3: Compute clean orthogonal paths with rounded corners (from commit 5f1a571) ─────
   const lines: Array<{
     id: string;
     fromId: number;
@@ -114,54 +115,137 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
     midX: number;
     midY: number;
     isCritical: boolean;
-  }> = rawPairs.map((pair, idx) => {
-    const { fromX, fromY, toX, toY, fromId, toId, isCritical } = pair;
+  }> = rawPairs.map((pair) => {
+    const { fromX: x1, fromY: y1, toX: targetX, toY: y2, fromId, toId, isCritical } = pair;
+    const x2 = targetX;
 
-    const minY = Math.min(fromY, toY);
-    const maxY = Math.max(fromY, toY);
+    const minY = Math.min(y1, y2);
+    const maxY = Math.max(y1, y2);
 
-    // Find the minimum LEFT position of any task bar vertically between fromY and toY
-    let minSpanLeftX = Math.min(toX, taskBounds.get(fromId)?.left ?? fromX);
+    // Compute intermediate task bar layouts between y1 and y2
+    const intermediateLayouts: Array<{ startPx: number; endPx: number }> = [];
+    cards.forEach((c) => {
+      if (c.id === fromId || c.id === toId || c.is_archived) return;
+      const cRow = cardRowHeights instanceof Map ? cardRowHeights.get(c.id) : (cardRowHeights as any)[c.id];
+      const cPos = timelinePositions.get(c.id);
+      if (!cRow || !cPos) return;
 
-    taskBounds.forEach((tb) => {
-      if (tb.bottom >= minY - 4 && tb.top <= maxY + 4) {
-        if (tb.left < minSpanLeftX) minSpanLeftX = tb.left;
+      const cY = 'centerYPx' in cRow ? cRow.centerYPx : (cRow.top + cRow.height / 2);
+      if (cY > minY + 2 && cY < maxY - 2) {
+        const startPx = (cPos.leftPercent / 100) * containerWidth;
+        const endPx = ((cPos.leftPercent + cPos.widthPercent) / 100) * containerWidth;
+        intermediateLayouts.push({ startPx, endPx });
       }
     });
 
-    const pad = 16;
-    const laneOffset = (idx % 4) * 6; // Spacing parallel vertical trunk lines 6px apart
+    const candidateRightTrunk = Math.max(x1 + 12, Math.min(x1 + 20, targetX - 8));
+    const isRightTrunkBlocked = intermediateLayouts.some(
+      (l) => candidateRightTrunk >= l.startPx - 6 && candidateRightTrunk <= l.endPx + 6
+    );
 
-    // The vertical drop line is ALWAYS placed to the LEFT of the leftmost card in the span
-    const leftCorridorX = Math.max(12, minSpanLeftX - pad - laneOffset);
-    const midY = (fromY + toY) / 2;
+    let pathD = "";
+    let X_trunk = candidateRightTrunk;
 
-    let path = "";
+    const maxIntermediateEndPx = intermediateLayouts.reduce((max, l) => Math.max(max, l.endPx), 0);
+    const canUseRightCorridor = targetX >= maxIntermediateEndPx + 12 && maxIntermediateEndPx > 0;
 
-    // For direct adjacent cascade steps (e.g. fromX < toX and toY is close to fromY), route smooth 3-segment:
-    if (toX >= fromX + 24 && Math.abs(toY - fromY) <= 60 && toX - 14 > fromX) {
-      const midStepX = (fromX + toX) / 2;
-      path = `M ${fromX} ${fromY} H ${midStepX} V ${toY} H ${toX}`;
+    if (x2 >= x1 + 20 && !isRightTrunkBlocked) {
+      // 1. Unblocked Direct Forward Right Trunk
+      X_trunk = Math.max(x1 + 12, Math.min(x1 + 20, targetX - 8));
+      const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(targetX - X_trunk) / 2);
+      const dirY = y2 >= y1 ? 1 : -1;
+
+      if (r < 1.5 || Math.abs(y2 - y1) < 4) {
+        pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${targetX}`;
+      } else {
+        pathD = `M ${x1} ${y1}` +
+                ` H ${X_trunk - r}` +
+                ` Q ${X_trunk} ${y1}, ${X_trunk} ${y1 + r * dirY}` +
+                ` V ${y2 - r * dirY}` +
+                ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                ` H ${targetX}`;
+      }
+    } else if (canUseRightCorridor) {
+      // 2. Obstacle-Avoidance Right Bypass Corridor
+      X_trunk = Math.max(x1 + 14, maxIntermediateEndPx + 12);
+      const r = Math.min(6, Math.abs(X_trunk - x1) / 2, Math.abs(y2 - y1) / 2, Math.abs(targetX - X_trunk) / 2);
+      const dirY = y2 >= y1 ? 1 : -1;
+
+      if (r < 1.5 || Math.abs(y2 - y1) < 4) {
+        pathD = `M ${x1} ${y1} H ${X_trunk} V ${y2} H ${targetX}`;
+      } else {
+        pathD = `M ${x1} ${y1}` +
+                ` H ${X_trunk - r}` +
+                ` Q ${X_trunk} ${y1}, ${X_trunk} ${y1 + r * dirY}` +
+                ` V ${y2 - r * dirY}` +
+                ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                ` H ${targetX}`;
+      }
     } else {
-      // For trunk dependencies: exit right → drop to midY → route LEFT to leftCorridorX → drop to toY → enter target left (toX)
-      const exitX = fromX + 10;
-      path = `M ${fromX} ${fromY} H ${exitX} V ${midY} H ${leftCorridorX} V ${toY} H ${toX}`;
+      // 3. Obstacle-Avoidance Left Bypass Corridor (Bypasses intermediate bars to the left)
+      const minIntermediateStartPx = intermediateLayouts.reduce((min, l) => Math.min(min, l.startPx), x2);
+      X_trunk = Math.max(8, Math.min(minIntermediateStartPx - 14, x2 - 12));
+
+      const rowHalfHeight = 22;
+      const y_channel = y2 >= y1 ? y1 + rowHalfHeight + 4 : y1 - rowHalfHeight - 4;
+      const dirY1 = y_channel >= y1 ? 1 : -1;
+      const dirY2 = y2 >= y_channel ? 1 : -1;
+
+      const maxR = 6;
+      const r = Math.min(
+        maxR,
+        Math.abs(x1 + 12 - x1) / 2,
+        Math.abs(y_channel - y1) / 2,
+        Math.abs(x1 + 12 - X_trunk) / 2,
+        Math.abs(y2 - y_channel) / 2,
+        Math.abs(targetX - X_trunk) / 2
+      );
+
+      if (r < 1.5) {
+        pathD = `M ${x1} ${y1} H ${x1 + 12} V ${y_channel} H ${X_trunk} V ${y2} H ${targetX}`;
+      } else {
+        pathD = `M ${x1} ${y1}` +
+                ` H ${x1 + 12 - r}` +
+                ` Q ${x1 + 12} ${y1}, ${x1 + 12} ${y1 + r * dirY1}` +
+                ` V ${y_channel - r * dirY1}` +
+                ` Q ${x1 + 12} ${y_channel}, ${x1 + 12 - r} ${y_channel}` +
+                ` H ${X_trunk + r}` +
+                ` Q ${X_trunk} ${y_channel}, ${X_trunk} ${y_channel + r * dirY2}` +
+                ` V ${y2 - r * dirY2}` +
+                ` Q ${X_trunk} ${y2}, ${X_trunk + r} ${y2}` +
+                ` H ${targetX}`;
+      }
     }
 
     return {
       id: pair.id,
       fromId,
       toId,
-      path,
-      midX: leftCorridorX,
-      midY,
+      path: pathD,
+      midX: X_trunk,
+      midY: (y1 + y2) / 2,
       isCritical,
     };
   });
 
+  // Sort lines so hovered / active highlighted lines render LAST in SVG DOM order (bringing them to top of z-stack)
+  const sortedLines = [...lines].sort((a, b) => {
+    const aHovered =
+      hoveredLineId === a.id ||
+      hoveredCardId === a.fromId ||
+      hoveredCardId === a.toId;
+    const bHovered =
+      hoveredLineId === b.id ||
+      hoveredCardId === b.fromId ||
+      hoveredCardId === b.toId;
+    if (aHovered && !bHovered) return 1;
+    if (!aHovered && bHovered) return -1;
+    return 0;
+  });
+
   return (
     <svg
-      className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible"
+      className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible"
       style={{ minWidth: containerWidth }}
     >
       <defs>
@@ -170,37 +254,37 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
           viewBox="0 0 10 10"
           refX="8"
           refY="5"
-          markerWidth="6"
-          markerHeight="6"
+          markerWidth="6.5"
+          markerHeight="6.5"
           orient="auto-start-reverse"
         >
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#06b6d4" fillOpacity="0.85" />
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7" fillOpacity="1" />
         </marker>
         <marker
           id="gantt-arrow-critical"
           viewBox="0 0 10 10"
           refX="8"
           refY="5"
-          markerWidth="7"
-          markerHeight="7"
+          markerWidth="7.5"
+          markerHeight="7.5"
           orient="auto-start-reverse"
         >
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#f43f5e" />
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#e11d48" fillOpacity="1" />
         </marker>
         <marker
           id="gantt-arrow-hover"
           viewBox="0 0 10 10"
           refX="8"
           refY="5"
-          markerWidth="7"
-          markerHeight="7"
+          markerWidth="8"
+          markerHeight="8"
           orient="auto-start-reverse"
         >
-          <path d="M 0 1 L 10 5 L 0 9 z" fill="#ec4899" />
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#ec4899" fillOpacity="1" />
         </marker>
       </defs>
 
-      {lines.map((line) => {
+      {sortedLines.map((line) => {
         const isHovered =
           hoveredLineId === line.id ||
           hoveredCardId === line.fromId ||
@@ -209,14 +293,16 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
         const strokeColor = isHovered
           ? "#ec4899"
           : line.isCritical
-          ? "#f43f5e"
-          : "#06b6d4";
+          ? "#e11d48"
+          : "#0284c7";
 
-        const strokeOpacity = isHovered
-          ? 1
-          : line.isCritical
-          ? 0.9
-          : 0.45;
+        const strokeOpacity = 1;
+
+        const strokeWidth = isExporting
+          ? 2.4
+          : isHovered || line.isCritical
+          ? 2.8
+          : 2;
 
         const markerId = isHovered
           ? "url(#gantt-arrow-hover)"
@@ -247,7 +333,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
               fill="none"
               stroke={strokeColor}
               strokeOpacity={strokeOpacity}
-              strokeWidth={isHovered || line.isCritical ? 2.5 : 1.6}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
               markerEnd={markerId}
               className="transition-all duration-150"
             />

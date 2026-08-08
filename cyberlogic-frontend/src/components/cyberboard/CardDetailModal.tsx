@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   X, Calendar, Trash2, History, Edit3, Check, Link as LinkIcon, Image as ImageIcon,
-  Plus, ChevronLeft, ChevronRight, Download, AlertCircle
+  Plus, ChevronLeft, ChevronRight, Download, AlertCircle, Clock
 } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment } from "../../utils/api";
@@ -10,8 +10,7 @@ import { BottomSheet } from "../ui/BottomSheet";
 import MentionText from "./MentionText";
 import CardAuditLogDrawer from "./subcomponents/CardAuditLogDrawer";
 import CardEditForm from "./subcomponents/CardEditForm";
-import CardAttachmentsPanel from "./subcomponents/CardAttachmentsPanel";
-import CardCommentsSection from "./subcomponents/CardCommentsSection";
+import CardDetailSidePanel from "./subcomponents/CardDetailSidePanel";
 import CardVotingSection from "./subcomponents/CardVotingSection";
 import CardSubtasksList from "./subcomponents/CardSubtasksList";
 import TaskChecklistSection from "./subcomponents/TaskChecklistSection";
@@ -260,6 +259,7 @@ export default function CardDetailModal({
   };
 
   const handleToggleChecklistItem = async (itemId: string) => {
+    const toggledItem = checklist.find((i) => i.id === itemId);
     const updated = checklist.map((item) =>
       item.id === itemId ? { ...item, completed: !item.completed } : item
     );
@@ -274,6 +274,11 @@ export default function CardDetailModal({
     if (!modalPrompted && card && onUpdateCard) {
       try {
         await onUpdateCard(card.id, basePayload);
+        if (toggledItem && onAddComment) {
+          const itemText = toggledItem.text || (toggledItem as any).title || (toggledItem as any).label || "Checklist item";
+          const statusText = !toggledItem.completed ? "Marked as completed" : "Marked as incomplete";
+          await onAddComment(card.id, `[PROGRESS_NOTE]: ${statusText}: "${itemText}"`);
+        }
       } catch (err) {
         console.error("Failed to update checklist:", err);
       }
@@ -558,7 +563,10 @@ export default function CardDetailModal({
 
   const rawComments = card?.comments || [];
   const comments = rawComments.filter(
-    (c) => !(c.content && c.content.startsWith("[AUDIT_LOG]:"))
+    (c) => !(c.content && c.content.startsWith("[AUDIT_LOG]:")) && !(c.content && c.content.startsWith("[PROGRESS_NOTE]:"))
+  );
+  const progressComments = rawComments.filter(
+    (c) => c.content && c.content.startsWith("[PROGRESS_NOTE]:")
   );
 
   const activities = card?.activities || [];
@@ -610,177 +618,145 @@ export default function CardDetailModal({
           onSubmit={handleSaveCardEdits}
         />
       ) : (
-        /* View Mode Flow */
-        <div className="space-y-6 overflow-y-auto p-6 flex-1 scrollbar-thin">
-          {/* Metadata Bar */}
-          <div className="p-3.5 rounded-xl bg-surface-800/50 border border-border/50 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-text-muted font-medium">Assignees:</span>
-              {card.assigned_users && card.assigned_users.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {card.assigned_users.map((u) => (
-                    <div key={`view-assignee-${u.id}`} className="flex items-center gap-1.5 bg-surface-800 px-2.5 py-1 rounded-lg border border-border/80 text-text-primary text-xs font-bold shadow-xs">
-                      <img
-                        src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
-                        alt={u.first_name}
-                        className="w-4 h-4 rounded-full object-cover"
-                      />
-                      <span>{u.first_name} {u.last_name}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : card.assigned_user ? (
-                <div className="flex items-center gap-1.5 bg-surface-800 px-2.5 py-1 rounded-lg border border-border/80 text-text-primary text-xs font-bold shadow-xs">
-                  <img
-                    src={card.assigned_user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(card.assigned_user.first_name)}&background=06b6d4&color=fff`}
-                    alt={card.assigned_user.first_name}
-                    className="w-4 h-4 rounded-full object-cover"
-                  />
-                  <span>{card.assigned_user.first_name} {card.assigned_user.last_name}</span>
-                </div>
-              ) : (
-                <span className="text-text-muted italic">Unassigned</span>
-              )}
+        /* View Mode Flow: 2-Column ClickUp Workspace */
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+          {/* Left Column: Task Body Content */}
+          <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 scrollbar-thin">
+            {/* Description & Details */}
+            <div className="space-y-1.5">
+              <h4 className="text-[11px] font-extrabold text-text-muted uppercase tracking-wider">
+                {boardType === "ideas" || boardType === "brainstorming" ? "Description & Concept Details" : "Description & Details"}
+              </h4>
+              <div className="p-3 rounded-xl bg-surface-800/50 border border-border/50 text-xs text-text-primary leading-relaxed whitespace-pre-wrap">
+                {card.description ? <MentionText content={card.description} /> : <span className="text-text-muted italic">No detailed description provided.</span>}
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 text-text-muted">
-              <span>Submitted by:</span>
-              <span className="font-semibold text-text-primary">
-                {card.user?.first_name ? `${card.user.first_name} ${card.user.last_name}` : "Member"}
-              </span>
-            </div>
+            {/* Task Checklist Section */}
+            <TaskChecklistSection
+              checklist={checklist}
+              completionPercentage={manualCompletionPercentage}
+              subCards={card.sub_cards}
+              columns={columns}
+              cardColumnId={card.column_id}
+              cardId={card.id}
+              allBoardCards={allBoardCards}
+              onToggleItem={handleToggleChecklistItem}
+              onAddItem={handleAddChecklistItem}
+              onDeleteItem={handleDeleteChecklistItem}
+              onReorderChecklist={handleReorderChecklist}
+              onManualCompletionChange={handleManualCompletionChange}
+              canEdit={canEditCard}
+            />
+
+            {/* Sub-Cards Breakdown List */}
+            <CardSubtasksList
+              card={card}
+              allBoardCards={allBoardCards}
+              columns={columns}
+              safeBoardPhases={safeBoardPhases}
+              canEditCard={canEditCard}
+              onShowToast={onShowToast}
+            />
+
+            {/* Target Dates Section */}
+            {showDateSection && (
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider">
+                  <Calendar className="w-4 h-4 text-cyan-400" />
+                  <span>
+                    {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
+                  {card.activity_date && (
+                    <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                      Start: <strong className="text-cyan-400">{formatDate(card.activity_date)}</strong>
+                    </span>
+                  )}
+                  {card.activity_end_date && (
+                    <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                      End: <strong className="text-cyan-400">{formatDate(card.activity_end_date)}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Voting Section */}
+            <CardVotingSection
+              card={card}
+              boardVisibility={boardVisibility}
+              boardType={boardType}
+              onVoteToggle={onVoteToggle}
+            />
+
+            {/* Danger Zone: Delete Card */}
+            {canDeleteCard && (
+              <div className="pt-5 border-t border-border/60">
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-error/10 border border-error/25 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                  <div className="text-center sm:text-left space-y-0.5">
+                    <h5 className="text-xs font-extrabold text-error flex items-center justify-center sm:justify-start gap-1.5 uppercase tracking-wider">
+                      <AlertCircle className="w-4 h-4 text-error" />
+                      <span>Danger Zone</span>
+                    </h5>
+                    <p className="text-[11px] text-text-muted">
+                      Permanently delete this task card and all of its comments & attachments.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onDeleteCard(card.id)}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-error text-white font-extrabold text-xs hover:bg-error-light transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-error/20 active:scale-98"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Card</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <h4 className="text-xs font-bold text-text-muted uppercase tracking-wider">
-              {boardType === "ideas" || boardType === "brainstorming" ? "Description & Concept Details" : "Description & Details"}
-            </h4>
-            <div className="p-4 rounded-xl bg-surface-800/60 border border-border/50 text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
-              {card.description ? <MentionText content={card.description} /> : <span className="text-text-muted italic">No detailed description provided.</span>}
-            </div>
+          {/* Right Column: Tabbed Side Panel */}
+          <div className="flex-shrink-0 flex">
+            <CardDetailSidePanel
+              card={card}
+              comments={comments}
+              newComment={newComment}
+              setNewComment={setNewComment}
+              isSubmitting={isSubmitting}
+              visibleCommentsCount={visibleCommentsCount}
+              setVisibleCommentsCount={setVisibleCommentsCount}
+              boardVisibility={boardVisibility}
+              allowedMembers={allowedMembers}
+              currentUserId={currentUserId}
+              boardHostId={boardHostId}
+              cardUserId={card.user_id}
+              cardAssignedUsers={card.assigned_users}
+              isAdmin={isAdmin}
+              canEditCard={canEditCard}
+              onSubmitComment={handleSubmitComment}
+              onDeleteComment={onDeleteComment}
+              activities={activities}
+              formatDateTime={formatDateTime}
+              isUploadingImage={isUploadingImage}
+              uploadStatusText={uploadStatusText}
+              activeCarouselIndex={activeCarouselIndex}
+              setActiveCarouselIndex={setActiveCarouselIndex}
+              setFullscreenImageIndex={setFullscreenImageIndex}
+              copiedAttachmentId={copiedAttachmentId}
+              setCopiedAttachmentId={setCopiedAttachmentId}
+              checklist={checklist}
+              onToggleChecklistItem={handleToggleChecklistItem}
+              progressComments={progressComments}
+              onAddComment={onAddComment}
+              onImageUpload={handleImageUpload}
+              onShowAddLinkModal={() => setShowAddLinkModal(true)}
+              onRemoveAttachment={handleRemoveAttachment}
+            />
           </div>
-
-          {/* Task Checklist Section */}
-          <TaskChecklistSection
-            checklist={checklist}
-            completionPercentage={manualCompletionPercentage}
-            subCards={card.sub_cards}
-            columns={columns}
-            cardColumnId={card.column_id}
-            cardId={card.id}
-            allBoardCards={allBoardCards}
-            onToggleItem={handleToggleChecklistItem}
-            onAddItem={handleAddChecklistItem}
-            onDeleteItem={handleDeleteChecklistItem}
-            onReorderChecklist={handleReorderChecklist}
-            onManualCompletionChange={handleManualCompletionChange}
-            canEdit={canEditCard}
-          />
-
-          {/* Sub-Cards Breakdown List */}
-          <CardSubtasksList
-            card={card}
-            allBoardCards={allBoardCards}
-            columns={columns}
-            safeBoardPhases={safeBoardPhases}
-            canEditCard={canEditCard}
-            onShowToast={onShowToast}
-          />
-
-          {/* Target Dates */}
-          {showDateSection && (
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-              <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span>
-                  {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
-                {card.activity_date && (
-                  <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
-                    Start: <strong className="text-primary">{formatDate(card.activity_date)}</strong>
-                  </span>
-                )}
-                {card.activity_end_date && (
-                  <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
-                    End: <strong className="text-primary">{formatDate(card.activity_end_date)}</strong>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Attachments & Files Panel */}
-          <CardAttachmentsPanel
-            attachments={card.attachments || []}
-            canEditCard={canEditCard}
-            isUploadingImage={isUploadingImage}
-            uploadStatusText={uploadStatusText}
-            activeCarouselIndex={activeCarouselIndex}
-            setActiveCarouselIndex={setActiveCarouselIndex}
-            setFullscreenImageIndex={setFullscreenImageIndex}
-            copiedAttachmentId={copiedAttachmentId}
-            setCopiedAttachmentId={setCopiedAttachmentId}
-            onImageUpload={handleImageUpload}
-            onShowAddLinkModal={() => setShowAddLinkModal(true)}
-            onRemoveAttachment={handleRemoveAttachment}
-          />
-
-          {/* Voting Section */}
-          <CardVotingSection
-            card={card}
-            boardVisibility={boardVisibility}
-            boardType={boardType}
-            onVoteToggle={onVoteToggle}
-          />
-
-          {/* Comments Section */}
-          <CardCommentsSection
-            comments={comments}
-            newComment={newComment}
-            setNewComment={setNewComment}
-            isSubmitting={isSubmitting}
-            visibleCommentsCount={visibleCommentsCount}
-            setVisibleCommentsCount={setVisibleCommentsCount}
-            boardVisibility={boardVisibility}
-            allowedMembers={allowedMembers}
-            currentUserId={currentUserId}
-            boardHostId={boardHostId}
-            cardUserId={card.user_id}
-            cardAssignedUsers={card.assigned_users}
-            isAdmin={isAdmin}
-            onSubmitComment={handleSubmitComment}
-            onDeleteComment={onDeleteComment}
-          />
-
-          {/* Danger Zone: Delete Card */}
-          {canDeleteCard && (
-            <div className="pt-5 border-t border-border/60">
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-error/10 border border-error/25 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
-                <div className="text-center sm:text-left space-y-0.5">
-                  <h5 className="text-xs font-extrabold text-error flex items-center justify-center sm:justify-start gap-1.5 uppercase tracking-wider">
-                    <AlertCircle className="w-4 h-4 text-error" />
-                    <span>Danger Zone</span>
-                  </h5>
-                  <p className="text-[11px] text-text-muted">
-                    Permanently delete this task card and all of its comments & attachments.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => onDeleteCard(card.id)}
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-error text-white font-extrabold text-xs hover:bg-error-light transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-error/20 active:scale-98"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Delete Card</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -861,29 +837,107 @@ export default function CardDetailModal({
     );
   }
 
+  const currentColumn = columns.find((col) => col.id === card.column_id);
+
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div
-        className={`bg-surface-900 border border-border rounded-3xl w-full shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${
-          isEditing
-            ? "max-w-4xl h-[700px] max-h-[92vh]"
-            : showAuditLog
-            ? "max-w-4xl max-h-[90vh]"
-            : "max-w-2xl max-h-[90vh]"
-        }`}
-      >
-        {/* Header */}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-surface-950/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-surface-900 border border-border/80 rounded-2xl w-full max-w-[1240px] h-[88vh] shadow-2xl overflow-hidden flex flex-col transition-all duration-300">
+        {/* ClickUp Inspired Header & Property Bar */}
         <div
-          className="p-4 sm:p-5 border-b border-border/60 flex items-center justify-between gap-4 bg-surface-900/90 flex-shrink-0"
+          className="p-3 sm:p-4 border-b border-border/60 flex flex-col gap-2 bg-surface-900/90 flex-shrink-0"
           style={{
             borderTopColor: card.color_tag || undefined,
-            borderTopWidth: card.color_tag ? "4px" : undefined,
+            borderTopWidth: card.color_tag ? "3px" : undefined,
           }}
         >
-          <div className="space-y-1 min-w-0 pr-2">
-            <div className="flex items-center gap-2 flex-wrap">
+          {/* Top Bar Actions & Breadcrumb */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted">
+              <span className="px-1.5 py-0.5 rounded-md bg-surface-800 border border-border/60 text-text-primary text-[10px]">
+                Task
+              </span>
+              <span>/</span>
+              <span>{currentColumn?.title || "Board Task"}</span>
+              {card.phase && (
+                <>
+                  <span>/</span>
+                  <span className="text-cyan-400">⚡ {card.phase}</span>
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Column-Based Edit Button */}
+              {canEditCard && (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`px-3 py-1 rounded-lg border text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                    isEditing
+                      ? "bg-cyan-500 text-surface-950 font-extrabold"
+                      : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
+                  }`}
+                  title="Edit Card Details"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">{isEditing ? "View Details" : "Edit"}</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Title Row */}
+          <h2 className="text-base sm:text-lg font-black text-text-primary tracking-tight">
+            {card.title}
+          </h2>
+
+          {/* ClickUp-style Property Specs Grid */}
+          <div className="p-2.5 rounded-xl bg-surface-800/40 border border-border/50 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-[11px]">
+            {/* Status / Column */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Status</span>
+              <span className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border/80 text-cyan-400 font-extrabold truncate w-fit">
+                {currentColumn?.title || "TO DO"}
+              </span>
+            </div>
+
+            {/* Assignees */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Assignees</span>
+              {card.assigned_users && card.assigned_users.length > 0 ? (
+                <div className="flex items-center gap-1 truncate">
+                  {card.assigned_users.slice(0, 2).map((u) => (
+                    <img
+                      key={`hdr-assignee-${u.id}`}
+                      src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
+                      alt={u.first_name}
+                      className="w-5 h-5 rounded-full object-cover border border-border shadow-xs"
+                      title={`${u.first_name} ${u.last_name}`}
+                    />
+                  ))}
+                  <span className="font-bold text-text-primary text-xs truncate">
+                    {card.assigned_users[0].first_name}
+                    {card.assigned_users.length > 1 ? ` +${card.assigned_users.length - 1}` : ""}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-text-muted italic">Unassigned</span>
+              )}
+            </div>
+
+            {/* Priority */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Priority</span>
               <span
-                className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase border inline-block ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-black tracking-wider uppercase border w-fit ${
                   card.priority === "high"
                     ? "bg-error/15 text-error border-error/30"
                     : card.priority === "low"
@@ -891,72 +945,45 @@ export default function CardDetailModal({
                     : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                 }`}
               >
-                {card.priority || "medium"} priority
+                {card.priority || "medium"}
               </span>
-
-              {card.phase && (
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                  ⚡ {card.phase}
-                </span>
-              )}
             </div>
 
-            <h2 className="text-base sm:text-lg font-bold text-text-primary truncate">
-              {card.title}
-            </h2>
-          </div>
+            {/* Dates */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Schedule</span>
+              <div className="flex items-center gap-1 text-text-primary font-bold">
+                <Calendar className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                <span className="truncate">
+                  {card.activity_date ? formatDate(card.activity_date) : "No Start"}
+                </span>
+              </div>
+            </div>
 
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Audit Log Sidepanel Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowAuditLog(!showAuditLog)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                showAuditLog
-                  ? "bg-primary/20 border-primary/40 text-primary shadow-xs"
-                  : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
-              }`}
-              title="Toggle Card Audit Log Sidepanel"
-            >
-              <History className="w-4 h-4" />
-              <span className="hidden xs:inline">Audit Log</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-bold border border-primary/30">
-                {activities.length}
-              </span>
-            </button>
+            {/* Time Log */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Tracked Time</span>
+              <div className="flex items-center gap-1 text-text-primary font-bold">
+                <Clock className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                <span>3.5h / 8h</span>
+              </div>
+            </div>
 
-            {/* Column-Based Edit Button */}
-            {canEditCard && (
-              <button
-                type="button"
-                onClick={() => setIsEditing(!isEditing)}
-                className={`px-3.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  isEditing
-                    ? "bg-primary text-surface-950 font-bold"
-                    : "border-border text-text-muted hover:text-text-primary hover:bg-surface-800"
-                }`}
-                title="Edit Card Details"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span className="hidden xs:inline">{isEditing ? "View Details" : "Edit"}</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-all cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Tag / Phase */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Category Tag</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full flex-shrink-0 shadow-xs" style={{ backgroundColor: card.color_tag || "#06b6d4" }} />
+                <span className="font-bold text-text-primary truncate">
+                  {card.phase || "General Task"}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Modal Layout with optional sidepanel */}
-        <div className="flex flex-col sm:flex-row flex-1 overflow-hidden">
-          <div className="overflow-hidden flex-1 flex flex-col">{modalBody}</div>
-          {showAuditLog && auditLogSidepanel}
-        </div>
+        {/* Modal Main Body Layout */}
+        <div className="flex-1 flex overflow-hidden">{modalBody}</div>
       </div>
 
       {/* Modal to Add External Link */}

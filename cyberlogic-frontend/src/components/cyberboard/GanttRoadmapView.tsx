@@ -2106,20 +2106,6 @@ export default function GanttRoadmapView({
 
             {/* Timeline Rows Body */}
             <div className="flex-1 relative z-10">
-              {/* SVG Task Dependency Connector Lines Overlay */}
-              <GanttDependencyCanvas
-                cards={cards}
-                cardRowHeights={layoutMap}
-                timelinePositions={timelinePositionMap}
-                containerWidth={effectiveGridWidth}
-                hoveredLineId={hoveredLineId}
-                setHoveredLineId={setHoveredLineId}
-                hoveredCardId={hoveredCardId}
-                canEditGantt={canEditGantt}
-                onRemoveDependency={handleRemoveDependency}
-                showCriticalPath={showCriticalPath}
-                criticalPathCardIds={criticalPathCardIds}
-              />
               {groupedData.map((group) => {
                 const parentCards = group.cards.filter((c) => !c.parent_id);
                 const isGroupDragOver = dragOverGroupId === group.id;
@@ -2422,12 +2408,27 @@ export default function GanttRoadmapView({
                               })}
                               </React.Fragment>
                             );
-                          })
-                        )}
+                        })
+                      )}
                     </div>
                   </div>
                 );
               })}
+              {/* SVG Task Dependency Connector Lines Overlay */}
+              <GanttDependencyCanvas
+                cards={cards}
+                cardRowHeights={layoutMap}
+                timelinePositions={timelinePositionMap}
+                containerWidth={effectiveGridWidth}
+                hoveredLineId={hoveredLineId}
+                setHoveredLineId={setHoveredLineId}
+                hoveredCardId={hoveredCardId}
+                canEditGantt={canEditGantt}
+                onRemoveDependency={handleRemoveDependency}
+                showCriticalPath={showCriticalPath}
+                criticalPathCardIds={criticalPathCardIds}
+                isExporting={isExporting}
+              />
             </div>
           </div>
         </div>

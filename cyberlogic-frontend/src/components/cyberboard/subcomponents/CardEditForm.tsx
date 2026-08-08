@@ -4,6 +4,7 @@ import type { CyberboardCard } from "../../../utils/api";
 import SearchableAssigneePicker from "../SearchableAssigneePicker";
 import SearchableTaskPicker from "../SearchableTaskPicker";
 import ColorPicker from "../ui/ColorPicker";
+import DescriptionRichEditor from "./DescriptionRichEditor";
 
 interface CardEditFormProps {
   card: CyberboardCard;
@@ -96,11 +97,9 @@ export const CardEditForm: React.FC<CardEditFormProps> = ({
             <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5 flex-shrink-0">
               Description & Details
             </label>
-            <textarea
+            <DescriptionRichEditor
               value={editDescription}
-              onChange={(e) => setEditDescription(e.target.value)}
-              maxLength={2000}
-              className="w-full flex-1 min-h-[200px] p-3.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none resize-none transition-all scrollbar-thin"
+              onChange={setEditDescription}
               placeholder="Provide detailed context, instructions, or sub-task notes..."
             />
           </div>
