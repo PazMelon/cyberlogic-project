@@ -64,7 +64,7 @@ export default function CollaboratorsSidebar({
   return (
     <>
       <div
-        className="fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
+        className="fixed inset-0 z-[9990] bg-black/40 lg:hidden animate-in fade-in duration-200"
         onClick={onClose}
       />
       <aside className="fixed top-0 right-0 bottom-0 w-80 sm:w-84 border-l border-border/80 bg-surface-900 flex flex-col z-[9995] h-full overflow-hidden shadow-2xl animate-in slide-in-from-right duration-250">

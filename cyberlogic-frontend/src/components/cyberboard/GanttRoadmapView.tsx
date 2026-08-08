@@ -72,7 +72,7 @@ export default function GanttRoadmapView({
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
   const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
-  const [timeScale, setTimeScale] = useState<"month" | "week" | "day">("month");
+  const [timeScale, setTimeScale] = useState<"month" | "week" | "day">("week");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [groupBy, setGroupBy] = useState<"phase" | "column" | "priority" | "assignee">("phase");
   const [isTaskListCollapsed, setIsTaskListCollapsed] = useState(false);
@@ -2438,7 +2438,7 @@ export default function GanttRoadmapView({
         {/* Click-Outside Backdrop Overlay */}
         <div
           onClick={() => setShowGanttControlsSidebar(false)}
-          className={`fixed inset-0 z-[9990] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out ${
+          className={`fixed inset-0 z-[9990] bg-black/40 transition-opacity duration-300 ease-out ${
             showGanttControlsSidebar ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
           }`}
         />

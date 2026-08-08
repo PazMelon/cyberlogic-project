@@ -1,4 +1,5 @@
 import { useEffect, useState, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { Pin, Plus } from "lucide-react";
 
 const QUICK_EMOJIS_LIST = ["👍", "❤️", "😂", "😮", "😢", "😡"];
@@ -161,12 +162,12 @@ export default function ReactionPicker({
     ? "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:left-auto sm:right-[192px] sm:translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2"
     : "left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+  return createPortal(
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
       {/* Transparent backdrop covering the viewport */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-transparent pointer-events-auto cursor-pointer z-40"
+        className="fixed inset-0 bg-transparent pointer-events-auto cursor-pointer z-[10000]"
       />
 
       {/* Floating Reaction Bar - Positioned above target bubble with smart anti-clipping fallback */}
@@ -180,7 +181,7 @@ export default function ReactionPicker({
               }
             : undefined
         }
-        className={`reaction-picker-container fixed pointer-events-auto flex items-center justify-between gap-1 sm:gap-1.5 bg-surface-900 border border-border/80 rounded-[22px] p-2 shadow-2xl animate-fade-in-up z-50 w-[325px] max-w-[88vw] ${
+        className={`reaction-picker-container fixed pointer-events-auto flex items-center justify-between gap-1 sm:gap-1.5 bg-surface-900 border border-border/80 rounded-[22px] p-2 shadow-2xl animate-fade-in-up z-[10001] w-[325px] max-w-[88vw] ${
           !coords ? fallbackPositionClass : ""
         }`}
       >
@@ -195,6 +196,7 @@ export default function ReactionPicker({
           {pinButton}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

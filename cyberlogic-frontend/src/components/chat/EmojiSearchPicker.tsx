@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export interface EmojiSearchPickerProps {
@@ -18,8 +19,8 @@ export default function EmojiSearchPicker({ onSelectEmoji, onClose }: EmojiSearc
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("Smileys & Emotion");
 
-  return (
-    <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center z-[200] p-0 sm:p-4 animate-fadeIn">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center z-[10000] p-0 sm:p-4 animate-fadeIn">
       <div className="bg-surface-900 border-t sm:border border-border rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm h-[60vh] sm:h-auto sm:max-h-[420px] flex flex-col shadow-2xl p-4 sm:p-5 animate-slideUp sm:animate-scaleIn overflow-hidden">
         {/* Mobile drag handle */}
         <div className="sm:hidden w-12 h-1 bg-surface-700 rounded-full mx-auto mb-2.5 flex-shrink-0" />
@@ -100,6 +101,7 @@ export default function EmojiSearchPicker({ onSelectEmoji, onClose }: EmojiSearc
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
