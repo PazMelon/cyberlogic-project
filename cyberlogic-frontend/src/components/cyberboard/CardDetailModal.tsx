@@ -12,6 +12,9 @@ import MentionTextArea from "../ui/MentionTextArea";
 import MentionText from "./MentionText";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
 import SearchableTaskPicker from "./SearchableTaskPicker";
+import PhaseBadge from "./ui/PhaseBadge";
+import InlineSubtaskCreator from "./subcomponents/InlineSubtaskCreator";
+import CardAuditLogDrawer from "./subcomponents/CardAuditLogDrawer";
 
 interface CardDetailModalProps {
   card: CyberboardCard | null;
@@ -134,16 +137,6 @@ export default function CardDetailModal({
   const [copiedAttachmentId, setCopiedAttachmentId] = useState<string | null>(null);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
   const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(null);
-  const [auditLogVisibleCount, setAuditLogVisibleCount] = useState(20);
-
-  const handleCardAuditScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 50) {
-      if (auditLogVisibleCount < (card?.activities?.length || 0)) {
-        setAuditLogVisibleCount((prev) => prev + 20);
-      }
-    }
-  };
 
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
 
@@ -710,87 +703,10 @@ export default function CardDetailModal({
 
   // Sidepanel Component for Audit Logs
   const auditLogSidepanel = (
-    <div
-      onScroll={handleCardAuditScroll}
-      className="w-full sm:w-80 bg-surface-900 border-t sm:border-t-0 sm:border-l border-border p-4 sm:p-5 flex flex-col h-full max-h-[85vh] sm:max-h-[90vh] overflow-y-auto flex-shrink-0 animate-in slide-in-from-right-4 duration-200"
-    >
-      <div className="flex items-center justify-between pb-3 border-b border-border mb-4">
-        <div className="flex items-center gap-2 text-primary">
-          <History className="w-4 h-4" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Card Activity Audit Log</h3>
-        </div>
-        <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold border border-primary/20">
-          {activities.length} logs
-        </span>
-      </div>
-
-      <p className="text-[11px] text-text-muted mb-4 leading-relaxed">
-        Audit trail of card actions and updates. Excludes discussion comments.
-      </p>
-
-      <div className="space-y-4 flex-1">
-        {activities.length === 0 ? (
-          <div className="text-center py-8 space-y-2">
-            <Clock className="w-6 h-6 text-text-muted mx-auto opacity-50" />
-            <p className="text-xs text-text-muted italic">No activity recorded yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {activities.slice(0, auditLogVisibleCount).map((act) => {
-              const userName = act.user
-                ? `${act.user.first_name || ""} ${act.user.last_name || ""}`.trim() || act.user.name || act.user.username || "Member"
-                : "Member";
-              const userAvatar = getAvatarUrl(act.user?.avatar || (act.user as any)?.avatar_path, userName);
-
-              return (
-                <div key={act.id} className="relative pl-5 pb-3 border-l-2 border-border/60 last:border-l-0 space-y-1 group">
-                  <div className="absolute -left-[5px] top-0 w-2 h-2 rounded-full bg-primary ring-4 ring-surface-900" />
-
-                  <div className="flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <img
-                        src={userAvatar}
-                        alt={userName}
-                        className="w-4 h-4 rounded-full border border-border object-cover flex-shrink-0"
-                      />
-                      <span className="text-[11px] font-bold text-text-primary truncate">{userName}</span>
-                    </div>
-                    <span className="text-[9px] text-text-muted whitespace-nowrap">{formatDateTime(act.created_at)}</span>
-                  </div>
-
-                  {(() => {
-                    const moveMatch = act.description.match(/Moved card from ['"](.+?)['"] to ['"](.+?)['"]/i);
-                    if (moveMatch) {
-                      const [, fromCol, toCol] = moveMatch;
-                      return (
-                        <div className="flex items-center gap-1.5 flex-wrap text-xs text-text-primary pl-5.5 py-0.5">
-                          <span className="text-text-muted">Moved from</span>
-                          <span className="px-2 py-0.5 rounded-md bg-purple-500/15 text-purple-300 font-bold border border-purple-500/30 text-[11px]">
-                            {fromCol}
-                          </span>
-                          <span className="text-purple-400 font-bold text-xs">➔</span>
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30 text-[11px]">
-                            {toCol}
-                          </span>
-                        </div>
-                      );
-                    }
-                    return <p className="text-xs text-text-secondary leading-snug pl-5.5 font-medium">{act.description}</p>;
-                  })()}
-                </div>
-              );
-            })}
-
-            {auditLogVisibleCount < activities.length && (
-              <div className="py-2 text-center text-[11px] text-text-muted font-medium flex items-center justify-center gap-1.5 border-t border-border/40">
-                <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                <span>Scroll to load more ({auditLogVisibleCount} of {activities.length})...</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+    <CardAuditLogDrawer
+      activities={activities}
+      formatDateTime={formatDateTime}
+    />
   );
 
   const modalBody = (
@@ -1060,8 +976,6 @@ export default function CardDetailModal({
             const liveSubcards = (allBoardCards || []).filter((c) => c.parent_id === card.id && !c.is_archived);
             const subcardsList = liveSubcards.length > 0 ? liveSubcards : (card.sub_cards || []);
 
-            if (subcardsList.length === 0) return null;
-
             return (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1069,50 +983,67 @@ export default function CardDetailModal({
                     Sub-Tasks ({subcardsList.length})
                   </h4>
                 </div>
-                <div className="space-y-1.5 bg-surface-800/40 p-3 rounded-xl border border-border/50">
-                  {subcardsList.map((subCard) => {
-                    const subCol = (columns || []).find((c) => c.id === subCard.column_id);
-                    const lastColPosition = (columns || []).reduce((max, c) => Math.max(max, c.position ?? 0), 0);
-                    const isSubColDone = subCol && (
-                      subCol.status_type === "completed" ||
-                      subCol.title.toLowerCase().includes("done") ||
-                      subCol.title.toLowerCase().includes("completed") ||
-                      (subCol.position !== undefined && subCol.position === lastColPosition && lastColPosition > 0)
-                    );
 
-                    return (
-                      <div
-                        key={subCard.id}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                          isSubColDone
-                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                            : "bg-surface-800 border-border/40 text-text-primary hover:border-primary/40"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isSubColDone ? "bg-emerald-400 ring-2 ring-emerald-400/30" : "bg-primary"}`} />
-                          <span className={`font-medium ${isSubColDone ? "text-emerald-300 line-through" : "text-text-primary"}`}>
-                            {subCard.title}
-                          </span>
-                        </div>
+                {subcardsList.length > 0 && (
+                  <div className="space-y-1.5 bg-surface-800/40 p-3 rounded-xl border border-border/50">
+                    {subcardsList.map((subCard) => {
+                      const subCol = (columns || []).find((c) => c.id === subCard.column_id);
+                      const lastColPosition = (columns || []).reduce((max, c) => Math.max(max, c.position ?? 0), 0);
+                      const isSubColDone = subCol && (
+                        subCol.status_type === "completed" ||
+                        subCol.title.toLowerCase().includes("done") ||
+                        subCol.title.toLowerCase().includes("completed") ||
+                        (subCol.position !== undefined && subCol.position === lastColPosition && lastColPosition > 0)
+                      );
 
-                        <div className="flex items-center gap-2">
-                          {subCol && (
-                            <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${isSubColDone ? "text-emerald-300 bg-emerald-500/20 border-emerald-500/40" : "text-text-muted bg-surface-700/50 border-border/50"}`}>
-                              {isSubColDone ? "Completed" : subCol.title}
+                      return (
+                        <div
+                          key={subCard.id}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                            isSubColDone
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                              : "bg-surface-800 border-border/40 text-text-primary hover:border-primary/40"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${isSubColDone ? "bg-emerald-400 ring-2 ring-emerald-400/30" : "bg-primary"}`} />
+                            <span className={`font-medium ${isSubColDone ? "text-emerald-300 line-through" : "text-text-primary"}`}>
+                              {subCard.title}
                             </span>
-                          )}
+                          </div>
 
-                          {subCard.assigned_user && (
-                            <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
-                              @{subCard.assigned_user.username || subCard.assigned_user.first_name}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {subCard.phase && (
+                              <PhaseBadge phase={subCard.phase} boardPhases={safeBoardPhases} size="sm" />
+                            )}
+
+                            {subCol && (
+                              <span className={`text-[10px] font-semibold px-2.5 py-0.5 rounded-full border ${isSubColDone ? "text-emerald-300 bg-emerald-500/20 border-emerald-500/40" : "text-text-muted bg-surface-700/50 border-border/50"}`}>
+                                {isSubColDone ? "Completed" : subCol.title}
+                              </span>
+                            )}
+
+                            {subCard.assigned_user && (
+                              <span className="text-[10px] text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20">
+                                @{subCard.assigned_user.username || subCard.assigned_user.first_name}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {canEditCard && (
+                  <InlineSubtaskCreator
+                    boardId={(columns && columns.length > 0) ? columns[0].board_id : 0}
+                    parentCard={card}
+                    columnId={card.column_id}
+                    boardPhases={safeBoardPhases}
+                    onShowToast={onShowToast}
+                  />
+                )}
               </div>
             );
           })()}

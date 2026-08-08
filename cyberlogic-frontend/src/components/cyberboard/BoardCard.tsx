@@ -1,6 +1,8 @@
 import React from "react";
 import { ThumbsUp, MessageSquare, Calendar, Trash2, Paperclip } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
+import PhaseBadge from "./ui/PhaseBadge";
+import PriorityBadge from "./ui/PriorityBadge";
 
 import MentionText from "./MentionText";
 
@@ -36,13 +38,6 @@ export default function BoardCard({
   const isOwner = card.user_id === currentUserId;
   const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : false;
   const canDelete = isOwner || isHost || isAdmin;
-
-  // Priority color badge mapping
-  const priorityStyles = {
-    high: "bg-error/15 text-error border-error/30",
-    medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-    low: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  };
 
   const handleDragStart = (e: React.DragEvent) => {
     if (!isDraggable) {
@@ -95,13 +90,7 @@ export default function BoardCard({
     >
       {/* Header: Priority & Delete Action */}
       <div className="flex items-center justify-between gap-2">
-        <span
-          className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
-            priorityStyles[card.priority] || priorityStyles.medium
-          }`}
-        >
-          {card.priority} priority
-        </span>
+        <PriorityBadge priority={card.priority} size="sm" />
 
         {canDelete && onDelete && (
           <button
@@ -149,11 +138,7 @@ export default function BoardCard({
           </div>
         )}
 
-        {card.phase && (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-400 text-[10px] font-semibold border border-cyan-500/20" title={`SDLC Phase: ${card.phase}`}>
-            <span>⚡ {card.phase}</span>
-          </div>
-        )}
+        <PhaseBadge phase={card.phase} size="sm" />
 
         {card.attachments && card.attachments.length > 0 && (
           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold border border-emerald-500/20" title={`${card.attachments.length} Attachment(s)`}>

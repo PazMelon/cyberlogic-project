@@ -595,6 +595,13 @@ class CyberboardController extends Controller
             : (isset($validated['predecessor_id']) && $validated['predecessor_id'] ? [$validated['predecessor_id']] : []);
         $primaryPredecessorId = $predecessorIds[0] ?? ($validated['predecessor_id'] ?? null);
 
+        if (!empty($validated['parent_id']) && empty($validated['phase'])) {
+            $parentCard = CyberboardCard::find($validated['parent_id']);
+            if ($parentCard && !empty($parentCard->phase)) {
+                $validated['phase'] = $parentCard->phase;
+            }
+        }
+
         $card = CyberboardCard::create([
             'column_id' => $columnId,
             'parent_id' => $validated['parent_id'] ?? null,
@@ -788,10 +795,22 @@ class CyberboardController extends Controller
         if (array_key_exists('activity_end_date', $validated) && $validated['activity_end_date'] !== $card->activity_end_date) {
             $changeDescItems[] = "schedule end date";
         }
+        if (array_key_exists('parent_id', $validated) && $validated['parent_id'] !== $card->parent_id && !empty($validated['parent_id'])) {
+            if (empty($validated['phase'])) {
+                $parentCard = CyberboardCard::find($validated['parent_id']);
+                if ($parentCard && !empty($parentCard->phase)) {
+                    $validated['phase'] = $parentCard->phase;
+                }
+            }
+        }
+
         if (array_key_exists('phase', $validated) && $validated['phase'] !== $card->phase) {
             $oldP = $card->phase ? "'{$card->phase}'" : 'Unassigned';
             $newP = $validated['phase'] ? "'{$validated['phase']}'" : 'Unassigned';
             $changeDescItems[] = "phase from {$oldP} to {$newP}";
+
+            // Auto-cascade phase update to all child subtasks
+            CyberboardCard::where('parent_id', $card->id)->update(['phase' => $validated['phase']]);
         }
         if (array_key_exists('color_tag', $validated) && $validated['color_tag'] !== $card->color_tag) {
             $changeDescItems[] = "accent color";

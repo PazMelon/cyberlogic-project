@@ -27,6 +27,8 @@ import { updateCyberboardCard, batchReorderCyberboardCards } from "../../utils/a
 import { toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import { exportBoardToExcel } from "../../utils/exportBoardToExcel";
+import GanttDependencyCanvas from "./gantt/GanttDependencyCanvas";
+import GanttTimelineHeader from "./gantt/GanttTimelineHeader";
 
 interface GanttRoadmapViewProps {
   board: CyberboardBoard;
@@ -128,9 +130,83 @@ export default function GanttRoadmapView({
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const [hoveredAssigneeCardId, setHoveredAssigneeCardId] = useState<number | null>(null);
   const [hoveredLineId, setHoveredLineId] = useState<string | null>(null);
+  const [showCriticalPath, setShowCriticalPath] = useState<boolean>(false);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
   const skipYearResetRef = useRef<boolean>(false);
+
+  // Critical Path Method (CPM) calculation for Slack Time & Bottlenecks
+  const criticalPathCardIds = useMemo(() => {
+    const criticalSet = new Set<number>();
+    if (!cards || cards.length === 0) return criticalSet;
+
+    const cardMap = new Map<number, { id: number; duration: number; preds: number[]; succs: number[]; ES: number; EF: number; LS: number; LF: number }>();
+
+    cards.forEach((c) => {
+      if (c.is_archived) return;
+      const startMs = c.activity_date ? new Date(c.activity_date).getTime() : 0;
+      const endMs = c.activity_end_date ? new Date(c.activity_end_date).getTime() : startMs + 86400000;
+      const duration = Math.max(1, Math.round((endMs - startMs) / 86400000));
+      const predIds = c.predecessor_ids && c.predecessor_ids.length > 0 ? c.predecessor_ids : (c.predecessor_id ? [c.predecessor_id] : []);
+
+      cardMap.set(c.id, {
+        id: c.id,
+        duration,
+        preds: predIds,
+        succs: [],
+        ES: 0,
+        EF: 0,
+        LS: Infinity,
+        LF: Infinity,
+      });
+    });
+
+    cardMap.forEach((node) => {
+      node.preds.forEach((pId) => {
+        if (cardMap.has(pId)) {
+          cardMap.get(pId)!.succs.push(node.id);
+        }
+      });
+    });
+
+    let maxProjectEF = 0;
+    cardMap.forEach((node) => {
+      let maxPredEF = 0;
+      node.preds.forEach((pId) => {
+        const pred = cardMap.get(pId);
+        if (pred && pred.EF > maxPredEF) maxPredEF = pred.EF;
+      });
+      node.ES = maxPredEF;
+      node.EF = node.ES + node.duration;
+      if (node.EF > maxProjectEF) maxProjectEF = node.EF;
+    });
+
+    cardMap.forEach((node) => {
+      if (node.succs.length === 0) {
+        node.LF = maxProjectEF;
+        node.LS = node.LF - node.duration;
+      }
+    });
+
+    const reverseNodes = Array.from(cardMap.values()).reverse();
+    reverseNodes.forEach((node) => {
+      let minSuccLS = Infinity;
+      node.succs.forEach((sId) => {
+        const succ = cardMap.get(sId);
+        if (succ && succ.LS < minSuccLS) minSuccLS = succ.LS;
+      });
+      if (minSuccLS !== Infinity) {
+        node.LF = minSuccLS;
+        node.LS = node.LF - node.duration;
+      }
+
+      if (node.LS - node.ES <= 0) {
+        criticalSet.add(node.id);
+      }
+    });
+
+    return criticalSet;
+  }, [cards]);
 
   // Close Gantt controls sidebar on Escape key
   useEffect(() => {
@@ -1464,7 +1540,7 @@ export default function GanttRoadmapView({
     });
   };
 
-  const { dependencyLines, layoutMap } = useMemo(() => {
+  const layoutMap = useMemo(() => {
     const layoutMap = new Map<number, { startPx: number; endPx: number; centerYPx: number; rowHeight: number }>();
     const rawLinks: Array<{
       id: string;
@@ -1713,7 +1789,7 @@ export default function GanttRoadmapView({
       });
     });
 
-    return { dependencyLines: lines, layoutMap };
+    return layoutMap;
   }, [groupedData, effectiveGridWidth, expandedParents, getCardTimelinePosition]);
 
   // Helper to extract assigned users array cleanly
@@ -1832,6 +1908,21 @@ export default function GanttRoadmapView({
 
         {/* Desktop Toolbar Controls (>= 1280px xl screens with clean wrapping) */}
         <div className="hidden xl:flex flex-wrap items-center gap-2 2xl:gap-3 justify-end flex-1 min-w-0">
+          {/* Critical Path Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowCriticalPath((prev) => !prev)}
+            className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+              showCriticalPath
+                ? "bg-rose-500/20 text-rose-400 border-rose-500/50 shadow-md animate-pulse"
+                : "bg-surface-800/80 text-text-secondary hover:text-text-primary border-border/60"
+            }`}
+            title="Toggle Critical Path Method (CPM) Highlighting"
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span>Critical Path</span>
+          </button>
+
           {/* Grouping Buttons */}
           <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
             <button
@@ -2283,19 +2374,10 @@ export default function GanttRoadmapView({
         >
           <div style={{ minWidth: `${gridMinWidth}px` }} className="flex-1 flex flex-col relative transition-all duration-200">
             {/* Timeline Column Headers Bar */}
-            <div className="h-12 box-border flex-shrink-0 border-b border-border/80 flex items-center bg-surface-900/90 sticky top-0 z-20 backdrop-blur-md">
-              {timelineColumns.map((col, cIdx) => (
-                <div
-                  key={`timeline-col-${cIdx}`}
-                  className="flex-1 h-full border-r border-border/40 flex flex-col items-center justify-center font-bold text-text-secondary uppercase px-1 text-center"
-                >
-                  <span className="text-[11px] tracking-wider font-bold text-text-primary">{col.label}</span>
-                  {col.sublabel && (
-                    <span className="text-[9px] text-text-muted font-mono font-normal leading-none">{col.sublabel}</span>
-                  )}
-                </div>
-              ))}
-            </div>
+            <GanttTimelineHeader
+              timelineColumns={timelineColumns}
+              todayPercentage={todayPercentage}
+            />
 
             {/* Background Grid Columns */}
             <div className="absolute inset-0 top-12 flex pointer-events-none z-0">
@@ -2321,122 +2403,19 @@ export default function GanttRoadmapView({
             {/* Timeline Rows Body */}
             <div className="flex-1 relative z-10">
               {/* SVG Task Dependency Connector Lines Overlay */}
-              <svg className="absolute inset-0 pointer-events-none z-20 w-full h-full overflow-visible">
-                <defs>
-                  <marker
-                    id="gantt-arrow"
-                    viewBox="0 0 10 10"
-                    refX="7"
-                    refY="5"
-                    markerWidth="6"
-                    markerHeight="6"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#64748b" />
-                  </marker>
-                  <marker
-                    id="gantt-arrow-active"
-                    viewBox="0 0 10 10"
-                    refX="7"
-                    refY="5"
-                    markerWidth="7"
-                    markerHeight="7"
-                    orient="auto-start-reverse"
-                  >
-                    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#06b6d4" />
-                  </marker>
-                </defs>
-                {dependencyLines.map((line) => {
-                  const isHovered =
-                    hoveredLineId === line.id ||
-                    hoveredCardId === line.fromCardId ||
-                    hoveredCardId === line.toCardId;
-
-                  return (
-                    <g key={line.id}>
-                      {/* Invisible wider hit area for easy hover & click */}
-                      <path
-                        d={line.pathD}
-                        fill="none"
-                        stroke="transparent"
-                        strokeWidth="18"
-                        pointerEvents="stroke"
-                        className="cursor-pointer"
-                        onMouseEnter={() => setHoveredLineId(line.id)}
-                        onMouseLeave={() => setHoveredLineId(null)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveDependency(line.toCardId, line.fromCardId);
-                        }}
-                      />
-                      {/* Visual Dependency Line */}
-                      <path
-                        d={line.pathD}
-                        fill="none"
-                        stroke={isHovered ? (hoveredLineId === line.id ? "#f43f5e" : "#06b6d4") : "#64748b"}
-                        strokeWidth={isHovered ? "2.5" : "1.5"}
-                        opacity={isHovered ? "1" : "0.55"}
-                        strokeDasharray={line.isDateless ? "4,4" : "none"}
-                        markerEnd={isHovered ? "url(#gantt-arrow-active)" : "url(#gantt-arrow)"}
-                        pointerEvents="none"
-                        className="transition-all duration-200"
-                      />
-                    </g>
-                  );
-                })}
-                {linkingState && (
-                  <g>
-                    <line
-                      x1={linkingState.startX}
-                      y1={linkingState.startY}
-                      x2={linkingState.currentX}
-                      y2={linkingState.currentY}
-                      stroke="#06b6d4"
-                      strokeWidth="3"
-                      strokeDasharray="6,4"
-                      className="animate-pulse"
-                    />
-                    <circle
-                      cx={linkingState.currentX}
-                      cy={linkingState.currentY}
-                      r="6"
-                      fill="#06b6d4"
-                      className="animate-ping"
-                    />
-                  </g>
-                )}
-              </svg>
-
-              {/* Floating HTML Unlink Task Button at line endpoint */}
-              {(() => {
-                const activeLine = dependencyLines.find((l) => l.id === hoveredLineId);
-                if (!activeLine) return null;
-                return (
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${Math.max(activeLine.X_trunk + 8, activeLine.toX - 95)}px`,
-                      top: `${activeLine.toY - 14}px`,
-                    }}
-                    className="z-50 pointer-events-auto flex items-center animate-in fade-in zoom-in-95 duration-150"
-                    onMouseEnter={() => setHoveredLineId(activeLine.id)}
-                    onMouseLeave={() => setHoveredLineId(null)}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveDependency(activeLine.toCardId, activeLine.fromCardId);
-                      }}
-                      className="px-2.5 py-1 rounded-xl bg-surface-950/95 border border-error text-error hover:bg-error hover:text-white text-[11px] font-bold shadow-2xl flex items-center gap-1.5 cursor-pointer backdrop-blur-md transition-all scale-105 active:scale-95"
-                      title="Click to remove predecessor dependency link"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Unlink Task</span>
-                    </button>
-                  </div>
-                );
-              })()}
+              <GanttDependencyCanvas
+                cards={cards}
+                cardRowHeights={layoutMap}
+                timelinePositions={timelinePositionMap}
+                containerWidth={effectiveGridWidth}
+                hoveredLineId={hoveredLineId}
+                setHoveredLineId={setHoveredLineId}
+                hoveredCardId={hoveredCardId}
+                canEditGantt={canEditGantt}
+                onRemoveDependency={handleRemoveDependency}
+                showCriticalPath={showCriticalPath}
+                criticalPathCardIds={criticalPathCardIds}
+              />
               {groupedData.map((group) => {
                 const parentCards = group.cards.filter((c) => !c.parent_id);
                 const isGroupDragOver = dragOverGroupId === group.id;
