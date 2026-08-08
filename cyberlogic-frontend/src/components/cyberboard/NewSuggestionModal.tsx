@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { X, Sparkles, Layers, Calendar, Tag, AlertCircle, Clock, CheckSquare, Plus, Trash2 } from "lucide-react";
 import type { CyberboardColumn, CyberboardCard, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -122,10 +122,17 @@ export default function NewSuggestionModal({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Filter available parent cards for sub-task assignment
-  const availableParentCards = (allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || [])).filter(
-    (c) => !c.parent_id
-  );
+  // Filter available parent cards for sub-task assignment (filtered by selected phase)
+  const availableParentCards = useMemo(() => {
+    const raw = (allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || [])).filter(
+      (c) => !c.parent_id && !c.is_archived
+    );
+    if (!phase) return raw;
+    const phaseMatch = raw.filter(
+      (c) => (c.phase || "").trim().toLowerCase() === phase.trim().toLowerCase()
+    );
+    return phaseMatch.length > 0 ? phaseMatch : raw;
+  }, [allCards, columns, phase]);
 
   const availablePredecessorCards = allCards.length > 0 ? allCards : columns.flatMap((c) => c.cards || []);
 
@@ -418,6 +425,30 @@ export default function NewSuggestionModal({
         )}
       </div>
 
+      {/* SDLC Phase Selector (Roadmap only) */}
+      {showPhase && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+            ⚡ Project Phase / Sprint
+          </label>
+          <select
+            value={phase}
+            onChange={(e) => setPhase(e.target.value)}
+            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
+          >
+            {safeBoardPhases.length > 0 ? (
+              safeBoardPhases.map((p, idx) => (
+                <option key={`b-phase-${idx}`} value={p.name}>
+                  {p.name}
+                </option>
+              ))
+            ) : (
+              <option value="">No SDLC Phase Assigned</option>
+            )}
+          </select>
+        </div>
+      )}
+
       {/* Sub-Task & Priority Controls Grid */}
       <div className={`grid grid-cols-1 ${showParentTask ? "sm:grid-cols-2" : "grid-cols-1"} gap-4`}>
         {/* Parent Task Selector (Optional Sub-card - Roadmap only) */}
@@ -452,30 +483,6 @@ export default function NewSuggestionModal({
           </select>
         </div>
       </div>
-
-      {/* SDLC Phase Selector (Roadmap only) */}
-      {showPhase && (
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-            ⚡ Project Phase / Sprint
-          </label>
-          <select
-            value={phase}
-            onChange={(e) => setPhase(e.target.value)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all cursor-pointer"
-          >
-            {safeBoardPhases.length > 0 ? (
-              safeBoardPhases.map((p, idx) => (
-                <option key={`b-phase-${idx}`} value={p.name}>
-                  {p.name}
-                </option>
-              ))
-            ) : (
-              <option value="">No SDLC Phase Assigned</option>
-            )}
-          </select>
-        </div>
-      )}
 
       {/* Predecessor Task Selector (Roadmap only) */}
       {showPredecessors && availablePredecessorCards.length > 0 && (

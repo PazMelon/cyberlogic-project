@@ -2011,7 +2011,7 @@ export default function GanttRoadmapView({
           <img
             src={users[0].avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(users[0].first_name)}&background=06b6d4&color=fff`}
             alt={users[0].first_name}
-            className="w-5.5 h-5.5 rounded-full object-cover flex-shrink-0 border border-surface-700 shadow-xs"
+            className="w-5.5 h-5.5 rounded-full object-cover flex-shrink-0 border border-border/80 shadow-xs"
           />
         ) : (
           <div className="flex items-center -space-x-1.5 overflow-visible">
@@ -2024,7 +2024,7 @@ export default function GanttRoadmapView({
               />
             ))}
             {users.length > 2 && (
-              <span className="text-[10px] font-bold text-text-primary bg-surface-800 border border-border px-1.5 py-0.5 rounded-full shadow-xs">
+              <span className="text-[9px] font-extrabold text-primary bg-primary/15 border border-primary/30 px-1.5 py-0.5 rounded-full shadow-xs">
                 +{users.length - 2}
               </span>
             )}
@@ -2046,15 +2046,15 @@ export default function GanttRoadmapView({
     return (
       <div className="flex items-center flex-shrink-0 ml-1.5" title={`Assigned to ${users.map((u) => u.first_name).join(", ")}`}>
         {isNarrow || users.length > 3 ? (
-          <div className="flex items-center gap-1 bg-surface-950/40 backdrop-blur-xs px-1.5 py-0.5 rounded-full border border-white/20 text-[10px] font-bold text-white shadow-xs">
-            <Users className="w-3 h-3 text-white/90" />
+          <div className="flex items-center gap-1 bg-surface-800/90 border border-border/80 px-2 py-0.5 rounded-full text-[10px] font-extrabold text-text-primary shadow-xs transition-colors">
+            <Users className="w-3 h-3 text-primary flex-shrink-0" />
             <span>{users.length}</span>
           </div>
         ) : users.length === 1 ? (
           <img
             src={users[0].avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(users[0].first_name)}&background=06b6d4&color=fff`}
             alt={users[0].first_name}
-            className="w-4 h-4 rounded-full object-cover flex-shrink-0 border border-white/30"
+            className="w-4.5 h-4.5 rounded-full object-cover flex-shrink-0 border border-border/80 shadow-xs"
           />
         ) : (
           <div className="flex items-center -space-x-1.5 overflow-visible">
@@ -2063,11 +2063,11 @@ export default function GanttRoadmapView({
                 key={`bar-avatar-${cardItem.id}-${u.id}`}
                 src={u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name)}&background=06b6d4&color=fff`}
                 alt={u.first_name}
-                className="w-4 h-4 rounded-full object-cover border border-surface-900 ring-1 ring-white/30"
+                className="w-4.5 h-4.5 rounded-full object-cover border border-surface-900 ring-1 ring-border shadow-xs"
               />
             ))}
             {users.length > 2 && (
-              <span className="text-[9px] font-extrabold text-white bg-surface-950/60 px-1 rounded-full border border-white/20">
+              <span className="text-[9px] font-extrabold text-primary bg-primary/15 border border-primary/30 px-1.5 py-0.5 rounded-full shadow-xs">
                 +{users.length - 2}
               </span>
             )}
