@@ -20,6 +20,8 @@ Schedule::command('chat:moderate-batch')->hourly()->name('batch-chat-moderation'
 
 Schedule::command('chess:tournament-watchdog')->everyMinute()->name('tournament-failsafe-watchdog');
 
+Schedule::command('cyberboard:notify-deadlines')->dailyAt('02:00')->name('cyberboard-daily-deadlines');
+
 Schedule::call(function () {
     $enabled = \App\Models\SiteSetting::where('key', 'auto_backup_enabled')->value('value') !== 'false';
     if (!$enabled) return;
