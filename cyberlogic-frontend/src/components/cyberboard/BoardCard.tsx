@@ -1,5 +1,5 @@
 import React from "react";
-import { ThumbsUp, MessageSquare, Calendar, Trash2, Paperclip } from "lucide-react";
+import { ThumbsUp, MessageSquare, Calendar, Trash2, Paperclip, AlertTriangle, Clock } from "lucide-react";
 import type { CyberboardCard } from "../../utils/api";
 import PhaseBadge from "./ui/PhaseBadge";
 import PriorityBadge from "./ui/PriorityBadge";
@@ -74,6 +74,12 @@ export default function BoardCard({
   const formattedStartDate = formatDate(card.activity_date);
   const formattedEndDate = formatDate(card.activity_end_date);
 
+  const todayMs = new Date().setHours(0, 0, 0, 0);
+  const dueMs = card.activity_end_date ? new Date(card.activity_end_date).getTime() : 0;
+  const isDone = (card.completion_percentage || 0) >= 100;
+  const isOverdue = !isDone && dueMs > 0 && dueMs < todayMs;
+  const isDueSoon = !isDone && !isOverdue && dueMs > 0 && (dueMs - todayMs) <= 86400000;
+
   return (
     <div
       draggable={isDraggable}
@@ -88,9 +94,23 @@ export default function BoardCard({
         borderLeftWidth: card.color_tag ? "4px" : undefined,
       }}
     >
-      {/* Header: Priority & Delete Action */}
-      <div className="flex items-center justify-between gap-2">
-        <PriorityBadge priority={card.priority} size="sm" />
+      {/* Header: Priority, Overdue / Due Soon & Delete Action */}
+      <div className="flex items-center justify-between gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <PriorityBadge priority={card.priority} size="sm" />
+          {isOverdue && (
+            <span className="px-1.5 py-0.5 rounded-md bg-rose-950/90 text-rose-300 border border-rose-500/70 text-[9px] font-black uppercase tracking-wider shadow-2xs flex items-center gap-1 animate-pulse" title={`Overdue since ${formattedEndDate}`}>
+              <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+              Overdue
+            </span>
+          )}
+          {isDueSoon && (
+            <span className="px-1.5 py-0.5 rounded-md bg-amber-950/90 text-amber-300 border border-amber-500/70 text-[9px] font-black uppercase tracking-wider shadow-2xs flex items-center gap-1" title={`Due soon: ${formattedEndDate}`}>
+              <Clock className="w-2.5 h-2.5 text-amber-400" />
+              Due Soon
+            </span>
+          )}
+        </div>
 
         {canDelete && onDelete && (
           <button
@@ -100,7 +120,7 @@ export default function BoardCard({
               e.stopPropagation();
               onDelete(card.id, e);
             }}
-            className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error hover:bg-error/10 rounded-md transition-all cursor-pointer"
+            className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error hover:bg-error/10 rounded-md transition-all cursor-pointer ml-auto"
             title="Delete Card"
           >
             <Trash2 className="w-3.5 h-3.5" />

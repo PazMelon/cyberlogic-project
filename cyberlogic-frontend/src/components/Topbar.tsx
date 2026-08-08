@@ -456,7 +456,13 @@ export default function Topbar() {
     if (gameCode) {
       navigate(`/app/chess/${gameCode}`);
     } else if (notif.link) {
-      navigate(notif.link);
+      let targetLink = notif.link;
+      if (targetLink.startsWith('/cyberboard')) {
+        targetLink = `/app${targetLink}`;
+      } else if (!targetLink.startsWith('/app') && targetLink.startsWith('/')) {
+        targetLink = `/app${targetLink}`;
+      }
+      navigate(targetLink);
     }
   };
 

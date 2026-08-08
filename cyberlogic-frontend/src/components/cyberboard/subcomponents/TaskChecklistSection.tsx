@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckSquare, Plus, Trash2, GripVertical } from "lucide-react";
+import { CheckSquare, Plus, Trash2, GripVertical, Check, X } from "lucide-react";
 import type { CyberboardChecklistItem, CyberboardCard, CyberboardColumn } from "../../../utils/api";
 
 interface TaskChecklistSectionProps {
@@ -42,10 +42,11 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
   const subcardsList = liveSubcards.length > 0 ? liveSubcards : subCards;
 
   let computedRate = completionPercentage;
-  let hasSubcardsMode = false;
+  const hasSubcards = subcardsList.length > 0 && columns && columns.length > 0;
+  const hasChecklist = checklist.length > 0;
 
-  if (subcardsList.length > 0 && columns && columns.length > 0) {
-    hasSubcardsMode = true;
+  let subcardsRate = 0;
+  if (hasSubcards) {
     const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
     const completedSubcardsCount = subcardsList.filter((sc) => {
       const col = columns.find((c) => c.id === sc.column_id);
@@ -57,16 +58,21 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
         (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
       );
     }).length;
+    subcardsRate = (completedSubcardsCount / subcardsList.length) * 100;
+  }
 
-    const subcardsRate = (completedSubcardsCount / subcardsList.length) * 100;
-    const checklistRate = checklist.length > 0
-      ? (checklist.filter((i) => i.completed).length / checklist.length) * 100
-      : completionPercentage;
-
-    computedRate = Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
-  } else if (checklist.length > 0) {
+  let checklistRate = 0;
+  if (hasChecklist) {
     const completedCount = checklist.filter((i) => i.completed).length;
-    computedRate = Math.round((completedCount / checklist.length) * 100);
+    checklistRate = (completedCount / checklist.length) * 100;
+  }
+
+  if (hasChecklist && hasSubcards) {
+    computedRate = Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
+  } else if (hasChecklist) {
+    computedRate = Math.round(checklistRate);
+  } else if (hasSubcards) {
+    computedRate = Math.round(subcardsRate);
   }
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -131,9 +137,9 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
           />
         </div>
 
-        {hasSubcardsMode && (
+        {hasSubcards && (
           <p className="text-[11px] text-text-muted italic pt-0.5">
-            Note: Completion rate is auto-calculated based on sub-tasks status (50%) and checklist items (50%).
+            Note: Completion rate is auto-calculated based on sub-tasks status and checklist items.
           </p>
         )}
       </div>
@@ -143,55 +149,58 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
         <div className="space-y-1.5 pt-1">
           {[...checklist]
             .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1))
-            .map((item, idx) => (
-            <div
-              key={item.id}
-              draggable={canEdit}
-              onDragStart={() => handleDragStart(idx)}
-              onDragOver={(e) => handleDragOver(e, idx)}
-              onDragEnd={handleDragEnd}
-              className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all group ${
-                draggedIndex === idx ? "opacity-40 bg-surface-700 border-primary" : ""
-              } ${
-                item.completed
-                  ? "bg-surface-900/40 border-border/30 text-text-muted"
-                  : "bg-surface-800/80 border-border/60 text-text-primary hover:border-primary/40"
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                {canEdit && (
-                  <GripVertical className="w-3.5 h-3.5 text-text-muted/40 group-hover:text-text-muted cursor-grab active:cursor-grabbing flex-shrink-0" />
-                )}
-
-                <input
-                  type="checkbox"
-                  checked={item.completed}
-                  onChange={() => onToggleItem(item.id)}
-                  disabled={!canEdit}
-                  className="w-4 h-4 rounded-md accent-primary cursor-pointer flex-shrink-0"
-                />
-
-                <span
-                  className={`truncate ${
-                    item.completed ? "line-through text-text-muted" : "font-medium"
+            .map((item) => {
+              const originalIndex = checklist.findIndex((i) => i.id === item.id);
+              return (
+                <div
+                  key={item.id}
+                  draggable={canEdit}
+                  onDragStart={() => handleDragStart(originalIndex)}
+                  onDragOver={(e) => handleDragOver(e, originalIndex)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all group ${
+                    draggedIndex === originalIndex ? "opacity-40 bg-surface-700 border-primary" : ""
+                  } ${
+                    item.completed
+                      ? "bg-surface-900/40 border-border/30 text-text-muted"
+                      : "bg-surface-800/80 border-border/60 text-text-primary hover:border-primary/40"
                   }`}
                 >
-                  {item.text}
-                </span>
-              </div>
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {canEdit && (
+                      <GripVertical className="w-3.5 h-3.5 text-text-muted/40 group-hover:text-text-muted cursor-grab active:cursor-grabbing flex-shrink-0" />
+                    )}
 
-              {canEdit && (
-                <button
-                  type="button"
-                  onClick={() => onDeleteItem(item.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded-lg transition-all cursor-pointer flex-shrink-0 ml-2"
-                  title="Delete item"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={() => onToggleItem(item.id)}
+                      disabled={!canEdit}
+                      className="w-4 h-4 rounded-md accent-primary cursor-pointer flex-shrink-0"
+                    />
+
+                    <span
+                      className={`truncate ${
+                        item.completed ? "line-through text-text-muted" : "font-medium"
+                      }`}
+                    >
+                      {item.text}
+                    </span>
+                  </div>
+
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteItem(item.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-text-muted hover:text-error rounded-lg transition-all cursor-pointer flex-shrink-0 ml-2"
+                      title="Delete item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 
@@ -217,7 +226,7 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
       )}
 
       {/* Manual Percentage Slider (Only if no checklist items and no subcards) */}
-      {checklist.length === 0 && !hasSubcardsMode && canEdit && (
+      {checklist.length === 0 && !hasSubcards && canEdit && (
         <div className="pt-2 border-t border-border/40 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-text-muted font-medium">Manual Completion Slider:</span>

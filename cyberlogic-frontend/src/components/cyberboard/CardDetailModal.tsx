@@ -190,7 +190,10 @@ export default function CardDetailModal({
       : (allBoardCards || []).filter((c) => c.parent_id === card?.id && !c.is_archived);
 
     let overallRate = rate;
-    if (subcardsList.length > 0 && columns && columns.length > 0) {
+    const hasChecklist = !!(card?.checklist && (Array.isArray(card.checklist) ? card.checklist.length > 0 : String(card.checklist).trim().length > 2));
+    const hasSubcards = subcardsList.length > 0 && columns && columns.length > 0;
+
+    if (hasSubcards) {
       const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
       const completedSubcardsCount = subcardsList.filter((sc) => {
         const col = columns.find((c) => c.id === sc.column_id);
@@ -203,8 +206,11 @@ export default function CardDetailModal({
         );
       }).length;
       const subcardsRate = (completedSubcardsCount / subcardsList.length) * 100;
-      const checklistRate = rate;
-      overallRate = Math.round(checklistRate * 0.5 + subcardsRate * 0.5);
+      if (hasChecklist) {
+        overallRate = Math.round(rate * 0.5 + subcardsRate * 0.5);
+      } else {
+        overallRate = Math.round(subcardsRate);
+      }
     }
 
     if (overallRate === 100) {
@@ -683,36 +689,61 @@ export default function CardDetailModal({
               onShowToast={onShowToast}
             />
 
-            {/* Target Dates & Milestone Badge Section */}
-            {showDateSection && (
-              <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-                <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider">
-                  <Calendar className="w-4 h-4 text-cyan-400" />
-                  <span>
-                    {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
-                  </span>
-                  {card.activity_date && card.activity_end_date && card.activity_date === card.activity_end_date && (
-                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                      <span>◆</span>
-                      <span>Milestone</span>
-                    </span>
-                  )}
-                </div>
+            {/* Target Dates & Risk Badges Section */}
+            {showDateSection && (() => {
+              const todayMs = new Date().setHours(0, 0, 0, 0);
+              const dueMs = card.activity_end_date ? new Date(card.activity_end_date).getTime() : 0;
+              const cardCol = (columns || []).find((c) => c.id === card.column_id);
+              const isCardDone = (card.completion_percentage || 0) >= 100 || (cardCol ? (
+                cardCol.status_type === "completed" ||
+                cardCol.title.toLowerCase().includes("done") ||
+                cardCol.title.toLowerCase().includes("completed")
+              ) : false);
+              const isOverdue = !isCardDone && dueMs > 0 && dueMs < todayMs;
+              const isDueSoon = !isCardDone && !isOverdue && dueMs > 0 && (dueMs - todayMs) <= 86400000;
 
-                <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
-                  {card.activity_date && (
-                    <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
-                      Start: <strong className="text-cyan-400">{formatDate(card.activity_date)}</strong>
+              return (
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider flex-wrap">
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                    <span>
+                      {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
                     </span>
-                  )}
-                  {card.activity_end_date && (
-                    <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
-                      End: <strong className="text-cyan-400">{formatDate(card.activity_end_date)}</strong>
-                    </span>
-                  )}
+                    {card.activity_date && card.activity_end_date && card.activity_date === card.activity_end_date && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-500/60 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                        <span>◆</span>
+                        <span>Milestone</span>
+                      </span>
+                    )}
+                    {isOverdue && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-950/90 text-rose-300 border border-rose-500/70 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs animate-pulse">
+                        <AlertCircle className="w-3 h-3 text-rose-400" />
+                        Overdue Task
+                      </span>
+                    )}
+                    {isDueSoon && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-950/90 text-amber-300 border border-amber-500/70 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        Approaching Deadline
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
+                    {card.activity_date && (
+                      <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                        Start: <strong className="text-cyan-400">{formatDate(card.activity_date)}</strong>
+                      </span>
+                    )}
+                    {card.activity_end_date && (
+                      <span className="px-2.5 py-1 rounded-lg bg-surface-800 border border-border/60">
+                        Deadline: <strong className="text-rose-300">{formatDate(card.activity_end_date)}</strong>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Task Dependencies Section: Blocked By (Predecessors) & Blocks (Dependents) */}
             {(() => {
@@ -1180,7 +1211,7 @@ export default function CardDetailModal({
             {/* Status / Column */}
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Status</span>
-              <span className="px-2.5 py-1 rounded-xl bg-surface-800 border border-border/80 text-cyan-400 font-extrabold truncate w-fit">
+              <span className="px-2.5 py-1 rounded-xl bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 font-extrabold truncate w-fit shadow-2xs">
                 {currentColumn?.title || "TO DO"}
               </span>
             </div>
@@ -1213,12 +1244,12 @@ export default function CardDetailModal({
             <div className="flex flex-col gap-1">
               <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Priority</span>
               <span
-                className={`px-2.5 py-1 rounded-xl text-xs font-black tracking-wider uppercase border w-fit ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-black tracking-wider uppercase border w-fit shadow-2xs ${
                   card.priority === "high"
-                    ? "bg-error/15 text-error border-error/30"
+                    ? "bg-rose-950/90 text-rose-300 border-rose-500/60"
                     : card.priority === "low"
-                    ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                    : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    ? "bg-emerald-950/90 text-emerald-300 border-emerald-500/60"
+                    : "bg-amber-950/90 text-amber-300 border-amber-500/60"
                 }`}
               >
                 {card.priority || "medium"}

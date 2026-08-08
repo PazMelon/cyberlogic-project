@@ -179,6 +179,15 @@ export default function CyberBoardView() {
       setBoard(data);
       setPrivateBoardError(null);
 
+      const cardParam = searchParams.get("card");
+      if (cardParam && data.cards) {
+        const cardId = parseInt(cardParam, 10);
+        const foundCard = data.cards.find((c) => c.id === cardId);
+        if (foundCard) {
+          setSelectedCard(foundCard);
+        }
+      }
+
       if (inviteTokenParam) {
         const newParams = new URLSearchParams(searchParams);
         newParams.delete("invite_token");
