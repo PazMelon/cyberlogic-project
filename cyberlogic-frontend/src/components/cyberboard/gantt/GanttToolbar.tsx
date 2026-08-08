@@ -10,8 +10,8 @@ export interface GanttToolbarProps {
   setShowCriticalPath: React.Dispatch<React.SetStateAction<boolean>>;
   groupBy: "phase" | "column" | "priority" | "assignee";
   setGroupBy: (val: "phase" | "column" | "priority" | "assignee") => void;
-  timeScale: "month" | "week" | "day";
-  handleScaleChange: (scale: "month" | "week" | "day") => void;
+  timeScale: "month" | "week" | "day" | "quarter";
+  handleScaleChange: (scale: "month" | "week" | "day" | "quarter") => void;
   zoomLevel: number;
   handleZoomIn: () => void;
   handleZoomOut: () => void;
@@ -150,6 +150,16 @@ export const GanttToolbar: React.FC<GanttToolbarProps> = ({
 
         {/* Scale Selector */}
         <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
+          <button
+            onClick={() => handleScaleChange("quarter")}
+            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+              timeScale === "quarter"
+                ? "bg-primary text-surface-950 shadow-sm"
+                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
+            }`}
+          >
+            Quarters
+          </button>
           <button
             onClick={() => handleScaleChange("month")}
             className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${

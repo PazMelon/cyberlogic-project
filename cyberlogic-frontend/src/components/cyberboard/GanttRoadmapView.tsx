@@ -33,7 +33,7 @@ interface GanttRoadmapViewProps {
   onUpdateCardAssignees?: (cardId: number, userIds: number[]) => Promise<void>;
 }
 
-type TimeScaleMode = "month" | "week" | "day";
+type TimeScaleMode = "month" | "week" | "day" | "quarter";
 
 export default function GanttRoadmapView({
   board,
@@ -72,7 +72,7 @@ export default function GanttRoadmapView({
   const [selectedYear, setSelectedYear] = useState<number>(currentYearNow);
   const [startDateStr, setStartDateStr] = useState<string>(`${currentYearNow}-01-01`);
   const [endDateStr, setEndDateStr] = useState<string>(`${currentYearNow}-12-31`);
-  const [timeScale, setTimeScale] = useState<"month" | "week" | "day">("week");
+  const [timeScale, setTimeScale] = useState<"month" | "week" | "day" | "quarter">("week");
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [groupBy, setGroupBy] = useState<"phase" | "column" | "priority" | "assignee">("phase");
   const [isTaskListCollapsed, setIsTaskListCollapsed] = useState(false);
@@ -2149,139 +2149,208 @@ export default function GanttRoadmapView({
                                   dragOverCardId === card.id ? "bg-primary/15 border-t-2 border-primary" : "hover:bg-surface-900/10"
                                 }`}
                               >
-                              {!card.activity_date && !card.activity_end_date ? (
-                                <div
-                                  draggable
-                                  onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
-                                  onClick={() => onSelectCard(card)}
-                                  className="sticky left-4 z-10 cursor-grab active:cursor-grabbing flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-800/95 border border-border/90 text-text-primary text-xs font-semibold shadow-md hover:border-primary/60 hover:bg-surface-800 transition-all group"
-                                >
-                                  <Clock className="w-3.5 h-3.5 text-primary animate-pulse flex-shrink-0" />
-                                  <span className="font-bold truncate max-w-[220px]">{card.title}</span>
-                                  <span className="px-1.5 py-0.5 rounded-md bg-surface-700 text-text-secondary text-[9px] font-bold uppercase tracking-wider border border-border/60">
-                                    No dates set
-                                  </span>
-                                  {renderTimelineAssigneeAvatars(card, 20)}
-                                </div>
-                              ) : (
-                                <div
-                                    data-gantt-card-id={card.id}
-                                    draggable={!resizingState}
-                                    onDragStart={(e) => {
-                                      if (resizingState) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        return;
-                                      }
-                                      handleGanttCardDragStart(e, card.id);
-                                    }}
-                                    className={`relative h-8 my-0.5 flex items-center group/bar cursor-grab active:cursor-grabbing select-none ${
-                                      linkingState?.targetCardId === card.id ? "ring-2 ring-cyan-400 animate-pulse scale-[1.02] z-30" : ""
-                                    }`}
-                                    style={{
-                                      left: `${pos.leftPercent}%`,
-                                      width: `${pos.widthPercent}%`,
-                                      minWidth: "28px",
-                                    }}
-                                    onMouseEnter={() => setHoveredCardId(card.id)}
-                                    onMouseLeave={() => setHoveredCardId(null)}
+                                {!card.activity_date && !card.activity_end_date ? (
+                                  <div
+                                    draggable
+                                    onDragStart={(e) => handleGanttCardDragStart(e, card.id)}
+                                    onClick={() => onSelectCard(card)}
+                                    className="sticky left-4 z-10 cursor-grab active:cursor-grabbing flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface-800/95 border border-border/90 text-text-primary text-xs font-semibold shadow-md hover:border-primary/60 hover:bg-surface-800 transition-all group"
                                   >
-                                    {/* Live Date Range Floating Tooltip on Hover / Drag */}
-                                    {(isHovered || resizingState?.cardId === card.id) && (
-                                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2.5 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1.5 backdrop-blur-md animate-in fade-in duration-150">
-                                        <Calendar className="w-3 h-3 text-cyan-400" />
-                                        <span>{formatDateRangeTooltip(pos.startDateStr, pos.endDateStr)}</span>
-                                      </div>
-                                    )}
-
-                                    {/* Left Date Handle (Start Date extension) */}
-                                    {canDragDates && (timeScale === "day" || timeScale === "week") && (
-                                      <div
-                                        draggable={false}
-                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onMouseDown={(e) => handleResizeStart(e, card, "start")}
-                                        className="absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                        title="Drag left/right to adjust start date"
-                                      >
-                                        ‹
-                                      </div>
-                                    )}
-
-                                    <div
-                                      onMouseDown={(e) => {
-                                        hasDraggedRef.current = false;
-                                        handleResizeStart(e, card, "move");
-                                      }}
-                                      onClick={(e) => handleBarClick(e, card)}
-                                      className={`w-full h-full rounded-xl px-3 flex items-center justify-between text-xs font-semibold text-white shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                        isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
-                                      }`}
-                                      style={{
-                                        backgroundColor: cardColor,
-                                        backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
-                                      }}
-                                    >
-                                      {(() => {
-                                        const rate = getCardCompletionRate(card);
-                                        return (
-                                          <>
-                                            {rate > 0 && (
-                                              <div
-                                                className="absolute left-0 top-0 bottom-0 bg-white/30 border-r border-white/40 pointer-events-none transition-all duration-300 rounded-l-xl z-0"
-                                                style={{ width: `${rate}%` }}
-                                              />
-                                            )}
-                                            <div className="flex items-center gap-1.5 truncate pr-1 z-10">
-                                              <span className="truncate drop-shadow-xs font-bold text-white text-[11px]">
-                                                {card.title}
-                                              </span>
-                                              {rate > 0 && (
-                                                <span className="px-1.5 py-0.2 rounded-full bg-black/40 border border-white/30 text-[9px] font-extrabold text-white shadow-xs backdrop-blur-xs flex-shrink-0">
-                                                  {rate}%
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            <div className="z-10">
-                                              {renderTimelineAssigneeAvatars(card, pos.widthPercent)}
-                                            </div>
-                                          </>
-                                        );
-                                      })()}
-                                    </div>
-
-                                    {/* Right Date Handle (End Date extension) */}
-                                    {canDragDates && (timeScale === "day" || timeScale === "week") && (
-                                      <div
-                                        draggable={false}
-                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onMouseDown={(e) => handleResizeStart(e, card, "end")}
-                                        className="absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
-                                        title="Drag left/right to adjust end date"
-                                      >
-                                        ›
-                                      </div>
-                                    )}
-
-                                    {/* Interactive Dependency Connector Handle Dot */}
-                                    {canEditGantt && (
-                                      <div
-                                        draggable={false}
-                                        onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                        onMouseDown={(e) => handleLinkDragStart(e, card.id)}
-                                        className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
-                                        title="Click & drag to link predecessor dependency"
-                                      >
-                                        <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
-                                      </div>
-                                    )}
+                                    <Clock className="w-3.5 h-3.5 text-primary animate-pulse flex-shrink-0" />
+                                    <span className="font-bold truncate max-w-[220px]">{card.title}</span>
+                                    <span className="px-1.5 py-0.5 rounded-md bg-surface-700 text-text-secondary text-[9px] font-bold uppercase tracking-wider border border-border/60">
+                                      No dates set
+                                    </span>
+                                    {renderTimelineAssigneeAvatars(card, 20)}
                                   </div>
-                              )}
-                            </div>
+                                ) : (
+                                  (() => {
+                                    const isMilestone =
+                                      card.activity_date &&
+                                      card.activity_end_date &&
+                                      card.activity_date === card.activity_end_date;
+                                    const rate = getCardCompletionRate(card);
 
-                            {/* Sub-Card Timeline Bars */}
-                            {isExpanded &&
-                              card.sub_cards?.map((subCard) => {
+                                    if (isMilestone) {
+                                      return (
+                                        <div
+                                          data-gantt-card-id={card.id}
+                                          className="absolute h-8 top-1.5 flex items-center group/bar cursor-pointer select-none"
+                                          style={{
+                                            left: `${pos.leftPercent}%`,
+                                            width: "36px",
+                                          }}
+                                          onMouseEnter={() => setHoveredCardId(card.id)}
+                                          onMouseLeave={() => setHoveredCardId(null)}
+                                        >
+                                          {/* Left Target Connection Handle */}
+                                          <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md opacity-0 group-hover/bar:opacity-100 transition-opacity" />
+
+                                          {/* Diamond Marker */}
+                                          <div
+                                            onClick={(e) => handleBarClick(e, card)}
+                                            className="w-5 h-5 rotate-45 bg-gradient-to-tr from-amber-500 to-yellow-400 border-2 border-surface-950 shadow-lg hover:scale-125 transition-transform flex items-center justify-center cursor-pointer"
+                                            title={`Milestone: ${card.title}`}
+                                          >
+                                            <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
+                                          </div>
+
+                                          {/* External Right Label */}
+                                          <div className="flex items-center gap-1.5 pl-3 whitespace-nowrap z-10 pointer-events-auto">
+                                            {renderTimelineAssigneeAvatars(card, 100)}
+                                            <span
+                                              onClick={(e) => handleBarClick(e, card)}
+                                              className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer truncate max-w-[280px]"
+                                            >
+                                              {card.title}
+                                            </span>
+                                            <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase tracking-wider">
+                                              ◆ Milestone
+                                            </span>
+                                          </div>
+
+                                          {/* Right Source Connection Handle */}
+                                          {canEditGantt && (
+                                            <div
+                                              draggable={false}
+                                              onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                              onMouseDown={(e) => handleLinkDragStart(e, card.id)}
+                                              className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                              title="Click & drag to link dependency"
+                                            >
+                                              <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+
+                                    return (
+                                      <div
+                                        data-gantt-card-id={card.id}
+                                        draggable={!resizingState}
+                                        onDragStart={(e) => {
+                                          if (resizingState) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            return;
+                                          }
+                                          handleGanttCardDragStart(e, card.id);
+                                        }}
+                                        className={`absolute h-8 top-1.5 flex items-center group/bar cursor-grab active:cursor-grabbing select-none ${
+                                          linkingState?.targetCardId === card.id ? "ring-2 ring-cyan-400 animate-pulse scale-[1.02] z-30" : ""
+                                        }`}
+                                        style={{
+                                          left: `${pos.leftPercent}%`,
+                                          width: `${pos.widthPercent}%`,
+                                          minWidth: "28px",
+                                        }}
+                                        onMouseEnter={() => setHoveredCardId(card.id)}
+                                        onMouseLeave={() => setHoveredCardId(null)}
+                                      >
+                                        {/* Live Date Range Floating Tooltip */}
+                                        {(isHovered || resizingState?.cardId === card.id) && (
+                                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 z-50 px-2.5 py-0.5 rounded-lg bg-surface-950/95 border border-primary/60 text-primary text-[10px] font-bold shadow-xl pointer-events-none whitespace-nowrap flex items-center gap-1.5 backdrop-blur-md animate-in fade-in duration-150">
+                                            <Calendar className="w-3 h-3 text-cyan-400" />
+                                            <span>{formatDateRangeTooltip(pos.startDateStr, pos.endDateStr)}</span>
+                                          </div>
+                                        )}
+
+                                        {/* Left Target Connection Handle */}
+                                        <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 opacity-0 group-hover/bar:opacity-100 transition-opacity z-30" />
+
+                                        {/* Left Date Handle */}
+                                        {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                          <div
+                                            draggable={false}
+                                            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onMouseDown={(e) => handleResizeStart(e, card, "start")}
+                                            className="absolute left-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-l-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                            title="Drag left/right to adjust start date"
+                                          >
+                                            ‹
+                                          </div>
+                                        )}
+
+                                        {/* Task Bar Container Body */}
+                                        <div
+                                          onMouseDown={(e) => {
+                                            hasDraggedRef.current = false;
+                                            handleResizeStart(e, card, "move");
+                                          }}
+                                          onClick={(e) => handleBarClick(e, card)}
+                                          className={`w-full h-full rounded-xl flex items-center shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                            isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
+                                          }`}
+                                          style={{
+                                            backgroundColor: cardColor,
+                                            backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
+                                          }}
+                                        >
+                                          {/* Inner Progress Bar Fill Shading Track */}
+                                          {rate > 0 && (
+                                            <div
+                                              className="absolute left-0 top-0 bottom-0 bg-white/35 border-r border-white/50 pointer-events-none transition-all duration-300 rounded-l-xl z-0"
+                                              style={{ width: `${rate}%` }}
+                                            />
+                                          )}
+                                        </div>
+
+                                        {/* External Label (Right of Task Bar) */}
+                                        <div className="absolute left-full top-0 bottom-0 flex items-center gap-1.5 pl-2.5 whitespace-nowrap z-20 pointer-events-auto">
+                                          {renderTimelineAssigneeAvatars(card, 100)}
+                                          {card.phase && (
+                                            <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded-md border border-cyan-500/20">
+                                              {card.phase}
+                                            </span>
+                                          )}
+                                          <span
+                                            onClick={(e) => handleBarClick(e, card)}
+                                            className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer truncate max-w-[280px]"
+                                          >
+                                            {card.title}
+                                          </span>
+                                          {rate > 0 && (
+                                            <span className="text-[10px] font-extrabold text-cyan-400 bg-surface-900/90 border border-border px-1.5 py-0.2 rounded-full shadow-2xs">
+                                              {rate}%
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {/* Right Date Handle */}
+                                        {canDragDates && (timeScale === "day" || timeScale === "week") && (
+                                          <div
+                                            draggable={false}
+                                            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onMouseDown={(e) => handleResizeStart(e, card, "end")}
+                                            className="absolute right-0 top-0 bottom-0 w-3 z-30 cursor-ew-resize hover:bg-white/50 rounded-r-xl flex items-center justify-center text-[10px] font-black text-white/90 opacity-0 group-hover/bar:opacity-100 transition-opacity bg-black/40 shadow-xs"
+                                            title="Drag left/right to adjust end date"
+                                          >
+                                            ›
+                                          </div>
+                                        )}
+
+                                        {/* Right Source Connection Handle Dot */}
+                                        {canEditGantt && (
+                                          <div
+                                            draggable={false}
+                                            onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                            onMouseDown={(e) => handleLinkDragStart(e, card.id)}
+                                            className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                            title="Click & drag to link predecessor dependency"
+                                          >
+                                            <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()
+                                )}
+                              </div>
+
+                              {/* Sub-Card Timeline Bars */}
+                              {isExpanded &&
+                                card.sub_cards?.map((subCard) => {
                                 const subPos = getCardTimelinePosition(subCard);
                                 const subColor = subCard.color_tag || cardColor;
                                 const isSubHovered = hoveredCardId === subCard.id;
@@ -2307,7 +2376,7 @@ export default function GanttRoadmapView({
                                     ) : (
                                         <div
                                           data-gantt-card-id={subCard.id}
-                                          className={`relative h-6 my-0.5 flex items-center group/bar select-none ${
+                                          className={`absolute h-6 top-1.5 flex items-center group/bar select-none ${
                                             linkingState?.targetCardId === subCard.id ? "ring-2 ring-cyan-400 animate-pulse scale-[1.02] z-30" : ""
                                           }`}
                                           style={{

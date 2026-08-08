@@ -339,6 +339,26 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
               markerEnd={markerId}
               className="transition-all duration-150"
             />
+            {/* Interactive Red 'X' Delete Button on Hover */}
+            {isHovered && canEditGantt && onRemoveDependency && (
+              <g
+                transform={`translate(${line.midX}, ${line.midY})`}
+                className="cursor-pointer group/btn transition-all animate-in fade-in zoom-in-75 duration-150"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveDependency(line.toId, line.fromId);
+                }}
+                onMouseEnter={() => setHoveredLineId(line.id)}
+              >
+                <circle r="9" fill="#ef4444" className="shadow-lg hover:scale-125 transition-transform" />
+                <path
+                  d="M -3 -3 L 3 3 M 3 -3 L -3 3"
+                  stroke="#ffffff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </g>
+            )}
           </g>
         );
       })}
