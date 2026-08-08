@@ -738,7 +738,7 @@ export default function ChessHub() {
                       {(user?.role === 'admin' || user?.role === 'superadmin' || selectedTournament.creator_id === user?.id) && (
                         <button
                           onClick={() => setEditingTournament(selectedTournament)}
-                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-[var(--cl-text-primary)] border border-[var(--cl-border)] transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                          className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[var(--cl-surface-800)] hover:bg-[var(--cl-surface-700)] text-[var(--cl-text-primary)] border border-[var(--cl-border)] hover:border-[var(--cl-primary-light)]/40 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                           title="Edit Tournament Settings"
                         >
                           <Settings className="w-3.5 h-3.5 text-[var(--cl-primary-light)]" />

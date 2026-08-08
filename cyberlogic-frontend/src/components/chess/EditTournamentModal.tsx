@@ -99,7 +99,7 @@ export const EditTournamentModal: React.FC<EditTournamentModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[var(--cl-surface-950)]/80 backdrop-blur-md animate-in fade-in duration-200">
       <div className="bg-[var(--cl-surface-900)] border border-[var(--cl-border)] rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-5 border-b border-[var(--cl-border)] flex items-center justify-between bg-[var(--cl-surface-950)]/50">
