@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CheckSquare, Plus, Trash2, GripVertical, Check, X } from "lucide-react";
+import { CheckSquare, Plus, Trash2, GripVertical } from "lucide-react";
 import type { CyberboardChecklistItem, CyberboardCard, CyberboardColumn } from "../../../utils/api";
 
 interface TaskChecklistSectionProps {
