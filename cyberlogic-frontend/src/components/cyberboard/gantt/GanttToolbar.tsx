@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Layers, Lock, ZoomOut, ZoomIn, Calendar, Maximize2, ChevronLeft, ChevronRight,
   Clock, Loader2, Download, ChevronDown, ImageIcon, FileText, FileSpreadsheet, SlidersHorizontal
 } from "lucide-react";
 
 export interface GanttToolbarProps {
+  onAddTask?: () => void;
   canEditGantt: boolean;
   showCriticalPath: boolean;
   setShowCriticalPath: React.Dispatch<React.SetStateAction<boolean>>;
@@ -36,7 +37,86 @@ export interface GanttToolbarProps {
   setShowGanttControlsSidebar: (val: boolean) => void;
 }
 
+const GROUP_OPTIONS: Array<{ value: "phase" | "column" | "priority" | "assignee"; label: string }> = [
+  { value: "phase", label: "Phases" },
+  { value: "column", label: "Columns" },
+  { value: "priority", label: "Priority" },
+  { value: "assignee", label: "Assignee" },
+];
+
+const SCALE_OPTIONS: Array<{ value: "quarter" | "month" | "week" | "day"; label: string }> = [
+  { value: "quarter", label: "Quarters" },
+  { value: "month", label: "Months" },
+  { value: "week", label: "Weeks" },
+  { value: "day", label: "Days" },
+];
+
+/** Compact dropdown trigger + flyout */
+function ToolbarDropdown<T extends string>({
+  options,
+  value,
+  onChange,
+  icon,
+  label,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (val: T) => void;
+  icon?: React.ReactNode;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-xl bg-surface-800/80 border border-border/60 text-text-primary hover:bg-surface-700/60 transition-all cursor-pointer shadow-xs"
+        title={label}
+      >
+        {icon}
+        <span>{current?.label || value}</span>
+        <ChevronDown className={`w-3 h-3 text-text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-36 bg-surface-900/98 backdrop-blur-xl border border-border/80 rounded-xl shadow-2xl p-1 z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 duration-150">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`w-full px-3 py-1.5 rounded-lg text-xs font-semibold text-left transition-all cursor-pointer flex items-center justify-between ${
+                opt.value === value
+                  ? "bg-primary/15 text-primary"
+                  : "text-text-secondary hover:text-text-primary hover:bg-surface-800"
+              }`}
+            >
+              <span>{opt.label}</span>
+              {opt.value === value && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export const GanttToolbar: React.FC<GanttToolbarProps> = ({
+  onAddTask,
   canEditGantt,
   showCriticalPath,
   setShowCriticalPath,
@@ -68,13 +148,24 @@ export const GanttToolbar: React.FC<GanttToolbarProps> = ({
   setShowGanttControlsSidebar,
 }) => {
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4 sm:py-3 bg-surface-900/90 border-b border-border/80 backdrop-blur-md sticky top-0 z-50">
-      {/* Title Block */}
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-5 sm:py-3 bg-surface-900/95 border-b border-border/80 backdrop-blur-md sticky top-0 z-50 shadow-xs">
+      {/* Title & Add Task Block */}
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-text-primary">
           <Layers className="w-4 h-4 text-primary" />
           <span>Gantt Roadmap</span>
         </div>
+
+        {canEditGantt && onAddTask && (
+          <button
+            type="button"
+            onClick={onAddTask}
+            className="px-3 py-1.5 rounded-xl bg-primary text-surface-950 hover:bg-primary-light text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm shadow-primary/20 cursor-pointer active:scale-95"
+          >
+            <span className="text-sm font-black">+</span>
+            <span>Add Task</span>
+          </button>
+        )}
 
         {!canEditGantt && (
           <span
@@ -87,13 +178,13 @@ export const GanttToolbar: React.FC<GanttToolbarProps> = ({
         )}
       </div>
 
-      {/* Desktop Toolbar Controls (>= 1280px xl screens with clean wrapping) */}
+      {/* Desktop Toolbar Controls (>= 1280px xl screens) */}
       <div className="hidden xl:flex flex-wrap items-center gap-2 2xl:gap-3 justify-end flex-1 min-w-0">
         {/* Critical Path Toggle */}
         <button
           type="button"
           onClick={() => setShowCriticalPath((prev) => !prev)}
-          className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+          className={`px-2.5 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
             showCriticalPath
               ? "bg-rose-500/20 text-rose-400 border-rose-500/50 shadow-md animate-pulse"
               : "bg-surface-800/80 text-text-secondary hover:text-text-primary border-border/60"
@@ -104,93 +195,23 @@ export const GanttToolbar: React.FC<GanttToolbarProps> = ({
           <span>Critical Path</span>
         </button>
 
-        {/* Grouping Buttons */}
-        <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
-          <button
-            onClick={() => setGroupBy("phase")}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              groupBy === "phase"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Phases
-          </button>
-          <button
-            onClick={() => setGroupBy("column")}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              groupBy === "column"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Columns
-          </button>
-          <button
-            onClick={() => setGroupBy("priority")}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              groupBy === "priority"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Priority
-          </button>
-          <button
-            onClick={() => setGroupBy("assignee")}
-            className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              groupBy === "assignee"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Assignee
-          </button>
-        </div>
+        {/* Grouping Dropdown */}
+        <ToolbarDropdown
+          options={GROUP_OPTIONS}
+          value={groupBy}
+          onChange={setGroupBy}
+          icon={<Layers className="w-3.5 h-3.5 text-primary" />}
+          label="Group By"
+        />
 
-        {/* Scale Selector */}
-        <div className="flex items-center gap-1 bg-surface-800/80 p-1 rounded-xl border border-border/60">
-          <button
-            onClick={() => handleScaleChange("quarter")}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              timeScale === "quarter"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Quarters
-          </button>
-          <button
-            onClick={() => handleScaleChange("month")}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              timeScale === "month"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Months
-          </button>
-          <button
-            onClick={() => handleScaleChange("week")}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              timeScale === "week"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Weeks
-          </button>
-          <button
-            onClick={() => handleScaleChange("day")}
-            className={`px-2 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-              timeScale === "day"
-                ? "bg-primary text-surface-950 shadow-sm"
-                : "text-text-secondary hover:text-text-primary hover:bg-surface-700/50"
-            }`}
-          >
-            Days
-          </button>
-        </div>
+        {/* Scale Dropdown */}
+        <ToolbarDropdown
+          options={SCALE_OPTIONS}
+          value={timeScale}
+          onChange={handleScaleChange}
+          icon={<Calendar className="w-3.5 h-3.5 text-primary" />}
+          label="Time Scale"
+        />
 
         {/* Zoom Level Control */}
         <div className="flex items-center gap-1 bg-surface-800/90 border border-border px-1.5 py-1 rounded-xl text-xs text-text-primary shadow-xs">
@@ -320,7 +341,7 @@ export const GanttToolbar: React.FC<GanttToolbarProps> = ({
           </div>
         </div>
 
-        {/* Unscheduled items badge (Icon + Count only) */}
+        {/* Unscheduled items badge */}
         {unscheduledCardsCount > 0 && (
           <button
             onClick={() => setShowUnscheduledDrawer(!showUnscheduledDrawer)}

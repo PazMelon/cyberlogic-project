@@ -30,7 +30,25 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
   criticalPathCardIds = new Set(),
   isExporting = false,
 }) => {
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const [cursorPos, setCursorPos] = React.useState<{ x: number; y: number } | null>(null);
+
   if (containerWidth <= 0) return null;
+
+  const handleLineMouseMove = (e: React.MouseEvent<SVGElement>, lineId: string) => {
+    setHoveredLineId(lineId);
+    if (svgRef.current) {
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      setCursorPos({ x, y });
+    }
+  };
+
+  const handleLineMouseLeave = () => {
+    setHoveredLineId(null);
+    setCursorPos(null);
+  };
 
   // ── Step 1: Precompute left/right/top/bottom bounds for all visible task bars ──
   const taskBounds = new Map<number, { left: number; right: number; top: number; bottom: number; centerY: number }>();
@@ -40,8 +58,8 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
     const cPos = timelinePositions.get(c.id);
     if (!cRow || !cPos) return;
     const cY = 'centerYPx' in cRow ? cRow.centerYPx : (cRow.top + cRow.height / 2);
-    const left = (cPos.leftPercent / 100) * containerWidth;
-    const right = ((cPos.leftPercent + cPos.widthPercent) / 100) * containerWidth;
+    const left = 'startPx' in cRow ? (cRow as any).startPx : (cPos.leftPercent / 100) * containerWidth;
+    const right = 'endPx' in cRow ? (cRow as any).endPx : ((cPos.leftPercent + cPos.widthPercent) / 100) * containerWidth;
     taskBounds.set(c.id, { left, right, top: cY - 18, bottom: cY + 18, centerY: cY });
   });
 
@@ -71,8 +89,8 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
     const toPos = timelinePositions.get(targetCard.id);
     if (!toRow || !toPos) return;
 
-    const toX = (toPos.leftPercent / 100) * containerWidth;
-    const toY = 'centerYPx' in toRow ? toRow.centerYPx : (toRow.top + toRow.height / 2);
+    const toX = 'startPx' in toRow ? (toRow as any).startPx : (toPos.leftPercent / 100) * containerWidth;
+    const toY = 'centerYPx' in toRow ? (toRow as any).centerYPx : (toRow.top + toRow.height / 2);
 
     predIds.forEach((fromId) => {
       const fromCard = cards.find((c) => c.id === fromId);
@@ -82,8 +100,11 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
       const fromPos = timelinePositions.get(fromId);
       if (!fromRow || !fromPos) return;
 
-      const fromX = ((fromPos.leftPercent + fromPos.widthPercent) / 100) * containerWidth;
-      const fromY = 'centerYPx' in fromRow ? fromRow.centerYPx : (fromRow.top + fromRow.height / 2);
+      const fromX = 'endPx' in fromRow ? (fromRow as any).endPx : ((fromPos.leftPercent + fromPos.widthPercent) / 100) * containerWidth;
+      const fromY = 'centerYPx' in fromRow ? (fromRow as any).centerYPx : (fromRow.top + fromRow.height / 2);
+
+      // Skip internal self-dependency lines when cards are in the same collapsed phase
+      if (Math.abs(fromY - toY) < 2) return;
 
       const isCritical =
         showCriticalPath &&
@@ -245,8 +266,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
 
   return (
     <svg
-      className="absolute inset-0 w-full h-full pointer-events-none z-10 overflow-visible"
-      style={{ minWidth: containerWidth }}
+      ref={svgRef}
+      className="absolute inset-0 pointer-events-none z-20 overflow-visible"
+      style={{ width: containerWidth, height: "100%" }}
     >
       <defs>
         <marker
@@ -310,6 +332,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
           ? "url(#gantt-arrow-critical)"
           : "url(#gantt-arrow)";
 
+        const deleteX = hoveredLineId === line.id && cursorPos ? cursorPos.x : line.midX;
+        const deleteY = hoveredLineId === line.id && cursorPos ? cursorPos.y : line.midY;
+
         return (
           <g key={line.id} className="group pointer-events-auto">
             {/* Invisible wider hit area stroke for easy clicking/hovering */}
@@ -319,8 +344,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
               stroke="transparent"
               strokeWidth="14"
               className="cursor-pointer"
-              onMouseEnter={() => setHoveredLineId(line.id)}
-              onMouseLeave={() => setHoveredLineId(null)}
+              onMouseEnter={(e) => handleLineMouseMove(e, line.id)}
+              onMouseMove={(e) => handleLineMouseMove(e, line.id)}
+              onMouseLeave={handleLineMouseLeave}
               onClick={() => {
                 if (canEditGantt && onRemoveDependency) {
                   onRemoveDependency(line.toId, line.fromId);
@@ -339,22 +365,24 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
               markerEnd={markerId}
               className="transition-all duration-150"
             />
-            {/* Interactive Red 'X' Delete Button on Hover */}
-            {isHovered && canEditGantt && onRemoveDependency && (
+            {/* Interactive Red 'X' Delete Button on Hover (Follows Mouse Cursor) */}
+            {isHovered && canEditGantt && onRemoveDependency && !isExporting && (
               <g
-                transform={`translate(${line.midX}, ${line.midY})`}
+                transform={`translate(${deleteX}, ${deleteY})`}
                 className="cursor-pointer group/btn transition-all animate-in fade-in zoom-in-75 duration-150"
                 onClick={(e) => {
                   e.stopPropagation();
                   onRemoveDependency(line.toId, line.fromId);
                 }}
-                onMouseEnter={() => setHoveredLineId(line.id)}
+                onMouseEnter={(e) => handleLineMouseMove(e, line.id)}
+                onMouseMove={(e) => handleLineMouseMove(e, line.id)}
+                onMouseLeave={handleLineMouseLeave}
               >
-                <circle r="9" fill="#ef4444" className="shadow-lg hover:scale-125 transition-transform" />
+                <circle r="10" fill="#ef4444" className="shadow-lg hover:scale-125 transition-transform stroke-2 stroke-surface-950" />
                 <path
-                  d="M -3 -3 L 3 3 M 3 -3 L -3 3"
+                  d="M -3.5 -3.5 L 3.5 3.5 M 3.5 -3.5 L -3.5 3.5"
                   stroke="#ffffff"
-                  strokeWidth="2"
+                  strokeWidth="2.2"
                   strokeLinecap="round"
                 />
               </g>

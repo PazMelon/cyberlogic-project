@@ -194,13 +194,18 @@ export const CardEditForm: React.FC<CardEditFormProps> = ({
           </div>
 
           {(boardType === "activity" || boardType === "roadmap") && (
-            <div className="space-y-2 pt-1 border-t border-border/40">
+            <div className="space-y-2.5 pt-1 border-t border-border/40">
               <div>
                 <label className="block text-[11px] font-bold text-text-muted uppercase mb-1">Start Date</label>
                 <input
                   type="date"
                   value={editActivityDate}
-                  onChange={(e) => setEditActivityDate(e.target.value)}
+                  onChange={(e) => {
+                    setEditActivityDate(e.target.value);
+                    if (editActivityDate && editActivityEndDate && editActivityDate === editActivityEndDate) {
+                      setEditActivityEndDate(e.target.value);
+                    }
+                  }}
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
                 />
               </div>
@@ -212,6 +217,35 @@ export const CardEditForm: React.FC<CardEditFormProps> = ({
                   value={editActivityEndDate}
                   onChange={(e) => setEditActivityEndDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none"
+                />
+              </div>
+
+              {/* Milestone Checkpoint Toggle */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-amber-950/30 border border-amber-500/30">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-amber-400 font-bold text-xs">◆</span>
+                  <span className="text-[11px] font-bold text-amber-200">Milestone Checkpoint</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(editActivityDate && editActivityEndDate && editActivityDate === editActivityEndDate)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      if (editActivityDate) {
+                        setEditActivityEndDate(editActivityDate);
+                      }
+                    } else {
+                      // Unchecking milestone checkpoint! Add 1 day to end date so it becomes a date range task and unchecks cleanly!
+                      if (editActivityDate) {
+                        const d = new Date(editActivityDate);
+                        d.setDate(d.getDate() + 1);
+                        setEditActivityEndDate(d.toISOString().split("T")[0]);
+                      } else {
+                        setEditActivityEndDate("");
+                      }
+                    }
+                  }}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
                 />
               </div>
             </div>

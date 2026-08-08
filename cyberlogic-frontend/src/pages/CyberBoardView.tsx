@@ -100,6 +100,12 @@ export default function CyberBoardView() {
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
   const [selectedColumnToConfigure, setSelectedColumnToConfigure] = useState<CyberboardColumn | null>(null);
   const [directoryMembers, setDirectoryMembers] = useState<any[]>([]);
+  const [initialNewCardData, setInitialNewCardData] = useState<{
+    phase?: string;
+    activity_date?: string;
+    activity_end_date?: string;
+    is_milestone?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -715,12 +721,15 @@ export default function CyberBoardView() {
   // Actions
   const handleAddSuggestion = async (data: {
     column_id?: number;
+    parent_id?: number | null;
     title: string;
     description?: string;
     activity_date?: string;
     activity_end_date?: string;
     priority?: "low" | "medium" | "high";
     color_tag?: string;
+    phase?: string;
+    is_milestone?: boolean;
   }) => {
     if (!numericBoardId) return;
     const newCard = await createCyberboardCard(numericBoardId, data);
@@ -1499,8 +1508,9 @@ export default function CyberBoardView() {
                   activity_end_date: activityEndDate,
                 });
               }}
-              onAddNewCard={(colId) => {
+              onAddNewCard={(colId, initialData) => {
                 setTargetColumnId(colId || columns[0]?.id);
+                setInitialNewCardData(initialData || null);
                 setShowNewSuggestionModal(true);
               }}
               onUpdateCardPhase={async (cardId, phase) => {
@@ -1517,6 +1527,10 @@ export default function CyberBoardView() {
               onUpdateCardAssignees={async (cardId, userIds) => {
                 await handleUpdateCard(cardId, { assigned_user_ids: userIds });
                 showToast("Updated task assignment.", "info");
+              }}
+              onQuickCreateCard={async (data) => {
+                await handleAddSuggestion(data);
+                showToast(`Created new ${data.is_milestone ? "milestone" : "task"} "${data.title}".`, "success");
               }}
             />
           </div>
@@ -1665,6 +1679,7 @@ export default function CyberBoardView() {
           allCards={columns.flatMap((c) => c.cards || [])}
           boardType={board.type}
           defaultColumnId={targetColumnId}
+          initialData={initialNewCardData}
           currentUserId={user?.id}
           userRole={user?.role}
           boardHostId={board.created_by}

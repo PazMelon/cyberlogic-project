@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
-  ChevronDown, Calendar, Layers, Clock, Plus, SlidersHorizontal, Users,
+  ChevronDown, ChevronRight, Calendar, Layers, Clock, Plus, SlidersHorizontal, Users,
   ZoomIn, ZoomOut, X, Image as ImageIcon, FileText, Maximize2, FileSpreadsheet,
   Loader2, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
@@ -12,6 +12,7 @@ import { exportBoardToExcel } from "../../utils/exportBoardToExcel";
 import GanttDependencyCanvas from "./gantt/GanttDependencyCanvas";
 import GanttTimelineHeader from "./gantt/GanttTimelineHeader";
 import GanttToolbar from "./gantt/GanttToolbar";
+import GanttQuickCreateModal from "./gantt/GanttQuickCreateModal";
 import { PRESET_COLORS, MONTH_NAMES } from "./shared/cyberboardConstants";
 import { parseLocalDate } from "./shared/cyberboardUtils";
 
@@ -26,11 +27,29 @@ interface GanttRoadmapViewProps {
   isAdmin?: boolean;
   onSelectCard: (card: CyberboardCard) => void;
   onUpdateCardDate?: (cardId: number, activityDate: string, activityEndDate: string) => Promise<void>;
-  onAddNewCard?: (columnId?: number) => void;
+  onAddNewCard?: (
+    columnId?: number,
+    initialData?: {
+      phase?: string;
+      activity_date?: string;
+      activity_end_date?: string;
+      is_milestone?: boolean;
+    }
+  ) => void;
   onUpdateCardPhase?: (cardId: number, phase: string) => Promise<void>;
   onMoveCardColumn?: (cardId: number, targetColumnId: number) => Promise<void>;
   onUpdateCardPriority?: (cardId: number, priority: "high" | "medium" | "low") => Promise<void>;
   onUpdateCardAssignees?: (cardId: number, userIds: number[]) => Promise<void>;
+  onQuickCreateCard?: (data: {
+    title: string;
+    phase?: string;
+    activity_date?: string;
+    activity_end_date?: string;
+    is_milestone?: boolean;
+    priority?: "low" | "medium" | "high";
+    parent_id?: number | null;
+    column_id?: number;
+  }) => Promise<void>;
 }
 
 type TimeScaleMode = "month" | "week" | "day" | "quarter";
@@ -51,6 +70,7 @@ export default function GanttRoadmapView({
   onMoveCardColumn,
   onUpdateCardPriority,
   onUpdateCardAssignees,
+  onQuickCreateCard,
 }: GanttRoadmapViewProps) {
   const canEditGantt = useMemo(() => {
     const isHost = boardHostId && currentUserId ? boardHostId === currentUserId : (board.created_by === currentUserId);
@@ -86,6 +106,37 @@ export default function GanttRoadmapView({
   const [showCriticalPath, setShowCriticalPath] = useState<boolean>(false);
   const [expandedParents, setExpandedParents] = useState<Record<number, boolean>>({});
   const [customCardDates, setCustomCardDates] = useState<Record<number, { activity_date?: string | null; activity_end_date?: string | null }>>({});
+  const [quickTypePromptData, setQuickTypePromptData] = useState<{
+    isOpen: boolean;
+    phase?: string;
+    startDate?: string;
+    endDate?: string;
+  } | null>(null);
+  const [ganttQuickCreateData, setGanttQuickCreateData] = useState<{
+    type: "task" | "milestone" | "subtask";
+    phase: string;
+    startDate: string;
+    endDate: string;
+  } | null>(null);
+
+  const [dragCreateState, setDragCreateState] = useState<{
+    isDragging: boolean;
+    groupPhase: string;
+    rowId: string;
+    startX: number;
+    currentX: number;
+    rowElement: HTMLElement | null;
+  } | null>(null);
+
+  const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
+
+  const togglePhaseCollapse = (phaseId: string) => {
+    setCollapsedPhases((prev) => ({
+      ...prev,
+      [phaseId]: !prev[phaseId],
+    }));
+  };
+
   const skipYearResetRef = useRef<boolean>(false);
 
   // Critical Path Method (CPM) calculation for Slack Time & Bottlenecks
@@ -196,9 +247,11 @@ export default function GanttRoadmapView({
     });
 
     if (minMs !== null && maxMs !== null) {
-      const minDate = new Date(minMs).toISOString().split("T")[0];
-      const maxDate = new Date(maxMs).toISOString().split("T")[0];
-      const minYear = new Date(minMs).getFullYear();
+      const bufferedMinMs = minMs - 2 * 24 * 60 * 60 * 1000;
+      const bufferedMaxMs = maxMs + 2 * 24 * 60 * 60 * 1000;
+      const minDate = new Date(bufferedMinMs).toISOString().split("T")[0];
+      const maxDate = new Date(bufferedMaxMs).toISOString().split("T")[0];
+      const minYear = new Date(bufferedMinMs).getFullYear();
       if (minYear !== selectedYear) {
         skipYearResetRef.current = true;
         setSelectedYear(minYear);
@@ -1293,6 +1346,52 @@ export default function GanttRoadmapView({
     [timelinePositionMap, selectedYear]
   );
 
+  const hasCardDates = useCallback((c: CyberboardCard) => {
+    const custom = customCardDates[c.id];
+    const actDate = custom && custom.activity_date !== undefined ? custom.activity_date : c.activity_date;
+    const actEndDate = custom && custom.activity_end_date !== undefined ? custom.activity_end_date : c.activity_end_date;
+    return !!(actDate || actEndDate);
+  }, [customCardDates]);
+
+  const getPhaseTimelinePosition = useCallback(
+    (groupCards: CyberboardCard[]) => {
+      let minLeft = Infinity;
+      let maxRight = -Infinity;
+      let hasDatedCards = false;
+
+      groupCards.forEach((c) => {
+        if (hasCardDates(c)) {
+          const pos = timelinePositionMap.get(c.id);
+          if (pos) {
+            minLeft = Math.min(minLeft, pos.leftPercent);
+            maxRight = Math.max(maxRight, pos.leftPercent + pos.widthPercent);
+            hasDatedCards = true;
+          }
+        }
+        if (c.sub_cards) {
+          c.sub_cards.forEach((sc) => {
+            if (hasCardDates(sc)) {
+              const scPos = timelinePositionMap.get(sc.id);
+              if (scPos) {
+                minLeft = Math.min(minLeft, scPos.leftPercent);
+                maxRight = Math.max(maxRight, scPos.leftPercent + scPos.widthPercent);
+                hasDatedCards = true;
+              }
+            }
+          });
+        }
+      });
+
+      if (!hasDatedCards || minLeft === Infinity) {
+        return null; // Return null if no tasks under phase have start/end dates!
+      }
+
+      const widthPercent = Math.max(4, maxRight - minLeft);
+      return { leftPercent: minLeft, widthPercent };
+    },
+    [timelinePositionMap, hasCardDates]
+  );
+
   const getCardCompletionRate = useCallback((card: CyberboardCard): number => {
     if (isColumnCompleted(card.column_id)) {
       return 100;
@@ -1459,6 +1558,88 @@ export default function GanttRoadmapView({
     };
   }, [resizingState, gridMinWidth, startDateStr, endDateStr, selectedYear, customCardDates, onUpdateCardDate]);
 
+  const pxToDateStr = useCallback((px: number, totalWidth: number) => {
+    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
+    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
+    const rangeStartMs = isNaN(sDate.getTime())
+      ? new Date(selectedYear, 0, 1).getTime()
+      : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate()).getTime();
+    const rangeEndMs = isNaN(eDate.getTime())
+      ? new Date(selectedYear, 11, 31).getTime()
+      : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate()).getTime();
+    const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
+    const pct = Math.max(0, Math.min(1, px / Math.max(1, totalWidth)));
+    const dateMs = rangeStartMs + pct * totalMs;
+    const d = new Date(dateMs);
+    return d.toISOString().split("T")[0];
+  }, [startDateStr, endDateStr, selectedYear]);
+
+  useEffect(() => {
+    if (!dragCreateState || !dragCreateState.isDragging || !dragCreateState.rowElement) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragCreateState.rowElement) return;
+      const rect = dragCreateState.rowElement.getBoundingClientRect();
+      const currentX = e.clientX - rect.left;
+      setDragCreateState((prev) => (prev ? { ...prev, currentX } : null));
+    };
+
+    const handleMouseUp = () => {
+      if (dragCreateState && dragCreateState.rowElement) {
+        const rowWidth = dragCreateState.rowElement.getBoundingClientRect().width;
+        const dist = Math.abs(dragCreateState.currentX - dragCreateState.startX);
+        if (dist > 15) {
+          // Dragged date range: Fill both start & end dates
+          const minX = Math.min(dragCreateState.startX, dragCreateState.currentX);
+          const maxX = Math.max(dragCreateState.startX, dragCreateState.currentX);
+          const sDateStr = pxToDateStr(minX, rowWidth);
+          const eDateStr = pxToDateStr(maxX, rowWidth);
+
+          setQuickTypePromptData({
+            isOpen: true,
+            phase: dragCreateState.groupPhase,
+            startDate: sDateStr,
+            endDate: eDateStr,
+          });
+        } else {
+          // Single click: Fill START date ONLY
+          const sDateStr = pxToDateStr(dragCreateState.startX, rowWidth);
+
+          setQuickTypePromptData({
+            isOpen: true,
+            phase: dragCreateState.groupPhase,
+            startDate: sDateStr,
+            endDate: "",
+          });
+        }
+      }
+      setDragCreateState(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragCreateState, pxToDateStr]);
+
+  const handleRowGridMouseDown = (e: React.MouseEvent, groupPhase: string, rowId: string) => {
+    if (e.button !== 0 || !canEditGantt) return;
+    if ((e.target as HTMLElement).closest('[data-gantt-card-id]')) return;
+    const rowElement = e.currentTarget as HTMLElement;
+    const rect = rowElement.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    setDragCreateState({
+      isDragging: true,
+      groupPhase,
+      rowId,
+      startX,
+      currentX: startX,
+      rowElement,
+    });
+  };
+
   const handleBarClick = (e: React.MouseEvent, card: CyberboardCard) => {
     e.stopPropagation();
     if (hasDraggedRef.current) {
@@ -1506,53 +1687,88 @@ export default function GanttRoadmapView({
     const availableWidth = Math.max(1, effectiveGridWidth - 16);
 
     groupedData.forEach((group) => {
+      const isPhaseCollapsed = !!collapsedPhases[group.id];
+      const headerCenterY = currentY + 22; // Group header is 44px height
+
+      const phasePos = getPhaseTimelinePosition(group.cards);
+      const phaseStartPx = phasePos ? 8 + (availableWidth * phasePos.leftPercent) / 100 : 16;
+      const phaseWidthPx = phasePos ? Math.max(28, (availableWidth * phasePos.widthPercent) / 100) : 160;
+      const phaseEndPx = phaseStartPx + phaseWidthPx;
+
       currentY += 44; // group header height 44px
-      const parentCards = group.cards.filter((c) => !c.parent_id);
 
-      if (parentCards.length === 0) {
-        currentY += 44; // empty group placeholder row height 44px
-      } else {
-        parentCards.forEach((card) => {
-          const isDateless = !card.activity_date && !card.activity_end_date;
-          const rowHeight = 44;
-          const centerY = currentY + rowHeight / 2;
-          const pos = getCardTimelinePosition(card);
-          const startPx = isDateless ? 16 : 8 + (availableWidth * pos.leftPercent) / 100;
-          const widthPx = isDateless ? 160 : Math.max(28, (availableWidth * pos.widthPercent) / 100);
-          const endPx = startPx + widthPx;
-
+      if (isPhaseCollapsed) {
+        // Map all cards in this collapsed group to the Phase Overview Bar header row!
+        group.cards.forEach((card) => {
           layoutMap.set(card.id, {
-            startPx,
-            endPx,
-            centerYPx: centerY,
-            rowHeight,
+            startPx: phaseStartPx,
+            endPx: phaseEndPx,
+            centerYPx: headerCenterY,
+            rowHeight: 44,
           });
-
-          currentY += rowHeight;
-
-          // Subcards
-          const isExpanded = !!expandedParents[card.id];
-          if (isExpanded && card.sub_cards) {
-            card.sub_cards.forEach((subCard) => {
-              const isSubDateless = !subCard.activity_date && !subCard.activity_end_date;
-              const subRowHeight = 38;
-              const subCenterY = currentY + subRowHeight / 2;
-              const subPos = getCardTimelinePosition(subCard);
-              const subStartPx = isSubDateless ? 32 : 8 + (availableWidth * subPos.leftPercent) / 100;
-              const subWidthPx = isSubDateless ? 140 : Math.max(20, (availableWidth * subPos.widthPercent) / 100);
-              const subEndPx = subStartPx + subWidthPx;
-
-              layoutMap.set(subCard.id, {
-                startPx: subStartPx,
-                endPx: subEndPx,
-                centerYPx: subCenterY,
-                rowHeight: subRowHeight,
+          if (card.sub_cards) {
+            card.sub_cards.forEach((sc) => {
+              layoutMap.set(sc.id, {
+                startPx: phaseStartPx,
+                endPx: phaseEndPx,
+                centerYPx: headerCenterY,
+                rowHeight: 44,
               });
-
-              currentY += subRowHeight;
             });
           }
         });
+      } else {
+        const parentCards = group.cards.filter((c) => !c.parent_id);
+
+        if (parentCards.length === 0) {
+          currentY += 44; // empty group placeholder row height 44px
+        } else {
+          parentCards.forEach((card) => {
+            const isDateless = !card.activity_date && !card.activity_end_date;
+            const rowHeight = 44;
+            const centerY = currentY + rowHeight / 2;
+            const pos = getCardTimelinePosition(card);
+            const startPx = isDateless ? 16 : 8 + (availableWidth * pos.leftPercent) / 100;
+            const widthPx = isDateless ? 160 : Math.max(28, (availableWidth * pos.widthPercent) / 100);
+            const endPx = startPx + widthPx;
+
+            layoutMap.set(card.id, {
+              startPx,
+              endPx,
+              centerYPx: centerY,
+              rowHeight,
+            });
+
+            currentY += rowHeight;
+
+            // Subcards
+            const isExpanded = !!expandedParents[card.id];
+            if (isExpanded && card.sub_cards) {
+              card.sub_cards.forEach((subCard) => {
+                const isSubDateless = !subCard.activity_date && !subCard.activity_end_date;
+                const subRowHeight = 38;
+                const subCenterY = currentY + subRowHeight / 2;
+                const subPos = getCardTimelinePosition(subCard);
+                const subStartPx = isSubDateless ? 32 : 8 + (availableWidth * subPos.leftPercent) / 100;
+                const subWidthPx = isSubDateless ? 140 : Math.max(20, (availableWidth * subPos.widthPercent) / 100);
+                const subEndPx = subStartPx + subWidthPx;
+
+                layoutMap.set(subCard.id, {
+                  startPx: subStartPx,
+                  endPx: subEndPx,
+                  centerYPx: subCenterY,
+                  rowHeight: subRowHeight,
+                });
+
+                currentY += subRowHeight;
+              });
+            }
+          });
+        }
+
+        if (canEditGantt && !isExporting) {
+          currentY += 38; // account for + Add Task in Phase inline row
+        }
       }
     });
 
@@ -1743,7 +1959,7 @@ export default function GanttRoadmapView({
     });
 
     return layoutMap;
-  }, [groupedData, effectiveGridWidth, expandedParents, getCardTimelinePosition]);
+  }, [groupedData, effectiveGridWidth, expandedParents, collapsedPhases, getCardTimelinePosition, getPhaseTimelinePosition, canEditGantt, isExporting]);
 
   // Helper to extract assigned users array cleanly
   const getCardUsers = (cardItem: CyberboardCard) => {
@@ -1841,6 +2057,7 @@ export default function GanttRoadmapView({
     <div ref={containerRef} className="flex flex-col w-full h-full bg-surface-950 text-text-primary overflow-hidden">
       {/* 1. Responsive Header Toolbar */}
       <GanttToolbar
+        onAddTask={() => setQuickTypePromptData({ isOpen: true })}
         canEditGantt={canEditGantt}
         showCriticalPath={showCriticalPath}
         setShowCriticalPath={setShowCriticalPath}
@@ -1934,6 +2151,21 @@ export default function GanttRoadmapView({
                   {/* Group Title Bar */}
                   <div className="h-[44px] box-border px-3 flex items-center justify-between gap-2 bg-surface-900/80 border-b border-border/40">
                     <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePhaseCollapse(group.id);
+                        }}
+                        className="p-1 rounded-lg text-text-muted hover:text-text-primary hover:bg-surface-800 transition-colors cursor-pointer"
+                        title={collapsedPhases[group.id] ? "Expand Phase" : "Collapse Phase"}
+                      >
+                        {collapsedPhases[group.id] ? (
+                          <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-text-muted" />
+                        )}
+                      </button>
                       <span
                         className="w-2.5 h-2.5 rounded-full flex-shrink-0 shadow-xs"
                         style={{ backgroundColor: group.color }}
@@ -1960,9 +2192,10 @@ export default function GanttRoadmapView({
                   </div>
 
                   {/* Group Items List (Tree Rows) */}
-                  <div className="flex flex-col">
+                  {!collapsedPhases[group.id] && (
+                    <div className="flex flex-col">
                     {parentCards.length === 0 ? (
-                      <div className="h-[44px] box-border px-4 flex items-center gap-2 text-xs font-semibold text-text-muted/80 bg-surface-950/20 border-b border-border/20">
+                      <div className="h-[44px] box-border px-4 flex items-center gap-2 text-xs font-semibold text-text-muted/70 bg-transparent border-b border-border/20">
                         <span className="w-1.5 h-1.5 rounded-full bg-text-muted/40 flex-shrink-0" />
                         <span>No tasks in group</span>
                       </div>
@@ -2003,10 +2236,10 @@ export default function GanttRoadmapView({
                                 <span
                                   onClick={() => onSelectCard(card)}
                                   className="text-xs font-semibold text-text-primary hover:text-primary cursor-pointer truncate"
+                                  title={card.title}
                                 >
                                   {card.title}
                                 </span>
-
                                 {!card.activity_date && !card.activity_end_date && (
                                   <span className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/80 text-text-secondary text-[9px] font-bold flex items-center gap-1 flex-shrink-0">
                                     <Clock className="w-2.5 h-2.5 text-primary" /> Dateless
@@ -2037,6 +2270,7 @@ export default function GanttRoadmapView({
                                       <span
                                         onClick={() => onSelectCard(subCard)}
                                         className="text-[11px] font-medium text-text-secondary hover:text-primary cursor-pointer truncate"
+                                        title={subCard.title}
                                       >
                                         ↳ {subCard.title}
                                       </span>
@@ -2061,7 +2295,17 @@ export default function GanttRoadmapView({
                         );
                       })
                     )}
+                    {canEditGantt && !isExporting && (
+                      <div
+                        onClick={() => setQuickTypePromptData({ isOpen: true, phase: group.title })}
+                        className="h-[38px] box-border px-3.5 flex items-center gap-2 bg-surface-950/20 hover:bg-surface-800/40 text-primary hover:text-primary-light border-b border-border/20 border-l-2 border-primary/40 cursor-pointer transition-colors group select-none"
+                      >
+                        <Plus className="w-3.5 h-3.5 group-hover:scale-110 transition-transform flex-shrink-0" />
+                        <span className="text-xs font-bold truncate">Add Task to {group.title}...</span>
+                      </div>
+                    )}
                   </div>
+                  )}
                 </div>
               );
             })}
@@ -2120,15 +2364,83 @@ export default function GanttRoadmapView({
                       isGroupDragOver ? "bg-primary/10" : "bg-transparent"
                     }`}
                   >
-                    {/* Group Header Spacer */}
-                    <div className="h-[44px] box-border border-b border-border/40 bg-surface-900/30" />
+                    {/* Group Header Row with Phase Overview Bar */}
+                    {(() => {
+                      const totalTasks = group.cards.length;
+                      const phasePos = getPhaseTimelinePosition(group.cards);
+                      if (totalTasks === 0 || !phasePos) {
+                        return (
+                          <div className="h-[44px] box-border border-b border-border/40 bg-surface-900/30 relative flex items-center select-none overflow-hidden px-4">
+                            {totalTasks === 0 && <span className="text-xs font-semibold text-text-muted/70 italic">No tasks in phase</span>}
+                          </div>
+                        );
+                      }
+
+                      const completedTasks = group.cards.filter((c) => (c.completion_percentage || 0) === 100).length;
+                      const avgCompletion = Math.round(group.cards.reduce((acc, c) => acc + (c.completion_percentage || 0), 0) / totalTasks);
+
+                      return (
+                        <div
+                          className="h-[44px] box-border border-b border-border/40 bg-surface-900/30 relative flex items-center select-none overflow-hidden"
+                          onClick={() => togglePhaseCollapse(group.id)}
+                        >
+                          {/* Phase Overview Summary Bar */}
+                          <div
+                            className="absolute h-6 rounded-lg flex items-center justify-between px-2.5 shadow-md border border-white/20 z-20 group/phasebar cursor-pointer transition-all duration-200 hover:scale-[1.005]"
+                            style={{
+                              left: `${phasePos.leftPercent}%`,
+                              width: `${phasePos.widthPercent}%`,
+                              minWidth: "120px",
+                              backgroundColor: group.color || "#06b6d4",
+                              backgroundImage: `linear-gradient(135deg, ${group.color || "#06b6d4"} 0%, ${group.color || "#06b6d4"}dd 100%)`,
+                            }}
+                            title={`${group.title} Overview (${totalTasks} Tasks, ${avgCompletion}% Complete - Click to toggle expand/collapse)`}
+                          >
+                            {/* Left Bracket End Cap */}
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-white/60 rounded-l-lg" />
+
+                            {/* Summary Fill Track */}
+                            {avgCompletion > 0 && (
+                              <div
+                                className="absolute left-0 top-0 bottom-0 bg-white/25 rounded-l-lg transition-all duration-300 pointer-events-none"
+                                style={{ width: `${avgCompletion}%` }}
+                              />
+                            )}
+
+                            {/* Phase Summary Label */}
+                            <span className="sticky left-2 z-10 text-[11px] font-extrabold text-white truncate drop-shadow-xs flex items-center gap-1.5 pointer-events-none">
+                              <span>{group.title} Overview</span>
+                              <span className="opacity-90 font-mono text-[10px]">({completedTasks}/{totalTasks} done • {avgCompletion}%)</span>
+                            </span>
+
+                            {/* Right Bracket End Cap */}
+                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/60 rounded-r-lg" />
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Timeline Bars for Cards & Sub-Cards */}
-                    <div className="flex flex-col">
+                    {!collapsedPhases[group.id] && (
+                      <div className="flex flex-col relative">
                       {parentCards.length === 0 ? (
-                        <div className="h-[44px] box-border border-b border-border/20 flex items-center px-4 relative pointer-events-none">
-                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted italic px-3 py-1 rounded-lg bg-surface-800/90 border border-border/70 shadow-xs">
-                            No tasks in group
+                        <div
+                          onMouseDown={(e) => handleRowGridMouseDown(e, group.title, `no-task-${group.id}`)}
+                          className="h-[44px] box-border border-b border-border/20 flex items-center px-4 relative cursor-pointer hover:bg-surface-900/10 transition-colors"
+                        >
+                          {dragCreateState && dragCreateState.isDragging && dragCreateState.rowId === `no-task-${group.id}` && (
+                            <div
+                              className="absolute h-8 top-1.5 rounded-xl bg-primary/30 border-2 border-primary border-dashed z-50 pointer-events-none shadow-lg shadow-primary/20 flex items-center justify-center text-xs font-extrabold text-primary backdrop-blur-xs animate-pulse"
+                              style={{
+                                left: `${Math.min(dragCreateState.startX, dragCreateState.currentX)}px`,
+                                width: `${Math.max(28, Math.abs(dragCreateState.currentX - dragCreateState.startX))}px`,
+                              }}
+                            >
+                              <span className="truncate px-2">+ Create Task in {group.title}</span>
+                            </div>
+                          )}
+                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted italic px-3 py-1 rounded-lg bg-surface-800/90 border border-border/70 shadow-xs pointer-events-none">
+                            No tasks in group (Drag across timeline to create)
                           </span>
                         </div>
                       ) : (
@@ -2196,18 +2508,20 @@ export default function GanttRoadmapView({
                                           </div>
 
                                           {/* External Right Label */}
-                                          <div className="flex items-center gap-1.5 pl-3 whitespace-nowrap z-10 pointer-events-auto">
-                                            {renderTimelineAssigneeAvatars(card, 100)}
-                                            <span
-                                              onClick={(e) => handleBarClick(e, card)}
-                                              className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer truncate max-w-[280px]"
-                                            >
-                                              {card.title}
-                                            </span>
-                                            <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase tracking-wider">
-                                              ◆ Milestone
-                                            </span>
-                                          </div>
+                                          {!isExporting && (
+                                            <div className="flex items-center gap-1.5 pl-3 whitespace-nowrap z-10 pointer-events-auto">
+                                              {renderTimelineAssigneeAvatars(card, 100)}
+                                              <span
+                                                onClick={(e) => handleBarClick(e, card)}
+                                                className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer whitespace-nowrap"
+                                              >
+                                                {card.title}
+                                              </span>
+                                              <span className="px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-black uppercase tracking-wider">
+                                                ◆ Milestone
+                                              </span>
+                                            </div>
+                                          )}
 
                                           {/* Right Source Connection Handle */}
                                           {canEditGantt && (
@@ -2297,25 +2611,27 @@ export default function GanttRoadmapView({
                                         </div>
 
                                         {/* External Label (Right of Task Bar) */}
-                                        <div className="absolute left-full top-0 bottom-0 flex items-center gap-1.5 pl-2.5 whitespace-nowrap z-20 pointer-events-auto">
-                                          {renderTimelineAssigneeAvatars(card, 100)}
-                                          {card.phase && (
-                                            <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded-md border border-cyan-500/20">
-                                              {card.phase}
+                                        {!isExporting && (
+                                          <div className="absolute left-full top-0 bottom-0 flex items-center gap-1.5 pl-2.5 whitespace-nowrap z-20 pointer-events-auto">
+                                            {renderTimelineAssigneeAvatars(card, 100)}
+                                            {card.phase && (
+                                              <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded-md border border-cyan-500/20">
+                                                {card.phase}
+                                              </span>
+                                            )}
+                                            <span
+                                              onClick={(e) => handleBarClick(e, card)}
+                                              className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer whitespace-nowrap"
+                                            >
+                                              {card.title}
                                             </span>
-                                          )}
-                                          <span
-                                            onClick={(e) => handleBarClick(e, card)}
-                                            className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer truncate max-w-[280px]"
-                                          >
-                                            {card.title}
-                                          </span>
-                                          {rate > 0 && (
-                                            <span className="text-[10px] font-extrabold text-cyan-400 bg-surface-900/90 border border-border px-1.5 py-0.2 rounded-full shadow-2xs">
-                                              {rate}%
-                                            </span>
-                                          )}
-                                        </div>
+                                            {rate > 0 && (
+                                              <span className="text-[10px] font-extrabold text-cyan-400 bg-surface-900/90 border border-border px-1.5 py-0.2 rounded-full shadow-2xs">
+                                                {rate}%
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
 
                                         {/* Right Date Handle */}
                                         {canDragDates && (timeScale === "day" || timeScale === "week") && (
@@ -2479,10 +2795,36 @@ export default function GanttRoadmapView({
                             );
                         })
                       )}
+                      {canEditGantt && !isExporting && (
+                        <div
+                          onMouseDown={(e) => handleRowGridMouseDown(e, group.title, `empty-${group.id}`)}
+                          onClick={() => setQuickTypePromptData({ isOpen: true, phase: group.title })}
+                          className="h-[38px] box-border border-b border-border/20 flex items-center px-4 relative cursor-pointer hover:bg-primary/5 transition-colors group select-none"
+                          title={`Click to add a task in ${group.title}`}
+                        >
+                          {dragCreateState && dragCreateState.isDragging && dragCreateState.rowId === `empty-${group.id}` && (
+                            <div
+                              className="absolute h-7 top-1 rounded-xl bg-primary/30 border-2 border-primary border-dashed z-50 pointer-events-none shadow-lg shadow-primary/20 flex items-center justify-center text-xs font-extrabold text-primary backdrop-blur-xs animate-pulse"
+                              style={{
+                                left: `${Math.min(dragCreateState.startX, dragCreateState.currentX)}px`,
+                                width: `${Math.max(28, Math.abs(dragCreateState.currentX - dragCreateState.startX))}px`,
+                              }}
+                            >
+                              <span className="truncate px-2">+ Create Task in {group.title}</span>
+                            </div>
+                          )}
+                          <span className="sticky left-4 z-10 text-xs font-bold text-primary/70 group-hover:text-primary flex items-center gap-1.5 transition-colors pointer-events-none">
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Task to {group.title}</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
+                    )}
                   </div>
                 );
               })}
+
               {/* SVG Task Dependency Connector Lines Overlay */}
               <GanttDependencyCanvas
                 cards={cards}
@@ -2745,6 +3087,144 @@ export default function GanttRoadmapView({
             <p className="text-xs text-text-muted">Preparing high-resolution chart. Please wait a moment.</p>
           </div>
         </div>
+      )}
+
+      {/* Quick Creation Item Type Selection Prompt Modal */}
+      {quickTypePromptData && (
+        <div className="fixed inset-0 bg-surface-950/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-surface-900 border border-border rounded-3xl shadow-2xl overflow-hidden p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-text-primary uppercase tracking-wider">
+                <Plus className="w-4 h-4 text-primary" />
+                <span>Select Item Type to Add</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickTypePromptData(null)}
+                className="p-1.5 rounded-xl text-text-muted hover:text-text-primary hover:bg-surface-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {quickTypePromptData.phase && (
+              <div className="px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs font-semibold text-text-secondary flex items-center justify-between">
+                <span className="text-text-muted">Target Phase / Sprint:</span>
+                <strong className="text-primary font-bold">{quickTypePromptData.phase}</strong>
+              </div>
+            )}
+
+            {quickTypePromptData.startDate && (
+              <div className="px-3 py-2 rounded-xl bg-surface-800/70 border border-border/60 text-[11px] font-semibold text-text-muted flex items-center justify-between">
+                <span>Date Schedule:</span>
+                <span className="font-mono text-text-primary font-bold">
+                  {quickTypePromptData.startDate} {quickTypePromptData.endDate ? `→ ${quickTypePromptData.endDate}` : "(Single Day)"}
+                </span>
+              </div>
+            )}
+
+            {/* 3 Item Type Selection Options */}
+            <div className="space-y-3">
+              {/* Option 1: Standard Task */}
+              <button
+                type="button"
+                onClick={() => {
+                  setGanttQuickCreateData({
+                    type: "task",
+                    phase: quickTypePromptData.phase || "",
+                    startDate: quickTypePromptData.startDate || "",
+                    endDate: quickTypePromptData.endDate || "",
+                  });
+                  setQuickTypePromptData(null);
+                }}
+                className="w-full p-4 rounded-2xl bg-surface-800 hover:bg-surface-750 border border-border hover:border-primary/60 transition-all flex items-start gap-3.5 text-left group cursor-pointer shadow-xs active:scale-98"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary group-hover:scale-110 transition-transform flex-shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-extrabold text-text-primary group-hover:text-primary transition-colors flex items-center justify-between">
+                    <span>Standard Task / Deliverable</span>
+                    <span className="text-[10px] text-primary font-bold">Standard →</span>
+                  </h4>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-snug">
+                    Regular task initiative with start date, deadline, and assigned members.
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 2: Milestone Checkpoint */}
+              <button
+                type="button"
+                onClick={() => {
+                  setGanttQuickCreateData({
+                    type: "milestone",
+                    phase: quickTypePromptData.phase || "",
+                    startDate: quickTypePromptData.startDate || new Date().toISOString().split("T")[0],
+                    endDate: "",
+                  });
+                  setQuickTypePromptData(null);
+                }}
+                className="w-full p-4 rounded-2xl bg-surface-800 hover:bg-surface-750 border border-border hover:border-primary/60 transition-all flex items-start gap-3.5 text-left group cursor-pointer shadow-xs active:scale-98"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary group-hover:scale-110 transition-transform flex-shrink-0">
+                  <span className="text-lg font-black">◆</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-extrabold text-text-primary group-hover:text-primary transition-colors flex items-center justify-between">
+                    <span>Milestone Checkpoint</span>
+                    <span className="text-[10px] text-primary font-bold">1-Day Gate →</span>
+                  </h4>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-snug">
+                    Single-day milestone checkpoint marker for release gates or major approvals.
+                  </p>
+                </div>
+              </button>
+
+              {/* Option 3: Sub-Task */}
+              <button
+                type="button"
+                onClick={() => {
+                  setGanttQuickCreateData({
+                    type: "subtask",
+                    phase: quickTypePromptData.phase || "",
+                    startDate: quickTypePromptData.startDate || "",
+                    endDate: quickTypePromptData.endDate || "",
+                  });
+                  setQuickTypePromptData(null);
+                }}
+                className="w-full p-4 rounded-2xl bg-surface-800 hover:bg-surface-750 border border-border hover:border-primary/60 transition-all flex items-start gap-3.5 text-left group cursor-pointer shadow-xs active:scale-98"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center text-primary group-hover:scale-110 transition-transform flex-shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-extrabold text-text-primary group-hover:text-primary transition-colors flex items-center justify-between">
+                    <span>Sub-Task</span>
+                    <span className="text-[10px] text-primary font-bold">Child Item →</span>
+                  </h4>
+                  <p className="text-[11px] text-text-muted mt-0.5 leading-snug">
+                    Child sub-task linked under a parent task item.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gantt Quick Create Modal (lightweight type-specific form) */}
+      {ganttQuickCreateData && onQuickCreateCard && (
+        <GanttQuickCreateModal
+          type={ganttQuickCreateData.type}
+          phase={ganttQuickCreateData.phase}
+          startDate={ganttQuickCreateData.startDate}
+          endDate={ganttQuickCreateData.endDate}
+          columns={columns}
+          allCards={cards}
+          onClose={() => setGanttQuickCreateData(null)}
+          onSubmit={onQuickCreateCard}
+        />
       )}
     </div>
   );

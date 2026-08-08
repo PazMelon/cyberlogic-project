@@ -16,6 +16,12 @@ interface NewSuggestionModalProps {
   defaultParentId?: number;
   boardType?: string;
   defaultColumnId?: number;
+  initialData?: {
+    phase?: string;
+    activity_date?: string;
+    activity_end_date?: string;
+    is_milestone?: boolean;
+  } | null;
   currentUserId?: number;
   userRole?: string;
   boardHostId?: number;
@@ -59,6 +65,7 @@ export default function NewSuggestionModal({
   defaultParentId,
   boardType = "activity",
   defaultColumnId,
+  initialData,
   currentUserId,
   userRole,
   boardHostId,
@@ -95,10 +102,13 @@ export default function NewSuggestionModal({
   };
 
   const [columnId, setColumnId] = useState<number | undefined>(initialColumnId);
-  const [phase, setPhase] = useState<string>(() => safeBoardPhases[0]?.name || "");
+  const [phase, setPhase] = useState<string>(() => initialData?.phase || safeBoardPhases[0]?.name || "");
   const [predecessorIds, setPredecessorIds] = useState<number[]>([]);
-  const [activityDate, setActivityDate] = useState("");
-  const [activityEndDate, setActivityEndDate] = useState("");
+  const [activityDate, setActivityDate] = useState(() => initialData?.activity_date || "");
+  const [activityEndDate, setActivityEndDate] = useState(() => initialData?.activity_end_date || "");
+  const [isMilestone, setIsMilestone] = useState<boolean>(() =>
+    initialData?.is_milestone || (!!initialData?.activity_date && initialData.activity_date === initialData.activity_end_date)
+  );
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [colorTag, setColorTag] = useState(COLOR_PRESETS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -233,7 +243,7 @@ export default function NewSuggestionModal({
   const showChecklist = boardType === "roadmap" || boardType === "activity";
   const showPhase = boardType === "roadmap";
   const showParentTask = boardType === "roadmap";
-  const showPredecessors = boardType === "roadmap";
+  const showPredecessors = true;
   const showDates = boardType === "roadmap" || boardType === "activity";
   const showAssignees = boardType === "roadmap" || boardType === "activity" || boardType === "brainstorming";
 
@@ -486,30 +496,71 @@ export default function NewSuggestionModal({
 
       {/* Target Dates Grid (Roadmap & Activity boards) */}
       {showDates && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-primary" />
-              {boardType === "roadmap" ? "Target Start Date" : "Start Date"}
-            </label>
-            <input
-              type="date"
-              value={activityDate}
-              onChange={(e) => setActivityDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
-            />
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                {boardType === "roadmap" ? "Target Start Date" : "Start Date"}
+              </label>
+              <input
+                type="date"
+                value={activityDate}
+                onChange={(e) => {
+                  setActivityDate(e.target.value);
+                  if (isMilestone) {
+                    setActivityEndDate(e.target.value);
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-primary" />
+                {boardType === "roadmap" ? "Target Deadline" : "End Date"}
+              </label>
+              <input
+                type="date"
+                value={activityEndDate}
+                disabled={isMilestone}
+                onChange={(e) => setActivityEndDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all disabled:opacity-50"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-primary" />
-              {boardType === "roadmap" ? "Target Deadline" : "End Date"}
-            </label>
+          {/* Milestone Checkpoint Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 font-bold text-sm">◆</span>
+              <div>
+                <span className="text-xs font-bold text-amber-200 uppercase tracking-wider block">Mark as Milestone Checkpoint</span>
+                <span className="text-[10px] text-text-muted">Single-day milestone checkpoint marker</span>
+              </div>
+            </div>
             <input
-              type="date"
-              value={activityEndDate}
-              onChange={(e) => setActivityEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:outline-none focus:border-primary transition-all"
+              type="checkbox"
+              checked={isMilestone}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setIsMilestone(checked);
+                if (checked) {
+                  if (activityDate) {
+                    setActivityEndDate(activityDate);
+                  }
+                } else {
+                  if (activityDate) {
+                    const d = new Date(activityDate);
+                    d.setDate(d.getDate() + 1);
+                    setActivityEndDate(d.toISOString().split("T")[0]);
+                  } else {
+                    setActivityEndDate("");
+                  }
+                }
+              }}
+              className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
             />
           </div>
         </div>

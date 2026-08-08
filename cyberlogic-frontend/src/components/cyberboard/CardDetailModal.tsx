@@ -683,7 +683,7 @@ export default function CardDetailModal({
               onShowToast={onShowToast}
             />
 
-            {/* Target Dates Section */}
+            {/* Target Dates & Milestone Badge Section */}
             {showDateSection && (
               <div className="p-3.5 sm:p-4 rounded-2xl bg-surface-800/40 border border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
                 <div className="flex items-center gap-2 text-text-primary font-bold uppercase tracking-wider">
@@ -691,6 +691,12 @@ export default function CardDetailModal({
                   <span>
                     {boardType === "roadmap" ? "Milestone Schedule" : "Event Schedule"}
                   </span>
+                  {card.activity_date && card.activity_end_date && card.activity_date === card.activity_end_date && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                      <span>◆</span>
+                      <span>Milestone</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 font-semibold text-text-primary flex-wrap">
@@ -707,6 +713,116 @@ export default function CardDetailModal({
                 </div>
               </div>
             )}
+
+            {/* Task Dependencies Section: Blocked By (Predecessors) & Blocks (Dependents) */}
+            {(() => {
+              const predIds = card.predecessor_ids && card.predecessor_ids.length > 0
+                ? card.predecessor_ids
+                : card.predecessor_id
+                ? [card.predecessor_id]
+                : [];
+
+              const predecessorCards = allBoardCards.filter((c) => predIds.includes(c.id));
+              const dependentCards = allBoardCards.filter(
+                (c) =>
+                  !c.is_archived &&
+                  ((c.predecessor_ids && c.predecessor_ids.includes(card.id)) || c.predecessor_id === card.id)
+              );
+
+              if (predecessorCards.length === 0 && dependentCards.length === 0 && !canEditCard) return null;
+
+              return (
+                <div className="p-4 rounded-2xl bg-surface-900/80 border border-border/80 space-y-3.5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-extrabold text-text-primary uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-cyan-400" />
+                      <span>Task Dependencies & Relationships</span>
+                    </h4>
+                    {canEditCard && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(true)}
+                        className="text-[11px] font-bold text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                      >
+                        Edit Links
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {/* Blocked By (Predecessor Tasks) */}
+                    <div className="p-3 rounded-xl bg-surface-800/60 border border-border/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-rose-400 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          <span>Blocked By ({predecessorCards.length})</span>
+                        </span>
+                      </div>
+                      {predecessorCards.length === 0 ? (
+                        <p className="text-[11px] text-text-muted italic">No predecessor blockers</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {predecessorCards.map((pred) => (
+                            <div
+                              key={`detail-pred-${pred.id}`}
+                              onClick={() => {
+                                onClose();
+                                setTimeout(() => {
+                                  if (onNavigateToSubtask) onNavigateToSubtask(pred);
+                                }, 100);
+                              }}
+                              className="p-2 rounded-lg bg-surface-900 border border-border/60 flex items-center justify-between gap-2 hover:border-cyan-500/50 cursor-pointer transition-all group"
+                            >
+                              <span className="font-semibold text-text-primary group-hover:text-cyan-400 truncate">
+                                {pred.title}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded bg-surface-800 text-[9px] font-bold text-text-muted">
+                                #{pred.id}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Blocks (Dependent Tasks) */}
+                    <div className="p-3 rounded-xl bg-surface-800/60 border border-border/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-amber-400 uppercase tracking-wider text-[10px] flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span>Blocks ({dependentCards.length})</span>
+                        </span>
+                      </div>
+                      {dependentCards.length === 0 ? (
+                        <p className="text-[11px] text-text-muted italic">No dependent tasks blocked by this card</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {dependentCards.map((dep) => (
+                            <div
+                              key={`detail-dep-${dep.id}`}
+                              onClick={() => {
+                                onClose();
+                                setTimeout(() => {
+                                  if (onNavigateToSubtask) onNavigateToSubtask(dep);
+                                }, 100);
+                              }}
+                              className="p-2 rounded-lg bg-surface-900 border border-border/60 flex items-center justify-between gap-2 hover:border-cyan-500/50 cursor-pointer transition-all group"
+                            >
+                              <span className="font-semibold text-text-primary group-hover:text-cyan-400 truncate">
+                                {dep.title}
+                              </span>
+                              <span className="px-1.5 py-0.2 rounded bg-surface-800 text-[9px] font-bold text-text-muted">
+                                #{dep.id}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Voting Section */}
             <CardVotingSection
