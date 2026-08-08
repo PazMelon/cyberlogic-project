@@ -11,6 +11,7 @@ interface SearchableTaskPickerProps {
   emptyLabel?: string;
   disabled?: boolean;
   isMulti?: boolean;
+  dropUp?: boolean;
 }
 
 export default function SearchableTaskPicker({
@@ -22,6 +23,7 @@ export default function SearchableTaskPicker({
   emptyLabel = "No Predecessors Selected",
   disabled = false,
   isMulti = false,
+  dropUp = false,
 }: SearchableTaskPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -141,7 +143,11 @@ export default function SearchableTaskPicker({
 
       {/* Searchable Dropdown Panel */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-surface-900 border border-border rounded-2xl shadow-2xl overflow-hidden py-2 max-h-64 flex flex-col animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className={`absolute left-0 right-0 z-50 bg-surface-900 border border-border rounded-2xl shadow-2xl overflow-hidden py-2 max-h-64 flex flex-col animate-in fade-in zoom-in-95 duration-150 ${
+            dropUp ? "bottom-full mb-2" : "top-full mt-1"
+          }`}
+        >
           {/* Search Input Bar */}
           <div className="px-3 pb-2 border-b border-border/50 flex-shrink-0">
             <div className="relative">

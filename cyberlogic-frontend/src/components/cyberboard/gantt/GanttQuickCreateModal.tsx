@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { X, FileText, Layers, Calendar, Tag, AlertCircle } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn } from "../../../utils/api";
 import SearchableTaskPicker from "../SearchableTaskPicker";
@@ -69,10 +69,20 @@ export default function GanttQuickCreateModal({
     return endDate || "";
   });
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
-  const [parentId, setParentId] = useState<number | null>(null);
   const [columnId, setColumnId] = useState<number>(columns[0]?.id || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const availableParentCards = useMemo(() => {
+    const topLevelCards = allCards.filter((c) => !c.parent_id && !c.is_archived);
+    if (!phase) return topLevelCards;
+    const phaseMatch = topLevelCards.filter(
+      (c) => (c.phase || "").trim().toLowerCase() === phase.trim().toLowerCase()
+    );
+    return phaseMatch.length > 0 ? phaseMatch : topLevelCards;
+  }, [allCards, phase]);
+
+  const [parentId, setParentId] = useState<number | null>(null);
 
   useEffect(() => {
     setTimeout(() => titleRef.current?.focus(), 100);
@@ -87,12 +97,15 @@ export default function GanttQuickCreateModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const availableParentCards = allCards.filter((c) => !c.parent_id);
-
   const handleSubmit = async () => {
     const trimmed = title.trim();
     if (!trimmed) {
       setError("Title is required.");
+      return;
+    }
+
+    if (type === "subtask" && !parentId) {
+      setError("Please select a parent task for the sub-task.");
       return;
     }
 
@@ -134,9 +147,9 @@ export default function GanttQuickCreateModal({
       className="fixed inset-0 bg-surface-950/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4 animate-in fade-in duration-150"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg bg-surface-900 border border-border rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="w-full max-w-lg bg-surface-900 border border-border rounded-3xl shadow-2xl relative animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/60 rounded-t-3xl bg-surface-900">
           <div className="flex items-center gap-3">
             <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${meta.accent}`}>
               {meta.icon}
@@ -273,8 +286,9 @@ export default function GanttQuickCreateModal({
                 cards={availableParentCards}
                 value={parentId}
                 onChange={(val) => setParentId(typeof val === "number" ? val : null)}
-                placeholder="Search for parent task..."
-                emptyLabel="Select Parent Task (Optional)"
+                placeholder="Search for parent task in phase..."
+                emptyLabel="Select Parent Task (Required)"
+                dropUp={true}
               />
             </div>
           )}
@@ -292,7 +306,7 @@ export default function GanttQuickCreateModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || !title.trim()}
+            disabled={isSubmitting || !title.trim() || (type === "subtask" && !parentId)}
             className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed ${
               type === "milestone"
                 ? "bg-amber-500 text-surface-950 hover:bg-amber-400 shadow-amber-500/20"

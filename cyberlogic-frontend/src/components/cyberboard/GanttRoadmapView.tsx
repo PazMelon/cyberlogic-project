@@ -1069,22 +1069,35 @@ export default function GanttRoadmapView({
         }
       });
 
+      const getCardPos = (c: CyberboardCard) => {
+        if (customCardPositions[c.id] !== undefined) return customCardPositions[c.id];
+        return 99999999;
+      };
+
       const resultGroups = Array.from(phaseMap.values()).filter((g) => g.cards.length > 0 || g.id !== "phase-unphased");
       resultGroups.forEach((g) => {
         g.cards.sort((a, b) => {
-          const posA = customCardPositions[a.id] ?? a.position ?? 0;
-          const posB = customCardPositions[b.id] ?? b.position ?? 0;
-          return posA - posB;
+          const posA = getCardPos(a);
+          const posB = getCardPos(b);
+          if (posA !== posB) return posA - posB;
+          return a.id - b.id;
         });
       });
       return resultGroups;
     } else if (groupBy === "column") {
+      const getCardPos = (c: CyberboardCard) => {
+        if (customCardPositions[c.id] !== undefined) return customCardPositions[c.id];
+        if (typeof c.position === "number") return c.position;
+        return 99999999;
+      };
+
       return columns.map((col, idx) => {
         const colCards = activeCards.filter((c) => c.column_id === col.id);
         colCards.sort((a, b) => {
-          const posA = customCardPositions[a.id] ?? a.position ?? 0;
-          const posB = customCardPositions[b.id] ?? b.position ?? 0;
-          return posA - posB;
+          const posA = getCardPos(a);
+          const posB = getCardPos(b);
+          if (posA !== posB) return posA - posB;
+          return a.id - b.id;
         });
         return {
           id: `col-${col.id}`,
@@ -1095,6 +1108,11 @@ export default function GanttRoadmapView({
         };
       });
     } else if (groupBy === "priority") {
+      const getCardPos = (c: CyberboardCard) => {
+        if (customCardPositions[c.id] !== undefined) return customCardPositions[c.id];
+        return 99999999;
+      };
+
       const priorities: Array<"high" | "medium" | "low"> = ["high", "medium", "low"];
       const priorityColors = {
         high: "#f43f5e",
@@ -1104,9 +1122,10 @@ export default function GanttRoadmapView({
       return priorities.map((prio) => {
         const prioCards = activeCards.filter((c) => c.priority === prio);
         prioCards.sort((a, b) => {
-          const posA = customCardPositions[a.id] ?? a.position ?? 0;
-          const posB = customCardPositions[b.id] ?? b.position ?? 0;
-          return posA - posB;
+          const posA = getCardPos(a);
+          const posB = getCardPos(b);
+          if (posA !== posB) return posA - posB;
+          return a.id - b.id;
         });
         return {
           id: `prio-${prio}`,
@@ -1118,6 +1137,11 @@ export default function GanttRoadmapView({
       });
     } else {
       // Group by assignee
+      const getCardPos = (c: CyberboardCard) => {
+        if (customCardPositions[c.id] !== undefined) return customCardPositions[c.id];
+        return 99999999;
+      };
+
       const assigneeMap = new Map<string, { id: string; columnId?: number; title: string; color: string; cards: CyberboardCard[]; avatar?: string }>();
 
       assigneeMap.set("unassigned", {
@@ -1172,9 +1196,10 @@ export default function GanttRoadmapView({
       const rawGroups = Array.from(assigneeMap.values()).filter((g) => g.cards.length > 0 || g.id !== "assignee-unassigned");
       rawGroups.forEach((g) => {
         g.cards.sort((a, b) => {
-          const posA = customCardPositions[a.id] ?? a.position ?? 0;
-          const posB = customCardPositions[b.id] ?? b.position ?? 0;
-          return posA - posB;
+          const posA = getCardPos(a);
+          const posB = getCardPos(b);
+          if (posA !== posB) return posA - posB;
+          return a.id - b.id;
         });
       });
       return rawGroups;
@@ -1559,19 +1584,18 @@ export default function GanttRoadmapView({
   }, [resizingState, gridMinWidth, startDateStr, endDateStr, selectedYear, customCardDates, onUpdateCardDate]);
 
   const pxToDateStr = useCallback((px: number, totalWidth: number) => {
-    const sDate = new Date(startDateStr || `${selectedYear}-01-01`);
-    const eDate = new Date(endDateStr || `${selectedYear}-12-31`);
-    const rangeStartMs = isNaN(sDate.getTime())
-      ? new Date(selectedYear, 0, 1).getTime()
-      : new Date(sDate.getFullYear(), sDate.getMonth(), sDate.getDate()).getTime();
-    const rangeEndMs = isNaN(eDate.getTime())
-      ? new Date(selectedYear, 11, 31).getTime()
-      : new Date(eDate.getFullYear(), eDate.getMonth(), eDate.getDate()).getTime();
+    const sDate = parseLocalDate(startDateStr, selectedYear, false);
+    const eDate = parseLocalDate(endDateStr, selectedYear, true);
+    const rangeStartMs = sDate.getTime();
+    const rangeEndMs = eDate.getTime();
     const totalMs = Math.max(1, rangeEndMs - rangeStartMs);
     const pct = Math.max(0, Math.min(1, px / Math.max(1, totalWidth)));
     const dateMs = rangeStartMs + pct * totalMs;
     const d = new Date(dateMs);
-    return d.toISOString().split("T")[0];
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }, [startDateStr, endDateStr, selectedYear]);
 
   useEffect(() => {
@@ -2426,7 +2450,8 @@ export default function GanttRoadmapView({
                       {parentCards.length === 0 ? (
                         <div
                           onMouseDown={(e) => handleRowGridMouseDown(e, group.title, `no-task-${group.id}`)}
-                          className="h-[44px] box-border border-b border-border/20 flex items-center px-4 relative cursor-pointer hover:bg-surface-900/10 transition-colors"
+                          className="h-[44px] box-border border-b border-dashed border-border/30 flex items-center px-4 relative cursor-crosshair hover:bg-primary/10 transition-all group/addrow select-none"
+                          title={`Click or drag across timeline to add a task in ${group.title}`}
                         >
                           {dragCreateState && dragCreateState.isDragging && dragCreateState.rowId === `no-task-${group.id}` && (
                             <div
@@ -2439,8 +2464,9 @@ export default function GanttRoadmapView({
                               <span className="truncate px-2">+ Create Task in {group.title}</span>
                             </div>
                           )}
-                          <span className="sticky left-4 z-10 text-xs font-semibold text-text-muted italic px-3 py-1 rounded-lg bg-surface-800/90 border border-border/70 shadow-xs pointer-events-none">
-                            No tasks in group (Drag across timeline to create)
+                          <span className="sticky left-4 z-10 text-xs font-extrabold text-primary/80 group-hover/addrow:text-primary px-3 py-1 rounded-xl bg-surface-900/90 border border-primary/30 shadow-xs flex items-center gap-2 pointer-events-none group-hover/addrow:scale-105 transition-all">
+                            <Plus className="w-3.5 h-3.5 text-primary" />
+                            <span>No tasks in group — Click or drag to create</span>
                           </span>
                         </div>
                       ) : (
@@ -2798,9 +2824,8 @@ export default function GanttRoadmapView({
                       {canEditGantt && !isExporting && (
                         <div
                           onMouseDown={(e) => handleRowGridMouseDown(e, group.title, `empty-${group.id}`)}
-                          onClick={() => setQuickTypePromptData({ isOpen: true, phase: group.title })}
-                          className="h-[38px] box-border border-b border-border/20 flex items-center px-4 relative cursor-pointer hover:bg-primary/5 transition-colors group select-none"
-                          title={`Click to add a task in ${group.title}`}
+                          className="h-[38px] box-border border-b border-dashed border-transparent hover:border-primary/40 flex items-center px-4 relative cursor-crosshair hover:bg-primary/10 transition-all group/addrow select-none"
+                          title={`Click or drag across timeline to add a task in ${group.title}`}
                         >
                           {dragCreateState && dragCreateState.isDragging && dragCreateState.rowId === `empty-${group.id}` && (
                             <div
@@ -2813,9 +2838,12 @@ export default function GanttRoadmapView({
                               <span className="truncate px-2">+ Create Task in {group.title}</span>
                             </div>
                           )}
-                          <span className="sticky left-4 z-10 text-xs font-bold text-primary/70 group-hover:text-primary flex items-center gap-1.5 transition-colors pointer-events-none">
-                            <Plus className="w-3.5 h-3.5" />
+                          <span className="sticky left-4 z-10 text-xs font-extrabold text-primary/75 group-hover/addrow:text-primary group-hover/addrow:scale-105 flex items-center gap-2 px-2.5 py-1 rounded-xl bg-primary/10 group-hover/addrow:bg-primary/25 border border-primary/25 group-hover/addrow:border-primary/60 transition-all pointer-events-none shadow-xs">
+                            <Plus className="w-3.5 h-3.5 text-primary" />
                             <span>Add Task to {group.title}</span>
+                          </span>
+                          <span className="sticky left-64 opacity-0 group-hover/addrow:opacity-100 text-[10px] font-mono font-bold text-primary bg-surface-900/90 px-2 py-0.5 rounded-lg border border-primary/30 transition-opacity pointer-events-none ml-4 hidden sm:inline-flex items-center gap-1 shadow-xs">
+                            <span>+ Click or Drag to set dates</span>
                           </span>
                         </div>
                       )}
