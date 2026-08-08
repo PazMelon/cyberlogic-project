@@ -558,39 +558,84 @@ export default function GanttRoadmapView({
     return () => observer.disconnect();
   }, []);
 
-  // Drag-to-Link global mousemove and mouseup listeners
+  // Drag-to-Link global mousemove and mouseup listeners with edge-scrolling
   const linkingStateRef = useRef(linkingState);
   linkingStateRef.current = linkingState;
+  const latestMousePosRef = useRef<{ clientX: number; clientY: number } | null>(null);
 
   useEffect(() => {
     if (!linkingState) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!gridTimelineRef.current || !linkingStateRef.current) return;
-      const rowsEl = gridTimelineRef.current.querySelector(".flex-1.relative.z-10") || gridTimelineRef.current;
-      const rowsRect = rowsEl.getBoundingClientRect();
-      const currentX = e.clientX - rowsRect.left;
-      const currentY = e.clientY - rowsRect.top;
+    let animFrameId: number;
 
-      let hoveredTargetId: number | null = null;
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const cardIdAttr = el.getAttribute("data-gantt-card-id");
-        if (cardIdAttr) {
-          const id = Number(cardIdAttr);
-          if (id && id !== linkingStateRef.current.fromCardId) {
-            hoveredTargetId = id;
-            break;
-          }
-        }
+    const updateLinkAndEdgeScroll = () => {
+      if (!gridTimelineRef.current || !linkingStateRef.current) {
+        animFrameId = requestAnimationFrame(updateLinkAndEdgeScroll);
+        return;
       }
 
-      setLinkingState((prev) =>
-        prev ? { ...prev, currentX, currentY, targetCardId: hoveredTargetId } : null
-      );
+      if (latestMousePosRef.current) {
+        const { clientX, clientY } = latestMousePosRef.current;
+        const gridEl = gridTimelineRef.current;
+        const containerRect = gridEl.getBoundingClientRect();
+
+        // Edge scroll detection zone (60px from container edges)
+        const edgeMargin = 60;
+        let dx = 0;
+        let dy = 0;
+
+        if (clientX > containerRect.right - edgeMargin) {
+          dx = Math.min(24, Math.max(4, (clientX - (containerRect.right - edgeMargin)) * 0.35));
+        } else if (clientX < containerRect.left + edgeMargin) {
+          dx = -Math.min(24, Math.max(4, (containerRect.left + edgeMargin - clientX) * 0.35));
+        }
+
+        if (clientY > containerRect.bottom - edgeMargin) {
+          dy = Math.min(24, Math.max(4, (clientY - (containerRect.bottom - edgeMargin)) * 0.35));
+        } else if (clientY < containerRect.top + edgeMargin) {
+          dy = -Math.min(24, Math.max(4, (containerRect.top + edgeMargin - clientY) * 0.35));
+        }
+
+        if (dx !== 0 || dy !== 0) {
+          gridEl.scrollLeft += dx;
+          gridEl.scrollTop += dy;
+          if (leftScrollRef.current) {
+            leftScrollRef.current.scrollTop = gridEl.scrollTop;
+          }
+        }
+
+        const rowsEl = gridEl.querySelector(".flex-1.relative.z-10") || gridEl;
+        const rowsRect = rowsEl.getBoundingClientRect();
+        const currentX = clientX - rowsRect.left;
+        const currentY = clientY - rowsRect.top;
+
+        let hoveredTargetId: number | null = null;
+        const elements = document.elementsFromPoint(clientX, clientY);
+        for (const el of elements) {
+          const cardIdAttr = el.getAttribute("data-gantt-card-id");
+          if (cardIdAttr) {
+            const id = Number(cardIdAttr);
+            if (id && id !== linkingStateRef.current.fromCardId) {
+              hoveredTargetId = id;
+              break;
+            }
+          }
+        }
+
+        setLinkingState((prev) =>
+          prev ? { ...prev, currentX, currentY, targetCardId: hoveredTargetId } : null
+        );
+      }
+
+      animFrameId = requestAnimationFrame(updateLinkAndEdgeScroll);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      latestMousePosRef.current = { clientX: e.clientX, clientY: e.clientY };
     };
 
     const handleMouseUp = async () => {
+      cancelAnimationFrame(animFrameId);
       const activeState = linkingStateRef.current;
       if (activeState && activeState.targetCardId) {
         const targetId = activeState.targetCardId;
@@ -616,12 +661,15 @@ export default function GanttRoadmapView({
           }
         }
       }
+      latestMousePosRef.current = null;
       setLinkingState(null);
     };
 
+    animFrameId = requestAnimationFrame(updateLinkAndEdgeScroll);
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => {
+      cancelAnimationFrame(animFrameId);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
