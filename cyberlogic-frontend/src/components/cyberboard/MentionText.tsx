@@ -1,7 +1,3 @@
-import React from "react";
-import { Link } from "react-router";
-import { Shield, Users, GraduationCap } from "lucide-react";
-
 interface MentionTextProps {
   content: string;
   className?: string;
@@ -10,72 +6,36 @@ interface MentionTextProps {
 export default function MentionText({ content, className = "" }: MentionTextProps) {
   if (!content) return null;
 
-  // Split content by whitespace or mentions
-  const tokens = content.split(/(\s+)/);
+  // Check if content is HTML from WYSIWYG editor
+  const isHtml =
+    content.includes("<p>") ||
+    content.includes("<strong>") ||
+    content.includes("<b>") ||
+    content.includes("<em>") ||
+    content.includes("<i>") ||
+    content.includes("<u>") ||
+    content.includes("<del>") ||
+    content.includes("<code>") ||
+    content.includes("<h3>") ||
+    content.includes("<ul>") ||
+    content.includes("<li>") ||
+    content.includes("<blockquote>") ||
+    content.includes("<pre>");
+
+  const htmlContent = isHtml
+    ? content
+    : content
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/~~(.*?)~~/g, "<del>$1</del>")
+        .replace(/<u>(.*?)<\/u>/g, "<u>$1</u>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\n/g, "<br>");
 
   return (
-    <span className={`inline-wrap ${className}`}>
-      {tokens.map((token, idx) => {
-        // Group Mentions
-        if (token === "@officers") {
-          return (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1 bg-rose-500/15 text-rose-400 font-bold px-1.5 py-0.5 rounded-md border border-rose-500/30 text-xs mx-0.5"
-              title="Admins & Officers Mention"
-            >
-              <Shield className="w-3 h-3 text-rose-400" />
-              <span>@officers</span>
-            </span>
-          );
-        }
-
-        if (token === "@everyone" || token === "@members") {
-          return (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1 bg-cyan-500/15 text-cyan-400 font-bold px-1.5 py-0.5 rounded-md border border-cyan-500/30 text-xs mx-0.5"
-              title={token === "@members" ? "All Board Members Mention" : "Everyone Mention"}
-            >
-              <Users className="w-3 h-3 text-cyan-400" />
-              <span>{token}</span>
-            </span>
-          );
-        }
-
-        if (
-          ["@firstyear", "@secondyear", "@thirdyear", "@fourthyear", "@fifthyear", "@graduate"].includes(
-            token.toLowerCase()
-          )
-        ) {
-          return (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1 bg-purple-500/15 text-purple-400 font-bold px-1.5 py-0.5 rounded-md border border-purple-500/30 text-xs mx-0.5"
-            >
-              <GraduationCap className="w-3 h-3 text-purple-400" />
-              <span>{token}</span>
-            </span>
-          );
-        }
-
-        // Individual user mention: @username
-        if (/^@[a-zA-Z0-9_\-\.]+$/.test(token)) {
-          const username = token.substring(1);
-          return (
-            <Link
-              key={idx}
-              to={`/app/u/${username}`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center text-primary font-semibold hover:underline bg-primary/10 px-1.5 py-0.5 rounded-md border border-primary/20 text-xs mx-0.5 transition-colors"
-            >
-              {token}
-            </Link>
-          );
-        }
-
-        return <React.Fragment key={idx}>{token}</React.Fragment>;
-      })}
-    </span>
+    <span
+      className={`inline-wrap prose prose-invert max-w-none text-xs sm:text-sm text-text-primary leading-relaxed [&_h3]:text-base [&_h3]:font-black [&_h3]:text-primary [&_h3]:my-1 [&_blockquote]:border-l-2 [&_blockquote]:border-cyan-400 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-text-muted [&_pre]:bg-surface-950 [&_pre]:p-2.5 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-cyan-400 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 ${className}`}
+      dangerouslySetInnerHTML={{ __html: htmlContent }}
+    />
   );
 }

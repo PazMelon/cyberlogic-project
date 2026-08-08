@@ -138,10 +138,12 @@ export const TaskChecklistSection: React.FC<TaskChecklistSectionProps> = ({
         )}
       </div>
 
-      {/* Checklist Items List */}
+      {/* Checklist Items List (Unchecked on top, checked on bottom) */}
       {checklist.length > 0 && (
         <div className="space-y-1.5 pt-1">
-          {checklist.map((item, idx) => (
+          {[...checklist]
+            .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1))
+            .map((item, idx) => (
             <div
               key={item.id}
               draggable={canEdit}

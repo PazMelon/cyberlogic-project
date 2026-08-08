@@ -1,6 +1,7 @@
 import React from "react";
 import type { CyberboardCard, CyberboardColumn } from "../../../utils/api";
 import PhaseBadge from "../ui/PhaseBadge";
+import { ExternalLink } from "lucide-react";
 import InlineSubtaskCreator from "./InlineSubtaskCreator";
 
 interface CardSubtasksListProps {
@@ -9,6 +10,7 @@ interface CardSubtasksListProps {
   columns: CyberboardColumn[];
   safeBoardPhases: Array<{ name: string; color: string }>;
   canEditCard: boolean;
+  onNavigateToSubtask?: (subtask: CyberboardCard) => void;
   onShowToast?: (text: string, type?: "error" | "info" | "success") => void;
 }
 
@@ -18,6 +20,7 @@ export const CardSubtasksList: React.FC<CardSubtasksListProps> = ({
   columns = [],
   safeBoardPhases = [],
   canEditCard,
+  onNavigateToSubtask,
   onShowToast,
 }) => {
   const liveSubcards = (allBoardCards || []).filter(
@@ -53,20 +56,20 @@ export const CardSubtasksList: React.FC<CardSubtasksListProps> = ({
             return (
               <div
                 key={subCard.id}
-                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
+                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all group/sub ${
                   isSubColDone
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                     : "bg-surface-800 border-border/40 text-text-primary hover:border-primary/40"
                 }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span
                     className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                       isSubColDone ? "bg-emerald-400 ring-2 ring-emerald-400/30" : "bg-primary"
                     }`}
                   />
                   <span
-                    className={`font-medium ${
+                    className={`font-medium truncate ${
                       isSubColDone ? "text-emerald-300 line-through" : "text-text-primary"
                     }`}
                   >
@@ -74,7 +77,7 @@ export const CardSubtasksList: React.FC<CardSubtasksListProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {subCard.phase && (
                     <PhaseBadge phase={subCard.phase} boardPhases={safeBoardPhases} size="sm" />
                   )}
@@ -96,6 +99,17 @@ export const CardSubtasksList: React.FC<CardSubtasksListProps> = ({
                       @{subCard.assigned_user.username || subCard.assigned_user.first_name}
                     </span>
                   )}
+
+                  {onNavigateToSubtask && (
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToSubtask(subCard)}
+                      className="p-1 rounded-md hover:bg-surface-700 text-text-muted hover:text-primary transition-colors cursor-pointer opacity-0 group-hover/sub:opacity-100"
+                      title="Open Subtask Details"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -109,6 +123,7 @@ export const CardSubtasksList: React.FC<CardSubtasksListProps> = ({
           parentCard={card}
           columnId={card.column_id}
           boardPhases={safeBoardPhases}
+          onNavigateToSubtask={onNavigateToSubtask}
           onShowToast={onShowToast}
         />
       )}

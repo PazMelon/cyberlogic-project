@@ -1646,6 +1646,9 @@ export default function CyberBoardView() {
           onDeleteCard={handleDeleteCard}
           columns={columns}
           onUpdateCard={handleUpdateCard}
+          onNavigateToSubtask={(subtask) => {
+            setSelectedCard(subtask);
+          }}
           onShowToast={(msg, type) => showToast(msg, type)}
         />
         );

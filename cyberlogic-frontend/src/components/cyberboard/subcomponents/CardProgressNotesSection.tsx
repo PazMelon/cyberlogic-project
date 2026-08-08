@@ -143,7 +143,7 @@ export const CardProgressNotesSection: React.FC<CardProgressNotesSectionProps> =
               No progress notes or checklist updates logged yet.
             </div>
           ) : (
-            dbNotes.map((note) => (
+            [...dbNotes].reverse().map((note) => (
               <div
                 key={note.id}
                 className="p-3.5 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-1.5 shadow-xs transition-all hover:bg-purple-500/15"

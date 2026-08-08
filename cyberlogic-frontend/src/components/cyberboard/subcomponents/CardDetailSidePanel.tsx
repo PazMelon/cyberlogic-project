@@ -96,8 +96,8 @@ export const CardDetailSidePanel: React.FC<CardDetailSidePanelProps> = ({
 
   return (
     <div className="flex h-full flex-shrink-0 relative">
-      {/* Middle ClickUp Vertical Side Buttons Toolbar (Divider boundary) */}
-      <div className="w-10 sm:w-11 bg-surface-950/90 border-l border-r border-border/80 flex flex-col items-center py-2.5 gap-2.5 flex-shrink-0 z-10 select-none">
+      {/* Middle ClickUp Vertical Side Buttons Toolbar (Hidden on mobile, visible on sm/md/lg viewports) */}
+      <div className="hidden sm:flex w-10 sm:w-11 bg-surface-950/90 border-l border-r border-border/80 flex-col items-center py-2.5 gap-2.5 flex-shrink-0 z-10 select-none">
         {/* Top Button: Expand / Collapse Toggle */}
         <button
           type="button"
@@ -192,7 +192,7 @@ export const CardDetailSidePanel: React.FC<CardDetailSidePanelProps> = ({
       {/* Expandable Right Split Drawer View */}
       <div
         className={`bg-surface-900/95 transition-all duration-300 ease-in-out flex flex-col h-full overflow-hidden ${
-          isPanelOpen ? "w-[380px] sm:w-[410px] lg:w-[440px] opacity-100 border-r border-border/70" : "w-0 opacity-0 pointer-events-none"
+          isPanelOpen ? "w-full sm:w-[380px] md:w-[410px] lg:w-[440px] opacity-100 border-r border-border/70" : "w-0 opacity-0 pointer-events-none"
         }`}
       >
         {/* Drawer Content Views */}

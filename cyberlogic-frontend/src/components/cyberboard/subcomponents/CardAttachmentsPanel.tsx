@@ -17,6 +17,7 @@ interface CardAttachmentsPanelProps {
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onShowAddLinkModal: () => void;
   onRemoveAttachment: (id: string) => void;
+  hideUploadButtons?: boolean;
 }
 
 export const CardAttachmentsPanel: React.FC<CardAttachmentsPanelProps> = ({
@@ -32,9 +33,14 @@ export const CardAttachmentsPanel: React.FC<CardAttachmentsPanelProps> = ({
   onImageUpload,
   onShowAddLinkModal,
   onRemoveAttachment,
+  hideUploadButtons = false,
 }) => {
   const imageAttachments = attachments.filter((att) => att.type === "image");
   const linkAttachments = attachments.filter((att) => att.type !== "image");
+
+  if (hideUploadButtons && attachments.length === 0) {
+    return null;
+  }
 
   return (
     <div className="space-y-3 pt-2">
@@ -44,7 +50,7 @@ export const CardAttachmentsPanel: React.FC<CardAttachmentsPanelProps> = ({
           <span>Attachments ({attachments.length})</span>
         </h4>
 
-        {canEditCard && (
+        {!hideUploadButtons && canEditCard && (
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
             <label
               className={`px-3 py-2 rounded-xl bg-surface-800 hover:bg-surface-750 text-xs font-bold text-text-primary border border-border flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 shadow-xs ${

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { X, Sparkles, Layers, Calendar, Tag, AlertCircle, Clock, CheckSquare, Plus, Trash2 } from "lucide-react";
 import type { CyberboardColumn, CyberboardCard, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
-import MentionTextArea from "../ui/MentionTextArea";
 import SearchableAssigneePicker from "./SearchableAssigneePicker";
 import SearchableTaskPicker from "./SearchableTaskPicker";
+import DescriptionRichEditor from "./subcomponents/DescriptionRichEditor";
 
 interface NewSuggestionModalProps {
   boardId: number;
@@ -267,13 +267,10 @@ export default function NewSuggestionModal({
         <label className="text-xs font-bold text-text-primary uppercase tracking-wider block">
           {copy.descLabel}
         </label>
-        <MentionTextArea
+        <DescriptionRichEditor
           value={description}
-          onValueChange={setDescription}
+          onChange={setDescription}
           placeholder={copy.descPlaceholder}
-          maxLength={2000}
-          rows={3}
-          className="w-full px-4 py-2.5 rounded-xl bg-surface-800 border border-border text-sm text-text-primary placeholder:text-text-muted/70 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all font-medium resize-y min-h-[90px] leading-relaxed shadow-xs"
         />
       </div>
 
@@ -295,7 +292,9 @@ export default function NewSuggestionModal({
           {/* Existing Checklist Items List */}
           {checklist.length > 0 && (
             <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
-              {checklist.map((item) => (
+              {[...checklist]
+                .sort((a, b) => (a.completed === b.completed ? 0 : a.completed ? 1 : -1))
+                .map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-2 p-2 rounded-xl bg-surface-800/80 border border-border/60 text-xs">
                   <span className="font-medium text-text-primary truncate">{item.text}</span>
                   <button

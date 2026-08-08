@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   X, Calendar, Trash2, History, Edit3, Check, Link as LinkIcon, Image as ImageIcon,
-  Plus, ChevronLeft, ChevronRight, Download, AlertCircle, Clock
+  Plus, ChevronLeft, ChevronRight, Download, AlertCircle, Clock, MessageSquare, BarChart2, FileText
 } from "lucide-react";
 import type { CyberboardCard, CyberboardColumn, CyberboardAttachment, CyberboardChecklistItem } from "../../utils/api";
 import { uploadCyberboardAttachment } from "../../utils/api";
@@ -11,6 +11,9 @@ import MentionText from "./MentionText";
 import CardAuditLogDrawer from "./subcomponents/CardAuditLogDrawer";
 import CardEditForm from "./subcomponents/CardEditForm";
 import CardDetailSidePanel from "./subcomponents/CardDetailSidePanel";
+import CardCommentsSection from "./subcomponents/CardCommentsSection";
+import CardProgressNotesSection from "./subcomponents/CardProgressNotesSection";
+import CardToolsLinksSection from "./subcomponents/CardToolsLinksSection";
 import CardVotingSection from "./subcomponents/CardVotingSection";
 import CardSubtasksList from "./subcomponents/CardSubtasksList";
 import TaskChecklistSection from "./subcomponents/TaskChecklistSection";
@@ -40,6 +43,7 @@ interface CardDetailModalProps {
   onDeleteCard: (cardId: number) => void;
   columns?: CyberboardColumn[];
   onUpdateCard?: (cardId: number, data: Partial<CyberboardCard>) => Promise<void>;
+  onNavigateToSubtask?: (subtask: CyberboardCard) => void;
   onShowToast?: (text: string, type?: "error" | "info" | "success") => void;
 }
 
@@ -62,13 +66,14 @@ export default function CardDetailModal({
   onDeleteCard,
   columns = [],
   onUpdateCard,
+  onNavigateToSubtask,
   onShowToast,
 }: CardDetailModalProps) {
   const safeBoardPhases = boardPhases || [];
 
   const [newComment, setNewComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [showAuditLog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   // Edit form state
@@ -95,6 +100,7 @@ export default function CardDetailModal({
   const [fullscreenImageIndex, setFullscreenImageIndex] = useState<number | null>(null);
 
   const isMobile = useIsMobile(640);
+  const [mobileTab, setMobileTab] = useState<"details" | "activity" | "progress" | "audit_logs" | "tools">("details");
 
   // Checklist & Completion Rate state
   const [checklist, setChecklist] = useState<CyberboardChecklistItem[]>([]);
@@ -632,6 +638,23 @@ export default function CardDetailModal({
               </div>
             </div>
 
+            {/* Media & External Links Vault Preview in Details Tab */}
+            <CardToolsLinksSection
+              card={card}
+              canEditCard={canEditCard}
+              isUploadingImage={isUploadingImage}
+              uploadStatusText={uploadStatusText}
+              activeCarouselIndex={activeCarouselIndex}
+              setActiveCarouselIndex={setActiveCarouselIndex}
+              setFullscreenImageIndex={setFullscreenImageIndex}
+              copiedAttachmentId={copiedAttachmentId}
+              setCopiedAttachmentId={setCopiedAttachmentId}
+              onImageUpload={handleImageUpload}
+              onShowAddLinkModal={() => setShowAddLinkModal(true)}
+              onRemoveAttachment={handleRemoveAttachment}
+              hideUploadButtons={true}
+            />
+
             {/* Task Checklist Section */}
             <TaskChecklistSection
               checklist={checklist}
@@ -656,6 +679,7 @@ export default function CardDetailModal({
               columns={columns}
               safeBoardPhases={safeBoardPhases}
               canEditCard={canEditCard}
+              onNavigateToSubtask={onNavigateToSubtask}
               onShowToast={onShowToast}
             />
 
@@ -719,44 +743,46 @@ export default function CardDetailModal({
             )}
           </div>
 
-          {/* Right Column: Tabbed Side Panel */}
-          <div className="flex-shrink-0 flex">
-            <CardDetailSidePanel
-              card={card}
-              comments={comments}
-              newComment={newComment}
-              setNewComment={setNewComment}
-              isSubmitting={isSubmitting}
-              visibleCommentsCount={visibleCommentsCount}
-              setVisibleCommentsCount={setVisibleCommentsCount}
-              boardVisibility={boardVisibility}
-              allowedMembers={allowedMembers}
-              currentUserId={currentUserId}
-              boardHostId={boardHostId}
-              cardUserId={card.user_id}
-              cardAssignedUsers={card.assigned_users}
-              isAdmin={isAdmin}
-              canEditCard={canEditCard}
-              onSubmitComment={handleSubmitComment}
-              onDeleteComment={onDeleteComment}
-              activities={activities}
-              formatDateTime={formatDateTime}
-              isUploadingImage={isUploadingImage}
-              uploadStatusText={uploadStatusText}
-              activeCarouselIndex={activeCarouselIndex}
-              setActiveCarouselIndex={setActiveCarouselIndex}
-              setFullscreenImageIndex={setFullscreenImageIndex}
-              copiedAttachmentId={copiedAttachmentId}
-              setCopiedAttachmentId={setCopiedAttachmentId}
-              checklist={checklist}
-              onToggleChecklistItem={handleToggleChecklistItem}
-              progressComments={progressComments}
-              onAddComment={onAddComment}
-              onImageUpload={handleImageUpload}
-              onShowAddLinkModal={() => setShowAddLinkModal(true)}
-              onRemoveAttachment={handleRemoveAttachment}
-            />
-          </div>
+          {/* Right Column: Tabbed Side Panel (Desktop only - mobile uses responsive BottomSheet tabs) */}
+          {!isMobile && (
+            <div className="flex-shrink-0 flex">
+              <CardDetailSidePanel
+                card={card}
+                comments={comments}
+                newComment={newComment}
+                setNewComment={setNewComment}
+                isSubmitting={isSubmitting}
+                visibleCommentsCount={visibleCommentsCount}
+                setVisibleCommentsCount={setVisibleCommentsCount}
+                boardVisibility={boardVisibility}
+                allowedMembers={allowedMembers}
+                currentUserId={currentUserId}
+                boardHostId={boardHostId}
+                cardUserId={card.user_id}
+                cardAssignedUsers={card.assigned_users}
+                isAdmin={isAdmin}
+                canEditCard={canEditCard}
+                onSubmitComment={handleSubmitComment}
+                onDeleteComment={onDeleteComment}
+                activities={activities}
+                formatDateTime={formatDateTime}
+                isUploadingImage={isUploadingImage}
+                uploadStatusText={uploadStatusText}
+                activeCarouselIndex={activeCarouselIndex}
+                setActiveCarouselIndex={setActiveCarouselIndex}
+                setFullscreenImageIndex={setFullscreenImageIndex}
+                copiedAttachmentId={copiedAttachmentId}
+                setCopiedAttachmentId={setCopiedAttachmentId}
+                checklist={checklist}
+                onToggleChecklistItem={handleToggleChecklistItem}
+                progressComments={progressComments}
+                onAddComment={onAddComment}
+                onImageUpload={handleImageUpload}
+                onShowAddLinkModal={() => setShowAddLinkModal(true)}
+                onRemoveAttachment={handleRemoveAttachment}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -794,6 +820,9 @@ export default function CardDetailModal({
       </div>
     ) : undefined;
 
+    const completionRate = card.completion_percentage || 0;
+    const attachmentsCount = (card.attachments || []).length;
+
     return (
       <BottomSheet
         isOpen={true}
@@ -802,36 +831,167 @@ export default function CardDetailModal({
         initialSnap="3/4"
         footer={mobileEditFooter}
       >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between gap-2.5 border-b border-border pb-3">
-            <button
-              type="button"
-              onClick={() => setShowAuditLog(!showAuditLog)}
-              className={`flex-1 py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                showAuditLog ? "bg-primary/20 border-primary text-primary" : "border-border text-text-muted hover:bg-surface-800"
-              }`}
-            >
-              <History className="w-4 h-4" />
-              <span>Audit Log ({activities.length})</span>
-            </button>
+        <div className="space-y-3.5">
+          {/* Top Control Bar: Edit Card Button & Back Button */}
+          <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/60">
+            {mobileTab !== "details" ? (
+              <button
+                type="button"
+                onClick={() => setMobileTab("details")}
+                className="py-1.5 px-3 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs font-bold flex items-center gap-1.5 hover:bg-cyan-500/25 transition-all cursor-pointer shadow-xs"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Back to Task Details</span>
+              </button>
+            ) : (
+              <span className="text-xs font-extrabold text-text-muted uppercase tracking-wider">
+                Task Workspace
+              </span>
+            )}
 
             {canEditCard && (
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
-                className={`flex-1 py-2.5 px-3.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
+                className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-98 ${
                   isEditing
-                    ? "bg-primary text-surface-950 font-extrabold border-primary"
+                    ? "bg-cyan-500 text-surface-950 border-cyan-400 shadow-md"
                     : "bg-surface-800 border-border text-text-primary hover:bg-surface-750"
                 }`}
               >
-                <Edit3 className="w-4 h-4" />
+                <Edit3 className="w-3.5 h-3.5" />
                 <span>{isEditing ? "View Details" : "Edit Card"}</span>
               </button>
             )}
           </div>
 
-          {showAuditLog ? auditLogSidepanel : modalBody}
+          {/* Responsive Mobile / Tablet Tab Selector Strip */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none border-b border-border/60">
+            <button
+              type="button"
+              onClick={() => setMobileTab("details")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                mobileTab === "details"
+                  ? "bg-primary text-surface-950 shadow-xs"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Details</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileTab("activity")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                mobileTab === "activity"
+                  ? "bg-cyan-500 text-surface-950 shadow-xs"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Activity ({comments.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileTab("progress")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                mobileTab === "progress"
+                  ? "bg-cyan-500 text-surface-950 shadow-xs"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <BarChart2 className="w-3.5 h-3.5" />
+              <span>Progress ({completionRate}%)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileTab("audit_logs")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                mobileTab === "audit_logs"
+                  ? "bg-cyan-500 text-surface-950 shadow-xs"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Audit ({activities.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileTab("tools")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                mobileTab === "tools"
+                  ? "bg-cyan-500 text-surface-950 shadow-xs"
+                  : "bg-surface-800 text-text-muted hover:text-text-primary"
+              }`}
+            >
+              <LinkIcon className="w-3.5 h-3.5" />
+              <span>Tools ({attachmentsCount})</span>
+            </button>
+          </div>
+
+          {/* Active Tab View */}
+          {mobileTab === "details" && modalBody}
+
+          {mobileTab === "activity" && (
+            <div className="min-h-[350px]">
+              <CardCommentsSection
+                comments={comments}
+                newComment={newComment}
+                setNewComment={setNewComment}
+                isSubmitting={isSubmitting}
+                visibleCommentsCount={visibleCommentsCount}
+                setVisibleCommentsCount={setVisibleCommentsCount}
+                boardVisibility={boardVisibility}
+                allowedMembers={allowedMembers}
+                currentUserId={currentUserId}
+                boardHostId={boardHostId}
+                cardUserId={card.user_id}
+                cardAssignedUsers={card.assigned_users}
+                isAdmin={isAdmin}
+                onSubmitComment={handleSubmitComment}
+                onDeleteComment={onDeleteComment}
+              />
+            </div>
+          )}
+
+          {mobileTab === "progress" && (
+            <CardProgressNotesSection
+              cardId={card.id}
+              completionPercentage={completionRate}
+              assignedUsers={card.assigned_users || []}
+              currentUserId={currentUserId}
+              boardHostId={boardHostId}
+              cardUserId={card.user_id}
+              isAdmin={isAdmin}
+              checklist={checklist}
+              onToggleChecklistItem={handleToggleChecklistItem}
+              progressComments={progressComments}
+              onAddComment={onAddComment}
+            />
+          )}
+
+          {mobileTab === "audit_logs" && auditLogSidepanel}
+
+          {mobileTab === "tools" && (
+            <CardToolsLinksSection
+              card={card}
+              canEditCard={canEditCard}
+              isUploadingImage={isUploadingImage}
+              uploadStatusText={uploadStatusText}
+              activeCarouselIndex={activeCarouselIndex}
+              setActiveCarouselIndex={setActiveCarouselIndex}
+              setFullscreenImageIndex={setFullscreenImageIndex}
+              copiedAttachmentId={copiedAttachmentId}
+              setCopiedAttachmentId={setCopiedAttachmentId}
+              onImageUpload={handleImageUpload}
+              onShowAddLinkModal={() => setShowAddLinkModal(true)}
+              onRemoveAttachment={handleRemoveAttachment}
+            />
+          )}
         </div>
       </BottomSheet>
     );

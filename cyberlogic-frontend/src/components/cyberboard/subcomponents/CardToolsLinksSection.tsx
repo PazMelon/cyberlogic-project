@@ -14,6 +14,7 @@ interface CardToolsLinksSectionProps {
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onShowAddLinkModal: () => void;
   onRemoveAttachment: (attachmentId: string) => void;
+  hideUploadButtons?: boolean;
 }
 
 export const CardToolsLinksSection: React.FC<CardToolsLinksSectionProps> = ({
@@ -29,6 +30,7 @@ export const CardToolsLinksSection: React.FC<CardToolsLinksSectionProps> = ({
   onImageUpload,
   onShowAddLinkModal,
   onRemoveAttachment,
+  hideUploadButtons = false,
 }) => {
   return (
     <div className="p-3 sm:p-4">
@@ -46,6 +48,7 @@ export const CardToolsLinksSection: React.FC<CardToolsLinksSectionProps> = ({
         onImageUpload={onImageUpload}
         onShowAddLinkModal={onShowAddLinkModal}
         onRemoveAttachment={onRemoveAttachment}
+        hideUploadButtons={hideUploadButtons}
       />
     </div>
   );

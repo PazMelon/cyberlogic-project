@@ -816,8 +816,69 @@ class CyberboardController extends Controller
             $changeDescItems[] = "accent color";
         }
 
+        // Detect checklist changes for audit logging
+        $checklistAuditItems = [];
+        if (array_key_exists('checklist', $validated)) {
+            $oldChecklist = is_array($card->checklist) ? $card->checklist : (is_string($card->checklist) ? json_decode($card->checklist, true) : []);
+            $newChecklist = is_array($validated['checklist']) ? $validated['checklist'] : [];
+            $oldChecklist = $oldChecklist ?: [];
+
+            // Index old items by id for lookup
+            $oldById = [];
+            foreach ($oldChecklist as $item) {
+                if (isset($item['id'])) {
+                    $oldById[$item['id']] = $item;
+                }
+            }
+            $newById = [];
+            foreach ($newChecklist as $item) {
+                if (isset($item['id'])) {
+                    $newById[$item['id']] = $item;
+                }
+            }
+
+            // Detect added items
+            foreach ($newChecklist as $item) {
+                $itemId = $item['id'] ?? null;
+                if ($itemId && !isset($oldById[$itemId])) {
+                    $itemText = $item['text'] ?? $item['title'] ?? 'Untitled';
+                    $checklistAuditItems[] = "Added checklist item: \"{$itemText}\"";
+                }
+            }
+
+            // Detect removed items
+            foreach ($oldChecklist as $item) {
+                $itemId = $item['id'] ?? null;
+                if ($itemId && !isset($newById[$itemId])) {
+                    $itemText = $item['text'] ?? $item['title'] ?? 'Untitled';
+                    $checklistAuditItems[] = "Removed checklist item: \"{$itemText}\"";
+                }
+            }
+
+            // Detect toggled items (completed status changed)
+            foreach ($newChecklist as $item) {
+                $itemId = $item['id'] ?? null;
+                if ($itemId && isset($oldById[$itemId])) {
+                    $oldCompleted = !empty($oldById[$itemId]['completed']);
+                    $newCompleted = !empty($item['completed']);
+                    if ($oldCompleted !== $newCompleted) {
+                        $itemText = $item['text'] ?? $item['title'] ?? 'Untitled';
+                        $checklistAuditItems[] = $newCompleted
+                            ? "Completed checklist item: \"{$itemText}\""
+                            : "Uncompleted checklist item: \"{$itemText}\"";
+                    }
+                }
+            }
+        }
+
+        // Detect completion percentage change
+        if (array_key_exists('completion_percentage', $validated) && (int)$validated['completion_percentage'] !== (int)$card->completion_percentage) {
+            $changeDescItems[] = "completion to {$validated['completion_percentage']}%";
+        }
+
         $card->update($validated);
 
+        // Log general field changes
         if (!empty($changeDescItems)) {
             CyberboardCardActivity::create([
                 'board_id' => $card->column->board_id,
@@ -825,6 +886,17 @@ class CyberboardController extends Controller
                 'user_id' => $user->id,
                 'action' => 'updated',
                 'description' => "Updated " . implode(', ', $changeDescItems),
+            ]);
+        }
+
+        // Log individual checklist audit entries separately for clarity
+        foreach ($checklistAuditItems as $auditDesc) {
+            CyberboardCardActivity::create([
+                'board_id' => $card->column->board_id,
+                'card_id' => $card->id,
+                'user_id' => $user->id,
+                'action' => 'checklist_updated',
+                'description' => $auditDesc,
             ]);
         }
 
