@@ -134,6 +134,7 @@ export default function MentionTextArea({
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [activeMentionIndex, setActiveMentionIndex] = useState(0);
   const [mentionCoords, setMentionCoords] = useState({ top: 0, left: 0 });
+  const [openUpward, setOpenUpward] = useState(false);
 
   useEffect(() => {
     fetchMentionSuggestions()
@@ -172,6 +173,11 @@ export default function MentionTextArea({
         if (textareaRef.current) {
           const coords = getCaretCoordinates(textareaRef.current, lastAtIdx);
           setMentionCoords(coords);
+
+          // Calculate viewport space below to decide smart upward vs downward placement
+          const rect = textareaRef.current.getBoundingClientRect();
+          const spaceBelow = window.innerHeight - rect.bottom;
+          setOpenUpward(spaceBelow < 250);
         }
         return;
       }
@@ -214,26 +220,24 @@ export default function MentionTextArea({
 
   const filteredUsers = [
     ...filteredGroups,
-    ...(users || [])
-      .filter((u) => {
-        // Do not exclude users just because status field is missing
-        if (u.status && u.status !== "approved" && u.status !== "active") {
-          return false;
-        }
+    ...(users || []).filter((u) => {
+      if (u.status && u.status !== "approved" && u.status !== "active") {
+        return false;
+      }
 
-        if (isPrivateBoard && allowedSet && !allowedSet.has(Number(u.id))) {
-          return false;
-        }
+      if (isPrivateBoard && allowedSet && !allowedSet.has(Number(u.id))) {
+        return false;
+      }
 
-        const q = mentionQuery.toLowerCase();
-        const firstName = u.first_name || "";
-        const lastName = u.last_name || "";
-        const name = u.name || "";
-        const fullName = `${firstName} ${lastName} ${name}`.toLowerCase();
-        const username = (u.username || name || "").toLowerCase();
+      const q = mentionQuery.toLowerCase();
+      const firstName = u.first_name || "";
+      const lastName = u.last_name || "";
+      const name = u.name || "";
+      const fullName = `${firstName} ${lastName} ${name}`.toLowerCase();
+      const username = (u.username || name || "").toLowerCase();
 
-        return !q || fullName.includes(q) || username.includes(q);
-      }),
+      return !q || fullName.includes(q) || username.includes(q);
+    }),
   ];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -290,19 +294,21 @@ export default function MentionTextArea({
         {...props}
       />
 
-      {/* Mention Autocomplete Dropdown Popup */}
+      {/* Mention Autocomplete Dropdown Popup (Smart Upward / Downward Float) */}
       {showMentions && filteredUsers.length > 0 && (
         <div
           style={{
             position: "absolute",
-            top: `${mentionCoords.top + 24}px`,
-            left: `${Math.min(mentionCoords.left, 240)}px`,
+            ...(openUpward
+              ? { bottom: `${textareaRef.current ? textareaRef.current.clientHeight - mentionCoords.top + 8 : 40}px` }
+              : { top: `${mentionCoords.top + 26}px` }),
+            left: `${Math.max(0, Math.min(mentionCoords.left, 160))}px`,
           }}
-          className="w-64 bg-surface-900 border border-border rounded-2xl shadow-2xl overflow-hidden py-1 max-h-56 overflow-y-auto z-50 animate-in fade-in zoom-in-95 duration-150"
+          className="w-64 sm:w-72 bg-surface-900 border border-border/80 rounded-2xl shadow-2xl overflow-hidden py-1 max-h-56 overflow-y-auto z-[9999] animate-in fade-in zoom-in-95 duration-150"
         >
-          <div className="px-3 py-1.5 border-b border-border/60 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center justify-between">
+          <div className="px-3 py-1.5 border-b border-border/60 text-[10px] font-bold text-text-muted uppercase tracking-wider flex items-center justify-between bg-surface-950/40">
             <span>Mention User or Group</span>
-            <span className="text-primary font-normal">@</span>
+            <span className="text-primary font-bold">@</span>
           </div>
 
           <div className="divide-y divide-border/20">
@@ -327,7 +333,7 @@ export default function MentionTextArea({
                   onClick={() => uName && selectMention(uName)}
                   className={`w-full px-3 py-2 text-left flex items-center gap-2.5 transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-primary/20 text-primary"
+                      ? "bg-primary/20 text-primary font-bold"
                       : "hover:bg-surface-800 text-text-primary"
                   }`}
                 >
