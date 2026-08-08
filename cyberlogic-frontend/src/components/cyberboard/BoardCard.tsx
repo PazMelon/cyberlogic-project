@@ -122,12 +122,14 @@ export default function BoardCard({
 
       {/* Badges Bar: Date & Sub-Tasks & Assignee */}
       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-        {showDateBadge && formattedStartDate && (
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-900/60 text-text-secondary text-[10px] font-medium border border-border/50">
-            <Calendar className="w-3 h-3 text-primary" />
+        {showDateBadge && (formattedStartDate || formattedEndDate) && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-surface-900/60 text-text-secondary text-[10px] font-medium border border-border/50"
+            title={formattedEndDate ? `Deadline: ${formattedEndDate}` : `Start: ${formattedStartDate}`}
+          >
+            <Calendar className="w-3 h-3 text-cyan-400" />
             <span>
-              {formattedStartDate}
-              {formattedEndDate ? ` – ${formattedEndDate}` : ""}
+              {formattedEndDate ? `Deadline: ${formattedEndDate}` : formattedStartDate}
             </span>
           </div>
         )}

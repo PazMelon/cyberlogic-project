@@ -1225,9 +1225,9 @@ export default function CardDetailModal({
               </span>
             </div>
 
-            {/* Dates */}
+            {/* Start Date */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Schedule</span>
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Start Date</span>
               <div className="flex items-center gap-1 text-text-primary font-bold">
                 <Calendar className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
                 <span className="truncate">
@@ -1236,12 +1236,14 @@ export default function CardDetailModal({
               </div>
             </div>
 
-            {/* Time Log */}
+            {/* Deadline */}
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Tracked Time</span>
+              <span className="text-[10px] font-extrabold text-text-muted uppercase tracking-wider">Deadline</span>
               <div className="flex items-center gap-1 text-text-primary font-bold">
-                <Clock className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                <span>3.5h / 8h</span>
+                <Calendar className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                <span className="truncate">
+                  {card.activity_end_date ? formatDate(card.activity_end_date) : (card.activity_date ? formatDate(card.activity_date) : "No Deadline")}
+                </span>
               </div>
             </div>
 
