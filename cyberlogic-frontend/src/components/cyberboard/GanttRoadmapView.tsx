@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import {
   ChevronDown, ChevronRight, Calendar, Layers, Clock, Plus, SlidersHorizontal, Users,
   ZoomIn, ZoomOut, X, Image as ImageIcon, FileText, Maximize2, FileSpreadsheet,
-  Loader2, PanelLeftClose, PanelLeftOpen
+  Loader2, PanelLeftClose, PanelLeftOpen, AlertTriangle
 } from "lucide-react";
 import type { CyberboardBoard, CyberboardColumn, CyberboardCard, CyberboardChecklistItem } from "../../utils/api";
 import { updateCyberboardCard, batchReorderCyberboardCards } from "../../utils/api";
@@ -139,17 +139,32 @@ export default function GanttRoadmapView({
 
   const skipYearResetRef = useRef<boolean>(false);
 
-  // Critical Path Method (CPM) calculation for Slack Time & Bottlenecks
+  const isColumnCompleted = useCallback((colId?: number | null) => {
+    if (!colId || !columns || columns.length === 0) return false;
+    const col = columns.find((c) => c.id === colId);
+    if (!col) return false;
+    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
+    return (
+      col.status_type === "completed" ||
+      col.title.toLowerCase().includes("done") ||
+      col.title.toLowerCase().includes("completed") ||
+      (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
+    );
+  }, [columns]);
+
+  // Critical Path Method (CPM) calculation for Slack Time, Bottlenecks & Overdue Tasks
   const criticalPathCardIds = useMemo(() => {
     const criticalSet = new Set<number>();
     if (!cards || cards.length === 0) return criticalSet;
 
-    const cardMap = new Map<number, { id: number; duration: number; preds: number[]; succs: number[]; ES: number; EF: number; LS: number; LF: number }>();
+    const activeCards = cards.filter((c) => !c.is_archived);
+    if (activeCards.length === 0) return criticalSet;
 
-    cards.forEach((c) => {
-      if (c.is_archived) return;
+    const cardMap = new Map<number, { id: number; duration: number; preds: number[]; succs: number[] }>();
+
+    activeCards.forEach((c) => {
       const startMs = c.activity_date ? new Date(c.activity_date).getTime() : 0;
-      const endMs = c.activity_end_date ? new Date(c.activity_end_date).getTime() : startMs + 86400000;
+      const endMs = c.activity_end_date ? new Date(c.activity_end_date).getTime() : (startMs > 0 ? startMs + 86400000 : Date.now());
       const duration = Math.max(1, Math.round((endMs - startMs) / 86400000));
       const predIds = c.predecessor_ids && c.predecessor_ids.length > 0 ? c.predecessor_ids : (c.predecessor_id ? [c.predecessor_id] : []);
 
@@ -158,10 +173,6 @@ export default function GanttRoadmapView({
         duration,
         preds: predIds,
         succs: [],
-        ES: 0,
-        EF: 0,
-        LS: Infinity,
-        LF: Infinity,
       });
     });
 
@@ -173,44 +184,84 @@ export default function GanttRoadmapView({
       });
     });
 
+    const esMap = new Map<number, number>();
+    const getES = (id: number, visited = new Set<number>()): number => {
+      if (esMap.has(id)) return esMap.get(id)!;
+      if (visited.has(id)) return 0;
+      visited.add(id);
+
+      const node = cardMap.get(id);
+      if (!node || node.preds.length === 0) {
+        esMap.set(id, 0);
+        return 0;
+      }
+      let maxP = 0;
+      node.preds.forEach((pId) => {
+        const pNode = cardMap.get(pId);
+        if (pNode) {
+          const pEF = getES(pId, new Set(visited)) + pNode.duration;
+          if (pEF > maxP) maxP = pEF;
+        }
+      });
+      esMap.set(id, maxP);
+      return maxP;
+    };
+
     let maxProjectEF = 0;
     cardMap.forEach((node) => {
-      let maxPredEF = 0;
-      node.preds.forEach((pId) => {
-        const pred = cardMap.get(pId);
-        if (pred && pred.EF > maxPredEF) maxPredEF = pred.EF;
-      });
-      node.ES = maxPredEF;
-      node.EF = node.ES + node.duration;
-      if (node.EF > maxProjectEF) maxProjectEF = node.EF;
+      const es = getES(node.id);
+      const ef = es + node.duration;
+      if (ef > maxProjectEF) maxProjectEF = ef;
     });
+
+    const hasAnyDependencies = Array.from(cardMap.values()).some((n) => n.preds.length > 0 || n.succs.length > 0);
+    const todayMs = new Date().setHours(0, 0, 0, 0);
 
     cardMap.forEach((node) => {
-      if (node.succs.length === 0) {
-        node.LF = maxProjectEF;
-        node.LS = node.LF - node.duration;
-      }
-    });
+      const cardObj = cards.find((c) => c.id === node.id);
+      const isDone = isColumnCompleted(cardObj?.column_id);
+      const dueMs = cardObj?.activity_end_date ? new Date(cardObj.activity_end_date).getTime() : 0;
+      const isOverdue = !isDone && dueMs > 0 && dueMs < todayMs;
+      // Imminent Deadline Risk: uncompleted task due today or within 24 hours
+      const isImminentRisk = !isDone && dueMs > 0 && (dueMs - todayMs) <= 86400000;
 
-    const reverseNodes = Array.from(cardMap.values()).reverse();
-    reverseNodes.forEach((node) => {
-      let minSuccLS = Infinity;
-      node.succs.forEach((sId) => {
-        const succ = cardMap.get(sId);
-        if (succ && succ.LS < minSuccLS) minSuccLS = succ.LS;
-      });
-      if (minSuccLS !== Infinity) {
-        node.LF = minSuccLS;
-        node.LS = node.LF - node.duration;
-      }
-
-      if (node.LS - node.ES <= 0) {
+      if (isOverdue || isImminentRisk) {
         criticalSet.add(node.id);
+        return;
+      }
+
+      if (hasAnyDependencies) {
+        const getLF = (id: number, visited = new Set<number>()): number => {
+          if (visited.has(id)) return maxProjectEF;
+          visited.add(id);
+
+          const n = cardMap.get(id);
+          if (!n || n.succs.length === 0) return maxProjectEF;
+          let minS = Infinity;
+          n.succs.forEach((sId) => {
+            const sNode = cardMap.get(sId);
+            if (sNode) {
+              const sLS = getLF(sId, new Set(visited)) - sNode.duration;
+              if (sLS < minS) minS = sLS;
+            }
+          });
+          return minS === Infinity ? maxProjectEF : minS;
+        };
+
+        const es = getES(node.id);
+        const lf = getLF(node.id);
+        const ls = lf - node.duration;
+        const slack = ls - es;
+
+        // Near-Critical Tasks: Float/Slack <= 1 day in dependency network
+        if (slack <= 1 && (node.preds.length > 0 || node.succs.length > 0)) {
+          criticalSet.add(node.id);
+        }
       }
     });
 
     return criticalSet;
-  }, [cards]);
+  }, [cards, isColumnCompleted]);
 
   // Close Gantt controls sidebar on Escape key
   useEffect(() => {
@@ -717,19 +768,6 @@ export default function GanttRoadmapView({
       [parentId]: !prev[parentId],
     }));
   };
-
-  const isColumnCompleted = useCallback((colId?: number | null) => {
-    if (!colId || !columns || columns.length === 0) return false;
-    const col = columns.find((c) => c.id === colId);
-    if (!col) return false;
-    const lastColPosition = columns.reduce((max, c) => Math.max(max, c.position ?? 0), 0);
-    return (
-      col.status_type === "completed" ||
-      col.title.toLowerCase().includes("done") ||
-      col.title.toLowerCase().includes("completed") ||
-      (col.position !== undefined && col.position === lastColPosition && lastColPosition > 0)
-    );
-  }, [columns]);
 
   // Resolve status category & styling from column.status_type or title fallback (Darker theme-compatible badges)
   const getCardStatusInfo = useCallback(
@@ -2668,29 +2706,35 @@ export default function GanttRoadmapView({
                                           </div>
                                         )}
 
-                                        {/* Task Bar Container Body */}
-                                        <div
-                                          onMouseDown={(e) => {
-                                            hasDraggedRef.current = false;
-                                            handleResizeStart(e, card, "move");
-                                          }}
-                                          onClick={(e) => handleBarClick(e, card)}
-                                          className={`w-full h-full rounded-xl flex items-center shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                            isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
-                                          }`}
-                                          style={{
-                                            backgroundColor: cardColor,
-                                            backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
-                                          }}
-                                        >
-                                          {/* Inner Progress Bar Fill Shading Track */}
-                                          {rate > 0 && (
-                                            <div
-                                              className="absolute left-0 top-0 bottom-0 bg-white/35 border-r border-white/50 pointer-events-none transition-all duration-300 rounded-l-xl z-0"
-                                              style={{ width: `${rate}%` }}
-                                            />
-                                          )}
-                                        </div>
+                                        {(() => {
+                                           const isCritical = showCriticalPath && criticalPathCardIds.has(card.id);
+                                           return (
+                                             <div
+                                               onMouseDown={(e) => {
+                                                 hasDraggedRef.current = false;
+                                                 handleResizeStart(e, card, "move");
+                                               }}
+                                               onClick={(e) => handleBarClick(e, card)}
+                                               className={`w-full h-full rounded-xl flex items-center shadow-md cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                                 isHovered ? "ring-2 ring-white/60 scale-[1.01] shadow-lg z-20" : ""
+                                               } ${
+                                                 isCritical ? "ring-2 ring-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.6)] z-30" : ""
+                                               }`}
+                                               style={{
+                                                 backgroundColor: cardColor,
+                                                 backgroundImage: `linear-gradient(135deg, ${cardColor} 0%, ${cardColor}dd 100%)`,
+                                               }}
+                                             >
+                                               {/* Inner Progress Bar Fill Shading Track */}
+                                               {rate > 0 && (
+                                                 <div
+                                                   className="absolute left-0 top-0 bottom-0 bg-white/35 border-r border-white/50 pointer-events-none transition-all duration-300 rounded-l-xl z-0"
+                                                   style={{ width: `${rate}%` }}
+                                                 />
+                                               )}
+                                             </div>
+                                           );
+                                         })()}
 
                                         {/* External Label (Right of Task Bar) */}
                                         {!isExporting && (
@@ -2703,10 +2747,16 @@ export default function GanttRoadmapView({
                                             )}
                                             <span
                                               onClick={(e) => handleBarClick(e, card)}
-                                              className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer whitespace-nowrap"
+                                              className="text-xs font-bold text-text-primary hover:text-primary cursor-pointer"
                                             >
                                               {card.title}
                                             </span>
+                                            {showCriticalPath && criticalPathCardIds.has(card.id) && (
+                                              <span className="px-1.5 py-0.5 rounded-md bg-rose-950/90 text-rose-300 border border-rose-500/60 text-[9px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1">
+                                                <AlertTriangle className="w-2.5 h-2.5 text-rose-400 animate-pulse" />
+                                                Critical Task
+                                              </span>
+                                            )}
                                             {rate > 0 && (
                                               <span className="text-[10px] font-extrabold text-cyan-400 bg-surface-900/90 border border-border px-1.5 py-0.2 rounded-full shadow-2xs">
                                                 {rate}%
@@ -2808,42 +2858,55 @@ export default function GanttRoadmapView({
                                             </div>
                                           )}
 
-                                          <div
-                                            onMouseDown={(e) => handleResizeStart(e, subCard, "move")}
-                                            onClick={(e) => handleBarClick(e, subCard)}
-                                            className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
-                                              isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
-                                            }`}
-                                            style={{
-                                              backgroundColor: subColor,
-                                              backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
-                                            }}
-                                          >
-                                            {(() => {
-                                              const subRate = getCardCompletionRate(subCard);
-                                              return (
-                                                <>
-                                                  {subRate > 0 && (
-                                                    <div
-                                                      className="absolute left-0 top-0 bottom-0 bg-white/30 border-r border-white/40 pointer-events-none transition-all duration-300 rounded-l-lg z-0"
-                                                      style={{ width: `${subRate}%` }}
-                                                    />
-                                                  )}
-                                                  <div className="flex items-center gap-1.5 truncate z-10">
-                                                    <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
-                                                    {subRate > 0 && (
-                                                      <span className="px-1.5 py-0.2 rounded-full bg-black/40 border border-white/30 text-[8px] font-extrabold text-white shadow-xs backdrop-blur-xs flex-shrink-0">
-                                                        {subRate}%
-                                                      </span>
-                                                    )}
-                                                  </div>
-                                                  <div className="z-10">
-                                                    {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
-                                                  </div>
-                                                </>
-                                              );
-                                            })()}
-                                          </div>
+                                          {(() => {
+                                             const isSubCritical = showCriticalPath && criticalPathCardIds.has(subCard.id);
+                                             return (
+                                               <div
+                                                 onMouseDown={(e) => handleResizeStart(e, subCard, "move")}
+                                                 onClick={(e) => handleBarClick(e, subCard)}
+                                                 className={`w-full h-full rounded-lg px-2.5 flex items-center justify-between text-[11px] font-medium text-white shadow-sm cursor-pointer transition-all duration-200 border border-white/20 select-none overflow-hidden relative ${
+                                                   isSubHovered ? "ring-2 ring-white/60 scale-[1.01] z-20" : ""
+                                                 } ${
+                                                   isSubCritical ? "ring-2 ring-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)] z-30" : ""
+                                                 }`}
+                                                 style={{
+                                                   backgroundColor: subColor,
+                                                   backgroundImage: `linear-gradient(135deg, ${subColor} 0%, ${subColor}dd 100%)`,
+                                                 }}
+                                               >
+                                                 {(() => {
+                                                   const subRate = getCardCompletionRate(subCard);
+                                                   return (
+                                                     <>
+                                                       {subRate > 0 && (
+                                                         <div
+                                                           className="absolute left-0 top-0 bottom-0 bg-white/30 border-r border-white/40 pointer-events-none transition-all duration-300 rounded-l-lg z-0"
+                                                           style={{ width: `${subRate}%` }}
+                                                         />
+                                                       )}
+                                                       <div className="flex items-center gap-1.5 truncate z-10">
+                                                         <span className="truncate drop-shadow-xs text-[10px]">↳ {subCard.title}</span>
+                                                         {subRate > 0 && (
+                                                           <span className="px-1.5 py-0.2 rounded-full bg-black/40 border border-white/30 text-[8px] font-extrabold text-white shadow-xs backdrop-blur-xs flex-shrink-0">
+                                                             {subRate}%
+                                                           </span>
+                                                         )}
+                                                         {isSubCritical && (
+                                                           <span className="px-1 py-0.2 rounded bg-rose-950/90 border border-rose-500/60 text-[8px] font-black text-rose-300 uppercase tracking-wider flex items-center gap-0.5">
+                                                             <AlertTriangle className="w-2 h-2 text-rose-400 animate-pulse" />
+                                                             CPM
+                                                           </span>
+                                                         )}
+                                                       </div>
+                                                       <div className="z-10">
+                                                         {renderTimelineAssigneeAvatars(subCard, subPos.widthPercent)}
+                                                       </div>
+                                                     </>
+                                                   );
+                                                 })()}
+                                               </div>
+                                             );
+                                           })()}
 
                                           {/* Subcard Right Handle */}
                                           {(timeScale === "day" || timeScale === "week") && (

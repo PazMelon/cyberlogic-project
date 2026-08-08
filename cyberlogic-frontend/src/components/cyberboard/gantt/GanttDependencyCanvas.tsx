@@ -117,8 +117,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
 
       const isCritical =
         showCriticalPath &&
-        criticalPathCardIds.has(fromId) &&
-        criticalPathCardIds.has(targetCard.id);
+        (criticalPathCardIds.has(fromId) || criticalPathCardIds.has(targetCard.id));
 
       rawPairs.push({
         id: `dep-${fromId}-${targetCard.id}`,
@@ -258,7 +257,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
     };
   });
 
-  // Sort lines so hovered / active highlighted lines render LAST in SVG DOM order (bringing them to top of z-stack)
+  // Sort lines so critical and hovered highlighted lines render LAST in SVG DOM order (bringing them to top of z-stack)
   const sortedLines = [...lines].sort((a, b) => {
     const aHovered =
       hoveredLineId === a.id ||
@@ -268,6 +267,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
       hoveredLineId === b.id ||
       hoveredCardId === b.fromId ||
       hoveredCardId === b.toId;
+
+    if (a.isCritical && !b.isCritical) return 1;
+    if (!a.isCritical && b.isCritical) return -1;
     if (aHovered && !bHovered) return 1;
     if (!aHovered && bHovered) return -1;
     return 0;
@@ -335,6 +337,9 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
         >
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#22c55e" fillOpacity="1" />
         </marker>
+        <filter id="cpm-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#f43f5e" floodOpacity="0.95" />
+        </filter>
       </defs>
 
       {sortedLines.map((line) => {
@@ -346,15 +351,15 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
         const strokeColor = isHovered
           ? "#ec4899"
           : line.isCritical
-          ? "#e11d48"
+          ? "#f43f5e"
           : "#0284c7";
 
         const strokeOpacity = 1;
 
         const strokeWidth = isExporting
           ? 2.4
-          : isHovered || line.isCritical
-          ? 2.8
+          : isHovered
+          ? 2.6
           : 2;
 
         const markerId = isHovered
@@ -384,7 +389,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
                 }
               }}
             />
-            {/* Visible Dependency Line */}
+            {/* Visible Dependency Line with Pulsating Glow Filter */}
             <path
               d={line.path}
               fill="none"
@@ -394,7 +399,8 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
               strokeLinecap="round"
               strokeLinejoin="round"
               markerEnd={markerId}
-              className="transition-all duration-150"
+              filter={line.isCritical ? "url(#cpm-glow)" : undefined}
+              className={line.isCritical ? "animate-pulse transition-all duration-150" : "transition-all duration-150"}
             />
             {/* Interactive Red 'X' Delete Button on Hover (Follows Mouse Cursor) */}
             {isHovered && canEditGantt && onRemoveDependency && !isExporting && (
