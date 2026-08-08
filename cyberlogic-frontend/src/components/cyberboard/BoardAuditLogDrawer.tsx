@@ -310,8 +310,14 @@ export default function BoardAuditLogDrawer({
   }
 
   return (
-    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-96 md:w-[420px] bg-surface-900 border-l border-border/80 shadow-2xl animate-in slide-in-from-right duration-200">
-      {renderContent()}
-    </div>
+    <>
+      <div
+        className="fixed inset-0 z-[9990] bg-black/40 animate-in fade-in duration-200"
+        onClick={onClose}
+      />
+      <div className="fixed inset-y-0 right-0 z-[9995] w-full sm:w-96 md:w-[420px] bg-surface-900 border-l border-border/80 shadow-2xl animate-in slide-in-from-right duration-200">
+        {renderContent()}
+      </div>
+    </>
   );
 }
