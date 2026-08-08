@@ -1,3 +1,8 @@
+export const MONTH_NAMES = [
+  "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
+  "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"
+];
+
 export const PRESET_COLORS = [
   "#06b6d4", // Cyan
   "#3b82f6", // Blue

@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Plus, X, Lock, ShieldCheck, Users, Check, UserPlus } from "lucide-react";
 import { BottomSheet } from "../ui/BottomSheet";
-
-interface CollaboratorOption {
-  id: number;
-  name: string;
-  avatar?: string | null;
-}
+import type { CollaboratorOption } from "./shared/cyberboardTypes";
+import { useIsMobile } from "./shared/useIsMobile";
 
 interface AddColumnModalProps {
   collaboratorsList?: CollaboratorOption[];
@@ -32,13 +28,7 @@ export default function AddColumnModal({
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const isMobile = useIsMobile(640);
 
   const toggleUserSelection = (userId: number) => {
     setSelectedUserIds((prev) =>

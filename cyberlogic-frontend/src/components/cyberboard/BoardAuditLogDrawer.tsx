@@ -3,6 +3,7 @@ import { X, History, RefreshCw, Filter, Sparkles, MoveRight, PlusCircle, Edit3, 
 import { fetchCyberboardBoardActivities, type CyberboardCardActivity } from "../../utils/api";
 import { useWebSocket } from "../../context/WebSocketContext";
 import { BottomSheet } from "../ui/BottomSheet";
+import { useIsMobile } from "./shared/useIsMobile";
 
 interface BoardAuditLogDrawerProps {
   boardId: number;
@@ -27,13 +28,7 @@ export default function BoardAuditLogDrawer({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  const isMobile = useIsMobile(640);
 
   const loadActivities = useCallback(async (showRefreshingState = false) => {
     if (showRefreshingState) setIsRefreshing(true);

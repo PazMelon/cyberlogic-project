@@ -1,33 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
-  X,
-  Kanban,
-  Calendar,
-  Lightbulb,
-  Brain,
-  Rocket,
-  Lock,
-  Globe,
-  Search,
-  Check,
-  RefreshCw,
-  Settings,
-  ShieldCheck,
-  Layers,
-  Info,
-  Plus,
+  X, Kanban, Calendar, Lightbulb, Brain, Rocket, Lock, Globe, Search, Check,
+  Settings, ShieldCheck, Layers, Info, Plus
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { fetchDirectory, type CyberboardBoard, type DirectoryMember, type BoardCategory } from "../../utils/api";
 import { BottomSheet } from "../ui/BottomSheet";
-
-export type BoardType = "activity" | "ideas" | "brainstorming" | "roadmap";
-
-interface CollaboratorOption {
-  id: number;
-  name: string;
-  avatar?: string | null;
-}
+import ColorPicker from "./ui/ColorPicker";
+import BoardPrivacyPanel from "./subcomponents/BoardPrivacyPanel";
+import BoardPermissionsPanel from "./subcomponents/BoardPermissionsPanel";
+import BoardPhaseEditor from "./subcomponents/BoardPhaseEditor";
+import type { CollaboratorOption, BoardType } from "./shared/cyberboardTypes";
+import { useIsMobile } from "./shared/useIsMobile";
 
 interface CreateBoardModalProps {
   onClose: () => void;
@@ -76,14 +60,7 @@ const BOARD_TYPES: {
   },
 ];
 
-const COVER_GRADIENTS = [
-  { name: "Cyan Cyber", color: "#06b6d4" },
-  { name: "Emerald Tech", color: "#10b981" },
-  { name: "Amber Glow", color: "#f59e0b" },
-  { name: "Purple Neon", color: "#8b5cf6" },
-  { name: "Rose Pulse", color: "#ec4899" },
-  { name: "Royal Blue", color: "#3b82f6" },
-];
+
 
 const AVAILABLE_ROLES = [
   { id: "officer", label: "Officers & Leads" },
@@ -93,6 +70,7 @@ const AVAILABLE_ROLES = [
 
 export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModalProps) {
   const { user, isAdmin } = useAuth();
+  const isMobile = useIsMobile(640);
   const [activeTab, setActiveTab] = useState<"general" | "privacy" | "columns" | "phases">("general");
 
   const [title, setTitle] = useState("");
@@ -131,13 +109,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 640);
 
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   // Fetch Directory for member picker
   useEffect(() => {
@@ -441,32 +413,7 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
             <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-2">
               Cover Color Accent
             </label>
-            <div className="flex flex-wrap items-center gap-2.5">
-              {COVER_GRADIENTS.map((g) => (
-                <button
-                  key={g.color}
-                  type="button"
-                  onClick={() => setCoverColor(g.color)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer ${
-                    coverColor === g.color
-                      ? "border-white scale-110 shadow-md ring-2 ring-primary/40"
-                      : "border-transparent opacity-80 hover:opacity-100"
-                  }`}
-                  style={{ backgroundColor: g.color }}
-                  title={g.name}
-                />
-              ))}
-              <div className="flex items-center gap-2 ml-1">
-                <input
-                  type="color"
-                  value={coverColor}
-                  onChange={(e) => setCoverColor(e.target.value)}
-                  className="w-8 h-8 rounded-xl bg-surface-800 border border-border cursor-pointer p-0.5"
-                  title="Custom Color Picker"
-                />
-                <span className="text-xs font-mono font-bold text-text-muted">{coverColor}</span>
-              </div>
-            </div>
+            <ColorPicker selectedColor={coverColor} onSelectColor={setCoverColor} />
           </div>
         </div>
       )}
@@ -887,66 +834,50 @@ export default function CreateBoardModal({ onClose, onSubmit }: CreateBoardModal
         </div>
       )}
 
-      {/* Tab 4: Phases & Methodology */}
-      {activeTab === "phases" && (
-        <div className="space-y-5 animate-in fade-in duration-150">
-          <div>
-            <label className="block text-xs font-bold text-text-primary uppercase tracking-wider mb-1.5">
-              Project Methodology & Roadmap Type
-            </label>
-            <select
-              value={methodology}
-              onChange={(e) => setMethodology(e.target.value as any)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-800 border border-border text-xs text-text-primary focus:border-primary focus:outline-none transition-all cursor-pointer"
-            >
-              <option value="waterfall">Waterfall SDLC (Sequential Phases)</option>
-              <option value="agile">Agile / Scrum (Iterative Sprints & Backlog)</option>
-              <option value="custom">Custom / Hybrid Milestones</option>
-            </select>
-          </div>
+      {/* Tab 2: Privacy & Exclusivity */}
+      {activeTab === "privacy" && (
+        <BoardPrivacyPanel
+          visibility={visibility}
+          setVisibility={setVisibility}
+          allowedMembers={allowedMembers}
+          setAllowedMembers={setAllowedMembers}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isLoadingDirectory={isLoadingDirectory}
+          sortedExclusiveMembers={sortedExclusiveMembers}
+          ownerId={user?.id}
+        />
+      )}
 
-          <div className="p-3.5 rounded-xl bg-surface-800/60 border border-border/60 space-y-2">
-            <span className="text-[11px] font-bold text-text-secondary uppercase tracking-wider block">
-              Quick Load Preset Templates
-            </span>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setMethodology("waterfall");
-                  setPhaseSettings([
-                    { name: "Requirements & Planning", color: "#3b82f6" },
-                    { name: "Architecture & Design", color: "#8b5cf6" },
-                    { name: "Development & Implementation", color: "#06b6d4" },
-                    { name: "Testing & QA", color: "#f59e0b" },
-                    { name: "Deployment & Release", color: "#10b981" },
-                  ]);
-                }}
-                className="px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-650 text-text-primary text-[11px] font-semibold border border-border transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Waterfall SDLC (5 Phases)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMethodology("agile");
-                  setPhaseSettings([
-                    { name: "Sprint 1", color: "#06b6d4" },
-                    { name: "Sprint 2", color: "#3b82f6" },
-                    { name: "Sprint 3", color: "#8b5cf6" },
-                    { name: "Release v1.0", color: "#10b981" },
-                    { name: "Backlog", color: "#64748b" },
-                  ]);
-                }}
-                className="px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-650 text-text-primary text-[11px] font-semibold border border-border transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Agile Sprints (3 Sprints + Release)</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Tab 3: Permissions & Access Control */}
+      {activeTab === "columns" && (
+        <BoardPermissionsPanel
+          columnPolicy={columnPolicy}
+          setColumnPolicy={setColumnPolicy}
+          allowedCreatorRoles={allowedCreatorRoles}
+          setAllowedCreatorRoles={setAllowedCreatorRoles}
+          allowedCreatorUsers={allowedCreatorUsers}
+          setAllowedCreatorUsers={setAllowedCreatorUsers}
+          ganttPolicy={ganttPolicy}
+          setGanttPolicy={setGanttPolicy}
+          allowedGanttEditorRoles={allowedGanttEditorRoles}
+          setAllowedGanttEditorRoles={setAllowedGanttEditorRoles}
+          allowedGanttEditorUsers={allowedGanttEditorUsers}
+          setAllowedGanttEditorUsers={setAllowedGanttEditorUsers}
+          sortedCreatorUsers={sortedCreatorUsers}
+          sortedGanttEditorUsers={sortedGanttEditorUsers}
+          visibility={visibility}
+        />
+      )}
+
+      {/* Tab 4: SDLC Phases & Methodology */}
+      {activeTab === "phases" && (
+        <BoardPhaseEditor
+          methodology={methodology}
+          setMethodology={setMethodology}
+          phaseSettings={phaseSettings}
+          setPhaseSettings={setPhaseSettings}
+        />
       )}
     </div>
   );
