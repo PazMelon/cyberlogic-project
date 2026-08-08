@@ -559,14 +559,18 @@ export default function GanttRoadmapView({
   }, []);
 
   // Drag-to-Link global mousemove and mouseup listeners
+  const linkingStateRef = useRef(linkingState);
+  linkingStateRef.current = linkingState;
+
   useEffect(() => {
     if (!linkingState) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!gridTimelineRef.current) return;
-      const containerRect = gridTimelineRef.current.getBoundingClientRect();
-      const currentX = e.clientX - containerRect.left + gridTimelineRef.current.scrollLeft;
-      const currentY = e.clientY - containerRect.top + gridTimelineRef.current.scrollTop;
+      if (!gridTimelineRef.current || !linkingStateRef.current) return;
+      const rowsEl = gridTimelineRef.current.querySelector(".flex-1.relative.z-10") || gridTimelineRef.current;
+      const rowsRect = rowsEl.getBoundingClientRect();
+      const currentX = e.clientX - rowsRect.left;
+      const currentY = e.clientY - rowsRect.top;
 
       let hoveredTargetId: number | null = null;
       const elements = document.elementsFromPoint(e.clientX, e.clientY);
@@ -574,7 +578,7 @@ export default function GanttRoadmapView({
         const cardIdAttr = el.getAttribute("data-gantt-card-id");
         if (cardIdAttr) {
           const id = Number(cardIdAttr);
-          if (id && id !== linkingState.fromCardId) {
+          if (id && id !== linkingStateRef.current.fromCardId) {
             hoveredTargetId = id;
             break;
           }
@@ -587,9 +591,10 @@ export default function GanttRoadmapView({
     };
 
     const handleMouseUp = async () => {
-      if (linkingState && linkingState.targetCardId) {
-        const targetId = linkingState.targetCardId;
-        const sourceId = linkingState.fromCardId;
+      const activeState = linkingStateRef.current;
+      if (activeState && activeState.targetCardId) {
+        const targetId = activeState.targetCardId;
+        const sourceId = activeState.fromCardId;
         const allCards = columns.flatMap((col) => col.cards || []);
         const targetCard = allCards.find((c) => c.id === targetId);
 
@@ -620,7 +625,7 @@ export default function GanttRoadmapView({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [linkingState]);
+  }, [linkingState !== null]);
 
 
 
@@ -1309,6 +1314,7 @@ export default function GanttRoadmapView({
       {
         leftPercent: number;
         widthPercent: number;
+        rightPercent: number;
         startDateStr: string;
         endDateStr: string;
       }
@@ -1349,6 +1355,7 @@ export default function GanttRoadmapView({
       map.set(card.id, {
         leftPercent,
         widthPercent,
+        rightPercent,
         startDateStr: startDate.toISOString().split("T")[0],
         endDateStr: endDate.toISOString().split("T")[0],
       });
@@ -1384,34 +1391,32 @@ export default function GanttRoadmapView({
       let maxRight = -Infinity;
       let hasDatedCards = false;
 
-      groupCards.forEach((c) => {
+      const processCard = (c: CyberboardCard) => {
         if (hasCardDates(c)) {
           const pos = timelinePositionMap.get(c.id);
           if (pos) {
             minLeft = Math.min(minLeft, pos.leftPercent);
-            maxRight = Math.max(maxRight, pos.leftPercent + pos.widthPercent);
+            const cardRight = pos.rightPercent !== undefined ? pos.rightPercent : (pos.leftPercent + pos.widthPercent);
+            maxRight = Math.max(maxRight, cardRight);
             hasDatedCards = true;
           }
         }
-        if (c.sub_cards) {
+      };
+
+      groupCards.forEach((c) => {
+        processCard(c);
+        if (c.sub_cards && c.sub_cards.length > 0) {
           c.sub_cards.forEach((sc) => {
-            if (hasCardDates(sc)) {
-              const scPos = timelinePositionMap.get(sc.id);
-              if (scPos) {
-                minLeft = Math.min(minLeft, scPos.leftPercent);
-                maxRight = Math.max(maxRight, scPos.leftPercent + scPos.widthPercent);
-                hasDatedCards = true;
-              }
-            }
+            processCard(sc);
           });
         }
       });
 
-      if (!hasDatedCards || minLeft === Infinity) {
-        return null; // Return null if no tasks under phase have start/end dates!
+      if (!hasDatedCards || minLeft === Infinity || maxRight === -Infinity) {
+        return null;
       }
 
-      const widthPercent = Math.max(4, maxRight - minLeft);
+      const widthPercent = Math.max(0.6, maxRight - minLeft);
       return { leftPercent: minLeft, widthPercent };
     },
     [timelinePositionMap, hasCardDates]
@@ -1681,9 +1686,10 @@ export default function GanttRoadmapView({
     if (!gridTimelineRef.current) return;
 
     const layout = layoutMap.get(cardId);
-    const containerRect = gridTimelineRef.current.getBoundingClientRect();
-    const currentX = e.clientX - containerRect.left + gridTimelineRef.current.scrollLeft;
-    const currentY = e.clientY - containerRect.top + gridTimelineRef.current.scrollTop;
+    const rowsEl = gridTimelineRef.current.querySelector(".flex-1.relative.z-10") || gridTimelineRef.current;
+    const rowsRect = rowsEl.getBoundingClientRect();
+    const currentX = e.clientX - rowsRect.left;
+    const currentY = e.clientY - rowsRect.top;
 
     const startX = layout ? layout.endPx : currentX;
     const startY = layout ? layout.centerYPx : currentY;
@@ -2414,7 +2420,7 @@ export default function GanttRoadmapView({
                             style={{
                               left: `${phasePos.leftPercent}%`,
                               width: `${phasePos.widthPercent}%`,
-                              minWidth: "120px",
+                              minWidth: "28px",
                               backgroundColor: group.color || "#06b6d4",
                               backgroundImage: `linear-gradient(135deg, ${group.color || "#06b6d4"} 0%, ${group.color || "#06b6d4"}dd 100%)`,
                             }}
@@ -2555,7 +2561,9 @@ export default function GanttRoadmapView({
                                               draggable={false}
                                               onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                               onMouseDown={(e) => handleLinkDragStart(e, card.id)}
-                                              className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                              className={`absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 transition-all flex items-center justify-center ${
+                                                linkingState ? "opacity-100 scale-110 shadow-[0_0_8px_rgba(6,182,212,0.8)]" : "opacity-0 group-hover/bar:opacity-100"
+                                              }`}
                                               title="Click & drag to link dependency"
                                             >
                                               <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
@@ -2568,7 +2576,7 @@ export default function GanttRoadmapView({
                                     return (
                                       <div
                                         data-gantt-card-id={card.id}
-                                        draggable={!resizingState}
+                                        draggable={!resizingState && !linkingState}
                                         onDragStart={(e) => {
                                           if (resizingState) {
                                             e.preventDefault();
@@ -2678,7 +2686,9 @@ export default function GanttRoadmapView({
                                             draggable={false}
                                             onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                             onMouseDown={(e) => handleLinkDragStart(e, card.id)}
-                                            className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                            className={`absolute -right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 transition-all flex items-center justify-center ${
+                                              linkingState ? "opacity-100 scale-110 shadow-[0_0_8px_rgba(6,182,212,0.8)]" : "opacity-0 group-hover/bar:opacity-100"
+                                            }`}
                                             title="Click & drag to link predecessor dependency"
                                           >
                                             <div className="w-1.5 h-1.5 rounded-full bg-surface-950" />
@@ -2806,7 +2816,9 @@ export default function GanttRoadmapView({
                                                 draggable={false}
                                                 onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                                 onMouseDown={(e) => handleLinkDragStart(e, subCard.id)}
-                                                className="absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 opacity-0 group-hover/bar:opacity-100 transition-all flex items-center justify-center"
+                                                className={`absolute -right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-surface-950 shadow-md cursor-crosshair z-40 hover:scale-125 transition-all flex items-center justify-center ${
+                                                  linkingState ? "opacity-100 scale-110 shadow-[0_0_8px_rgba(6,182,212,0.8)]" : "opacity-0 group-hover/bar:opacity-100"
+                                                }`}
                                                 title="Click & drag to link predecessor dependency"
                                               >
                                                 <div className="w-1 h-1 rounded-full bg-surface-950" />
@@ -2867,6 +2879,7 @@ export default function GanttRoadmapView({
                 showCriticalPath={showCriticalPath}
                 criticalPathCardIds={criticalPathCardIds}
                 isExporting={isExporting}
+                linkingState={linkingState}
               />
             </div>
           </div>

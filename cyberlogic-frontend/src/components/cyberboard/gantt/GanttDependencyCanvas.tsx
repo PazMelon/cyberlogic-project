@@ -14,6 +14,14 @@ interface GanttDependencyCanvasProps {
   showCriticalPath?: boolean;
   criticalPathCardIds?: Set<number>;
   isExporting?: boolean;
+  linkingState?: {
+    fromCardId: number;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+    targetCardId: number | null;
+  } | null;
 }
 
 export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
@@ -29,6 +37,7 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
   showCriticalPath = false,
   criticalPathCardIds = new Set(),
   isExporting = false,
+  linkingState,
 }) => {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const [cursorPos, setCursorPos] = React.useState<{ x: number; y: number } | null>(null);
@@ -304,6 +313,28 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
         >
           <path d="M 0 1 L 10 5 L 0 9 z" fill="#ec4899" fillOpacity="1" />
         </marker>
+        <marker
+          id="gantt-arrow-linking"
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#06b6d4" fillOpacity="1" />
+        </marker>
+        <marker
+          id="gantt-arrow-snapped"
+          viewBox="0 0 10 10"
+          refX="10"
+          refY="5"
+          markerWidth="7"
+          markerHeight="7"
+          orient="auto-start-reverse"
+        >
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#22c55e" fillOpacity="1" />
+        </marker>
       </defs>
 
       {sortedLines.map((line) => {
@@ -390,6 +421,61 @@ export const GanttDependencyCanvas: React.FC<GanttDependencyCanvasProps> = ({
           </g>
         );
       })}
+
+      {/* Active Interactive Drag-to-Link Dependency Line Overlay Indicator */}
+      {linkingState && (() => {
+        const fromBounds = taskBounds.get(linkingState.fromCardId);
+        const startX = fromBounds ? fromBounds.right : linkingState.startX;
+        const startY = fromBounds ? fromBounds.centerY : linkingState.startY;
+
+        const targetBounds = linkingState.targetCardId ? taskBounds.get(linkingState.targetCardId) : null;
+        const targetCard = linkingState.targetCardId ? cards.find((c) => c.id === linkingState.targetCardId) : null;
+
+        const endX = targetBounds ? targetBounds.left : linkingState.currentX;
+        const endY = targetBounds ? targetBounds.centerY : linkingState.currentY;
+
+        const isSnapped = !!targetBounds;
+        const strokeColor = isSnapped ? "#22c55e" : "#06b6d4";
+
+        const dx = Math.max(25, Math.abs(endX - startX) / 2);
+        const dragPath = `M ${startX} ${startY} C ${startX + dx} ${startY}, ${endX - dx} ${endY}, ${endX} ${endY}`;
+
+        return (
+          <g className="pointer-events-none z-50">
+            {/* Faint Outer Glow Path */}
+            <path
+              d={dragPath}
+              fill="none"
+              stroke={strokeColor}
+              strokeOpacity="0.2"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+            {/* Thin Animated Dashed Drag Line */}
+            <path
+              d={dragPath}
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="1.8"
+              strokeDasharray="5 3"
+              strokeLinecap="round"
+              markerEnd={isSnapped ? "url(#gantt-arrow-snapped)" : "url(#gantt-arrow-linking)"}
+            />
+            {/* Source Origin Handle Dot */}
+            <circle cx={startX} cy={startY} r="4" fill={strokeColor} stroke="#090d16" strokeWidth="1.5" />
+
+            {/* Target Snap Badge when hovering a target card */}
+            {isSnapped && targetCard && (
+              <g transform={`translate(${endX + 12}, ${endY - 14})`}>
+                <rect x="0" y="0" width={Math.min(220, (targetCard.title.length * 7.2) + 26)} height="22" rx="5" fill="#090d16" stroke="#22c55e" strokeWidth="1" opacity="0.95" />
+                <text x="8" y="15" fill="#22c55e" fontSize="10" fontWeight="bold" fontFamily="sans-serif">
+                  Link to: {targetCard.title.length > 22 ? targetCard.title.substring(0, 20) + '...' : targetCard.title}
+                </text>
+              </g>
+            )}
+          </g>
+        );
+      })()}
     </svg>
   );
 };
